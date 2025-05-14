@@ -17,8 +17,17 @@ if [ -f /opt/adsb/config/.env ] ; then
     if grep "_ADSBIM_AGGREGATORS_SELECTION=nano" /opt/adsb/config/.env > /dev/null 2>&1 ; then
         COMPOSE_FILES+=( "-f" "/opt/adsb/config/nanofeeder.yml" )
     else
+        # Only start containers listening to messages if it's not a stage 2.
         if grep "AF_IS_STAGE2=False" /opt/adsb/config/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/config/docker-compose.yml" )
+            # Start ultrafeeder if a serial device for 978 or 1090 MHz is
+            # configured.
+            if grep -E 'FEEDER_SERIAL_(978|1090)=.+' /opt/adsb/config/.env > /dev/null 2>&1 ; then
+                COMPOSE_FILES+=( "-f" "/opt/adsb/config/docker-compose.yml" )
+            fi
+            # Start AIS-catcher if a serial device for AIS is configured.
+            if grep -E 'FEEDER_SERIAL_AIS=.+' /opt/adsb/config/.env > /dev/null 2>&1 ; then
+                    COMPOSE_FILES+=( "-f" "/opt/adsb/config/ais-catcher.yml" )
+            fi
         fi
     fi
     if ! grep "_ADSBIM_AGGREGATORS_SELECTION=micro" /opt/adsb/config/.env > /dev/null 2>&1 ; then

@@ -101,6 +101,10 @@
               978
             </label>
             <label class="checkbox-inline mr-2">
+              <input type="radio" id="ais-{{ sdr }}" name="aisserial" value="">
+              AIS
+            </label>
+            <label class="checkbox-inline mr-2">
               <input type="radio" id="other-{{ sdr }}" name="other-{{ sdr }}" value="" checked>
               Other
             </label>
@@ -154,7 +158,7 @@
         document.getElementById("lsusb_text").innerHTML = data.lsusb_output;
         let sdrs = data['sdrdevices'];
         let use = data['frequencies'];
-        let consumers = ["1090", "978", "other"]
+        let consumers = ["1090", "978", "ais", "other"]
         for (let i = 0; i < num; i++) {
           let id = 'sdr' + i;
           let serial = sdrs[i]['serial'];
@@ -191,7 +195,7 @@
         $("input[type=radio]").click(function () {
           myid = this.id;
           let components = myid.split("-");
-          for (const usage of ["1090", "978", "other"]) {
+          for (const usage of ["1090", "978", "ais", "other"]) {
             otherid = usage + "-" + components[1];
             if (otherid != myid) {
               document.getElementById(otherid).checked = false;

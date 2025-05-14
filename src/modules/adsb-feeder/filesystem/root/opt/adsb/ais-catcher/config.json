@@ -1,0 +1,23 @@
+{
+  "config": "aiscatcher",
+  "version": "1",
+  "verbose": false,
+  "screen": 0,
+  "input": "rtlsdr",
+  "serial": "invalid_to_be_updated_by_script",
+  "tcp_listener": [
+    {
+      "port": 10110,
+      "json": "on"
+    }
+  ],
+  "server": [
+    {
+      "active": "true",
+      "file": "/ais-catcher/stat.bin",
+      "station": "test",
+      "port": 80,
+      "prome": "on"
+    }
+  ]
+}

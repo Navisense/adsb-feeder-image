@@ -1042,10 +1042,10 @@ class AdsbIm:
         # and then update with the actual settings
         serial_guess: Dict[str, str] = self._sdrdevices.addresses_per_frequency
         print_err(f"serial guess: {serial_guess}")
-        serials: Dict[str, str] = {f: self._d.env_by_tags(f"{f}serial").value for f in [978, 1090]}
+        serials: Dict[str, str] = {f: self._d.env_by_tags(f"{f}serial").value for f in [978, 1090, "ais"]}
         configured_serials = {self._d.env_by_tags(f).value for f in self._sdrdevices.purposes()}
         available_serials = [sdr._serial for sdr in self._sdrdevices.sdrs]
-        for f in [978, 1090]:
+        for f in [978, 1090, "ais"]:
             if (not serials[f] or serials[f] not in available_serials) and serial_guess[f] not in configured_serials:
                 serials[f] = serial_guess[f]
 
@@ -1879,6 +1879,7 @@ class AdsbIm:
 
         if self._d.is_enabled("stage2") and (
             self._d.env_by_tags("1090serial").value or self._d.env_by_tags("978serial").value
+            or self._d.env_by_tags("aisserial").value
         ):
             # this is special - the user has declared this a stage2 feeder, yet
             # appears to be setting up an SDR - let's force this to be treated as
@@ -1972,10 +1973,13 @@ class AdsbIm:
             self._sdrdevices._ensure_populated()
             env978 = self._d.env_by_tags("978serial")
             env1090 = self._d.env_by_tags("1090serial")
+            envais = self._d.env_by_tags("aisserial")
             if env978.value != "" and not any([sdr._serial == env978.value for sdr in self._sdrdevices.sdrs]):
                 env978.value = ""
             if env1090.value != "" and not any([sdr._serial == env1090.value for sdr in self._sdrdevices.sdrs]):
                 env1090.value = ""
+            if envais.value != "" and not any([sdr._serial == envais.value for sdr in self._sdrdevices.sdrs]):
+                envais.value = ""
             auto_assignment = self._sdrdevices.addresses_per_frequency
 
             purposes = self._sdrdevices.purposes()
@@ -1989,6 +1993,8 @@ class AdsbIm:
                 env1090.value = auto_assignment[1090]
             if not env978.value and auto_assignment[978]:
                 env978.value = auto_assignment[978]
+            if not envais.value and auto_assignment["ais"]:
+                envais.value = auto_assignment["ais"]
 
             stratuxv3 = any(
                 [sdr._serial == env978.value and sdr._type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
@@ -2054,6 +2060,7 @@ class AdsbIm:
                 print_err(f"in the end we have")
                 print_err(f"1090serial {env1090.value}")
                 print_err(f"978serial {env978.value}")
+                print_err(f"aisserial {envais.value}")
                 print_err(f"airspy container is {self._d.is_enabled(['airspy'])}")
                 print_err(f"SDRplay container is {self._d.is_enabled(['sdrplay'])}")
                 print_err(f"dump978 container {self._d.list_is_enabled(['uat978'], 0)}")
@@ -2817,7 +2824,7 @@ class AdsbIm:
             print_err("director redirecting to sdr_setup: unconfigured devices present")
             return self.sdr_setup()
 
-        used_serials = [self._d.env_by_tags(purpose).value for purpose in ["978serial","1090serial"]]
+        used_serials = [self._d.env_by_tags(purpose).value for purpose in ["978serial","1090serial","aisserial"]]
         used_serials = [serial for serial in used_serials if serial != ""]
         if any([serial not in available_serials for serial in used_serials]):
             print_err(f"used serials: {used_serials}")
