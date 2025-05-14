@@ -34,5 +34,6 @@ if [ ! -f /opt/adsb/config/config.json ] ; then
     \"SDRPLAY_CONTAINER\": \"$SDRPLAY_CONTAINER\", \
     \"_ADSBIM_BASE_VERSION\": \"$_ADSBIM_BASE_VERSION\", \
     \"_ADSBIM_CONTAINER_VERSION\": \"$_ADSBIM_BASE_VERSION\" \
+    \"AIS_CATCHER_CONTAINER\": \"$AIS_CATCHER_CONTAINER\" \
     }" > /opt/adsb/config/config.json
 fi
