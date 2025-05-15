@@ -15,7 +15,7 @@ services:
       # ais-catcher receiver-related parameters
       - RTLSDR_DEVICE_SERIAL=${FEEDER_SERIAL_AIS}
     ports:
-      - 41580:80
+      - ${AF_AIS_CATCHER_PORT}:80
     device_cgroup_rules:
       - "c 189:* rwm"
     tmpfs:

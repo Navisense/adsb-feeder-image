@@ -43,6 +43,7 @@ class Data:
         ["/logs/", "DAZZLE", "/"],
         ["/dozzle/<sub_path>", "DAZZLE", "/"],
         ["/config/", "DAZZLE", "/setup"],
+        ["/ais-catcher/", "AIS_CATCHER", "/"],
     ]
 
     @property
@@ -344,6 +345,7 @@ class Data:
         Env("AF_PIAWARESTAT_PORT", default=8082, tags=["piastatport", "norestore"]),
         Env("AF_FLIGHTRADAR_PORT", default=8754, tags=["frport"]),
         Env("AF_PLANEFINDER_PORT", default=30053, tags=["pfport"]),
+        Env("AF_AIS_CATCHER_PORT", default=41580, tags=["aiscatcherport"]),
         Env("_ADSBIM_STATE_PACKAGE", tags=["pack", "norestore"]),
         Env(
             "_ADSBIM_STATE_IMAGE_NAME",

@@ -93,6 +93,7 @@
             <ul class="dropdown-menu" aria-labelledby="navbarDropdownMaps">
               <li><a id="live_traffic" class="dropdown-item" href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Traffic</a>
               </li>
+              <li><a id="ais_catcher" class="dropdown-item" href="/ais-catcher">AIS-catcher</a></li>
               {% if env_value_by_tag("aggregator_choice") != 'nano' %}
               <li><a id="heatmap" class="dropdown-item" href="/map/?heatmap">Heatmap</a></li>
               {% endif %}
