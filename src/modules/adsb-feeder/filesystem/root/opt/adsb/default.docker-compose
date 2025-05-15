@@ -24,9 +24,9 @@ if [ -f /opt/adsb/config/.env ] ; then
             if grep -E 'FEEDER_SERIAL_(978|1090)=.+' /opt/adsb/config/.env > /dev/null 2>&1 ; then
                 COMPOSE_FILES+=( "-f" "/opt/adsb/config/docker-compose.yml" )
             fi
-            # Start AIS-catcher if a serial device for AIS is configured.
+            # Start shipfeeder if a serial device for AIS is configured.
             if grep -E 'FEEDER_SERIAL_AIS=.+' /opt/adsb/config/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/config/ais-catcher.yml" )
+                    COMPOSE_FILES+=( "-f" "/opt/adsb/config/shipfeeder.yml" )
             fi
         fi
     fi

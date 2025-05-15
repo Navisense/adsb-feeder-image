@@ -51,7 +51,6 @@ $docker_compose version &> /dev/null || docker_compose="docker-compose"
 if grep -q "_IS_BASE_CONFIG_FINISHED=True" /opt/adsb/config/.env 2> /dev/null ; then
     source /opt/adsb/default.docker-compose
     cd /opt/adsb/config || echo "config folder is missing?" >&2
-    /opt/adsb/scripts/write_config_files.bash
     if [ -f .env.user ] ; then
         # now inject the user env values
         echo "$(date -u +"%FT%T.%3NZ") inject user env"
