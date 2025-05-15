@@ -2029,7 +2029,7 @@ class AdsbIm:
             )
 
             # rtl-sdr
-            rtlsdr = any(sdr._type == "rtlsdr" and sdr._serial == env1090.value for sdr in self._sdrdevices.sdrs)
+            rtlsdr = any(sdr._type == "rtlsdr" and sdr._serial in {env1090.value, envais.value} for sdr in self._sdrdevices.sdrs)
 
             if rtlsdr:
                 self._d.env_by_tags("readsb_device_type").value = "rtlsdr"
