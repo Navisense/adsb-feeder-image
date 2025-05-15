@@ -219,27 +219,39 @@ class SDRDevices:
         self._ensure_populated()
         # - if we find an airspy, that's for 1090
         # - if we find an stratuxv3, that's for 978
-        # - if we find an RTL SDR with serial 1090 or 00001090 - well, that's for 1090 (unless you have an airspy)
+        # - if we find an RTL SDR with serial 1090 or 00001090 - well, that's for 1090 (unless it's an airspy)
         # - if we find an RTL SDR with serial 978 or 00000978 - that's for 978 (if you have more than one SDR)
-        # - if we find just one RTL SDR and no airspy, then that RTL SDR is for 1090
+        # - if we find an RTL SDR with a different serial, that's for 1090 (if we don't have one already)
+        # - if, at the end, an RTL SDR is unassigned, that's for AIS
         # Make sure one SDR is used per frequency at most...
-        ret = {frequency: "" for frequency in frequencies}
+        assignment = {}
         for sdr in self.sdrs:
-            if sdr._type == "airspy":
-                ret[1090] = sdr._serial
-            if sdr._type == "modesbeast":
-                ret[1090] = sdr._serial
+            if sdr._type in ["airspy", "modesbeast", "sdrplay"]:
+                assignment.setdefault(1090, sdr._serial)
             elif sdr._type == "stratuxv3":
-                ret[978] = sdr._serial
-            elif sdr._type == "sdrplay":
-                ret[1090] = sdr._serial
+                assignment.setdefault(978, sdr._serial)
             elif sdr._type == "rtlsdr":
-                if True:
-                    ret["ais"] = sdr._serial
-                elif "1090" in sdr._serial:
-                    ret[1090] = sdr._serial
+                if "1090" in sdr._serial:
+                    assignment.setdefault(1090, sdr._serial)
                 elif "978" in sdr._serial and len(self.sdrs) > 1:
-                    ret[978] = sdr._serial
-        if not ret[1090] and not ret[978] and not ret["ais"] and len(self.sdrs) == 1:
-            ret[1090] = self.sdrs[0]._serial
-        return ret
+                    assignment.setdefault(978, sdr._serial)
+                else:
+                    assignment.setdefault(1090, sdr._serial)
+            else:
+                print_err(f"Unknown SDR type {sdr._type}.")
+        if not assignment and self.sdrs:
+            # Nothing is assigned, but we have devices. Use the first one for
+            # 1090.
+            assignment[1090] = self.sdrs[0]._serial
+        try:
+            unassigned_rtlsdr = next(
+                sdr for sdr in self.sdrs if sdr._type == "rtlsdr"
+                and sdr._serial not in assignment.values())
+            # This one isn't assigned yet, use it for AIS.
+            assignment.setdefault("ais", unassigned_rtlsdr._serial)
+        except StopIteration:
+            pass
+        for frequency in frequencies:
+            # Make sure all frequencies exist.
+            assignment.setdefault(frequency, "")
+        return assignment
