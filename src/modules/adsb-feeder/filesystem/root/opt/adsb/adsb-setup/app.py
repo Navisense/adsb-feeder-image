@@ -1986,7 +1986,7 @@ class AdsbIm:
 
             # if we have an actual asignment, that overrides the auto-assignment,
             # delete the auto-assignment
-            for frequency in [978, 1090]:
+            for frequency in [978, 1090, "ais"]:
                 if any(auto_assignment[frequency] == self._d.env_by_tags(purpose).value for purpose in purposes):
                     auto_assignment[frequency] = ""
             if not env1090.value and auto_assignment[1090]:
