@@ -41,8 +41,11 @@
     <div class="container-fluid">
       <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for("director") }}">ADS-B Feeder</a>
       <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
-        id="livemap-navbar-button"
-        href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Map</a>
+        id="livemap-adsb-navbar-button"
+        href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Map (ADS-B)</a>
+      <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
+        id="livemap-ais-navbar-button"
+        href="/ais-catcher">Live Map (AIS)</a>
       <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
         <span id="cpu" class="d-none"
               style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">CPU</span>
