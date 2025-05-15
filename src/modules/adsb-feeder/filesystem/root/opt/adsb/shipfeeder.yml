@@ -5,8 +5,13 @@ services:
     hostname: shipfeeder
     restart: unless-stopped
     environment:
+      # general parameters:
+      # - VERBOSE_LOGGING=
       # ais-catcher general and website related parameters
+      # - AISCATCHER_EXTRA_OPTIONS=${SX_EXTRA_OPTIONS}
       - STATION_NAME=${MLAT_SITE_NAME_SANITIZED}
+      # - STATION_HISTORY=3600
+      # - BACKUP_INTERVAL=5
       - FEEDER_LONG=${FEEDER_LONG}
       - FEEDER_LAT=${FEEDER_LAT}
       - SITESHOW=on
@@ -14,6 +19,34 @@ services:
       - REALTIME=on
       # ais-catcher receiver-related parameters
       - RTLSDR_DEVICE_SERIAL=${FEEDER_SERIAL_AIS}
+      # - RTLSDR_DEVICE_GAIN=${RTLSDR_DEVICE_GAIN}
+      # - RTLSDR_DEVICE_PPM=${RTLSDR_DEVICE_PPM}
+      # - RTLSDR_DEVICE_BANDWIDTH=${RTLSDR_DEVICE_BANDWIDTH}
+      # - AISCATCHER_DECODER_AFC_WIDE=${AISCATCHER_DECODER_AFC_WIDE}
+      # aggregrators-related parameters
+      # - AIRFRAMES_STATION_ID=${AIRFRAMES_STATION_ID}
+      # - AISCATCHER_FEEDER_KEY=${AISCATCHER_FEEDER_KEY}
+      # - AISFRIENDS_UDP_PORT=${AISFRIENDS_UDP_PORT}
+      # - AISHUB_UDP_PORT=${AISHUB_UDP_PORT}
+      # - APRSFI_FEEDER_KEY=${APRSFI_FEEDER_KEY}
+      # - BOATBEACON_SHAREDATA=${BOATBEACON_SHAREDATA}
+      # - HPRADAR_UDP_PORT=${HPRADAR_UDP_PORT}
+      # - MARINETRAFFIC_UDP_PORT=${MARINETRAFFIC_UDP_PORT}
+      # - MYSHIPTRACKING_UDP_PORT=${MYSHIPTRACKING_UDP_PORT}
+      # - RADARVIRTUEL_FEEDER_KEY=${RADARVIRTUEL_FEEDER_KEY}
+      # - RADARVIRTUEL_STATION_ID=${RADARVIRTUEL_STATION_ID}
+      # - SDRMAP_STATION_ID=${SDRMAP_STATION_ID}
+      # - SDRMAP_PASSWORD=${SDRMAP_PASSWORD}
+      # - SHIPFINDER_SHAREDATA=${SHIPFINDER_SHAREDATA}
+      # - SHIPPINGEXPLORER_UDP_PORT=${SHIPPINGEXPLORER_UDP_PORT}
+      # - SHIPXPLORER_SHARING_KEY=${SHIPXPLORER_SHARING_KEY}
+      # - SHIPXPLORER_SERIAL_NUMBER=${SHIPXPLORER_SERIAL_NUMBER}
+      # - VESSELFINDER_UDP_PORT=${VESSELFINDER_UDP_PORT}
+      # - VESSELTRACKER_UDP_PORT=${VESSELTRACKER_UDP_PORT}
+      # - UDP_FEEDS=${SX_UDP_FEEDS}
+      # incoming UDP data related parameters:
+      # - AISCATCHER_UDP_INPUTS=${AISCATCHER_UDP_INPUTS}
+      # TODO adsb-connector++++++++++++
     ports:
       - ${AF_AIS_CATCHER_PORT}:80
     device_cgroup_rules:
@@ -23,4 +56,5 @@ services:
     volumes:
       - "/etc/localtime:/etc/localtime:ro"
       - "/etc/timezone:/etc/timezone:ro"
+      # - "/opt/ais/shipxplorer/data:/data"
       - /dev:/dev:rw

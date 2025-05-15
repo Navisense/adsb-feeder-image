@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!-- {% if env_value_by_tag("css_theme") == 'light' %}
+<html lang="en" data-mdb-theme="light">
+{% elif env_value_by_tag("css_theme") == 'dark' %}
+<html lang="en" data-mdb-theme="dark">
+{% else %}
+<html lang="en" data-mdb-theme="auto">
+{% endif %} -->
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See {{ url_for('static', filename='fonts/LICENSE.txt') }} -->
+  <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" /> -->
+  <!-- <link
+  href="{{ url_for('static', filename='css/fa.css') }}"
+  rel="stylesheet"
+/> -->
+<!-- Google Fonts -->
+<!-- <link
+  href="{{ url_for('static', filename='css/gf.css') }}"
+  rel="stylesheet"
+/> -->
+<!-- MDB -->
+<link
+  href="{{ url_for('static', filename='css/mdb.css') }}"
+  rel="stylesheet"
+/>
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap" rel="stylesheet" />
+  <!-- MDB -->
+  <!-- <link rel="stylesheet" id="css-theme" href="{{ url_for('static', filename='css/mdb.min.css') }}" /> -->
+  <!-- <script
+  type="text/javascript"
+  src="https://cdnjs.cloudflare.com/ajax/libs/mdb-ui-kit/8.0.0/mdb.umd.min.js"
+></script> -->
+  <!-- <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.js') }}"></script> -->
+  <!-- <script type="module" src="{{ url_for('static', filename='js/asd.js') }}"></script> -->
+  <!-- <script type="module">
+    import '{{ url_for('static', filename='js/mdb.min.js') }}';
+    import { Collapse, initMDB } from 'mdb-ui-kit';
+    initMDB({ Collapse });
+  </script> -->
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <!-- Spinner -->
+  <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" /> -->
+  <title>
+    test
+  </title>
+</head>
+<body>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.js') }}"></script>
+  <div class="dropdown">
+    <button
+      class="btn btn-primary dropdown-toggle"
+      type="button"
+      id="dropdownMenuButton"
+      data-mdb-dropdown-init
+      data-mdb-ripple-init
+      aria-expanded="false"
+    >
+      Dropdown button
+    </button>
+    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+      <li><a class="dropdown-item" href="#">Action</a></li>
+      <li><a class="dropdown-item" href="#">Another action</a></li>
+      <li><a class="dropdown-item" href="#">Something else here</a></li>
+    </ul>
+  </div>
+</body>
+
+</html>

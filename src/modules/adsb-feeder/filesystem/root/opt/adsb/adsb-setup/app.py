@@ -283,6 +283,7 @@ class AdsbIm:
         )
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
+        self.app.add_url_rule("/test", "test", lambda: render_template("test.html"))
         self.app.add_url_rule("/hotspot_test", "hotspot_test", self.hotspot_test)
         self.app.add_url_rule("/restarting", "restarting", self.restarting)
         self.app.add_url_rule("/shutdownpage", "shutdownpage", self.shutdownpage)
@@ -1043,6 +1044,8 @@ class AdsbIm:
         serial_guess: Dict[str, str] = self._sdrdevices.addresses_per_frequency
         print_err(f"serial guess: {serial_guess}")
         serials: Dict[str, str] = {f: self._d.env_by_tags(f"{f}serial").value for f in [978, 1090, "ais"]}
+        for f in ["978serial", "1090serial", "aisserial"]:
+            print_err(f"configured: {f}: {self._d.env_by_tags(f).value}")
         configured_serials = {self._d.env_by_tags(f).value for f in self._sdrdevices.purposes()}
         available_serials = [sdr._serial for sdr in self._sdrdevices.sdrs]
         for f in [978, 1090, "ais"]:
@@ -1958,6 +1961,7 @@ class AdsbIm:
 
         # fix up airspy installs without proper serial number configuration
         if self._d.is_enabled("airspy"):
+            print_err("________________airspy__________________")
             if self._d.env_by_tags("1090serial").value == "" or self._d.env_by_tags("1090serial").value.startswith("AIRSPY SN:"):
                 self._sdrdevices._ensure_populated()
                 airspy_serials = [sdr._serial for sdr in self._sdrdevices.sdrs if sdr._type == "airspy"]
