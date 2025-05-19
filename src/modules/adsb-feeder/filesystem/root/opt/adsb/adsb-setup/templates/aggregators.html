@@ -344,6 +344,26 @@
         </h2>
         <div id="aggregators-collapse-ais" class="accordion-collapse collapse show" aria-labelledby="aggregators-heading-ais">
           <div class="accordion-body">
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox" class="form-check-input me-1" name="porttracker--is_enabled" id="porttracker--is_enabled" {{
+                others_enabled("porttracker", m) }} />
+              <label for="porttracker--is_enabled">
+                <a href="https://porttracker.co/">Porttracker</a>
+                <div class="form-group" id="porttracker-setup">
+                  <label for="porttracker--key">
+                    Data sharing key
+                  </label>
+                  <input type="text" id="porttracker--key" name="porttracker--key" class="form-control w-75" required
+                    placeholder="data sharing key" value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
+                  <label for="porttracker--station-id">
+                    Station ID
+                  </label>
+                  <input type="text" id="porttracker--station-id" name="porttracker--station-id" class="form-control w-75" required
+                    placeholder="station ID" value="{{ list_value_by_tags(["porttracker", "station_id"], m) }}">
+                  <button type="submit" class="btn btn-primary mt-1" name="porttracker--submit" value="{{stay}}">Submit</button>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -368,6 +388,7 @@
     ["radarvirtuel--is_enabled", "RV_FIELDS", ["radarvirtuel--key"]],
     ["1090uk--is_enabled", "TNUK_FIELDS", ["1090uk--key"]],
     ["sdrmap--is_enabled", "SM_FIELDS", ["sdrmap--user", "sdrmap--key"]],
+    ["porttracker--is_enabled", "porttracker-setup", ["porttracker--key", "porttracker--station-id"]],
   ];
   for (const ids of box_fields) {
     let box = document.getElementById(ids[0]);

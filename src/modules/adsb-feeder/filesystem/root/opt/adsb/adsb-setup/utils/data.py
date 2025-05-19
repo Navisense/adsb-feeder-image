@@ -323,6 +323,16 @@ class Data:
             default=[""],
             tags=["sdrmap", "key"],
         ),
+        Env(
+            "FEEDER_PORTTRACKER_DATA_SHARING_KEY",
+            default=[""],
+            tags=["porttracker", "key"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_STATION_ID",
+            default=[""],
+            tags=["porttracker", "station_id"],
+        ),
         # ADSB.im specific
         Env("_ADSBIM_AGGREGATORS_SELECTION", tags=["aggregator_choice"]),
         Env(
@@ -419,6 +429,11 @@ class Data:
             "AF_IS_SDRMAP_ENABLED",
             default=[False],
             tags=["other_aggregator", "is_enabled", "sdrmap"],
+        ),
+        Env(
+            "AF_IS_PORTTRACKER_ENABLED",
+            default=[False],
+            tags=["other_aggregator", "is_enabled", "porttracker"],
         ),
         Env(
             "AF_IS_AIRSPY_ENABLED",

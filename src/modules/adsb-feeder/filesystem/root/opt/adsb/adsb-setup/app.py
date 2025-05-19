@@ -72,6 +72,7 @@ from utils.other_aggregators import (
     RadarVirtuel,
     Uk1090,
     Sdrmap,
+    Porttracker,
 )
 from utils.sdr import SDR, SDRDevices
 from utils.agg_status import AggStatus, ImStatus
@@ -226,6 +227,7 @@ class AdsbIm:
             "radarvirtuel--submit": RadarVirtuel(self._system),
             "1090uk--submit": Uk1090(self._system),
             "sdrmap--submit": Sdrmap(self._system),
+            "porttracker--submit": Porttracker(self._system),
         }
         # fmt: off
         self.all_aggregators = [
@@ -249,6 +251,7 @@ class AdsbIm:
             ["radarvirtuel", "RadarVirtuel", "https://www.radarvirtuel.com/", [""], 1],
             ["1090uk", "1090MHz UK", "https://1090mhz.uk", ["https://www.1090mhz.uk/mystatus.php?key=<FEEDER_1090UK_API_KEY>"], 1],
             ["sdrmap", "sdrmap", "https://sdrmap.org/", [""], 1],
+            ["porttracker", "Porttracker", "https://porttracker.co/", [""], 1],
         ]
         self.agg_matrix = None
         self.agg_structure = None
@@ -2495,6 +2498,9 @@ class AdsbIm:
                     if base == "sdrmap":
                         user = form.get(f"{base}--user", None)
                         aggregator_argument += f"::{user}"
+                    if base == "porttracker":
+                        station_id = form.get(f"{base}--station-id", None)
+                        aggregator_argument += f"::{station_id}"
                     aggregator_object = self._other_aggregators[key]
                     print_err(f"got aggregator object {aggregator_object} -- activating for sitenum {l_sitenum}")
                     try:
