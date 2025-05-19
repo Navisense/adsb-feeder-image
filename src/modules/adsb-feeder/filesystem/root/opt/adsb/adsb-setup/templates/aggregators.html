@@ -350,6 +350,29 @@
               <label for="porttracker--is_enabled">
                 <a href="https://porttracker.co/">Porttracker</a>
                 <div class="form-group" id="porttracker-setup">
+                  <label for="porttracker--registered-stations">
+                    Registered stations
+                  </label>
+                  {% if porttracker_stations %}
+                  <table class="table" id="porttracker--registered-stations">
+                    <thead>
+                      <tr>
+                        <th scope="col">Station ID</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Position</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for station in porttracker_stations %}
+                      <tr>
+                        <th scope="row">{{ station.aisStation.id }}</th>
+                        <td>{{ station.aisStation.hostname }}</td>
+                        <td>{{ station.aisStation.position.lon }}, {{ station.aisStation.position.lat }}</td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                  {% endif %}
                   <label for="porttracker--key">
                     Data sharing key
                   </label>

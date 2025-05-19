@@ -1,5 +1,7 @@
 import re
 import subprocess
+import typing as t
+
 from flask import flash
 from .system import System
 from .util import is_email, make_int, print_err, report_issue
@@ -501,3 +503,10 @@ class Porttracker(Aggregator):
                              "station_id"]).list_set(idx, station_id)
         self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
         return True
+
+    def get_registered_stations(self) -> list[dict[str, t.Any]]:
+        return [{
+            "aisStation": {
+                "id": 1, "hostname": "hostname", "description": "desc",
+                "monitorUrl": None, "position": {"lon": 1, "lat": 2.5}},
+            "mosquittoAccess": {}}]
