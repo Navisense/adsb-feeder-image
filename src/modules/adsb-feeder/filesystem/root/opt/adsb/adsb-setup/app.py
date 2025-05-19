@@ -2488,23 +2488,23 @@ class AdsbIm:
                             print_err(f"found other aggregator {key} for site {l_site} sitenum {l_sitenum}")
                     is_successful = False
                     base = key.replace("--submit", "")
-                    aggregator_argument = form.get(f"{base}--key", None)
+                    aggregator_arguments = [form.get(f"{base}--key", None)]
                     if base == "flightradar":
                         uat_arg = form.get(f"{base}_uat--key", None)
-                        aggregator_argument += f"::{uat_arg}"
+                        aggregator_arguments[0] += f"::{uat_arg}"
                     if base == "opensky":
                         user = form.get(f"{base}--user", None)
-                        aggregator_argument += f"::{user}"
+                        aggregator_arguments[0] += f"::{user}"
                     if base == "sdrmap":
                         user = form.get(f"{base}--user", None)
-                        aggregator_argument += f"::{user}"
+                        aggregator_arguments[0] += f"::{user}"
                     if base == "porttracker":
-                        station_id = form.get(f"{base}--station-id", None)
-                        aggregator_argument += f"::{station_id}"
+                        aggregator_arguments.append(
+                            form.get(f"{base}--station-id", None))
                     aggregator_object = self._other_aggregators[key]
                     print_err(f"got aggregator object {aggregator_object} -- activating for sitenum {l_sitenum}")
                     try:
-                        is_successful = aggregator_object._activate(aggregator_argument, l_sitenum)
+                        is_successful = aggregator_object._activate(*aggregator_arguments, l_sitenum)
                     except Exception as e:
                         print_err(f"error activating {key}: {e}")
                     if not is_successful:

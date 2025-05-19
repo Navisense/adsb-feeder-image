@@ -495,14 +495,9 @@ class Porttracker(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        match = re.match(
-            r'(?P<data_sharing_key>.*)::(?P<station_id>.*)', user_input)
-        if not match:
-            return False
-        self._d.env_by_tags(self._key_tags).list_set(
-            idx, match.group("data_sharing_key"))
-        self._d.env_by_tags(["porttracker", "station_id"
-                             ]).list_set(idx, match.group("station_id"))
+    def _activate(self, data_sharing_key: str, station_id: int, idx=0):
+        self._d.env_by_tags(self._key_tags).list_set(idx, data_sharing_key)
+        self._d.env_by_tags(["porttracker",
+                             "station_id"]).list_set(idx, station_id)
         self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
         return True
