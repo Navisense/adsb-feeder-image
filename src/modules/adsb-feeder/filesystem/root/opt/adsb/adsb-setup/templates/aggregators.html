@@ -375,20 +375,6 @@
                   </div>
                 </div>
               </div>
-              <div class="d-flex p-2">
-                <div class="form-outline" data-mdb-input-init style="width: 10rem">
-                  <input type="text" id="porttracker-station-id" name="porttracker-station-id" class="form-control" required
-                  value="{{ list_value_by_tags(["porttracker", "station_id"], m) }}">
-                  <label class="form-label" for="porttracker-station-id">
-                    Station ID
-                  </label>
-                </div>
-                <button type="submit" class="btn btn-primary"
-                data-mdb-button-init data-mdb-ripple-init
-                name="porttracker-submit" value="{{stay}}">
-                  Submit
-                </button>
-            </div>
             </div>
           </div>
         </div>
@@ -441,6 +427,7 @@
           <caption>Registered stations</caption>
           <thead>
             <tr>
+              <th scope="col">Use</th>
               <th scope="col">Station ID</th>
               <th scope="col">Name</th>
               <th scope="col">Description</th>
@@ -469,8 +456,17 @@
 
   function appendRegisteredPorttrackerStation(station) {
     let tableBody = $("#porttracker-registered-stations > table > tbody");
+    let maybeChecked = "";
+    if (station.aisStation.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
+      maybeChecked = "checked";
+    }
     tableBody.append($(
-      `<tr><th scope='row'>${station.aisStation.id}</th>`
+      "<tr>"
+      + "<td>"
+      + `<input class="form-check-input" type="radio" `
+      + `name="porttracker-station-id" value="${station.aisStation.id}" `
+      + `required ${maybeChecked} /></td>`
+      + `<th scope='row'>${station.aisStation.id}</th>`
       + `<td>${station.aisStation.hostname}</td>`
       + `<td>${station.description ?? ""}</td>`
       + `<td>${station.aisStation.position.lat}</td>`
