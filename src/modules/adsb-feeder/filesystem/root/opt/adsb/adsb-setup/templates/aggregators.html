@@ -353,7 +353,8 @@
             <div class="form-group" id="porttracker-setup">
               <div class="d-flex p-2">
                 <div class="form-outline" data-mdb-input-init style="width: 20rem">
-                  <input type="text" id="porttracker-data-sharing-key" name="porttracker-data-sharing-key" class="form-control" required
+                  <input type="text" id="porttracker-data-sharing-key"
+                  name="porttracker-data-sharing-key" class="form-control required-if-enabled"
                   value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
                   <label class="form-label" for="porttracker-data-sharing-key">
                     Data sharing key
@@ -384,35 +385,37 @@
           value={{go}}>apply settings - take me to the website</button>
 </form>
 <script>
-  function show_or_hide(b, f) {
+  function showOrHide(b, f) {
     if (b.checked) f.style.display = "block";
     else f.style.display = "none";
   }
 
-  const box_fields = [
-    ["flightradar--is_enabled", "FR_FIELDS", ["flightradar--key"]],
-    ["planewatch--is_enabled", "PW_FIELDS", ["planewatch--key"]],
+  const aggregatorConfigs = [
+    ["flightradar--is_enabled", "FR_FIELDS", ["#flightradar--key"]],
+    ["planewatch--is_enabled", "PW_FIELDS", ["#planewatch--key"]],
     ["flightaware--is_enabled", "FA_FIELDS", []],
     ["radarbox--is_enabled", "RB_FIELDS", []],
-    ["planefinder--is_enabled", "PF_FIELDS", ["planefinder--key"]],
-    ["adsbhub--is_enabled", "AH_FIELDS", ["adsbhub--key"]],
-    ["opensky--is_enabled", "OS_FIELDS", ["opensky--user"]],
-    ["radarvirtuel--is_enabled", "RV_FIELDS", ["radarvirtuel--key"]],
-    ["1090uk--is_enabled", "TNUK_FIELDS", ["1090uk--key"]],
-    ["sdrmap--is_enabled", "SM_FIELDS", ["sdrmap--user", "sdrmap--key"]],
-    ["porttracker-is-enabled", "porttracker-setup", ["porttracker-data-sharing-key", "porttracker-station-id"]],
+    ["planefinder--is_enabled", "PF_FIELDS", ["#planefinder--key"]],
+    ["adsbhub--is_enabled", "AH_FIELDS", ["#adsbhub--key"]],
+    ["opensky--is_enabled", "OS_FIELDS", ["#opensky--user"]],
+    ["radarvirtuel--is_enabled", "RV_FIELDS", ["#radarvirtuel--key"]],
+    ["1090uk--is_enabled", "TNUK_FIELDS", ["#1090uk--key"]],
+    ["sdrmap--is_enabled", "SM_FIELDS", ["#sdrmap--user", "#sdrmap--key"]],
+    ["porttracker-is-enabled", "porttracker-setup", ["#porttracker-setup input.required-if-enabled"]],
   ];
-  for (const ids of box_fields) {
-    let box = document.getElementById(ids[0]);
-    let fields = document.getElementById(ids[1]);
-    box.addEventListener("click", function () {
-      show_or_hide(box, fields);
-      for (const input_field of ids[2]) {
-        elem = document.getElementById(input_field);
-        if (elem) elem.required = box.checked;
+  for (const ids of aggregatorConfigs) {
+    let checkBox = document.getElementById(ids[0]);
+    let fieldsElement = document.getElementById(ids[1]);
+    const requiredInputFieldSelectors = ids[2];
+    checkBox.addEventListener("click", function () {
+      showOrHide(checkBox, fieldsElement);
+      for (const requiredInputFieldSelector of requiredInputFieldSelectors) {
+        for (let requiredInputField of $(requiredInputFieldSelector)) {
+          requiredInputField.required = checkBox.checked;
+        }
       }
     });
-    show_or_hide(box, fields);
+    showOrHide(checkBox, fieldsElement);
   }
 
   function getAndShowRegisteredPorttrackerStations() {
@@ -463,9 +466,9 @@
     tableBody.append($(
       "<tr>"
       + "<td>"
-      + `<input class="form-check-input" type="radio" `
+      + `<input class="form-check-input required-if-enabled" type="radio" `
       + `name="porttracker-station-id" value="${station.aisStation.id}" `
-      + `required ${maybeChecked} /></td>`
+      + `${maybeChecked} /></td>`
       + `<th scope='row'>${station.aisStation.id}</th>`
       + `<td>${station.aisStation.hostname}</td>`
       + `<td>${station.description ?? ""}</td>`
