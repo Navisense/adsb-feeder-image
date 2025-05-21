@@ -343,45 +343,51 @@
           </button>
         </h2>
         <div id="aggregators-collapse-ais" class="accordion-collapse collapse show" aria-labelledby="aggregators-heading-ais">
-          <div class="accordion-body">
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-              <input type="checkbox" class="form-check-input me-1" name="porttracker--is_enabled" id="porttracker--is_enabled" {{
-                others_enabled("porttracker", m) }} />
-              <label for="porttracker--is_enabled">
-                <a href="https://porttracker.co/">Porttracker</a>
-              </label>
-              <div class="form-group" id="porttracker-setup">
-                <label for="porttracker--key">
-                  Data sharing key
-                </label>
-                <input type="text" id="porttracker--key" name="porttracker--key" class="form-control w-75" required
-                  placeholder="data sharing key" value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
-                <button type="button" class="btn btn-primary mt-1"
-                name="porttracker--set-data-sharing-key"
+          <div class="accordion-body form-check">
+            <input type="checkbox" class="form-check-input me-1" name="porttracker--is_enabled" id="porttracker--is_enabled" {{
+              others_enabled("porttracker", m) }} />
+            <label for="porttracker--is_enabled">
+              <a href="https://porttracker.co/">Porttracker</a>
+            </label>
+            <div class="form-group" id="porttracker-setup">
+              <div class="d-flex p-2">
+                <div class="form-outline" data-mdb-input-init style="width: 20rem">
+                  <input type="text" id="porttracker--key" name="porttracker--key" class="form-control" required
+                  value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
+                  <label class="form-label" for="porttracker--key">
+                    Data sharing key
+                  </label>
+                </div>
+                <button type="button" class="btn btn-primary"
+                data-mdb-button-init data-mdb-ripple-init
                 onclick="getAndShowRegisteredPorttrackerStations()">
                   Set data sharing key
                 </button>
-                <label for="porttracker--registered-stations">
-                  Registered stations
-                </label>
-                <table class="table" id="porttracker--registered-stations">
-                  <thead>
-                    <tr>
-                      <th scope="col">Station ID</th>
-                      <th scope="col">Name</th>
-                      <th scope="col">Position</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                  </tbody>
-                </table>
-                <label for="porttracker--station-id">
+            </div>
+              <div id="porttracker--registered-stations">
+                <div class="card text-bg-info mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title">No stations</h5>
+                    <p class="card-text">
+                      Set your data sharing key to see registered stations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex p-2">
+                <div class="form-outline" data-mdb-input-init style="width: 10rem">
+                  <input type="text" id="porttracker--station-id" name="porttracker--station-id" class="form-control" required
+                  value="{{ list_value_by_tags(["porttracker", "station_id"], m) }}">
+                  <label class="form-label"for="porttracker--station-id">
                   Station ID
                 </label>
-                <input type="text" id="porttracker--station-id" name="porttracker--station-id" class="form-control w-75" required
-                  placeholder="station ID" value="{{ list_value_by_tags(["porttracker", "station_id"], m) }}">
-                <button type="submit" class="btn btn-primary mt-1" name="porttracker--submit" value="{{stay}}">Submit</button>
-              </div>
+                </div>
+                <button type="submit" class="btn btn-primary"
+                data-mdb-button-init data-mdb-ripple-init
+                name="porttracker--submit" value="{{stay}}">
+                  Submit
+                </button>
+            </div>
             </div>
           </div>
         </div>
@@ -424,21 +430,52 @@
 
   function getAndShowRegisteredPorttrackerStations() {
     const dataSharingKey = $("#porttracker--key").val();
-    let tableBody = $("#porttracker--registered-stations > tbody");
+    let stationsDiv = $("#porttracker--registered-stations");
     $.ajax(
       "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
       {headers: {"X-Data-Sharing-Key": dataSharingKey}}
     ).done(function (data) {
-      for (const s of data) {
-        tableBody.append($(
-          `<tr><th scope='row'>${s.aisStation.id}</th>`
-          + `<td>${s.aisStation.hostname}</td>`
-          + `<td>${s.aisStation.position.lon}, ${s.aisStation.position.lat}`
-          + "</td></tr>"));
+      stationsDiv.html(`
+        <table class="table caption-top">
+          <caption>Registered stations</caption>
+          <thead>
+            <tr>
+              <th scope="col">Station ID</th>
+              <th scope="col">Name</th>
+              <th scope="col">Position</th>
+            </tr>
+          </thead>
+          <tbody>
+          </tbody>
+        </table>`);
+      for (const station of data) {
+        appendRegisteredPorttrackerStation(station);
       }
-    }).fail(function(jqXHR, textStatus, errorThrown) {
-      alert(jqXHR.responseText);
+    }).fail(function(jqXHR) {
+      stationsDiv.html(`
+        <div class="card text-bg-danger mb-3">
+          <div class="card-body">
+            <h5 class="card-title">Error getting stations</h5>
+            <p class="card-text">
+              ${jqXHR.responseText}
+            </p>
+          </div>
+        </div>`);
     });
   }
+
+  function appendRegisteredPorttrackerStation(station) {
+    let tableBody = $("#porttracker--registered-stations > table > tbody");
+    tableBody.append($(
+      `<tr><th scope='row'>${station.aisStation.id}</th>`
+      + `<td>${station.aisStation.hostname}</td>`
+      + `<td>${station.aisStation.position.lon}, ${station.aisStation.position.lat}`
+      + "</td></tr>"));
+  }
+
+  // Reinitialize mdb inputs to fix labels covering content.
+  $(".form-outline").each((_, formOutline) => {
+    new mdb.Input(formOutline).init();
+  });
 </script>
 {% endblock %}
