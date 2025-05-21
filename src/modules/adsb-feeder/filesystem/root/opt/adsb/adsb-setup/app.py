@@ -216,7 +216,6 @@ class AdsbIm:
         if self._d.is_enabled("secure_image"):
             self.set_secure_image()
         self._d.env_by_tags("pack")._value_call = self.pack_im
-        self._porttracker = Porttracker(self._system)
         self._other_aggregators = {
             "adsbhub--submit": ADSBHub(self._system),
             "flightaware--submit": FlightAware(self._system),
@@ -228,7 +227,7 @@ class AdsbIm:
             "radarvirtuel--submit": RadarVirtuel(self._system),
             "1090uk--submit": Uk1090(self._system),
             "sdrmap--submit": Sdrmap(self._system),
-            "porttracker--submit": self._porttracker,
+            "porttracker--submit": Porttracker(self._system),
         }
         # fmt: off
         self.all_aggregators = [
@@ -2779,7 +2778,6 @@ class AdsbIm:
         return render_template(
             "aggregators.html",
             uf_enabled=uf_enabled,
-            porttracker_stations=self._porttracker.get_registered_stations(),
             others_enabled=others_enabled,
             site=site,
             m=str(m),
