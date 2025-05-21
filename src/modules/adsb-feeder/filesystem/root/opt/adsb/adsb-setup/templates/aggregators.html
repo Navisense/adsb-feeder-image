@@ -442,7 +442,9 @@
             <tr>
               <th scope="col">Station ID</th>
               <th scope="col">Name</th>
-              <th scope="col">Position</th>
+              <th scope="col">Description</th>
+              <th scope="col">Latitude</th>
+              <th scope="col">Longitude</th>
             </tr>
           </thead>
           <tbody>
@@ -469,8 +471,9 @@
     tableBody.append($(
       `<tr><th scope='row'>${station.aisStation.id}</th>`
       + `<td>${station.aisStation.hostname}</td>`
-      + `<td>${station.aisStation.position.lon}, ${station.aisStation.position.lat}`
-      + "</td></tr>"));
+      + `<td>${station.description ?? ""}</td>`
+      + `<td>${station.aisStation.position.lat}</td>`
+      + `<td>${station.aisStation.position.lon}</td></tr>`));
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
