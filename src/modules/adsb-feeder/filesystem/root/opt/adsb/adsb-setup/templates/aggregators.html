@@ -477,5 +477,9 @@
   $(".form-outline").each((_, formOutline) => {
     new mdb.Input(formOutline).init();
   });
+
+  if ($("#porttracker--key").val()) {
+    getAndShowRegisteredPorttrackerStations();
+  }
 </script>
 {% endblock %}
