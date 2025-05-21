@@ -227,7 +227,7 @@ class AdsbIm:
             "radarvirtuel--submit": RadarVirtuel(self._system),
             "1090uk--submit": Uk1090(self._system),
             "sdrmap--submit": Sdrmap(self._system),
-            "porttracker--submit": Porttracker(self._system),
+            "porttracker": Porttracker(self._system),
         }
         # fmt: off
         self.all_aggregators = [
@@ -2498,9 +2498,6 @@ class AdsbIm:
                     if base == "sdrmap":
                         user = form.get(f"{base}--user", None)
                         aggregator_arguments[0] += f"::{user}"
-                    if base == "porttracker":
-                        aggregator_arguments.append(
-                            form.get(f"{base}--station-id", None))
                     aggregator_object = self._other_aggregators[key]
                     print_err(f"got aggregator object {aggregator_object} -- activating for sitenum {l_sitenum}")
                     try:
@@ -2735,6 +2732,7 @@ class AdsbIm:
     @check_restart_lock
     def aggregators(self):
         if request.method == "POST":
+            self._parse_porttracker_form_data()
             return self.update()
 
         def uf_enabled(tag, m=0):
@@ -2783,6 +2781,27 @@ class AdsbIm:
             m=str(m),
             piastatport=str(m * 1000 + make_int(self._d.env_by_tags("piastatport").value)),
         )
+
+    def _parse_porttracker_form_data(self):
+        site_num = request.form["site_num"]
+        porttracker = self._other_aggregators["porttracker"]
+        if request.form["porttracker-is-enabled"] == "0":
+            porttracker._deactivate(site_num)
+            print_err(f"Deactivated {porttracker}.")
+            return
+        try:
+            station_id = request.form["porttracker-station-id"]
+        except KeyError:
+            report_issue(
+                "Can't activate Porttracker: no station ID specified.",
+                level=0)
+            return
+        data_sharing_key = request.form["porttracker-data-sharing-key"]
+        try:
+            porttracker._activate(station_id, data_sharing_key, site_num)
+            print_err(f"Activated {porttracker} for site_num {site_num}.")
+        except:
+            report_issue(f"Error activating Porttracker.", level=1)
 
     @check_restart_lock
     def director(self):

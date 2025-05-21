@@ -58,8 +58,8 @@ def print_err(*args, **kwargs):
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
 
-def report_issue(msg):
-    print_err(msg, level=1)
+def report_issue(msg, level=1):
+    print_err(msg, level)
     flash(msg)
 
 

@@ -496,10 +496,20 @@ class Porttracker(Aggregator):
             tags=["porttracker"],
             system=system,
         )
+        self._station_id = None
 
-    def _activate(self, data_sharing_key: str, station_id: int, idx=0):
-        self._d.env_by_tags(self._key_tags).list_set(idx, data_sharing_key)
-        self._d.env_by_tags(["porttracker",
-                             "station_id"]).list_set(idx, station_id)
-        self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
+    def __str__(self):
+        return f"Porttracker aggregator for station ID {self._station_id}"
+
+    def _activate(self, station_id: int, data_sharing_key: str, site_num=0):
+        self._d.env_by_tags(self.tags + ["station_id"]).list_set(
+            site_num, station_id)
+        self._d.env_by_tags(self.tags + ["data_sharing_key"]).list_set(
+            site_num, data_sharing_key)
+        self._d.env_by_tags(self._enabled_tags).list_set(site_num, True)
+        self._station_id = station_id
+        return True
+
+    def _deactivate(self, site_num=0):
+        self._d.env_by_tags(self._enabled_tags).list_set(site_num, False)
         return True

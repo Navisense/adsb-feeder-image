@@ -326,7 +326,7 @@ class Data:
         Env(
             "FEEDER_PORTTRACKER_DATA_SHARING_KEY",
             default=[""],
-            tags=["porttracker", "key"],
+            tags=["porttracker", "key", "data_sharing_key"],
         ),
         Env(
             "FEEDER_PORTTRACKER_STATION_ID",
