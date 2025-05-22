@@ -480,14 +480,15 @@
     });
   }
 
-  function appendRegisteredPorttrackerStation(userStation) {
+  function appendRegisteredPorttrackerStation(
+    userStation, useImmediately=false) {
     let row = $("<tr></tr>");
     let useRadioButton = $(
       `<input class="form-check-input required-if-enabled" type="radio" `
       + `name="porttracker-station-id" value="${userStation.station.id}" />`);
     useRadioButton.on(
       "click change", {userStation: userStation}, setPorttrackerData);
-    if (userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
+    if (useImmediately || userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
       useRadioButton.prop("checked", true);
       useRadioButton.trigger("click");
     }
@@ -550,7 +551,55 @@
   }
 
   function registerNewPorttrackerStation() {
-
+    const dataSharingKey = $("#porttracker-data-sharing-key").val();
+    const hostname = $("#porttracker-register-new-station-hostname").val();
+    const description = $(
+      "#porttracker-register-new-station-description").val();
+    const latitude = Number.parseFloat(
+      $("#porttracker-register-new-station-latitude").val());
+    const longitude = Number.parseFloat(
+      $("#porttracker-register-new-station-longitude").val());
+    if (!hostname) {
+      alert("Missing station name.");
+      return;
+    }
+    if (Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
+      alert("Invalid latitude");
+      return;
+    }
+    if (Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
+      alert("Invalid longitude");
+      return;
+    }
+    $.ajax(
+      "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
+      {
+        method: "POST",
+        headers: {"X-Data-Sharing-Key": dataSharingKey},
+        contentType: "application/json",
+        data: JSON.stringify({
+          hostname: hostname,
+          description: description || null,
+          position: {
+            lon: longitude,
+            lat: latitude
+          }
+        })
+      }
+    ).done(function (userStation) {
+      $("#porttracker-add-new-station-row").remove();
+      appendRegisteredPorttrackerStation(userStation, true);
+    }).fail(function(jqXHR) {
+      $("#porttracker-registered-stations").html(`
+        <div class="card text-bg-danger mb-3">
+          <div class="card-body">
+            <h5 class="card-title">Error registering new station</h5>
+            <p class="card-text">
+              ${jqXHR.responseText}
+            </p>
+          </div>
+        </div>`);
+    });
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
