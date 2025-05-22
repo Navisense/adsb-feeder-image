@@ -333,6 +333,36 @@ class Data:
             default=[""],
             tags=["porttracker", "station_id"],
         ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_PROTOCOL",
+            default=[""],
+            tags=["porttracker", "mosquitto_protocol"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_HOST",
+            default=[""],
+            tags=["porttracker", "mosquitto_host"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_PORT",
+            default=[""],
+            tags=["porttracker", "mosquitto_port"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_USERNAME",
+            default=[""],
+            tags=["porttracker", "mosquitto_username"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_PASSWORD",
+            default=[""],
+            tags=["porttracker", "mosquitto_password"],
+        ),
+        Env(
+            "FEEDER_PORTTRACKER_MOSQUITTO_TOPIC",
+            default=[""],
+            tags=["porttracker", "mosquitto_topic"],
+        ),
         # ADSB.im specific
         Env("_ADSBIM_AGGREGATORS_SELECTION", tags=["aggregator_choice"]),
         Env(

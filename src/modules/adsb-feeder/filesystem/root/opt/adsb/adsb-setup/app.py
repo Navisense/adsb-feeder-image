@@ -2791,14 +2791,22 @@ class AdsbIm:
             return
         try:
             station_id = request.form["porttracker-station-id"]
-        except KeyError:
+            data_sharing_key = request.form["porttracker-data-sharing-key"]
+            mosquitto_protocol = request.form["porttracker-mosquitto-protocol"]
+            mosquitto_host = request.form["porttracker-mosquitto-host"]
+            mosquitto_port = request.form["porttracker-mosquitto-port"]
+            mosquitto_username = request.form["porttracker-mosquitto-username"]
+            mosquitto_password = request.form["porttracker-mosquitto-password"]
+            mosquitto_topic = request.form["porttracker-mosquitto-topic"]
+        except KeyError as e:
             report_issue(
-                "Can't activate Porttracker: no station ID specified.",
-                level=0)
+                f"Can't activate Porttracker: missing key {e}.", level=0)
             return
-        data_sharing_key = request.form["porttracker-data-sharing-key"]
         try:
-            porttracker._activate(station_id, data_sharing_key, site_num)
+            porttracker._activate(
+                station_id, data_sharing_key, mosquitto_protocol,
+                mosquitto_host, mosquitto_port, mosquitto_username,
+                mosquitto_password, mosquitto_topic, site_num)
             print_err(f"Activated {porttracker} for site_num {site_num}.")
         except:
             report_issue(f"Error activating Porttracker.", level=1)

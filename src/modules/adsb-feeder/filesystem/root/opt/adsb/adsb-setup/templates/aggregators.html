@@ -351,6 +351,19 @@
               <a href="https://porttracker.co/">Porttracker</a>
             </label>
             <div class="form-group" id="porttracker-setup">
+              <!-- These hidden inputs are set by a script on radio button select. -->
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-protocol" value="" \>
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-host" value="" \>
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-port" value="" \>
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-username" value="" \>
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-password" value="" \>
+              <input type="hidden" class="required-if-enabled"
+                name="porttracker-mosquitto-topic" value="" \>
               <div class="d-flex p-2">
                 <div class="form-outline" data-mdb-input-init style="width: 20rem">
                   <input type="text" id="porttracker-data-sharing-key"
@@ -458,22 +471,39 @@
   }
 
   function appendRegisteredPorttrackerStation(userStation) {
-    let tableBody = $("#porttracker-registered-stations > table > tbody");
-    let maybeChecked = "";
+    let row = $("<tr></tr>");
+    let useRadioButton = $(
+      `<input class="form-check-input required-if-enabled" type="radio" `
+      + `name="porttracker-station-id" value="${userStation.station.id}" />`);
+    useRadioButton.on(
+      "click change", {userStation: userStation}, setPorttrackerData);
     if (userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
-      maybeChecked = "checked";
+      useRadioButton.prop("checked", true);
+      useRadioButton.trigger("click");
     }
-    tableBody.append($(
-      "<tr>"
-      + "<td>"
-      + `<input class="form-check-input required-if-enabled" type="radio" `
-      + `name="porttracker-station-id" value="${userStation.station.id}" `
-      + `${maybeChecked} /></td>`
-      + `<th scope='row'>${userStation.station.id}</th>`
-      + `<td>${userStation.station.hostname}</td>`
-      + `<td>${userStation.description ?? ""}</td>`
-      + `<td>${userStation.station.position.lat}</td>`
-      + `<td>${userStation.station.position.lon}</td></tr>`));
+    $("<td></td>").append(useRadioButton).appendTo(row);
+    row.append(`<th scope='row'>${userStation.station.id}</th>`);
+    row.append(`<td>${userStation.station.hostname}</td>`);
+    row.append(`<td>${userStation.description ?? ""}</td>`);
+    row.append(`<td>${userStation.station.position.lat}</td>`);
+    row.append(`<td>${userStation.station.position.lon}</td></tr>`);
+    $("#porttracker-registered-stations > table > tbody").append(row);
+  }
+
+  function setPorttrackerData(event) {
+    console.log(`firing for ${event.data.userStation.station.id}`)
+    $("input[name=porttracker-mosquitto-protocol]").val(
+      event.data.userStation.mosquittoAccess.protocol);
+    $("input[name=porttracker-mosquitto-host]").val(
+      event.data.userStation.mosquittoAccess.host);
+    $("input[name=porttracker-mosquitto-port]").val(
+      event.data.userStation.mosquittoAccess.port);
+    $("input[name=porttracker-mosquitto-username]").val(
+      event.data.userStation.mosquittoAccess.username);
+    $("input[name=porttracker-mosquitto-password]").val(
+      event.data.userStation.mosquittoAccess.password);
+    $("input[name=porttracker-mosquitto-topic]").val(
+      event.data.userStation.mosquittoAccess.aisJsonTopic);
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
@@ -481,6 +511,7 @@
     new mdb.Input(formOutline).init();
   });
 
+  // If a data sharing key is set, load stations immediately.
   if ($("#porttracker-data-sharing-key").val()) {
     getAndShowRegisteredPorttrackerStations();
   }
