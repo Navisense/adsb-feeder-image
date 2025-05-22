@@ -478,7 +478,7 @@
     $("<td></td>").append(useRadioButton).appendTo(row);
     row.append(`<th scope='row'>${userStation.station.id}</th>`);
     row.append(`<td>${userStation.station.hostname}</td>`);
-    row.append(`<td>${userStation.description ?? ""}</td>`);
+    row.append(`<td>${userStation.station.description ?? ""}</td>`);
     row.append(`<td>${userStation.station.position.lat}</td>`);
     row.append(`<td>${userStation.station.position.lon}</td></tr>`);
     $("#porttracker-registered-stations > table > tbody").append(row);
