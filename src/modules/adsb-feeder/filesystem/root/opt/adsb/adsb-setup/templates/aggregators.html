@@ -378,17 +378,8 @@
                 onclick="getAndShowRegisteredPorttrackerStations()">
                   Set data sharing key
                 </button>
-            </div>
-              <div id="porttracker-registered-stations">
-                <div class="card text-bg-info mb-3">
-                  <div class="card-body">
-                    <h5 class="card-title">No stations</h5>
-                    <p class="card-text">
-                      Set your data sharing key to see registered stations.
-                    </p>
-                  </div>
-                </div>
               </div>
+              <div id="porttracker-registered-stations"></div>
             </div>
           </div>
         </div>
@@ -433,12 +424,11 @@
 
   function getAndShowRegisteredPorttrackerStations() {
     const dataSharingKey = $("#porttracker-data-sharing-key").val();
-    let stationsDiv = $("#porttracker-registered-stations");
     $.ajax(
       "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
       {headers: {"X-Data-Sharing-Key": dataSharingKey}}
     ).done(function (userStations) {
-      stationsDiv.html(`
+      $("#porttracker-registered-stations").html(`
         <table class="table caption-top">
           <caption>Registered stations</caption>
           <thead>
@@ -468,15 +458,8 @@
         </td>
       </tr>`);
     }).fail(function(jqXHR) {
-      stationsDiv.html(`
-        <div class="card text-bg-danger mb-3">
-          <div class="card-body">
-            <h5 class="card-title">Error getting stations</h5>
-            <p class="card-text">
-              ${jqXHR.responseText}
-            </p>
-          </div>
-        </div>`);
+      showRegisteredStationNotification(
+        "error", "Error getting stations", parsePorttrackerErrorDetail(jqXHR));
     });
   }
 
@@ -589,16 +572,33 @@
       $("#porttracker-add-new-station-row").remove();
       appendRegisteredPorttrackerStation(userStation, true);
     }).fail(function(jqXHR) {
-      $("#porttracker-registered-stations").html(`
-        <div class="card text-bg-danger mb-3">
-          <div class="card-body">
-            <h5 class="card-title">Error registering new station</h5>
-            <p class="card-text">
-              ${jqXHR.responseText}
-            </p>
-          </div>
-        </div>`);
+      showRegisteredStationNotification(
+        "error", "Error registering new station",
+        parsePorttrackerErrorDetail(jqXHR));
     });
+  }
+
+  function showRegisteredStationNotification(kind, title, message) {
+    let kindClass = "text-bg-info";
+    if (kind == "error") {
+      kindClass = "text-bg-danger";
+    }
+    $("#porttracker-registered-stations").html(`
+      <div class="card ${kindClass} mb-3">
+        <div class="card-body">
+          <h5 class="card-title">${title}</h5>
+          <p class="card-text">${message}</p>
+        </div>
+      </div>`);
+  }
+
+  function parsePorttrackerErrorDetail(jqXHR) {
+    try {
+        response = JSON.parse(jqXHR.responseText);
+        return JSON.stringify(response.detail) || jqXHR.responseText;
+    } catch (e) {
+        return jqXHR.responseText;
+    }
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
@@ -608,7 +608,14 @@
 
   // If a data sharing key is set, load stations immediately.
   if ($("#porttracker-data-sharing-key").val()) {
+    showRegisteredStationNotification(
+      "info", "Loading stations",
+      "Loading existing registered stations for your data sharing key.");
     getAndShowRegisteredPorttrackerStations();
+  } else {
+    showRegisteredStationNotification(
+      "info", "No stations",
+      "Set your data sharing key to see registered stations.");
   }
 </script>
 {% endblock %}
