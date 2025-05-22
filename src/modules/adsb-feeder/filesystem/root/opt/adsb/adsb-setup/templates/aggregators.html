@@ -457,6 +457,16 @@
       for (const userStation of userStations) {
         appendRegisteredPorttrackerStation(userStation);
       }
+    $("#porttracker-registered-stations > table > tbody").append(`
+      <tr id="porttracker-add-new-station-row" >
+        <td colspan="6">
+          <button type="button" class="btn btn-primary col-12"
+          data-mdb-button-init data-mdb-ripple-init
+          onclick="showNewPorttrackerStationRegistrationFields()">
+            Register a new station
+          </button>
+        </td>
+      </tr>`);
     }).fail(function(jqXHR) {
       stationsDiv.html(`
         <div class="card text-bg-danger mb-3">
@@ -504,6 +514,43 @@
       event.data.userStation.mosquittoAccess.password);
     $("input[name=porttracker-mosquitto-topic]").val(
       event.data.userStation.mosquittoAccess.aisJsonTopic);
+  }
+
+  function showNewPorttrackerStationRegistrationFields() {
+    let row = $();
+    $("#porttracker-add-new-station-row").html(`
+      <td>
+        <button type="button" class="btn btn-primary"
+        data-mdb-button-init data-mdb-ripple-init
+        onclick="registerNewPorttrackerStation()">
+          Register
+        </button>
+      </td>
+      <td></td>
+      <td>
+        <input type="text" id="porttracker-register-new-station-hostname"
+          class="form-control required-if-enabled"
+          value="{{ list_value_by_tags(["site_name_sanitized"], m) }}" />
+      </td>
+      <td>
+        <input type="text" id="porttracker-register-new-station-description"
+          class="form-control required-if-enabled"
+          placeholder="Optional" />
+      </td>
+      <td>
+        <input type="text" id="porttracker-register-new-station-latitude"
+          class="form-control required-if-enabled"
+          value="{{ list_value_by_tags(["lat"], m) }}" />
+      </td>
+      <td>
+        <input type="text" id="porttracker-register-new-station-longitude"
+          class="form-control required-if-enabled"
+          value="{{ list_value_by_tags(["lon"], m) }}" />
+      </td>`);
+  }
+
+  function registerNewPorttrackerStation() {
+
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
