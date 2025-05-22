@@ -424,7 +424,7 @@
     $.ajax(
       "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
       {headers: {"X-Data-Sharing-Key": dataSharingKey}}
-    ).done(function (data) {
+    ).done(function (userStations) {
       stationsDiv.html(`
         <table class="table caption-top">
           <caption>Registered stations</caption>
@@ -441,8 +441,8 @@
           <tbody>
           </tbody>
         </table>`);
-      for (const station of data) {
-        appendRegisteredPorttrackerStation(station);
+      for (const userStation of userStations) {
+        appendRegisteredPorttrackerStation(userStation);
       }
     }).fail(function(jqXHR) {
       stationsDiv.html(`
@@ -457,23 +457,23 @@
     });
   }
 
-  function appendRegisteredPorttrackerStation(station) {
+  function appendRegisteredPorttrackerStation(userStation) {
     let tableBody = $("#porttracker-registered-stations > table > tbody");
     let maybeChecked = "";
-    if (station.aisStation.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
+    if (userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
       maybeChecked = "checked";
     }
     tableBody.append($(
       "<tr>"
       + "<td>"
       + `<input class="form-check-input required-if-enabled" type="radio" `
-      + `name="porttracker-station-id" value="${station.aisStation.id}" `
+      + `name="porttracker-station-id" value="${userStation.station.id}" `
       + `${maybeChecked} /></td>`
-      + `<th scope='row'>${station.aisStation.id}</th>`
-      + `<td>${station.aisStation.hostname}</td>`
-      + `<td>${station.description ?? ""}</td>`
-      + `<td>${station.aisStation.position.lat}</td>`
-      + `<td>${station.aisStation.position.lon}</td></tr>`));
+      + `<th scope='row'>${userStation.station.id}</th>`
+      + `<td>${userStation.station.hostname}</td>`
+      + `<td>${userStation.description ?? ""}</td>`
+      + `<td>${userStation.station.position.lat}</td>`
+      + `<td>${userStation.station.position.lon}</td></tr>`));
   }
 
   // Reinitialize mdb inputs to fix labels covering content.
