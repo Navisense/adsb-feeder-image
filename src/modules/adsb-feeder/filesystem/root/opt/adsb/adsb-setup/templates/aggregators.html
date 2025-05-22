@@ -344,42 +344,44 @@
           </button>
         </h2>
         <div id="aggregators-collapse-ais" class="accordion-collapse collapse show" aria-labelledby="aggregators-heading-ais">
-          <div class="accordion-body form-check">
-            <input type="checkbox" class="form-check-input me-1" name="porttracker-is-enabled" id="porttracker-is-enabled" {{
-              others_enabled("porttracker", m) }} />
-            <label for="porttracker-is-enabled">
-              <a href="https://porttracker.co/">Porttracker</a>
-            </label>
-            <div class="form-group" id="porttracker-setup">
-              <!-- These hidden inputs are set by a script on radio button select. -->
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-protocol" value="" \>
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-host" value="" \>
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-port" value="" \>
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-username" value="" \>
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-password" value="" \>
-              <input type="hidden" class="required-if-enabled"
-                name="porttracker-mqtt-topic" value="" \>
-              <div class="d-flex p-2">
-                <div class="form-outline" data-mdb-input-init style="width: 20rem">
-                  <input type="text" id="porttracker-data-sharing-key"
-                  name="porttracker-data-sharing-key" class="form-control required-if-enabled"
-                  value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
-                  <label class="form-label" for="porttracker-data-sharing-key">
-                    Data sharing key
-                  </label>
+          <div class="accordion-body">
+            <div class="form-check col-12">
+              <input type="checkbox" class="form-check-input me-1" name="porttracker-is-enabled" id="porttracker-is-enabled" {{
+                others_enabled("porttracker", m) }} />
+              <label for="porttracker-is-enabled">
+                <a href="https://porttracker.co/">Porttracker</a>
+              </label>
+              <div class="form-group" id="porttracker-setup">
+                <!-- These hidden inputs are set by a script on radio button select. -->
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-protocol" value="" \>
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-host" value="" \>
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-port" value="" \>
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-username" value="" \>
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-password" value="" \>
+                <input type="hidden" class="required-if-enabled"
+                  name="porttracker-mqtt-topic" value="" \>
+                <div class="d-flex p-2">
+                  <div class="form-outline" data-mdb-input-init style="width: 20rem">
+                    <input type="text" id="porttracker-data-sharing-key"
+                    name="porttracker-data-sharing-key" class="form-control required-if-enabled"
+                    value="{{ list_value_by_tags(["porttracker", "key"], m) }}">
+                    <label class="form-label" for="porttracker-data-sharing-key">
+                      Data sharing key
+                    </label>
+                  </div>
+                  <button type="button" class="btn btn-primary"
+                  data-mdb-button-init data-mdb-ripple-init
+                  onclick="getAndShowRegisteredPorttrackerStations()">
+                    Set data sharing key
+                  </button>
                 </div>
-                <button type="button" class="btn btn-primary"
-                data-mdb-button-init data-mdb-ripple-init
-                onclick="getAndShowRegisteredPorttrackerStations()">
-                  Set data sharing key
-                </button>
+                <div id="porttracker-registered-stations"></div>
               </div>
-              <div id="porttracker-registered-stations"></div>
             </div>
           </div>
         </div>
