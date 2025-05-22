@@ -353,17 +353,17 @@
             <div class="form-group" id="porttracker-setup">
               <!-- These hidden inputs are set by a script on radio button select. -->
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-protocol" value="" \>
+                name="porttracker-mqtt-protocol" value="" \>
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-host" value="" \>
+                name="porttracker-mqtt-host" value="" \>
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-port" value="" \>
+                name="porttracker-mqtt-port" value="" \>
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-username" value="" \>
+                name="porttracker-mqtt-username" value="" \>
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-password" value="" \>
+                name="porttracker-mqtt-password" value="" \>
               <input type="hidden" class="required-if-enabled"
-                name="porttracker-mosquitto-topic" value="" \>
+                name="porttracker-mqtt-topic" value="" \>
               <div class="d-flex p-2">
                 <div class="form-outline" data-mdb-input-init style="width: 20rem">
                   <input type="text" id="porttracker-data-sharing-key"
@@ -485,17 +485,17 @@
   }
 
   function setPorttrackerData(event) {
-    $("input[name=porttracker-mosquitto-protocol]").val(
+    $("input[name=porttracker-mqtt-protocol]").val(
       event.data.userStation.mosquittoAccess.protocol);
-    $("input[name=porttracker-mosquitto-host]").val(
+    $("input[name=porttracker-mqtt-host]").val(
       event.data.userStation.mosquittoAccess.host);
-    $("input[name=porttracker-mosquitto-port]").val(
+    $("input[name=porttracker-mqtt-port]").val(
       event.data.userStation.mosquittoAccess.port);
-    $("input[name=porttracker-mosquitto-username]").val(
+    $("input[name=porttracker-mqtt-username]").val(
       event.data.userStation.mosquittoAccess.username);
-    $("input[name=porttracker-mosquitto-password]").val(
+    $("input[name=porttracker-mqtt-password]").val(
       event.data.userStation.mosquittoAccess.password);
-    $("input[name=porttracker-mosquitto-topic]").val(
+    $("input[name=porttracker-mqtt-topic]").val(
       event.data.userStation.mosquittoAccess.aisJsonTopic);
   }
 

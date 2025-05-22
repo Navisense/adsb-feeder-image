@@ -502,26 +502,24 @@ class Porttracker(Aggregator):
         return f"Porttracker aggregator for station ID {self._station_id}"
 
     def _activate(
-            self, station_id: int, data_sharing_key: str,
-            mosquitto_protocol: str, mosquitto_host: str, mosquitto_port: str,
-            mosquitto_username: str, mosquitto_password: str,
-            mosquitto_topic: str, site_num=0):
+            self, station_id: int, data_sharing_key: str, mqtt_protocol: str,
+            mqtt_host: str, mqtt_port: str, mqtt_username: str,
+            mqtt_password: str, mqtt_topic: str, site_num=0):
+        mqtt_url = "{}://{}:{}@{}:{}".format(
+            mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
         self._d.env_by_tags(self.tags + ["station_id"]).list_set(
             site_num, station_id)
         self._d.env_by_tags(self.tags + ["data_sharing_key"]).list_set(
             site_num, data_sharing_key)
-        self._d.env_by_tags(self.tags + ["mosquitto_protocol"]).list_set(
-            site_num, mosquitto_protocol)
-        self._d.env_by_tags(self.tags + ["mosquitto_host"]).list_set(
-            site_num, mosquitto_host)
-        self._d.env_by_tags(self.tags + ["mosquitto_port"]).list_set(
-            site_num, mosquitto_port)
-        self._d.env_by_tags(self.tags + ["mosquitto_username"]).list_set(
-            site_num, mosquitto_username)
-        self._d.env_by_tags(self.tags + ["mosquitto_password"]).list_set(
-            site_num, mosquitto_password)
-        self._d.env_by_tags(self.tags + ["mosquitto_topic"]).list_set(
-            site_num, mosquitto_topic)
+        self._d.env_by_tags(self.tags + ["mqtt_url"]).list_set(
+            site_num, mqtt_url)
+        self._d.env_by_tags(self.tags + ["mqtt_client_id"]).list_set(
+            site_num, mqtt_username)
+        self._d.env_by_tags(self.tags + ["mqtt_qos"]).list_set(site_num, "0")
+        self._d.env_by_tags(self.tags + ["mqtt_topic"]).list_set(
+            site_num, mqtt_topic)
+        self._d.env_by_tags(self.tags + ["mqtt_msgformat"]).list_set(
+            site_num, "JSON_FULL")
         self._d.env_by_tags(self._enabled_tags).list_set(site_num, True)
         self._station_id = station_id
         return True

@@ -2792,21 +2792,20 @@ class AdsbIm:
         try:
             station_id = request.form["porttracker-station-id"]
             data_sharing_key = request.form["porttracker-data-sharing-key"]
-            mosquitto_protocol = request.form["porttracker-mosquitto-protocol"]
-            mosquitto_host = request.form["porttracker-mosquitto-host"]
-            mosquitto_port = request.form["porttracker-mosquitto-port"]
-            mosquitto_username = request.form["porttracker-mosquitto-username"]
-            mosquitto_password = request.form["porttracker-mosquitto-password"]
-            mosquitto_topic = request.form["porttracker-mosquitto-topic"]
+            mqtt_protocol = request.form["porttracker-mqtt-protocol"]
+            mqtt_host = request.form["porttracker-mqtt-host"]
+            mqtt_port = request.form["porttracker-mqtt-port"]
+            mqtt_username = request.form["porttracker-mqtt-username"]
+            mqtt_password = request.form["porttracker-mqtt-password"]
+            mqtt_topic = request.form["porttracker-mqtt-topic"]
         except KeyError as e:
             report_issue(
                 f"Can't activate Porttracker: missing key {e}.", level=0)
             return
         try:
             porttracker._activate(
-                station_id, data_sharing_key, mosquitto_protocol,
-                mosquitto_host, mosquitto_port, mosquitto_username,
-                mosquitto_password, mosquitto_topic, site_num)
+                station_id, data_sharing_key, mqtt_protocol, mqtt_host,
+                mqtt_port, mqtt_username, mqtt_password, mqtt_topic, site_num)
             print_err(f"Activated {porttracker} for site_num {site_num}.")
         except:
             report_issue(f"Error activating Porttracker.", level=1)
