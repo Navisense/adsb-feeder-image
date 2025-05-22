@@ -502,7 +502,6 @@
   }
 
   function setPorttrackerData(event) {
-    console.log(`firing for ${event.data.userStation.station.id}`)
     $("input[name=porttracker-mosquitto-protocol]").val(
       event.data.userStation.mosquittoAccess.protocol);
     $("input[name=porttracker-mosquitto-host]").val(
