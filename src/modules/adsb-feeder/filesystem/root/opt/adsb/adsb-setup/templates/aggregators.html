@@ -427,7 +427,7 @@
   function getAndShowRegisteredPorttrackerStations() {
     const dataSharingKey = $("#porttracker-data-sharing-key").val();
     $.ajax(
-      "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
+      "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
       {headers: {"X-Data-Sharing-Key": dataSharingKey}}
     ).done(function (userStations) {
       $("#porttracker-registered-stations").html(`
@@ -556,7 +556,7 @@
       return;
     }
     $.ajax(
-      "https://development-porttracker-api.porttracker.co/api/v1/sharing/stations",
+      "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
       {
         method: "POST",
         headers: {"X-Data-Sharing-Key": dataSharingKey},
