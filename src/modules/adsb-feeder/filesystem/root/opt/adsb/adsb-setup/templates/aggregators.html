@@ -33,7 +33,7 @@
         ADS-B
       </button>
     </h2>
-    <div id="aggregators-collapse-adsb" class="accordion-collapse collapse show" aria-labelledby="aggregators-heading-adsb">
+    <div id="aggregators-collapse-adsb" class="accordion-collapse collapse" aria-labelledby="aggregators-heading-adsb">
       <div class="accordion-body">
   <div class="col-12 form-check {% if env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}">
     <input class="form-check-input me-1" type="checkbox" name="mlat_privacy--is_enabled" id="mlat_privacy--is_enabled"
@@ -343,7 +343,7 @@
             AIS
           </button>
         </h2>
-        <div id="aggregators-collapse-ais" class="accordion-collapse collapse show" aria-labelledby="aggregators-heading-ais">
+        <div id="aggregators-collapse-ais" class="accordion-collapse collapse" aria-labelledby="aggregators-heading-ais">
           <div class="accordion-body">
             <div class="form-check col-12">
               <input type="checkbox" class="form-check-input me-1" name="porttracker-is-enabled" id="porttracker-is-enabled" {{
