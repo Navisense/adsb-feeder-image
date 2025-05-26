@@ -473,7 +473,7 @@
       + `name="porttracker-station-id" value="${userStation.station.id}" />`);
     useRadioButton.on(
       "click change", {userStation: userStation}, setPorttrackerData);
-    if (useImmediately || userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) }}) {
+    if (useImmediately || userStation.station.id == {{ list_value_by_tags(["porttracker", "station_id"], m) or "undefined" }}) {
       useRadioButton.prop("checked", true);
       useRadioButton.trigger("click");
     }
