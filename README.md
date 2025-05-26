@@ -116,3 +116,36 @@ This requires [CustomPiOS](https://github.com/guysoft/CustomPiOS) - unpack this 
 ## python app
 
 If you are looking for the sources to the adsb-setup app, they are at [src/modules/adsb-feeder/filesystem/root/opt/adsb/adsb-setup](https://github.com/dirkhh/adsb-feeder-image/tree/master/src/modules/adsb-feeder/filesystem/root/opt/adsb/adsb-setup)
+
+## Building images in Docker
+
+Since the `build-local.sh` script to build images locally is a bit fiddly and
+has a bunch of dependencies, it's also possible to build them in Docker using
+the CustomPiOS image.
+
+The way this works is by mounting the entire `src/` directory to `/distro/` in
+the container and running `build -d` (`-d` is just a new-ish feature that
+downloads the base image automatically). CustomPiOS reads the contents of the
+mounted `/distro/`, most notably `modules/` and `/config`, and builds an image
+from them. The config file (`src/config` in the repository) needs to be amended
+with a few variables for the individual run. E.g., to build an image for a
+Raspberry Pi, add
+
+```
+export BASE_ARCH=arm64
+export BASE_BOARD=raspberrypiarm64
+export BASE_USER_PASSWORD=<secret_password_for_user_pi>
+export ROOT_PWD=<secret_root_password>
+export SSH_PUB_KEY=<public_key_that_will_be_authorized_as_root>
+export FEEDER_IMAGE_NAME=adsb-im-raspberrypi64-pi-2-3-4-5-g-c7b66b23.img
+```
+
+Then call
+```
+docker run --rm -v "/path/to/adsb-feeder-image/src/:/distro/" --device /dev/loop-control --privileged guysoft/custompios:devel build -d
+```
+
+The mounted `/dev/loop-control` and `--privileged` are necessary because
+CustomPiOS at some point uses `losetup` to create and write to a loop device.
+
+On success, CustomPiOS will leave a `.img` file in `src/workspace`.
