@@ -142,10 +142,10 @@ export FEEDER_IMAGE_NAME=adsb-im-raspberrypi64-pi-2-3-4-5-g-c7b66b23.img
 
 Then call
 ```
-docker run --rm -v "/path/to/adsb-feeder-image/src/:/distro/" --device /dev/loop-control --privileged guysoft/custompios:devel build -d
+docker run --rm -v "/path/to/adsb-feeder-image/src/:/distro/" --device /dev --privileged guysoft/custompios:devel build -d
 ```
 
-The mounted `/dev/loop-control` and `--privileged` are necessary because
-CustomPiOS at some point uses `losetup` to create and write to a loop device.
+The mounted `/dev` and `--privileged` are necessary because CustomPiOS at some
+point uses `losetup` to create and write to a loop device.
 
 On success, CustomPiOS will leave a `.img` file in `src/workspace`.
