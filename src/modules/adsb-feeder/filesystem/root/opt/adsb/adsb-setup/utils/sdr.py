@@ -214,6 +214,7 @@ class SDRDevices:
             address = f"{match.group(1)}:{match.group(2)}"
         return address
 
+    # REFACTOR define possible frequencies in variable+++++++++
     @property
     def addresses_per_frequency(self, frequencies: list = [1090, 978, "ais"]):
         self._ensure_populated()
@@ -227,6 +228,7 @@ class SDRDevices:
         assignment = {}
         for sdr in self.sdrs:
             if sdr._type in ["airspy", "modesbeast", "sdrplay"]:
+                # TODO support AIS for airspy and sdrplay?++++++++++++
                 assignment.setdefault(1090, sdr._serial)
             elif sdr._type == "stratuxv3":
                 assignment.setdefault(978, sdr._serial)

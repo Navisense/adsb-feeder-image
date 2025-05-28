@@ -28,6 +28,9 @@ def print_err(*args, **kwargs):
 
 
 class Hotspot:
+    """
+    TODO++++++
+    """
     def __init__(self, wlan):
         self.app = Flask(__name__)
         self.wlan = wlan

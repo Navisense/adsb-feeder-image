@@ -2,6 +2,8 @@
 Description=ADS-B Feeder Hotspot Service
 After=network-online.target
 
+# This will only ever execute once, so it will never create a hotspot again
+after it's seen the internet even one time+++++++++
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/adsb

@@ -11,6 +11,7 @@ defaultIP = "192.168.199.1"  # we always respond with this IP
 class DNSHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
+        print(f"dns req from {self.client_address}")
         socket = self.request[1]
         data = self.request[0]
         nonzeros = data.rstrip("\0".encode())
@@ -26,6 +27,7 @@ class DNSHandler(socketserver.BaseRequestHandler):
         # Try to read questions - if they're invalid, don't respond.
         try:
             all_questions = self.dns_extract_questions(data)
+            print(f"questions: {all_questions}")
         except IndexError:
             return
 

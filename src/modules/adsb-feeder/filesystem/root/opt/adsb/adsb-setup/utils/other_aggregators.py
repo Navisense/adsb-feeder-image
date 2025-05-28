@@ -489,6 +489,8 @@ class Sdrmap(Aggregator):
         return True
 
 
+# TODO we need 2 aggregators, one PorttrackerAis and one PorttrackerAdsb,
+# complete with separate sets of env variables (mosquitto access, topic)+++++++++++
 class Porttracker(Aggregator):
     def __init__(self, system: System):
         super().__init__(
@@ -506,7 +508,7 @@ class Porttracker(Aggregator):
             mqtt_host: str, mqtt_port: str, mqtt_username: str,
             mqtt_password: str, mqtt_topic: str, site_num=0):
         mqtt_url = "{}://{}:{}@{}:{}".format(
-            mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
+            "mqtt", mqtt_username, mqtt_password, mqtt_host, "1884")
         self._d.env_by_tags(self.tags + ["station_id"]).list_set(
             site_num, station_id)
         self._d.env_by_tags(self.tags + ["data_sharing_key"]).list_set(
