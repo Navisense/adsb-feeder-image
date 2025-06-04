@@ -519,7 +519,7 @@ class Porttracker(Aggregator):
         self._d.env_by_tags(self.tags + ["mqtt_topic"]).list_set(
             site_num, mqtt_topic)
         self._d.env_by_tags(self.tags + ["mqtt_msgformat"]).list_set(
-            site_num, "JSON_FULL")
+            site_num, "JSON_NMEA")
         self._d.env_by_tags(self._enabled_tags).list_set(site_num, True)
         self._station_id = station_id
         return True
