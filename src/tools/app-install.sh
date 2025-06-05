@@ -6,11 +6,12 @@
 
 USAGE="
  $0 arguments
-  -s srcdir      # the git checkout parent dir
-  -b branch      # the branch to use (default: main)
-  -t tag         # alternatively the tag to use
-  -f             # finish an install on DietPi using dietpi-software
-  --enable-mdns  # enable the mDNS server (off by default)
+  -s srcdir        # the git checkout parent dir
+  -b branch        # the branch to use (default: main)
+  -t tag           # alternatively the tag to use
+  -f               # finish an install on DietPi using dietpi-software
+  --web-port port  # the port for the web interface (default: 1099)
+  --enable-mdns    # enable the mDNS server (off by default)
 "
 
 ROOT_REQUIRED="
@@ -40,6 +41,7 @@ BRANCH=""
 GIT_PARENT_DIR=""
 TAG=""
 FINISH_DIETPI=""
+WEB_PORT="1099"
 ENABLE_MDNS="False"
 
 while (( $# ))
@@ -52,6 +54,8 @@ do
         '-t') shift; TAG=$1
             ;;
         '-f') FINISH_DIETPI="1"
+            ;;
+        '--web-port') shift; WEB_PORT=$1
             ;;
         '--enable-mdns') ENABLE_MDNS="True"
             ;;
@@ -202,7 +206,7 @@ cd /opt/adsb/config || exit_message "can't find /opt/adsb/config"
     cat /opt/adsb/docker.image.versions
     echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)"
     echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)"
-    echo "AF_WEBPORT=1099"
+    echo "AF_WEBPORT=${WEB_PORT}"
     echo "AF_TAR1090_PORT=1090"
     echo "AF_UAT978_PORT=1091"
     echo "AF_PIAWAREMAP_PORT=1092"
@@ -225,4 +229,4 @@ echo "you can uninstall this software by running"
 echo "sudo bash /opt/adsb/app-uninstall"
 echo ""
 local_ip=$(ip route get 1 | grep -oP 'src \K\S+')
-echo "you can access the web interface at http://localhost:1099 or http://${local_ip}:1099"
+echo "you can access the web interface at http://localhost:${WEB_PORT} or http://${local_ip}:${WEB_PORT}"
