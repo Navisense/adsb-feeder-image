@@ -6,24 +6,19 @@ if [ "$(id -u)" != "0" ] ; then
     exit 1
 fi
 
-# only ever run this if this is an adsb.im feeder image - not when this is an app
-if [[ ! -f /opt/adsb/os.adsb.feeder.image ]] ; then
-    echo "don't run the avahi service when installed as app"
-    exit 1
-fi
-if [ "$1" = "" ] ; then
-    echo "usage: $0 <hostname>"
-    exit 1
+names=("adsb-feeder.local")
+if [ "$1" != "" ] ; then
+    host_name="$1"
+    host_name_no_dash="${host_name//-/}"
+    # ensure that the local hosts file includes the hostname
+    if ! grep -q "$host_name" /etc/hosts ; then
+        echo "127.0.2.1 $host_name" >> /etc/hosts
+    fi
+
+    names+=("${host_name}.local")
+    names+=("${host_name_no_dash}.local")
 fi
 
-host_name="$1"
-host_name_no_dash="${host_name//-/}"
-# ensure that the local hosts file includes the hostname
-if ! grep -q "$host_name" /etc/hosts ; then
-    echo "127.0.2.1 $host_name" >> /etc/hosts
-fi
-
-names=("${host_name}.local" "${host_name_no_dash}.local" "adsb-feeder.local")
 echo "set up mDNS aliases: ${names[@]}"
 service_names=()
 for name in "${names[@]}"; do

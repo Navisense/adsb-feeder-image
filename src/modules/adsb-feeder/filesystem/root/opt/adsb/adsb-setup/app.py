@@ -513,27 +513,39 @@ class AdsbIm:
         new_name = new_name.strip("-")[:63]
         return new_name
 
-    def set_hostname(self, site_name: str):
-        os_flag_file = self._d.data_path / "os.adsb.feeder.image"
-        if not os_flag_file.exists() or not site_name:
-            return
-        # create a valid hostname from the site name and set it up as mDNS alias
-        # initially we only allowed alpha-numeric characters, but after fixing an
-        # error in the service file, we now can allow dash (or hyphen) as well.
+    def set_hostname_and_enable_mdns(self, site_name: str):
+        # create a valid hostname from the site name and set it up as mDNS
+        # alias initially we only allowed alpha-numeric characters, but after
+        # fixing an error in the service file, we now can allow dash (or
+        # hyphen) as well.
         host_name = self.onlyAlphaNumDash(site_name)
-
-        def start_mdns():
-            subprocess.run(["/usr/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh", f"{host_name}"])
-            subprocess.run(["/usr/bin/hostnamectl", "hostname", f"{host_name}"])
-
+        should_set_hostname = self._d.is_feeder_image
+        should_start_mdns = self._d.is_enabled("mdns")
         if not host_name or self._current_site_name == site_name:
-            return
-
-        self._current_site_name = site_name
-        # print_err(f"set_hostname {site_name} {self._current_site_name}")
-
-        thread = threading.Thread(target=start_mdns)
-        thread.start()
+            should_set_hostname = False
+        else:
+            self._current_site_name = site_name
+        if should_set_hostname:
+            t = threading.Thread(
+                target=subprocess.run,
+                args=(["/usr/bin/hostnamectl", "hostname",
+                       host_name],))
+            t.start()
+            t.join()
+        if should_start_mdns:
+            if host_name:
+                # If we have a hostname, make the mDNS script create an alias
+                # for it as well.
+                setup_script_args = [host_name]
+            else:
+                # Without a hostname, just create mDNS for adsb-feeder.local.
+                setup_script_args = []
+            t = threading.Thread(
+                target=subprocess.run, args=(
+                    ["/usr/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
+                    + setup_script_args,))
+            t.start()
+            t.join()
 
     def run(self, no_server=False):
         debug = os.environ.get("ADSBIM_DEBUG") is not None
@@ -1876,7 +1888,7 @@ class AdsbIm:
         self._d.env_by_tags(["tar1090_ac_db"]).value = ac_db
 
         # make sure the avahi alias service runs on an adsb.im image
-        self.set_hostname(self._d.env_by_tags("site_name").list_get(0))
+        self.set_hostname_and_enable_mdns(self._d.env_by_tags("site_name").list_get(0))
 
         stage2_nano = False
 

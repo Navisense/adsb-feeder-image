@@ -10,6 +10,7 @@ USAGE="
   -b branch      # the branch to use (default: main)
   -t tag         # alternatively the tag to use
   -f             # finish an install on DietPi using dietpi-software
+  --enable-mdns  # enable the mDNS server (off by default)
 "
 
 ROOT_REQUIRED="
@@ -39,6 +40,7 @@ BRANCH=""
 GIT_PARENT_DIR=""
 TAG=""
 FINISH_DIETPI=""
+ENABLE_MDNS="False"
 
 while (( $# ))
 do
@@ -50,6 +52,8 @@ do
         '-t') shift; TAG=$1
             ;;
         '-f') FINISH_DIETPI="1"
+            ;;
+        '--enable-mdns') ENABLE_MDNS="True"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -204,6 +208,7 @@ cd /opt/adsb/config || exit_message "can't find /opt/adsb/config"
     echo "AF_PIAWAREMAP_PORT=1092"
     echo "AF_PIAWARESTAT_PORT=1093"
     echo "AF_DAZZLE_PORT=1094"
+    echo "AF_IS_MDNS_ENABLED=${ENABLE_MDNS}"
  } >> .env
 
 # run the final steps of the setup and then enable the services

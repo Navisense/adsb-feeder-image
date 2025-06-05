@@ -369,6 +369,7 @@ class Data:
             "_ADSBIM_STATE_BOARD_NAME",
             tags=["board_name", "norestore"],
         ),
+        Env("AF_IS_MDNS_ENABLED", default=True, tags=["mdns", "is_enabled"]),
         # ports used by our proxy system
         Env("AF_WEBPORT", default=80, tags=["webport", "norestore"]),
         Env("AF_DAZZLE_PORT", default=9999, tags=["dazzleport", "norestore"]),
