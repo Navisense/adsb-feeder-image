@@ -70,7 +70,7 @@ if [[ $FINISH_DIETPI == "1" ]] ; then
         # shellcheck disable=SC1091
         source /boot/dietpi/.version
         OS="DietPi ${G_DIETPI_VERSION_CORE}.${G_DIETPI_VERSION_SUB}"
-        echo "app-install from $OS" > /opt/adsb/adsb.im.previous-version
+        echo "app-install from $OS" > ${APP_DIR}/adsb.im.previous-version
         # and for now that's all we need
         exit 0
     else
@@ -196,16 +196,16 @@ elif [[ -f /etc/os-release ]] ; then
 else
     OS="unrecognized OS"
 fi
-echo "app-install" > /opt/adsb/adsb.im.previous-version
+echo "app-install" > ${APP_DIR}/adsb.im.previous-version
 echo "ADS-B Feeder app running on ${OS}" > feeder-image.name
 echo "$ADSB_IM_VERSION" > adsb.im.version
-touch /opt/adsb/app.adsb.feeder.image
+touch ${APP_DIR}/app.adsb.feeder.image
 
-cd /opt/adsb/config || exit_message "can't find /opt/adsb/config"
+cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 {
-    cat /opt/adsb/docker.image.versions
-    echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)"
-    echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)"
+    cat ${APP_DIR}/docker.image.versions
+    echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"
+    echo "_ADSBIM_CONTAINER_VERSION=$(cat ${APP_DIR}/adsb.im.version)"
     echo "AF_WEBPORT=${WEB_PORT}"
     echo "AF_TAR1090_PORT=1090"
     echo "AF_UAT978_PORT=1091"
@@ -222,11 +222,11 @@ systemctl enable --now adsb-setup
 
 # while the user is getting ready, let's try to pull the key docker
 # containers in the background -- that way startup will feel quicker
-systemd-run -u adsb-docker-pull bash /opt/adsb/docker-pull.sh
+systemd-run -u adsb-docker-pull bash ${APP_DIR}/docker-pull.sh
 
 echo "done installing"
 echo "you can uninstall this software by running"
-echo "sudo bash /opt/adsb/app-uninstall"
+echo "sudo bash ${APP_DIR}/app-uninstall"
 echo ""
 local_ip=$(ip route get 1 | grep -oP 'src \K\S+')
 echo "you can access the web interface at http://localhost:${WEB_PORT} or http://${local_ip}:${WEB_PORT}"
