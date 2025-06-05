@@ -90,6 +90,7 @@ cp /opt/adsb/accesspoint/isc-dhcp-server /etc/default/isc-dhcp-server
 if [[ $wlan != "wlan0" ]] ; then
     sed -i "s/wlan0/$wlan/g" /etc/default/isc-dhcp-server
     sed -i "s/wlan0/$wlan/g" /etc/hostapd/hostapd.conf
+    # TODO also replace in avahi service +++++++++++++
 fi
 
 systemctl unmask hostapd.service isc-dhcp-server.service &>/dev/null
@@ -102,7 +103,7 @@ done
 while true; do
     echo "No internet connection detected, starting access point"
     python3 /opt/adsb/adsb-setup/hotspot-app.py "$wlan"
-    if check_network 30; then
+    if check_network 8; then
         break
     fi
 done

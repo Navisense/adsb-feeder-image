@@ -169,7 +169,7 @@ class Data:
         Env("UAT_SDR_GAIN", default="autogain", tags=["uatgain"]),
         Env("FEEDER_SERIAL_1090", tags=["1090serial"]),
         Env("FEEDER_SERIAL_978", tags=["978serial"]),
-        Env("FEEDER_SERIAL_AIS", tags=["aisserial"]),
+        Env("FEEDER_SERIAL_AIS", tags=["aisserial"]), # Added for Porttracker
         Env("FEEDER_UAT_DEVICE_TYPE", default="rtlsdr", tags=["uat_device_type"]),
         Env("FEEDER_UNUSED_SERIAL_0", tags=["other-0"]),
         Env("FEEDER_UNUSED_SERIAL_1", tags=["other-1"]),
@@ -327,37 +327,37 @@ class Data:
             "FEEDER_PORTTRACKER_DATA_SHARING_KEY",
             default=[""],
             tags=["porttracker", "key", "data_sharing_key"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_STATION_ID",
             default=[""],
             tags=["porttracker", "station_id"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_MQTT_URL",
             default=[""],
             tags=["porttracker", "mqtt_url"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_MQTT_CLIENT_ID",
             default=[""],
             tags=["porttracker", "mqtt_client_id"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_MQTT_QOS",
             default=[""],
             tags=["porttracker", "mqtt_qos"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_MQTT_TOPIC",
             default=[""],
             tags=["porttracker", "mqtt_topic"],
-        ),
+        ), # Added for Porttracker
         Env(
             "FEEDER_PORTTRACKER_MQTT_MSGFORMAT",
             default=[""],
             tags=["porttracker", "mqtt_msgformat"],
-        ),
+        ), # Added for Porttracker
         # ADSB.im specific
         Env("_ADSBIM_AGGREGATORS_SELECTION", tags=["aggregator_choice"]),
         Env(
@@ -460,7 +460,7 @@ class Data:
             "AF_IS_PORTTRACKER_ENABLED",
             default=[False],
             tags=["other_aggregator", "is_enabled", "porttracker"],
-        ),
+        ), # Added for Porttracker
         Env(
             "AF_IS_AIRSPY_ENABLED",
             tags=["airspy", "is_enabled"],

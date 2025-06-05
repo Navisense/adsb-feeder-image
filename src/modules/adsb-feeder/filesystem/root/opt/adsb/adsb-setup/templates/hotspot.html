@@ -76,6 +76,9 @@
       available on that WiFi network as <code>adsb-feeder.local</code>. If the connection fails, the feeder will once
       again bring up this hotspot and you can try entering the credentials again.
     </div>
+    <div id="mdns-status">
+      <!-- TODO also display if mdns is disabled in the app -->
+    </div>
     {% endif %}
     <footer class="text-center text-lg-start bg-light text-muted">
       <hr class="mt-5" />
@@ -89,6 +92,30 @@
     </footer>
   </div>
   <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+  <script>
+    let statusDiv = document.getElementById("mdns-status");
+    statusDiv.innerHTML = "fail";
+    // let reachable = false;
+    checkReachability();
+    // while (true) {
+    //   isHealthy()
+    //   setTimeout(isHealthy, 2000);
+    // }
+
+    function checkReachability() {
+      let req = new XMLHttpRequest();
+      req.open("GET", "http://example.org/healthz", false);
+      req.send();
+      let example_status = req.status;
+      req = new XMLHttpRequest();
+      req.open("GET", "http://adsb-feeder.local/healthz", false);
+      req.send();
+      let adsb_feeder_status = req.status;
+      statusDiv.innerHTML = `example.org status: ${example_status}, adsb-feeder.local status: ${adsb_feeder_status}`;
+
+      setTimeout(checkReachability, 2000);
+    }
+  </script>
 </body>
 
 </html>

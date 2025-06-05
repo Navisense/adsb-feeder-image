@@ -1,7 +1,12 @@
 [Unit]
 Description=ADS-B Feeder Hotspot Service
-After=network-online.target
+#Requires=adsb-avahi-alias@$adsb-feeder.local.service
+After=network-online.target adsb-avahi-alias@$adsb-feeder.local.service
 
+# This will only ever execute once, so it will never create a hotspot again
+# after it's seen the internet even one time+++++++++
+# If we do restart, we probably also have to restart the avahi services, which
+broadcast the old ip+++++++++
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/adsb

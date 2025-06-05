@@ -318,6 +318,7 @@ p2p_disabled=1
                 print_err(f"found SSIDs: {ssids}")
                 self.ssids = ssids
             else:
+                # TODO gets logged a whole lot+++++++
                 print_err("no SSIDs found")
 
         except Exception as e:

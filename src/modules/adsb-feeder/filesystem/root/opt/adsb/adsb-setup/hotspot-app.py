@@ -11,6 +11,7 @@ import time
 import traceback
 from flask import (
     Flask,
+    make_response,
     redirect,
     render_template,
     request,
@@ -28,6 +29,9 @@ def print_err(*args, **kwargs):
 
 
 class Hotspot:
+    """
+    TODO++++++
+    """
     def __init__(self, wlan):
         self.app = Flask(__name__)
         self.wlan = wlan
@@ -44,6 +48,7 @@ class Hotspot:
         self._dnsserver = None
         self._dns_thread = None
         self._baseos = self.wifi.baseos
+        # TODO this would immediately trip up postmarketos+++++++++
         if self._baseos == "unknown":
             print_err("unknown baseos - giving up")
             sys.exit(1)
@@ -56,6 +61,8 @@ class Hotspot:
             if len(self.wifi.ssids) > 0:
                 break
 
+        self.app.add_url_rule(
+            "/healthz", view_func=self.healthz, methods=["OPTIONS", "GET"])
         self.app.add_url_rule("/hotspot", view_func=self.hotspot, methods=["GET"])
         self.app.add_url_rule("/restarting", view_func=self.restarting)
 
@@ -68,6 +75,18 @@ class Hotspot:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule("/<path:path>", view_func=self.catch_all, methods=["GET", "POST"])
+
+
+    def healthz(self):
+        if request.method == "OPTIONS":
+            response = make_response()
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add("Access-Control-Allow-Headers", "*")
+            response.headers.add("Access-Control-Allow-Methods", "*")
+        else:
+            response = make_response("ok")
+            response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
 
     def restart(self):
         return self.restart_state
@@ -166,11 +185,16 @@ class Hotspot:
             f"systemctl start isc-dhcp-server.service",
             shell=True,
         )
+        time.sleep(2)
+        subprocess.run(
+            f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
+            shell=True,
+        )
         print_err("started hotspot")
 
     def teardown_hotspot(self):
         subprocess.run(
-            f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
+            f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service ; systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,
         )
         if self._baseos == "dietpi":

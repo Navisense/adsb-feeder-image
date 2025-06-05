@@ -29,12 +29,12 @@ class DNSHandler(socketserver.BaseRequestHandler):
         except IndexError:
             return
 
-        # Filter only those questions, which have QTYPE=A and QCLASS=IN
-        accepted_questions = []
-        for question in all_questions:
-            name = str(b".".join(question["name"]), encoding="UTF-8")
-            if question["qtype"] == b"\x00\x01" and question["qclass"] == b"\x00\x01":
-                accepted_questions.append(question)
+        accepted_questions = [
+            q for q in all_questions if self._should_accept_question(q)]
+        # for question in all_questions:
+        #     name = str(b".".join(question["name"]), encoding="UTF-8")
+        #     if question["qtype"] == b"\x00\x01" and question["qclass"] == b"\x00\x01":
+        #         accepted_questions.append(question)
 
         response = (
             self.dns_response_header(data)
@@ -42,6 +42,20 @@ class DNSHandler(socketserver.BaseRequestHandler):
             + self.dns_response_answers(accepted_questions)
         )
         socket.sendto(response, self.client_address)
+
+    def _should_accept_question(self, question):
+        try:
+            tld = question["name"][-1]
+            if tld == b"local":
+                # Don't answer DNS queries for names under .local. Those are
+                # mDNS names that should be answered by the avahi service.
+                return False
+        except IndexError:
+            pass
+        # Filter only those questions, which have QTYPE=A and QCLASS=IN
+        return (
+            question["qtype"] == b"\x00\x01"
+            and question["qclass"] == b"\x00\x01")
 
     def dns_extract_questions(self, data):
         """

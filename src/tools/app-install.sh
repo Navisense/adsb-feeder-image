@@ -78,6 +78,11 @@ if [[ $FINISH_DIETPI == "1" ]] ; then
     fi
 fi
 
+# TODO software checks:+++++++
+# - what's already in here
+# - git
+# - various alpine-specific stuff
+
 if [[ $GIT_PARENT_DIR == '' ]] ; then
     GIT_PARENT_DIR=$(mktemp -d)
     # shellcheck disable=SC2064
@@ -107,6 +112,8 @@ echo "You appear to be on a ${distro}-style distribution"
 # - git
 # - docker
 # - docker compose
+# TODO also check busybox replacements+++++
+# TODO mdns for app, also check avahi++++++++++
 missing=""
 if which python3 &> /dev/null ; then
 	python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 6" &> /dev/null && missing="python3 "

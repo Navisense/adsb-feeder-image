@@ -167,6 +167,8 @@ class AdsbIm:
                 open(os_flag_file, "w").close()
 
         if not os_flag_file.exists():
+            # TODO this disables much of the system management page for
+            # unknown oss++++++++++
             # we are running as an app under DietPi or some other OS
             self._d.is_feeder_image = False
             with open(self._d.data_path / "adsb-setup/templates/systemmgmt.html", "r+") as systemmgmt_file:
