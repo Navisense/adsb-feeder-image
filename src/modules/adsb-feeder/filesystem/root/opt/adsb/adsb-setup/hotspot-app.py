@@ -6,9 +6,8 @@ import socketserver
 import subprocess
 import sys
 import threading
-import tempfile
 import time
-import traceback
+
 from flask import (
     Flask,
     make_response,
@@ -16,7 +15,7 @@ from flask import (
     render_template,
     request,
 )
-from sys import argv
+
 from fakedns import DNSHandler
 import utils.data
 from utils.wifi import Wifi
@@ -52,7 +51,6 @@ class Hotspot:
             sys.exit(1)
         print_err("trying to scan for SSIDs")
         self.wifi.ssids = []
-        i = 0
         startTime = time.time()
         while time.time() - startTime < 20:
             self.wifi.scan_ssids()
@@ -259,8 +257,8 @@ class Hotspot:
 
 if __name__ == "__main__":
     wlan = "wlan0"
-    if len(argv) == 2:
-        wlan = argv[1]
+    if len(sys.argv) == 2:
+        wlan = sys.argv[1]
     print_err(f"starting hotspot for {wlan}")
     hotspot = Hotspot(wlan)
 
