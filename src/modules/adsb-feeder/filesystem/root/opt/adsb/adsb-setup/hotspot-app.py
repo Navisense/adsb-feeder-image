@@ -18,6 +18,7 @@ from flask import (
 )
 from sys import argv
 from fakedns import DNSHandler
+import utils.data
 from utils.wifi import Wifi
 
 
@@ -30,6 +31,7 @@ def print_err(*args, **kwargs):
 
 class Hotspot:
     def __init__(self, wlan):
+        self._d = utils.data.Data()
         self.app = Flask(__name__)
         self.wlan = wlan
         self.wifi = Wifi(wlan)
@@ -90,7 +92,7 @@ class Hotspot:
     def hotspot(self):
         return render_template(
             "hotspot.html", version=self.version, comment=self.comment,
-            ssids=self.wifi.ssids)
+            ssids=self.wifi.ssids, mdns_enabled=self._d.is_enabled("mdns"))
 
     def catch_all(self, path):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -181,17 +183,14 @@ class Hotspot:
             f"systemctl start isc-dhcp-server.service",
             shell=True,
         )
-        subprocess.run(
-            f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
-            shell=True,
-        )
+        if self._d.is_enabled("mdns"):
+            subprocess.run(
+                f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
+                shell=True,
+            )
         print_err("started hotspot")
 
     def teardown_hotspot(self):
-        subprocess.run(
-            f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",
-            shell=True,
-        )
         subprocess.run(
             f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,
