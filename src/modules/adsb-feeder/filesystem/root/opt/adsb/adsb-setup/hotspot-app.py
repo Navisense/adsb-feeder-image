@@ -191,6 +191,11 @@ class Hotspot:
         print_err("started hotspot")
 
     def teardown_hotspot(self):
+        if self._d.is_enabled("mdns"):
+            subprocess.run(
+                f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",
+                shell=True,
+            )
         subprocess.run(
             f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,
