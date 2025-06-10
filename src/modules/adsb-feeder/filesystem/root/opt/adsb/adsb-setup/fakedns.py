@@ -2,6 +2,7 @@
 # (c) 2014 Patryk Hes
 # released under the MIT license
 import socketserver
+import struct
 import sys
 
 DNS_HEADER_LENGTH = 12
@@ -29,19 +30,28 @@ class DNSHandler(socketserver.BaseRequestHandler):
         except IndexError:
             return
 
-        # Filter only those questions, which have QTYPE=A and QCLASS=IN
-        accepted_questions = []
-        for question in all_questions:
-            name = str(b".".join(question["name"]), encoding="UTF-8")
-            if question["qtype"] == b"\x00\x01" and question["qclass"] == b"\x00\x01":
-                accepted_questions.append(question)
+        accepted_questions = [
+            q for q in all_questions if self._should_accept_question(q)]
 
         response = (
-            self.dns_response_header(data)
+            self.dns_response_header(data, len(accepted_questions))
             + self.dns_response_questions(accepted_questions)
             + self.dns_response_answers(accepted_questions)
         )
         socket.sendto(response, self.client_address)
+
+    def _should_accept_question(self, question):
+        if (question["name"][-1:] == [b"local"]
+                or question["name"][-3:] == [b"local", b"adsb-feeder", b"im"]):
+            # Don't answer DNS queries for names under .local or
+            # local.adsb-feeder.im (where adsb-feeder.im is the DNS suffix
+            # advertised via DHCP). Those are mDNS names that should be
+            # answered by the avahi service.
+            return False
+        # Filter only those questions, which have QTYPE=A and QCLASS=IN
+        return (
+            question["qtype"] == b"\x00\x01"
+            and question["qclass"] == b"\x00\x01")
 
     def dns_extract_questions(self, data):
         """
@@ -77,11 +87,12 @@ class DNSHandler(socketserver.BaseRequestHandler):
             questions.append(question)
         return questions
 
-    def dns_response_header(self, data):
+    def dns_response_header(self, data, num_answers):
         """
         Generates DNS response header.
         See http://tools.ietf.org/html/rfc1035 4.1.1. Header section format.
         """
+        assert num_answers < 2**16
         header = b""
         # ID - copy it from request
         header += data[:2]
@@ -96,8 +107,8 @@ class DNSHandler(socketserver.BaseRequestHandler):
         header += b"\x80\x00"
         # QDCOUNT - question entries count, set to QDCOUNT from request
         header += data[4:6]
-        # ANCOUNT - answer records count, set to QDCOUNT from request
-        header += data[4:6]
+        # ANCOUNT - answer records count, set to number of accepter answers
+        header += struct.pack("!H", num_answers)
         # NSCOUNT - authority records count, set to 0
         header += b"\x00\x00"
         # ARCOUNT - additional records count, set to 0

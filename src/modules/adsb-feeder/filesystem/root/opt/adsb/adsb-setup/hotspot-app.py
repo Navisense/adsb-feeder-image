@@ -11,6 +11,7 @@ import time
 import traceback
 from flask import (
     Flask,
+    make_response,
     redirect,
     render_template,
     request,
@@ -56,6 +57,8 @@ class Hotspot:
             if len(self.wifi.ssids) > 0:
                 break
 
+        self.app.add_url_rule(
+            "/healthz", view_func=self.healthz, methods=["OPTIONS", "GET"])
         self.app.add_url_rule("/hotspot", view_func=self.hotspot, methods=["GET"])
         self.app.add_url_rule("/restarting", view_func=self.restarting)
 
@@ -68,6 +71,18 @@ class Hotspot:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule("/<path:path>", view_func=self.catch_all, methods=["GET", "POST"])
+
+
+    def healthz(self):
+        if request.method == "OPTIONS":
+            response = make_response()
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add("Access-Control-Allow-Headers", "*")
+            response.headers.add("Access-Control-Allow-Methods", "*")
+        else:
+            response = make_response("ok")
+            response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
 
     def restart(self):
         return self.restart_state
@@ -166,9 +181,17 @@ class Hotspot:
             f"systemctl start isc-dhcp-server.service",
             shell=True,
         )
+        subprocess.run(
+            f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
+            shell=True,
+        )
         print_err("started hotspot")
 
     def teardown_hotspot(self):
+        subprocess.run(
+            f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",
+            shell=True,
+        )
         subprocess.run(
             f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,

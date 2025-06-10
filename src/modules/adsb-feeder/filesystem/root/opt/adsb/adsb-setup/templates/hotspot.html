@@ -76,6 +76,8 @@
       available on that WiFi network as <code>adsb-feeder.local</code>. If the connection fails, the feeder will once
       again bring up this hotspot and you can try entering the credentials again.
     </div>
+    <div id="mdns-status">
+    </div>
     {% endif %}
     <footer class="text-center text-lg-start bg-light text-muted">
       <hr class="mt-5" />
@@ -89,6 +91,73 @@
     </footer>
   </div>
   <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+  <script>
+    const checkUntil = Date.now() + 300 * 1000;
+    let hasTimedOut = false;
+    let stati = {"example.org": null, "adsb-feeder.local": null};
+    updateStatusDisplay();
+    sendCheckRequests();
+
+    function sendCheckRequests() {
+      let checkAgain = false;
+      for (const [domain, previousStatus] of Object.entries(stati)) {
+        if (previousStatus == "success") {
+          continue;
+        }
+        checkAgain = true;
+        let req = new XMLHttpRequest();
+        req.timeout = 1000;
+        function updateStatus(status) {
+          return (_) => {
+            stati[domain] = status;
+            hasTimedOut = Date.now() > checkUntil;
+            if (hasTimedOut || status != previousStatus) {
+              updateStatusDisplay();
+            }
+          };
+        }
+        req.onload =  updateStatus("success");
+        req.onerror = updateStatus("error");
+        req.ontimeout = updateStatus("timeout");
+        req.open("GET", `http://${domain}/healthz`);
+        req.send();
+      }
+      if (!hasTimedOut && checkAgain) {
+        setTimeout(sendCheckRequests, 3000);
+      }
+    }
+
+    function updateStatusDisplay() {
+      let kindClass, title, message;
+      if (hasTimedOut) {
+        kindClass = "text-bg-danger";
+        title = "mDNS is not working";
+        message = "Unable to contact the feeder as adsb-feeder.local.";
+      } else if (stati["example.org"] != "success") {
+        kindClass = "text-bg-info";
+        title = "Checking mDNS status";
+        message = "Trying to reach the feeder. This may take a little while.";
+      } else if (stati["adsb-feeder.local"] != "success") {
+        kindClass = "text-bg-warning";
+        title = "Checking mDNS status";
+        message = "The feeder can be reached, but not yet as "
+          + "adsb-feeder.local.";
+      } else {
+        kindClass = "text-bg-success";
+        title = "mDNS is working";
+        message = "The feeder can be reached as adsb-feeder.local, looks like "
+          + "mDNS is working.";
+      }
+      let statusDiv = document.getElementById("mdns-status");
+      statusDiv.innerHTML = `
+        <div class="card ${kindClass} mb-3">
+          <div class="card-body">
+            <h5 class="card-title">${title}</h5>
+            <p class="card-text">${message}</p>
+          </div>
+        </div>`;
+    }
+  </script>
 </body>
 
 </html>
