@@ -110,6 +110,7 @@ echo "You appear to be on a ${distro}-style distribution"
 # - docker compose
 # - jq
 # - usbutils
+# - avahi (if mDNS is enabled)
 PKG_NAME_PYTHON3="python3"
 PKG_NAME_PYTHON3_FLASK="python3-flask"
 PKG_NAME_PYTHON3_REQUESTS="python3-requests"
@@ -118,8 +119,14 @@ PKG_NAME_DOCKER="docker"
 PKG_NAME_DOCKER_COMPOSE="docker-compose"
 PKG_NAME_USBUTILS="usbutils"
 PKG_NAME_JQ="jq"
+PKG_NAME_AVAHI="avahi"
+PKG_NAME_AVAHI_TOOLS="avahi-tools"
 if [ "$distro" == "debian" ]; then
     PKG_NAME_DOCKER="docker.io"
+    PKG_NAME_AVAHI="avahi-daemon"
+    PKG_NAME_AVAHI_TOOLS="avahi-utils"
+elif [ "$distro" == "suse" ]; then
+    PKG_NAME_AVAHI_TOOLS="avahi-utils"
 elif [ "$distro" == "postmarketos" ]; then
     PKG_NAME_PYTHON3_FLASK="py3-flask"
     PKG_NAME_PYTHON3_REQUESTS="py3-requests"
@@ -149,6 +156,15 @@ fi
 
 if ! which jq &> /dev/null; then
     missing+="${PKG_NAME_JQ} "
+fi
+
+if [ "${ENABLE_MDNS}" == "True" ] ; then
+    if ! which avahi-daemon &> /dev/null; then
+        missing+="${PKG_NAME_AVAHI} "
+    fi
+    if ! which avahi-publish &> /dev/null; then
+        missing+="${PKG_NAME_AVAHI_TOOLS} "
+    fi
 fi
 
 if [ "$distro" == "postmarketos" ]; then
@@ -272,6 +288,9 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the services
 systemctl daemon-reload
+if [ "${ENABLE_MDNS}" == "True" ] ; then
+    systemctl enable --now avahi-daemon
+fi
 systemctl enable --now adsb-docker
 systemctl enable --now adsb-setup
 
