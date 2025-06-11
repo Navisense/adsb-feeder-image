@@ -90,6 +90,7 @@ cp /opt/adsb/accesspoint/isc-dhcp-server /etc/default/isc-dhcp-server
 if [[ $wlan != "wlan0" ]] ; then
     sed -i "s/wlan0/$wlan/g" /etc/default/isc-dhcp-server
     sed -i "s/wlan0/$wlan/g" /etc/hostapd/hostapd.conf
+    sed -i "s/wlan0/$wlan/g" /lib/systemd/system/adsb-avahi-alias@.service
 fi
 
 systemctl unmask hostapd.service isc-dhcp-server.service &>/dev/null
