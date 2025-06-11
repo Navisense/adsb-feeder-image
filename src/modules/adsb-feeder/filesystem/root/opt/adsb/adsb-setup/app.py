@@ -542,7 +542,7 @@ class AdsbIm:
                 setup_script_args = []
             t = threading.Thread(
                 target=subprocess.run, args=(
-                    ["/usr/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
+                    ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
                     + setup_script_args,))
             t.start()
             t.join()
