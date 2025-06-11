@@ -31,6 +31,7 @@ get_distro() {
     grep -i centos /etc/os-release &> /dev/null && distro="fedora"
     grep -i suse /etc/os-release &> /dev/null && distro="suse"
     grep -i debian /etc/os-release &> /dev/null && distro="debian"
+    grep -i postmarketos /etc/os-release &> /dev/null && distro="postmarketos"
     echo $distro
 }
 
@@ -107,39 +108,93 @@ echo "You appear to be on a ${distro}-style distribution"
 # - git
 # - docker
 # - docker compose
+# - jq
+# - usbutils
+PKG_NAME_PYTHON3="python3"
+PKG_NAME_PYTHON3_FLASK="python3-flask"
+PKG_NAME_PYTHON3_REQUESTS="python3-requests"
+PKG_NAME_GIT="git"
+PKG_NAME_DOCKER="docker"
+PKG_NAME_DOCKER_COMPOSE="docker-compose"
+PKG_NAME_USBUTILS="usbutils"
+PKG_NAME_JQ="jq"
+if [ "$distro" == "debian" ]; then
+    PKG_NAME_DOCKER="docker.io"
+elif [ "$distro" == "postmarketos" ]; then
+    PKG_NAME_PYTHON3_FLASK="py3-flask"
+    PKG_NAME_PYTHON3_REQUESTS="py3-requests"
+    PKG_NAME_DOCKER_COMPOSE="docker-cli-compose"
+fi
 missing=""
 if which python3 &> /dev/null ; then
-	python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 6" &> /dev/null && missing="python3 "
-	python3 -c "import requests" &>/dev/null || missing="python3-requests "
-	python3 -c "import flask" &>/dev/null || missing="python3-flask "
-	python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing="python3-flask "
+    python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 6" &> /dev/null && missing+="${PKG_NAME_PYTHON3} "
+    python3 -c "import requests" &>/dev/null || missing+="${PKG_NAME_PYTHON3_REQUESTS} "
+    python3 -c "import flask" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
+    python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
 else
-	missing="python3 python3-flask python3-requests "
+    missing+="${PKG_NAME_PYTHON3} ${PKG_NAME_PYTHON3_FLASK} ${PKG_NAME_PYTHON3_REQUESTS} "
 fi
-which git &> /dev/null || missing+="git "
+
+which git &> /dev/null || missing+="${PKG_NAME_GIT} "
+
 if which docker &> /dev/null ; then
-	 ! docker compose version &> /dev/null && ! docker-compose version &> /dev/null && missing+="docker-compose "
+	 ! docker compose version &> /dev/null && ! docker-compose version &> /dev/null && missing+="${PKG_NAME_DOCKER_COMPOSE} "
 else
-    if [ "$distro" == "debian" ]; then
-        missing+="docker.io docker-compose "
-    else
-        missing+="docker docker-compose "
-    fi
+    missing+="${PKG_NAME_DOCKER} ${PKG_NAME_DOCKER_COMPOSE} "
 fi
 
 if ! which lsusb &> /dev/null; then
-    missing+="usbutils "
+    missing+="${PKG_NAME_USBUTILS} "
+fi
+
+if ! which jq &> /dev/null; then
+    missing+="${PKG_NAME_JQ} "
+fi
+
+if [ "$distro" == "postmarketos" ]; then
+    # PostmarketOS is based on Alpine, which is missing some tools and uses
+    # busybox instead of full-featured versions that we need.
+
+    # busybox' lsusb doesn't have a real -v option (just doesn't show details).
+    # The real verbose output has the word "Descriptor" in it a bunch of times.
+    if ! lsusb -v 2> /dev/null | grep Descriptor &> /dev/null; then
+        missing+="${PKG_NAME_USBUTILS} "
+    fi
+
+    # busybox' grep is missing the -P option.
+    if ! grep -P postmarketos /etc/os-release &> /dev/null ; then
+        missing+="grep "
+    fi
+
+    # busybox' ps is missing the -q option.
+    if ! ps -q1 &> /dev/null ; then
+        missing+="procps "
+    fi
+
+    if ! which bash &> /dev/null; then
+        missing+="bash "
+    fi
 fi
 
 if [[ $missing != "" ]] ; then
-	inst=""
+    inst=""
         [ "$distro" == "fedora" ] && inst="dnf install -y"
         [ "$distro" == "suse" ] && inst="zypper install -y"
         [ "$distro" == "debian" ] && inst="apt-get install -y"
+        [ "$distro" == "postmarketos" ] && inst="apk add"
 
-	echo "Please install the missing packages before re-running this script:"
-	echo "$inst $missing"
-	exit 1
+    echo "Please install the missing packages before re-running this script:"
+    echo "$inst $missing"
+    exit 1
+fi
+
+if [ "$distro" == "postmarketos" ]; then
+    # Alpine-based PostmarketOS doesn't have a /etc/timezone (which is a glibc
+    # thing), but we need it to mount into containers. Parse the timezone out of
+    # timedatectl.
+    if [ ! -f /etc/timezone ] ; then
+        timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
+    fi
 fi
 
 # ok, now we should have all we need, let's get started
