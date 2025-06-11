@@ -1,6 +1,6 @@
 services:
   shipfeeder:
-    image: ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-45241
+    image: ${SHIPFEEDER_CONTAINER}
     container_name: shipfeeder
     hostname: shipfeeder
     restart: unless-stopped

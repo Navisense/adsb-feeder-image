@@ -15,4 +15,4 @@ SDRPLAY_CONTAINER=ghcr.io/sdr-enthusiasts/docker-sdrplay-beast1090:latest-build-
 WEBPROXY_CONTAINER=ghcr.io/sdr-enthusiasts/docker-reversewebproxy:latest-build-683
 DOZZLE_CONTAINER=ghcr.io/amir20/dozzle:v8.11.7
 ALPINE_CONTAINER=alpine:3.21.3
-SHIPFEEDER_CONTAINER=ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-45241
+SHIPFEEDER_CONTAINER=ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-1731
