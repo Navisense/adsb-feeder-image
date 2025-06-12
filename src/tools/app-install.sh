@@ -215,7 +215,7 @@ fi
 
 # ok, now we should have all we need, let's get started
 
-if ! git clone 'https://github.com/dirkhh/adsb-feeder-image.git' "$GIT_PARENT_DIR"/adsb-feeder ; then
+if ! git clone 'https://github.com/Navisense/adsb-feeder-image.git' "$GIT_PARENT_DIR"/adsb-feeder ; then
     exit_message "cannot check out the git repo to ${GIT_PARENT_DIR}"
 fi
 
