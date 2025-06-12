@@ -507,6 +507,7 @@ class Porttracker(Aggregator):
             mqtt_password: str, mqtt_topic: str, site_num=0):
         mqtt_url = "{}://{}:{}@{}:{}".format(
             mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
+        client_id = f"{mqtt_username}-{station_id}"
         self._d.env_by_tags(self.tags + ["station_id"]).list_set(
             site_num, station_id)
         self._d.env_by_tags(self.tags + ["data_sharing_key"]).list_set(
@@ -514,7 +515,7 @@ class Porttracker(Aggregator):
         self._d.env_by_tags(self.tags + ["mqtt_url"]).list_set(
             site_num, mqtt_url)
         self._d.env_by_tags(self.tags + ["mqtt_client_id"]).list_set(
-            site_num, mqtt_username)
+            site_num, client_id)
         self._d.env_by_tags(self.tags + ["mqtt_qos"]).list_set(site_num, "0")
         self._d.env_by_tags(self.tags + ["mqtt_topic"]).list_set(
             site_num, mqtt_topic)
