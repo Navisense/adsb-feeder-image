@@ -499,14 +499,16 @@ class AdsbIm:
         if not self._d.is_enabled("app_init_done"):
             # ok, we don't have them explicitly set, so let's set them up
             # with the app defaults
-            self._d.env_by_tags("webport").value = 1099
-            self._d.env_by_tags("tar1090port").value = 1090
-            self._d.env_by_tags("uatport").value = 1091
-            self._d.env_by_tags("piamapport").value = 1092
-            self._d.env_by_tags("piastatport").value = 1093
-            self._d.env_by_tags("dazzleport").value = 1094
-
-            self._d.env_by_tags("app_init_done").value = True
+            for tag, default in [
+                ("webport", 1099),
+                ("tar1090port", 1090),
+                ("uatport", 1091),
+                ("piamapport", 1092),
+                ("piastatport", 1093),
+                ("dazzleport", 1094),
+                ("dazzleport", 1094),]:
+                if self._d.env_by_tags(tag).value is None:
+                    self._d.env_by_tags("app_init_done").value = default
 
     def onlyAlphaNumDash(self, name):
         new_name = "".join(c for c in name if c.isalnum() or c == "-")
