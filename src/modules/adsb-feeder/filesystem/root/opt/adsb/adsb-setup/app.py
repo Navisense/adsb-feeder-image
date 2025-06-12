@@ -167,6 +167,8 @@ class AdsbIm:
                 open(os_flag_file, "w").close()
 
         if not os_flag_file.exists():
+            # TODO this disables much of the system management page for
+            # unknown oss++++++++++
             # we are running as an app under DietPi or some other OS
             self._d.is_feeder_image = False
             with open(self._d.data_path / "adsb-setup/templates/systemmgmt.html", "r+") as systemmgmt_file:
@@ -499,6 +501,8 @@ class AdsbIm:
         if not self._d.is_enabled("app_init_done"):
             # ok, we don't have them explicitly set, so let's set them up
             # with the app defaults
+            # TODO the .value will actually be the defaul (e.g. 80), not None,
+            # so this doesn't work++++++++++++
             for tag, default in [
                 ("webport", 1099),
                 ("tar1090port", 1090),
@@ -1036,6 +1040,7 @@ class AdsbIm:
         for submit_key in self._other_aggregators.keys():
             key = submit_key.replace("--submit", "")
             if self._d.list_is_enabled(key, idx=0):
+                # TODO this gets logged on pi pmos. is that ok?++++++++
                 print_err(f"no semi-anonymous aggregator, but enabled {key}")
                 return True
 

@@ -103,7 +103,7 @@ done
 while true; do
     echo "No internet connection detected, starting access point"
     python3 /opt/adsb/adsb-setup/hotspot-app.py "$wlan"
-    if check_network 30; then
+    if check_network 8; then
         break
     fi
 done

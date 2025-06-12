@@ -75,6 +75,7 @@ done
 [[ -d /opt/adsb/config ]] || mkdir -p /opt/adsb/config
 cd /opt/adsb/config
 if [ ! -f .env ] ; then
+    # TODO this is where the env gets overwritten++++++++++
     cp /opt/adsb/docker.image.versions .env
     echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> .env
     echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)" >> .env

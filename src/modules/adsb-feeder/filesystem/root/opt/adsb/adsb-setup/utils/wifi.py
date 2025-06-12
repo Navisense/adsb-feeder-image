@@ -13,6 +13,7 @@ class Wifi:
         elif os.path.exists("/etc/rpi-issue"):
             self.baseos = "raspbian"
         else:
+            # TODO postmarketos?+++++++++
             print_err("unknown baseos - no idea what to do")
             self.baseos = "unknown"
         self.wlan = wlan
@@ -250,6 +251,7 @@ p2p_disabled=1
                 success = self.wpa_cli_reconfigure()
 
         elif self.baseos == "raspbian":
+            # TODO also postmarketos+++++++++
             # do a wifi scan to ensure the following connect works
             # this is apparently necessary for NetworkManager
             self.scan_ssids()
@@ -318,6 +320,7 @@ p2p_disabled=1
                 print_err(f"found SSIDs: {ssids}")
                 self.ssids = ssids
             else:
+                # TODO gets logged a whole lot+++++++
                 print_err("no SSIDs found")
 
         except Exception as e:

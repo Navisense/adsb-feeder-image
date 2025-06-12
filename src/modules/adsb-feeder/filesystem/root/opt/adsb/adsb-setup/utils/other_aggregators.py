@@ -489,6 +489,8 @@ class Sdrmap(Aggregator):
         return True
 
 
+# TODO we need 2 aggregators, one PorttrackerAis and one PorttrackerAdsb,
+# complete with separate sets of env variables (mosquitto access, topic)+++++++++++
 class Porttracker(Aggregator):
     def __init__(self, system: System):
         super().__init__(

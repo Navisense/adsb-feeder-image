@@ -46,6 +46,7 @@ class Hotspot:
         self._dnsserver = None
         self._dns_thread = None
         self._baseos = self.wifi.baseos
+        # TODO this would immediately trip up postmarketos. also check uses of NetworkManager+++++++++
         if self._baseos == "unknown":
             print_err("unknown baseos - giving up")
             sys.exit(1)
@@ -167,6 +168,7 @@ class Hotspot:
                 shell=True,
             )
         elif self._baseos == "raspbian":
+            # TODO also postmarketos+++++++++
             subprocess.run(
                 f"systemctl stop NetworkManager wpa_supplicant; iw reg set 00",
                 shell=True,
@@ -208,6 +210,7 @@ class Hotspot:
                 f"restarted networking.service: {output.returncode}\n{output.stderr.decode()}\n{output.stdout.decode()}"
             )
         elif self._baseos == "raspbian":
+            # TODO also postmarketos+++++++++
             subprocess.run(
                 f"iw reg set PA; systemctl restart wpa_supplicant NetworkManager",
                 shell=True,

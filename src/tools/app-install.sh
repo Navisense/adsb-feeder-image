@@ -163,6 +163,7 @@ if [ "${ENABLE_MDNS}" == "True" ] ; then
         missing+="${PKG_NAME_AVAHI} "
     fi
     if ! which avahi-publish &> /dev/null; then
+        # TODO this may also fail if avahi isn't running+++++++++++
         missing+="${PKG_NAME_AVAHI_TOOLS} "
     fi
 fi
@@ -273,6 +274,9 @@ echo "$ADSB_IM_VERSION" > adsb.im.version
 touch ${APP_DIR}/app.adsb.feeder.image
 
 cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
+# TODO this doesn't actually work, gets replaced with Env defaults+++++++++++
+# TODO somehow, only the stuff from the docker image versions file actually ends
+# up in here+++++++++++++
 {
     cat ${APP_DIR}/docker.image.versions
     echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"

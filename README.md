@@ -149,3 +149,15 @@ The mounted `/dev` and `--privileged` are necessary because CustomPiOS at some
 point uses `losetup` to create and write to a loop device.
 
 On success, CustomPiOS will leave a `.img` file in `src/workspace`.
+
+# Environment variables added for Porttracker
+
+- `FEEDER_SERIAL_AIS`
+- `FEEDER_PORTTRACKER_DATA_SHARING_KEY`
+- `FEEDER_PORTTRACKER_STATION_ID`
+- `FEEDER_PORTTRACKER_MQTT_URL`
+- `FEEDER_PORTTRACKER_MQTT_CLIENT_ID`
+- `FEEDER_PORTTRACKER_MQTT_QOS`
+- `FEEDER_PORTTRACKER_MQTT_TOPIC`
+- `FEEDER_PORTTRACKER_MQTT_MSGFORMAT`
+- `AF_IS_PORTTRACKER_ENABLED`
