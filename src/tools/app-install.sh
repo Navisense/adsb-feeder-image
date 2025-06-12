@@ -288,9 +288,6 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the services
 systemctl daemon-reload
-if [ "${ENABLE_MDNS}" == "True" ] ; then
-    systemctl enable --now avahi-daemon
-fi
 systemctl enable --now adsb-docker
 systemctl enable --now adsb-setup
 

@@ -1,7 +1,8 @@
 [Unit]
 Description=ADS-B Feeder Docker Service
+Requires=docker.service
+Wants=adsb-setup.service
 After=docker.service network-online.target adsb-setup.service
-PartOf=docker.service
 
 [Service]
 SyslogIdentifier=adsb-docker
