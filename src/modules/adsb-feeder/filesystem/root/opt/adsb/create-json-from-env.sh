@@ -13,27 +13,25 @@ else
 fi
 
 if [ ! -f /opt/adsb/config/config.json ] ; then
-    echo "create config.json file from scratch" >> /run/adsb-feeder-image.log
-    source /opt/adsb/docker.image.versions
-    _ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)
-    _ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)
-    echo " \
-    { \
-    \"ULTRAFEEDER_CONTAINER\": \"$ULTRAFEEDER_CONTAINER\", \
-    \"UAT978_CONTAINER\": \"$UAT978_CONTAINER\", \
-    \"FR24_CONTAINER\": \"$FR24_CONTAINER\", \
-    \"FA_CONTAINER\": \"$FA_CONTAINER\", \
-    \"RB_CONTAINER\": \"$RB_CONTAINER\", \
-    \"RV_CONTAINER\": \"$RV_CONTAINER\", \
-    \"OS_CONTAINER\": \"$OS_CONTAINER\", \
-    \"PF_CONTAINER\": \"$PF_CONTAINER\", \
-    \"AH_CONTAINER\": \"$AH_CONTAINER\", \
-    \"PW_CONTAINER\": \"$PW_CONTAINER\", \
-    \"AIRSPY_CONTAINER\": \"$AIRSPY_CONTAINER\", \
-    \"TNUK_CONTAINER\": \"$TNUK_CONTAINER\", \
-    \"SDRPLAY_CONTAINER\": \"$SDRPLAY_CONTAINER\", \
-    \"_ADSBIM_BASE_VERSION\": \"$_ADSBIM_BASE_VERSION\", \
-    \"_ADSBIM_CONTAINER_VERSION\": \"$_ADSBIM_BASE_VERSION\" \
-    \"SHIPFEEDER_CONTAINER\": \"$SHIPFEEDER_CONTAINER\" \
-    }" > /opt/adsb/config/config.json
+    if [ ! -f /opt/adsb/config/.env ] ; then
+        echo "create config.json file from scratch" >> /run/adsb-feeder-image.log
+        lines=$(cat /opt/adsb/docker.image.versions)
+        lines+=$'\n'"_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)"
+        lines+=$'\n'"_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)"
+    else
+        echo "create config.json file from .env" >> /run/adsb-feeder-image.log
+        lines=$(cat /opt/adsb/config/.env)
+    fi
+    echo -n "{" > /opt/adsb/config/config.json
+    has_first_entry=false
+    for line in $(echo "${lines}" | grep -v '^#.*' | grep '^[^= ]*=[^= ]*$') ; do
+        if [ "${has_first_entry}" = "true" ] ; then
+            echo -n "," >> /opt/adsb/config/config.json
+        fi
+        key=$(echo $line | cut -d= -f1)
+        value=$(echo $line | cut -d= -f2)
+        echo -n "\"${key}\":\"${value}\"" >> /opt/adsb/config/config.json
+        has_first_entry=true
+    done
+    echo -n "}" >> /opt/adsb/config/config.json
 fi
