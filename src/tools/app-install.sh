@@ -172,18 +172,17 @@ if [ "$distro" == "postmarketos" ]; then
     # busybox instead of full-featured versions that we need.
 
     # busybox' lsusb doesn't have a real -v option (just doesn't show details).
-    # The real verbose output has the word "Descriptor" in it a bunch of times.
-    if ! lsusb -v 2> /dev/null | grep Descriptor &> /dev/null; then
+    if lsusb --help 2>&1 | grep BusyBox &> /dev/null ; then
         missing+="${PKG_NAME_USBUTILS} "
     fi
 
     # busybox' grep is missing the -P option.
-    if ! grep -P postmarketos /etc/os-release &> /dev/null ; then
+    if grep --help 2>&1 | grep BusyBox &> /dev/null ; then
         missing+="grep "
     fi
 
     # busybox' ps is missing the -q option.
-    if ! ps -q1 &> /dev/null ; then
+    if ps --help 2>&1 | grep BusyBox &> /dev/null ; then
         missing+="procps "
     fi
 
