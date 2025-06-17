@@ -1,3 +1,4 @@
+import abc
 import math
 import os
 import pathlib
@@ -18,6 +19,7 @@ from flask import (
 
 from fakedns import DNSHandler
 import utils.data
+import utils.util
 from utils.wifi import make_wifi
 
 
@@ -28,7 +30,7 @@ def print_err(*args, **kwargs):
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
 
-class Hotspot:
+class Hotspot(abc.ABC):
     def __init__(self, wlan):
         self._d = utils.data.Data()
         self.app = Flask(__name__)
@@ -45,10 +47,6 @@ class Hotspot:
         self.passwd = ""
         self._dnsserver = None
         self._dns_thread = None
-        self._baseos = self.wifi.baseos
-        if self._baseos == "unknown":
-            print_err("unknown baseos - giving up")
-            sys.exit(1)
         print_err("trying to scan for SSIDs")
         self.wifi.ssids = []
         startTime = time.time()
@@ -72,6 +70,13 @@ class Hotspot:
         )
         self.app.add_url_rule("/<path:path>", view_func=self.catch_all, methods=["GET", "POST"])
 
+    @abc.abstractmethod
+    def _restart_wifi_client(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _stop_wifi_client(self):
+        raise NotImplementedError
 
     def healthz(self):
         if request.method == "OPTIONS":
@@ -160,17 +165,7 @@ class Hotspot:
 
         # in case of a wifi already being configured with wrong password,
         # we need to stop the relevant service to prevent it from disrupting hostapd
-
-        if self._baseos == "dietpi":
-            subprocess.run(
-                f"systemctl stop networking.service",
-                shell=True,
-            )
-        elif self._baseos == "raspbian":
-            subprocess.run(
-                f"systemctl stop NetworkManager wpa_supplicant; iw reg set 00",
-                shell=True,
-            )
+        self._stop_wifi_client()
 
         subprocess.run(
             f"ip li set {self.wlan} up && ip ad add 192.168.199.1/24 broadcast 192.168.199.255 dev {self.wlan} && systemctl start hostapd.service",
@@ -198,20 +193,7 @@ class Hotspot:
             f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,
         )
-        if self._baseos == "dietpi":
-            output = subprocess.run(
-                f"systemctl restart --no-block networking.service",
-                shell=True,
-                capture_output=True,
-            )
-            print_err(
-                f"restarted networking.service: {output.returncode}\n{output.stderr.decode()}\n{output.stdout.decode()}"
-            )
-        elif self._baseos == "raspbian":
-            subprocess.run(
-                f"iw reg set PA; systemctl restart wpa_supplicant NetworkManager",
-                shell=True,
-            )
+        self._restart_wifi_client()
         # used to wait here, just spin around the wifi instead
         print_err("turned off hotspot")
 
@@ -255,11 +237,52 @@ class Hotspot:
         return
 
 
+class NetworkingHotspot(Hotspot):
+    """Hotspot using networking.service."""
+    def _stop_wifi_client(self):
+        subprocess.run(
+            f"systemctl stop networking.service",
+            shell=True,
+        )
+
+    def _restart_wifi_client(self):
+        output = subprocess.run(
+            f"systemctl restart --no-block networking.service",
+            shell=True,
+            capture_output=True,
+        )
+        print_err(
+            f"restarted networking.service: {output.returncode}\n{output.stderr.decode()}\n{output.stdout.decode()}"
+        )
+
+
+class NetworkManagerHotspot(Hotspot):
+    """Hotspot using NetworkManager."""
+    def _stop_wifi_client(self):
+        subprocess.run(
+            f"systemctl stop NetworkManager wpa_supplicant; iw reg set 00",
+            shell=True,
+        )
+
+    def _restart_wifi_client(self):
+        subprocess.run(
+            f"iw reg set PA; systemctl restart wpa_supplicant NetworkManager",
+            shell=True,
+        )
+
+
 if __name__ == "__main__":
     wlan = "wlan0"
     if len(sys.argv) == 2:
         wlan = sys.argv[1]
-    print_err(f"starting hotspot for {wlan}")
-    hotspot = Hotspot(wlan)
+    baseos = utils.util.get_baseos()
+    if baseos == "dietpi":
+        hotspot = NetworkingHotspot(wlan)
+    elif baseos in ["raspbian", "postmarketos"]:
+        hotspot = NetworkManagerHotspot(wlan)
+    else:
+        print_err(f"Unknown OS {baseos} - giving up.")
+        sys.exit(1)
+    print_err(f"Starting hotspot for {wlan}.")
 
     hotspot.run()

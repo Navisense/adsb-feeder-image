@@ -3,18 +3,17 @@ import subprocess
 import time
 import traceback
 
-from utils.util import print_err, read_os_release, run_shell_captured
+from utils.util import get_baseos, print_err, run_shell_captured
 
 
 def make_wifi(wlan="wlan0"):
-    if os.path.exists("/boot/dietpi"):
+    baseos = get_baseos()
+    if baseos == "dietpi":
         return WpaSupplicantWifi(wlan)
-    elif os.path.exists("/etc/rpi-issue"):
+    elif baseos in ["raspbian", "postmarketos"]:
         return NetworkManagerWifi(wlan)
-    os_release = read_os_release()
-    if os_release.get("ID") == "postmarketos":
-        return NetworkManagerWifi(wlan)
-    print_err("Unknown OS - wifi will be unable to scan and connect.")
+    print_err(
+        f"Unknown OS {baseos} - wifi will be unable to scan and connect.")
     return GenericWifi(wlan)
 
 

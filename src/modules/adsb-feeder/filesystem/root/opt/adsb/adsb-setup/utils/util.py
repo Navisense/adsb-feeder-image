@@ -237,6 +237,15 @@ def get_plain_url(plain_url):
     return None, status
 
 
+def get_baseos():
+    """Identify the underlying OS."""
+    if os.path.exists("/boot/dietpi"):
+        return "dietpi"
+    elif os.path.exists("/etc/rpi-issue"):
+        return "raspbian"
+    return read_os_release().get("ID", "unknown")
+
+
 def read_os_release():
     """Read /etc/os-release and return as a dict."""
     data = {}
@@ -245,11 +254,19 @@ def read_os_release():
     except Exception as e:
         print_err(f"Error reading /etc/os-release: {e}.")
         return data
-    for line in lines:
+    for line in filter(None, lines):
         try:
             key, value = line.split("=", maxsplit=1)
         except ValueError:
             print_err(f"Unexpected line in /etc/os-release: {line}.")
             continue
-        data[key] = value
+        data[key] = _stripped_quotes(value)
     return data
+
+
+def _stripped_quotes(s):
+    """Strip equal quotes from beginning and end, if any."""
+    for char in ['"', "'"]:
+        if s and s[0] == char and s[-1] == char:
+            return s[1:-1]
+    return s
