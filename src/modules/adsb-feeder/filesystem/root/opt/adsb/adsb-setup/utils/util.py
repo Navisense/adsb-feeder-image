@@ -235,3 +235,21 @@ def get_plain_url(plain_url):
     else:
         return response.text, response.status_code
     return None, status
+
+
+def read_os_release():
+    """Read /etc/os-release and return as a dict."""
+    data = {}
+    try:
+        lines = pathlib.Path("/etc/os-release").read_text().split('\n')
+    except Exception as e:
+        print_err(f"Error reading /etc/os-release: {e}.")
+        return data
+    for line in lines:
+        try:
+            key, value = line.split("=", maxsplit=1)
+        except ValueError:
+            print_err(f"Unexpected line in /etc/os-release: {line}.")
+            continue
+        data[key] = value
+    return data

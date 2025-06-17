@@ -3,19 +3,26 @@ import subprocess
 import time
 import traceback
 
-from utils.util import print_err, run_shell_captured
+from utils.util import print_err, read_os_release, run_shell_captured
 
 
-class Wifi:
-    def __init__(self, wlan="wlan0"):
-        if os.path.exists("/boot/dietpi"):
-            self.baseos = "dietpi"
-        elif os.path.exists("/etc/rpi-issue"):
-            self.baseos = "raspbian"
-        else:
-            print_err("unknown baseos - no idea what to do")
-            self.baseos = "unknown"
+def make_wifi(wlan="wlan0"):
+    if os.path.exists("/boot/dietpi"):
+        return WpaSupplicantWifi(wlan)
+    elif os.path.exists("/etc/rpi-issue"):
+        return NetworkManagerWifi(wlan)
+    os_release = read_os_release()
+    if os_release.get("ID") == "postmarketos":
+        return NetworkManagerWifi(wlan)
+    print_err("Unknown OS - wifi will be unable to scan and connect.")
+    return GenericWifi(wlan)
+
+
+class GenericWifi:
+    """Generic wifi that can't scan or connect."""
+    def __init__(self, wlan):
         self.wlan = wlan
+        self.ssids = []
 
     def get_ssid(self):
         try:
@@ -31,7 +38,16 @@ class Wifi:
 
         return ssid.strip()
 
-    def wait_wpa_supplicant(self):
+    def wifi_connect(self, ssid, passwd, country_code="PA"):
+        return False
+
+    def scan_ssids(self):
+        pass
+
+
+class WpaSupplicantWifi(GenericWifi):
+    """Wifi using wpa_supplicant, for the DietPi."""
+    def _wait_wpa_supplicant(self):
         # wait for wpa_supplicant to be running
         startTime = time.time()
         success = False
@@ -44,7 +60,7 @@ class Wifi:
             print_err("timeout while waiting for wpa_supplicant to start")
         return success
 
-    def wpa_cli_reconfigure(self):
+    def _wpa_cli_reconfigure(self):
         connected = False
         output = ""
 
@@ -89,7 +105,7 @@ class Wifi:
 
         return connected
 
-    def wpa_cli_scan(self):
+    def _wpa_cli_scan(self):
         ssids = []
         try:
             proc = subprocess.Popen(
@@ -134,14 +150,14 @@ class Wifi:
                         ssids.append(fields[4])
 
         except:
-            print_err(f"ERROR in wpa_cli_scan(), wpa_cli ouput: {output}")
+            print_err(f"ERROR in _wpa_cli_scan(), wpa_cli ouput: {output}")
         finally:
             if proc:
                 proc.terminate()
 
         return ssids
 
-    def writeWpaConf(self, ssid=None, passwd=None, path=None, country_code="GB"):
+    def _write_wpa_conf(self, ssid=None, passwd=None, path=None, country_code="GB"):
         netblocks = {}
         try:
             # extract the existing network blocks from the config file
@@ -204,10 +220,10 @@ p2p_disabled=1
         print_err("wpa supplicant config written to " + path)
         return True
 
-    def restart_networking_noblock(self):
+    def _restart_networking_noblock(self):
         res, out = run_shell_captured("systemctl restart --no-block networking.service", timeout=5)
 
-    def dietpi_add_wifi_hotplug(self):
+    def _add_wifi_hotplug(self):
         # enable dietpi wifi in case it is disabled
         changedInterfaces = False
         with open("/etc/network/interfaces", "r") as current, open("/etc/network/interfaces.new", "w") as update:
@@ -222,97 +238,113 @@ p2p_disabled=1
         if changedInterfaces:
             print_err(f"uncommenting allow-hotplug for {self.wlan}")
             os.rename("/etc/network/interfaces.new", "/etc/network/interfaces")
-            self.restart_networking_noblock()
+            self._restart_networking_noblock()
         else:
             os.remove("/etc/network/interfaces.new")
 
     def wifi_connect(self, ssid, passwd, country_code="PA"):
         success = False
 
-        if self.baseos == "dietpi":
-            self.dietpi_add_wifi_hotplug()
+        self._add_wifi_hotplug()
 
-            # wpa_supplicant can take extremely long to start up as long as eth0 has allow-hotplug
-            # wpa_cli_reconfigure will wait for that so this test can take up to 60 seconds
+        # wpa_supplicant can take extremely long to start up as long as eth0 has allow-hotplug
+        # _wpa_cli_reconfigure will wait for that so this test can take up to 60 seconds
 
-            # test wifi
-            success = self.writeWpaConf(
-                ssid=ssid, passwd=passwd, path="/etc/wpa_supplicant/wpa_supplicant.conf", country_code=country_code
-            )
-            if success:
-                # note to self: don't call ifup from within this
-                # stopping adsb-setup service will terminate wpa_supplicant somehow
-                if not self.wait_wpa_supplicant():
-                    print_err("ERROR: wait_wpa_supplicant didn't work, restarting networking and re-trying")
-                    self.restart_networking_noblock()
-                    self.wait_wpa_supplicant()
+        # test wifi
+        success = self._write_wpa_conf(
+            ssid=ssid, passwd=passwd, path="/etc/wpa_supplicant/wpa_supplicant.conf", country_code=country_code
+        )
+        if success:
+            # note to self: don't call ifup from within this
+            # stopping adsb-setup service will terminate wpa_supplicant somehow
+            if not self._wait_wpa_supplicant():
+                print_err("ERROR: _wait_wpa_supplicant didn't work, restarting networking and re-trying")
+                self._restart_networking_noblock()
+                self._wait_wpa_supplicant()
 
-                success = self.wpa_cli_reconfigure()
-
-        elif self.baseos == "raspbian":
-            # do a wifi scan to ensure the following connect works
-            # this is apparently necessary for NetworkManager
-            self.scan_ssids()
-            # try for a while because it takes a bit for NetworkManager to come back up
-            startTime = time.time()
-            while time.time() - startTime < 20:
-                try:
-                    result = subprocess.run(
-                        [
-                            "nmcli",
-                            "d",
-                            "wifi",
-                            "connect",
-                            f"{ssid}",
-                            "password",
-                            f"{passwd}",
-                            "ifname",
-                            f"{self.wlan}",
-                        ],
-                        capture_output=True,
-                        timeout=20.0,
-                    )
-                except subprocess.SubprocessError as e:
-                    # something went wrong
-                    output = ""
-                    if e.stdout:
-                        output += e.stdout.decode()
-                    if e.stderr:
-                        output += e.stderr.decode()
-                else:
-                    output = result.stdout.decode() + result.stderr.decode()
-
-                success = "successfully activated" in output
-
-                if success:
-                    break
-                else:
-                    # just to safeguard against super fast spin, sleep a bit
-                    print_err(f"failed to connect to '{ssid}': {output}")
-                    time.sleep(2)
-                    continue
+            success = self._wpa_cli_reconfigure()
 
         return success
 
     def scan_ssids(self):
         try:
-            if self.baseos == "raspbian":
-                try:
-                    output = subprocess.run(
-                        "nmcli --terse --fields SSID dev wifi",
-                        shell=True,
-                        capture_output=True,
-                    )
-                except subprocess.CalledProcessError as e:
-                    print_err(f"error scanning for SSIDs: {e}")
-                    return
+            ssids = self._wpa_cli_scan()
 
-                ssids = []
-                for line in output.stdout.decode().split("\n"):
-                    if line and line != "--" and line not in ssids:
-                        ssids.append(line)
-            elif self.baseos == "dietpi":
-                ssids = self.wpa_cli_scan()
+            if len(ssids) > 0:
+                print_err(f"found SSIDs: {ssids}")
+                self.ssids = ssids
+            else:
+                print_err("no SSIDs found")
+
+        except Exception as e:
+            print_err(f"ERROR in scan_ssids(): {e}")
+
+
+class NetworkManagerWifi(GenericWifi):
+    """Wifi using NetworkManager, e.g. for Raspbian."""
+    def wifi_connect(self, ssid, passwd, country_code="PA"):
+        success = False
+
+        # do a wifi scan to ensure the following connect works
+        # this is apparently necessary for NetworkManager
+        self.scan_ssids()
+        # try for a while because it takes a bit for NetworkManager to come back up
+        startTime = time.time()
+        while time.time() - startTime < 20:
+            try:
+                result = subprocess.run(
+                    [
+                        "nmcli",
+                        "d",
+                        "wifi",
+                        "connect",
+                        f"{ssid}",
+                        "password",
+                        f"{passwd}",
+                        "ifname",
+                        f"{self.wlan}",
+                    ],
+                    capture_output=True,
+                    timeout=20.0,
+                )
+            except subprocess.SubprocessError as e:
+                # something went wrong
+                output = ""
+                if e.stdout:
+                    output += e.stdout.decode()
+                if e.stderr:
+                    output += e.stderr.decode()
+            else:
+                output = result.stdout.decode() + result.stderr.decode()
+
+            success = "successfully activated" in output
+
+            if success:
+                break
+            else:
+                # just to safeguard against super fast spin, sleep a bit
+                print_err(f"failed to connect to '{ssid}': {output}")
+                time.sleep(2)
+                continue
+
+        return success
+
+    def scan_ssids(self):
+        try:
+            try:
+                output = subprocess.run(
+                    "nmcli --terse --fields SSID dev wifi",
+                    shell=True,
+                    capture_output=True,
+                )
+            except subprocess.CalledProcessError as e:
+                print_err(f"error scanning for SSIDs: {e}")
+                return
+
+            ssids = []
+            for line in output.stdout.decode().split("\n"):
+                if line and line != "--" and line not in ssids:
+                    ssids.append(line)
 
             if len(ssids) > 0:
                 print_err(f"found SSIDs: {ssids}")

@@ -40,7 +40,7 @@ from utils.config import (
     write_values_to_env_file,
 )
 from utils.util import create_fake_info, make_int, print_err, report_issue, mf_get_ip_and_triplet, string2file
-from utils.wifi import Wifi
+from utils.wifi import make_wifi
 
 # nofmt: on
 # isort: off
@@ -88,7 +88,6 @@ from utils.util import (
     run_shell_captured,
 )
 from utils.background import Background
-from utils.wifi import Wifi
 
 # nofmt: off
 # isort: on
@@ -2482,7 +2481,7 @@ class AdsbIm:
 
                     def connect_wifi():
                         if self.wifi is None:
-                            self.wifi = Wifi()
+                            self.wifi = make_wifi()
                         status = self.wifi.wifi_connect(ssid, password)
                         print_err(f"wifi_connect returned {status}")
                         self.update_net_dev()
@@ -3019,7 +3018,7 @@ class AdsbIm:
 
         if self.local_dev.startswith("wlan"):
             if self.wifi is None:
-                self.wifi = Wifi()
+                self.wifi = make_wifi()
             self.wifi_ssid = self.wifi.get_ssid()
         else:
             self.wifi_ssid = ""

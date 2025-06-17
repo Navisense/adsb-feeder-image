@@ -18,7 +18,7 @@ from flask import (
 
 from fakedns import DNSHandler
 import utils.data
-from utils.wifi import Wifi
+from utils.wifi import make_wifi
 
 
 def print_err(*args, **kwargs):
@@ -33,7 +33,7 @@ class Hotspot:
         self._d = utils.data.Data()
         self.app = Flask(__name__)
         self.wlan = wlan
-        self.wifi = Wifi(wlan)
+        self.wifi = make_wifi(wlan)
         if pathlib.Path("/opt/adsb/adsb.im.version").exists():
             with open("/opt/adsb/adsb.im.version", "r") as f:
                 self.version = f.read().strip()
