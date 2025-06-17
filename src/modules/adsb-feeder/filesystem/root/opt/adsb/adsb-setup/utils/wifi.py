@@ -21,7 +21,7 @@ class Wifi:
         try:
             # if you aren't on wifi, this will return an empty string
             ssid = subprocess.run(
-                "iwgetid -r",
+                f"iw dev {self.wlan} link | awk '/SSID/{{print $2}}'",
                 shell=True,
                 capture_output=True,
                 timeout=2.0,
