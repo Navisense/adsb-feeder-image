@@ -211,12 +211,12 @@ function check_missing() {
         missing+=("python3-requests")
     fi
     if [ -f /opt/adsb/os.adsb.feeder.image ] ; then
-        # get hostapd / isc-dhcpd-server if necessary
-        if ! command -v hostapd &>/dev/null || ! dhcpd --version 2>&1 | grep -qs -e isc-dhcpd; then
-            missing+=("hostapd" "isc-dhcp-server")
+        # get hostapd / kea if necessary
+        if ! command -v hostapd &>/dev/null || ! which kea-dhcp4 ; then
+            missing+=("hostapd" "kea")
             # make sure they are never enabled by masking the services
             systemctl mask hostapd
-            systemctl mask isc-dhcp-server
+            systemctl mask isc-kea-dhcp4-server
         fi
         # get avahi-utils if necessary
         if ! command -v avahi-publish &>/dev/null || ! command -v avahi-resolve &>/dev/null; then
@@ -298,8 +298,8 @@ EOF
         sed -i -e 's/^allow-hotplug\s*wlan0/#\0/' /etc/network/interfaces
     fi
 
-    # in case a past feeder-update installed but didn't mask hostapd / isc-dhcp-server, fix that up
-    for service in hostapd.service isc-dhcp-server.service; do
+    # in case a past feeder-update installed but didn't mask hostapd / isc-kea-dhcp4-server, fix that up
+    for service in hostapd.service isc-kea-dhcp4-server.service; do
         if systemctl is-enabled "$service" &>/dev/null || ! [[ -L /etc/systemd/system/"$service" ]]; then
             echo "stopping / disabling / masking $service"
             systemctl stop "$service"

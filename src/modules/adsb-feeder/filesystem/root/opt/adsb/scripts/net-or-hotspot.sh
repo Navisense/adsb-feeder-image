@@ -64,7 +64,7 @@ fi
 if check_network 30; then
     echo "network reachable, no need to start an access point"
     # out of an abundance of caution make sure these services are not enabled:
-    for service in hostapd.service isc-dhcp-server.service; do
+    for service in hostapd.service isc-kea-dhcp4-server.service; do
         if systemctl is-enabled "$service" &>/dev/null || ! [[ -L /etc/systemd/system/hostapd.service ]]; then
             echo "stopping / disabling / masking $service"
             systemctl stop "$service"
@@ -84,17 +84,16 @@ if [[ $wlan == "" ]] ; then
 fi
 
 cp /opt/adsb/accesspoint/hostapd.conf /etc/hostapd/hostapd.conf
-cp /opt/adsb/accesspoint/dhcpd.conf /etc/dhcp/dhcpd.conf
-cp /opt/adsb/accesspoint/isc-dhcp-server /etc/default/isc-dhcp-server
+cp /opt/adsb/accesspoint/kea-dhcp4.conf /etc/kea/kea-dhcp4.conf
 
 if [[ $wlan != "wlan0" ]] ; then
-    sed -i "s/wlan0/$wlan/g" /etc/default/isc-dhcp-server
+    sed -i "s/wlan0/$wlan/g" /etc/kea/kea-dhcp4.conf
     sed -i "s/wlan0/$wlan/g" /etc/hostapd/hostapd.conf
     sed -i "s/wlan0/$wlan/g" /lib/systemd/system/adsb-avahi-alias@.service
 fi
 
-systemctl unmask hostapd.service isc-dhcp-server.service &>/dev/null
-for service in hostapd.service isc-dhcp-server.service; do
+systemctl unmask hostapd.service isc-kea-dhcp4-server.service &>/dev/null
+for service in hostapd.service isc-kea-dhcp4-server.service; do
     if systemctl is-enabled "$service" &>/dev/null; then
         systemctl disable "$service"
     fi
@@ -110,7 +109,7 @@ done
 
 # systemctl disable takes 8 seconds for these 2 services,
 # stopping them and masking them is sufficient to stop them from starting so do that instead
-systemctl stop hostapd.service isc-dhcp-server.service &>/dev/null
-systemctl mask hostapd.service isc-dhcp-server.service &>/dev/null
+systemctl stop hostapd.service isc-kea-dhcp4-server.service &>/dev/null
+systemctl mask hostapd.service isc-kea-dhcp4-server.service &>/dev/null
 
 echo "successfully connected to network"

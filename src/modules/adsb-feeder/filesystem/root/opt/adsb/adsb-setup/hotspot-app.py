@@ -173,7 +173,7 @@ class Hotspot(abc.ABC):
         )
         time.sleep(2)
         subprocess.run(
-            f"systemctl start isc-dhcp-server.service",
+            f"systemctl start isc-kea-dhcp4-server.service",
             shell=True,
         )
         if self._d.is_enabled("mdns"):
@@ -190,7 +190,7 @@ class Hotspot(abc.ABC):
                 shell=True,
             )
         subprocess.run(
-            f"systemctl stop isc-dhcp-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
+            f"systemctl stop isc-kea-dhcp4-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
             shell=True,
         )
         self._restart_wifi_client()
