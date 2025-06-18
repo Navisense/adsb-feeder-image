@@ -201,6 +201,11 @@ if [ "$distro" == "postmarketos" ]; then
         missing+="procps "
     fi
 
+    # busybox' ip is missing the -json option.
+    if ip --help 2>&1 | grep BusyBox &> /dev/null ; then
+        missing+="iproute2 "
+    fi
+
     if ! which bash &> /dev/null; then
         missing+="bash "
     fi
@@ -216,15 +221,6 @@ if [[ $missing != "" ]] ; then
     echo "Please install the missing packages before re-running this script:"
     echo "$inst $missing"
     exit 1
-fi
-
-if [ "$distro" == "postmarketos" ]; then
-    # Alpine-based PostmarketOS doesn't have a /etc/timezone (which is a glibc
-    # thing), but we need it to mount into containers. Parse the timezone out of
-    # timedatectl.
-    if [ ! -f /etc/timezone ] ; then
-        timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
-    fi
 fi
 
 # ok, now we should have all we need, let's get started
@@ -249,6 +245,22 @@ fi
 SRC_ROOT="${GIT_PARENT_DIR}/adsb-feeder/src/modules/adsb-feeder/filesystem/root"
 cd "$SRC_ROOT" || exit_message "can't cd to $SRC_ROOT"
 ADSB_IM_VERSION=$(bash "${GIT_PARENT_DIR}"/adsb-feeder/src/get_version.sh)
+
+if [ "$distro" == "postmarketos" ]; then
+    # Quirks for Alpine-based PostmarketOS.
+
+    # We don't have a /etc/timezone (which is a glibc thing), but we need it to
+    # mount into containers. Parse the timezone out of timedatectl.
+    if [ ! -f /etc/timezone ] ; then
+        timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
+    fi
+
+    # We have hostapd and kea available, but since these are (OpenRC-based)
+    # Alpine packages, no systemd unit files are installed. We have to copy our
+    # own.
+    cp -a ${SRC_ROOT}/usr/lib/systemd/system/{hostapd,isc-kea-dhcp4-server}.service /usr/lib/systemd/system/
+    systemctl daemon-reload
+fi
 
 # copy the software in place
 cp -a "${SRC_ROOT}/opt/adsb/"* "${APP_DIR}/"

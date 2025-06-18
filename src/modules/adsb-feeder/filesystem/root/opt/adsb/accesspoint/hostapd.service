@@ -1,0 +1,10 @@
+[Unit]
+Description=hostapd
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/sbin/hostapd /etc/hostapd/hostapd.conf
+
+[Install]
+WantedBy=multi-user.target
