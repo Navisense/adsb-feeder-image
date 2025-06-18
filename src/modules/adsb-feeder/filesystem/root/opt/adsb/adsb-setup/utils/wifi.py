@@ -37,7 +37,7 @@ class GenericWifi:
 
         return ssid.strip()
 
-    def wifi_connect(self, ssid, passwd, country_code="PA"):
+    def wifi_connect(self, ssid, passwd, country_code="00"):
         return False
 
     def scan_ssids(self):
@@ -156,7 +156,7 @@ class WpaSupplicantWifi(GenericWifi):
 
         return ssids
 
-    def _write_wpa_conf(self, ssid=None, passwd=None, path=None, country_code="GB"):
+    def _write_wpa_conf(self, ssid=None, passwd=None, path=None, country_code="00"):
         netblocks = {}
         try:
             # extract the existing network blocks from the config file
@@ -241,7 +241,7 @@ p2p_disabled=1
         else:
             os.remove("/etc/network/interfaces.new")
 
-    def wifi_connect(self, ssid, passwd, country_code="PA"):
+    def wifi_connect(self, ssid, passwd, country_code="00"):
         success = False
 
         self._add_wifi_hotplug()
@@ -281,7 +281,7 @@ p2p_disabled=1
 
 class NetworkManagerWifi(GenericWifi):
     """Wifi using NetworkManager, e.g. for Raspbian."""
-    def wifi_connect(self, ssid, passwd, country_code="PA"):
+    def wifi_connect(self, ssid, passwd, country_code="00"):
         success = False
 
         # do a wifi scan to ensure the following connect works

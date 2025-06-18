@@ -123,6 +123,7 @@ PKG_NAME_DOCKER="docker"
 PKG_NAME_DOCKER_COMPOSE="docker-compose"
 PKG_NAME_USBUTILS="usbutils"
 PKG_NAME_JQ="jq"
+PKG_NAME_IW="iw"
 PKG_NAME_AVAHI="avahi"
 PKG_NAME_AVAHI_TOOLS="avahi-tools"
 PKG_NAME_HOSTAPD="hostapd"
@@ -162,6 +163,10 @@ fi
 
 if ! which jq &> /dev/null; then
     missing+="${PKG_NAME_JQ} "
+fi
+
+if ! which iw &> /dev/null; then
+    missing+="${PKG_NAME_IW} "
 fi
 
 if [ "${ENABLE_MDNS}" == "True" ] ; then

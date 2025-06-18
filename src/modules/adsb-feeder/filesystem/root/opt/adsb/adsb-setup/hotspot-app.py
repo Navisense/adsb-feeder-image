@@ -263,7 +263,7 @@ class NetworkManagerHotspot(Hotspot):
 
     def _restart_wifi_client(self):
         utils.util.shell_with_combined_output(
-            "iw reg set PA; systemctl restart wpa_supplicant NetworkManager")
+            "iw reg set 00; systemctl restart wpa_supplicant NetworkManager")
 
 
 if __name__ == "__main__":

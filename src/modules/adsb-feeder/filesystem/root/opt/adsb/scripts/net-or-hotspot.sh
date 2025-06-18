@@ -58,7 +58,7 @@ function check_network() {
 
 # raspbian: there is no good way to set wifi country persistently so just do it on boot in this script
 if [[ -f /etc/rpi-issue ]]; then
-    iw reg set PA
+    iw reg set 00
 fi
 
 if check_network 30; then
