@@ -73,7 +73,7 @@ apt-get install -y \
     slirp4netns uidmap jq zstd netcat-openbsd
 
 systemctl mask hostapd.service
-systemctl mask kea-dhcp4-server.service
+systemctl mask isc-kea-dhcp4-server.service
 
 # install zerotier and tailscale, first get their repo
 # don't enable
