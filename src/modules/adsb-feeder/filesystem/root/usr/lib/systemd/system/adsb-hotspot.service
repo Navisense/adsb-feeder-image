@@ -1,6 +1,8 @@
 [Unit]
 Description=ADS-B Feeder Hotspot Service
 After=network-online.target
+# The firewall gets in the way of serving the hotspot, DNS, etc.
+Conflicts=nftables.service
 
 [Service]
 Type=oneshot

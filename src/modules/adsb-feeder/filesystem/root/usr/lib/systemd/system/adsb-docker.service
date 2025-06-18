@@ -3,6 +3,8 @@ Description=ADS-B Feeder Docker Service
 Requires=docker.service
 Wants=adsb-setup.service
 After=docker.service network-online.target adsb-setup.service
+# Docker doesn't play nice with nftables firewalls, so disable it.
+Conflicts=nftables.service
 
 [Service]
 SyslogIdentifier=adsb-docker
