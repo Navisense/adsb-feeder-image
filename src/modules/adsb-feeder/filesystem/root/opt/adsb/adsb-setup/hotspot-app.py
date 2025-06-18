@@ -1,6 +1,5 @@
 import abc
 import math
-import os
 import pathlib
 import signal
 import socketserver
@@ -156,16 +155,6 @@ class Hotspot(abc.ABC):
         # incorrect password configured so it doesn't disrupt hostapd, and to
         # get rid of any DNS proxy that may block port 53.
         self._stop_wifi_client()
-        if not self._dnsserver and not self._dns_thread:
-            print_err("creating DNS server")
-            try:
-                self._dnsserver = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
-            except OSError as e:
-                print_err(f"failed to create DNS server: {e}")
-            else:
-                print_err("starting DNS server")
-                self._dns_thread = threading.Thread(target=self._dnsserver.serve_forever)
-                self._dns_thread.start()
 
         subprocess.run(
             f"ip li set {self.wlan} up && ip ad add 192.168.199.1/24 broadcast 192.168.199.255 dev {self.wlan} && systemctl start hostapd.service",
@@ -181,9 +170,24 @@ class Hotspot(abc.ABC):
                 f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
                 shell=True,
             )
+        if not self._dnsserver and not self._dns_thread:
+            print_err("creating DNS server")
+            try:
+                self._dnsserver = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
+            except OSError as e:
+                print_err(f"failed to create DNS server: {e}")
+            else:
+                print_err("starting DNS server")
+                self._dns_thread = threading.Thread(target=self._dnsserver.serve_forever)
+                self._dns_thread.start()
         print_err("started hotspot")
 
     def teardown_hotspot(self):
+        if self._dnsserver:
+            print_err("shutting down DNS server")
+            self._dnsserver.shutdown()
+            self._dns_thread.join()
+            self._dnsserver = self._dns_thread = None
         if self._d.is_enabled("mdns"):
             subprocess.run(
                 f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",
@@ -197,20 +201,6 @@ class Hotspot(abc.ABC):
         # used to wait here, just spin around the wifi instead
         print_err("turned off hotspot")
 
-    def setup_wifi(self):
-        if self._dnsserver:
-            print_err("shutting down DNS server")
-            self._dnsserver.shutdown()
-
-        print_err(f"connected to wifi: '{self.ssid}'")
-
-        # the shell script that launched this app will do a final connectivity check
-        # if there is no connectivity despite being able to join the wifi, it will re-launch this app (unlikely)
-
-        print_err("exiting the hotspot app")
-        signal.raise_signal(signal.SIGTERM)
-        os._exit(0)
-
     def test_wifi(self):
         # the parent process needs to return from the call to POST
         time.sleep(1.0)
@@ -219,22 +209,21 @@ class Hotspot(abc.ABC):
         print_err(f"testing the '{self.ssid}' network")
 
         success = self.wifi.wifi_connect(self.ssid, self.passwd)
-
-        if success:
-            print_err(f"successfully connected to '{self.ssid}'")
-        else:
+        self.restart_state = "done"
+        if not success:
             print_err(f"test_wifi failed to connect to '{self.ssid}'")
 
             self.comment = "Failed to connect, wrong SSID or password, please try again."
             # now we bring back up the hotspot in order to deliver the result to the user
             # and have them try again
             self.setup_hotspot()
-            self.restart_state = "done"
             return
 
-        self.setup_wifi()
-        self.restart_state = "done"
-        return
+        print_err(f"successfully connected to '{self.ssid}'")
+        # the shell script that launched this app will do a final connectivity check
+        # if there is no connectivity despite being able to join the wifi, it will re-launch this app (unlikely)
+        print_err("exiting the hotspot app")
+        signal.raise_signal(signal.SIGTERM)
 
 
 class NetworkingHotspot(Hotspot):
