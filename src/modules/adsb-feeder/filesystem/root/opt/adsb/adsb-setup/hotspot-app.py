@@ -152,6 +152,10 @@ class Hotspot(abc.ABC):
         self.app.run(host="0.0.0.0", port=80)
 
     def setup_hotspot(self):
+        # We need to stop any existing wifi service in case there's already an
+        # incorrect password configured so it doesn't disrupt hostapd, and to
+        # get rid of any DNS proxy that may block port 53.
+        self._stop_wifi_client()
         if not self._dnsserver and not self._dns_thread:
             print_err("creating DNS server")
             try:
@@ -162,10 +166,6 @@ class Hotspot(abc.ABC):
                 print_err("starting DNS server")
                 self._dns_thread = threading.Thread(target=self._dnsserver.serve_forever)
                 self._dns_thread.start()
-
-        # in case of a wifi already being configured with wrong password,
-        # we need to stop the relevant service to prevent it from disrupting hostapd
-        self._stop_wifi_client()
 
         subprocess.run(
             f"ip li set {self.wlan} up && ip ad add 192.168.199.1/24 broadcast 192.168.199.255 dev {self.wlan} && systemctl start hostapd.service",
@@ -240,35 +240,47 @@ class Hotspot(abc.ABC):
 class NetworkingHotspot(Hotspot):
     """Hotspot using networking.service."""
     def _stop_wifi_client(self):
-        subprocess.run(
-            f"systemctl stop networking.service",
-            shell=True,
-        )
+        utils.util.shell_with_combined_output(
+            "systemctl stop networking.service")
 
     def _restart_wifi_client(self):
-        output = subprocess.run(
-            f"systemctl restart --no-block networking.service",
-            shell=True,
-            capture_output=True,
-        )
+        proc = utils.util.shell_with_combined_output(
+            "systemctl restart --no-block networking.service")
         print_err(
-            f"restarted networking.service: {output.returncode}\n{output.stderr.decode()}\n{output.stdout.decode()}"
-        )
+            f"restarted networking.service: {proc.returncode}\n{proc.stdout}")
 
 
 class NetworkManagerHotspot(Hotspot):
     """Hotspot using NetworkManager."""
     def _stop_wifi_client(self):
-        subprocess.run(
-            f"systemctl stop NetworkManager wpa_supplicant; iw reg set 00",
-            shell=True,
-        )
+        utils.util.shell_with_combined_output(
+            "systemctl stop NetworkManager wpa_supplicant; iw reg set 00")
+        # In some configurations, NetworkManager starts a dnsmasq as a DNS
+        # proxy that can hang around even after we've stopped NetworkManager.
+        # We need to stop it so we get port 53 back for our stub DNS server.
+        for i in range(10):
+            if not self._dnsmasq_is_running():
+                break
+            if i > 0:
+                print_err("Tried to stop dnsmasq, but it's still running.")
+                time.sleep(0.5)
+            self._kill_dnsmasq()
+        else:
+            print_err("Giving up trying to stop dnsmasq.")
+
+    def _dnsmasq_is_running(self):
+        proc = utils.util.shell_with_combined_output("ps -e | grep dnsmasq")
+        return proc.returncode == 0
+
+    def _kill_dnsmasq(self):
+        proc = utils.util.shell_with_combined_output("systemctl stop dnsmasq")
+        if proc.returncode == 0:
+            return
+        utils.util.shell_with_combined_output("killall dnsmasq")
 
     def _restart_wifi_client(self):
-        subprocess.run(
-            f"iw reg set PA; systemctl restart wpa_supplicant NetworkManager",
-            shell=True,
-        )
+        utils.util.shell_with_combined_output(
+            "iw reg set PA; systemctl restart wpa_supplicant NetworkManager")
 
 
 if __name__ == "__main__":

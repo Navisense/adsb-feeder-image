@@ -270,3 +270,13 @@ def _stripped_quotes(s):
         if s and s[0] == char and s[-1] == char:
             return s[1:-1]
     return s
+
+
+def shell_with_combined_output(args, **kwargs):
+    """Execute in shell, combine stdout and stderr, return text."""
+    for key in ["shell", "text", "stdout", "stderr", "capture_output"]:
+        if key in kwargs:
+            raise ValueError(f"Argument {key} must not be used.")
+    return subprocess.run(
+        args, **kwargs, shell=True, text=True, stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT)
