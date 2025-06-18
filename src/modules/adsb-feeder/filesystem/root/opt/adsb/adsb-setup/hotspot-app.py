@@ -16,7 +16,7 @@ from flask import (
     request,
 )
 
-from fakedns import DNSHandler
+import fakedns
 import utils.data
 import utils.util
 from utils.wifi import make_wifi
@@ -44,8 +44,7 @@ class Hotspot(abc.ABC):
         self.restart_state = "done"
         self.ssid = ""
         self.passwd = ""
-        self._dnsserver = None
-        self._dns_thread = None
+        self._dns_server = fakedns.Server()
         print_err("trying to scan for SSIDs")
         self.wifi.ssids = []
         startTime = time.time()
@@ -170,24 +169,19 @@ class Hotspot(abc.ABC):
                 f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
                 shell=True,
             )
-        if not self._dnsserver and not self._dns_thread:
-            print_err("creating DNS server")
-            try:
-                self._dnsserver = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
-            except OSError as e:
-                print_err(f"failed to create DNS server: {e}")
-            else:
-                print_err("starting DNS server")
-                self._dns_thread = threading.Thread(target=self._dnsserver.serve_forever)
-                self._dns_thread.start()
+        print_err("Starting DNS server.")
+        try:
+            self._dns_server.start()
+        except Exception as e:
+            print_err(f"Error starting DNS server: {e}.")
         print_err("started hotspot")
 
     def teardown_hotspot(self):
-        if self._dnsserver:
-            print_err("shutting down DNS server")
-            self._dnsserver.shutdown()
-            self._dns_thread.join()
-            self._dnsserver = self._dns_thread = None
+        print_err("Stopping DNS server.")
+        try:
+            self._dns_server.stop()
+        except Exception as e:
+            print_err(f"Error stopping DNS server: {e}.")
         if self._d.is_enabled("mdns"):
             subprocess.run(
                 f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",

@@ -4,13 +4,45 @@
 import socketserver
 import struct
 import sys
+import threading
 
 DNS_HEADER_LENGTH = 12
 defaultIP = "192.168.199.1"  # we always respond with this IP
 
 
-class DNSHandler(socketserver.BaseRequestHandler):
+def print_err(*args, **kwargs):
+    import math
+    import time
+    timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
+        math.modf(time.time())[0] * 1000
+    )
+    print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
+
+class Server:
+    """Reusable fake DNS server."""
+    def __init__(self):
+        self._server = self._thread = None
+
+    def start(self):
+        if self._server:
+            raise ValueError("already started")
+        assert self._thread is None
+        self._server = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
+        self._thread = threading.Thread(target=self._server.serve_forever)
+        self._thread.start()
+
+    def stop(self):
+        if not self._server:
+            raise ValueError("not started")
+        assert self._thread is not None
+        self._server.shutdown()
+        self._thread.join()
+        self._server.server_close()
+        self._server = self._thread = None
+
+
+class DNSHandler(socketserver.BaseRequestHandler):
     def handle(self):
         socket = self.request[1]
         data = self.request[0]
@@ -167,10 +199,10 @@ class DNSHandler(socketserver.BaseRequestHandler):
 
 
 if __name__ == "__main__":
-    server = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
+    server = Server()
+    server.start()
     print("\033[36mStarted DNS server.\033[39m")
     try:
-        server.serve_forever()
+        threading.Event().wait()
     except KeyboardInterrupt:
-        server.shutdown()
-        sys.exit(0)
+        server.stop()
