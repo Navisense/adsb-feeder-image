@@ -263,7 +263,7 @@ if [ "$distro" == "postmarketos" ]; then
     # We have hostapd and kea available, but since these are (OpenRC-based)
     # Alpine packages, no systemd unit files are installed. We have to copy our
     # own.
-    cp -a ${SRC_ROOT}/usr/lib/systemd/system/{hostapd,isc-kea-dhcp4-server}.service /usr/lib/systemd/system/
+    cp -a ${SRC_ROOT}/opt/adsb/accesspoint/{hostapd,isc-kea-dhcp4-server}.service /usr/lib/systemd/system/
     systemctl daemon-reload
 fi
 
