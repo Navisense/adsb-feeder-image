@@ -1,5 +1,6 @@
 [Unit]
 Description=ADS-B Feeder Setup Service
+Wants=adsb-docker.service
 After=network-online.target adsb-hotspot.service
 # The firewall gets in the way of serving the app.
 Conflicts=nftables.service

@@ -287,7 +287,6 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the services
 systemctl daemon-reload
-systemctl enable --now adsb-docker
 systemctl enable --now adsb-setup
 
 # while the user is getting ready, let's try to pull the key docker
