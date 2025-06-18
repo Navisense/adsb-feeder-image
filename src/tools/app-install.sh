@@ -12,6 +12,7 @@ USAGE="
   -f               # finish an install on DietPi using dietpi-software
   --web-port port  # the port for the web interface (default: 1099)
   --enable-mdns    # enable the mDNS server (off by default)
+  --enable-hotspot # enable hotspot to connect to wifi (off by default)
 "
 
 ROOT_REQUIRED="
@@ -44,6 +45,7 @@ TAG=""
 FINISH_DIETPI=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
+ENABLE_HOTSPOT="False"
 
 while (( $# ))
 do
@@ -59,6 +61,8 @@ do
         '--web-port') shift; WEB_PORT=$1
             ;;
         '--enable-mdns') ENABLE_MDNS="True"
+            ;;
+        '--enable-hotspot') ENABLE_HOTSPOT="True"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -121,6 +125,8 @@ PKG_NAME_USBUTILS="usbutils"
 PKG_NAME_JQ="jq"
 PKG_NAME_AVAHI="avahi"
 PKG_NAME_AVAHI_TOOLS="avahi-tools"
+PKG_NAME_HOSTAPD="hostapd"
+PKG_NAME_KEA="kea"
 if [ "$distro" == "debian" ]; then
     PKG_NAME_DOCKER="docker.io"
     PKG_NAME_AVAHI="avahi-daemon"
@@ -164,6 +170,15 @@ if [ "${ENABLE_MDNS}" == "True" ] ; then
     fi
     if ! which avahi-publish &> /dev/null; then
         missing+="${PKG_NAME_AVAHI_TOOLS} "
+    fi
+fi
+
+if [ "${ENABLE_HOTSPOT}" == "True" ] ; then
+    if ! which hostapd &> /dev/null; then
+        missing+="${PKG_NAME_HOSTAPD} "
+    fi
+    if ! which kea-dhcp4 &> /dev/null; then
+        missing+="${PKG_NAME_KEA} "
     fi
 fi
 
@@ -287,7 +302,14 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the services
 systemctl daemon-reload
-systemctl enable --now adsb-setup
+if [ "${ENABLE_HOTSPOT}" == "True" ] ; then
+    # We start the hotspot, which exits once it's got internet access.
+    # adsb-setup waits until it's done and then starts.
+    systemctl enable adsb-setup
+    systemctl start adsb-hotspot adsb-setup
+else
+    systemctl enable --now adsb-setup
+fi
 
 # while the user is getting ready, let's try to pull the key docker
 # containers in the background -- that way startup will feel quicker
