@@ -24,6 +24,7 @@ sync-and-update:
 	ssh -S "${SSH_CONTROL}" root@$(HOST) systemctl stop adsb-setup
 	# sync over changes from local repo
 	make sync-py-control
+	# TODO copy systemd stuff and daemon-reload++++++++
 
 	# update config
 	ssh -S "${SSH_CONTROL}" root@$(HOST) python3 /opt/adsb/adsb-setup/app.py --update-config || true

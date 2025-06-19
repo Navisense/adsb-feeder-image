@@ -27,6 +27,7 @@ import utils.util
 from utils.wifi import make_wifi
 
 
+# TODO use logging++++++++++++++++++
 def print_err(*args, **kwargs):
     timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
         math.modf(time.time())[0] * 1000
@@ -34,6 +35,7 @@ def print_err(*args, **kwargs):
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
 
+# REFACTOR make this a context manager?+++++++
 class ConnectivityMonitor:
     """
     Monitor that regularly checks whether we have internet access.
@@ -267,6 +269,7 @@ class Hotspot(abc.ABC):
         # get rid of any DNS proxy that may block port 53.
         self._stop_wifi_client()
 
+        # TODO the ip addr add fails++++++++
         subprocess.run(
             f"ip li set {self.wlan} up && ip ad add 192.168.199.1/24 broadcast 192.168.199.255 dev {self.wlan} && systemctl start hostapd.service",
             shell=True,

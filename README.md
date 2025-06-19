@@ -149,3 +149,27 @@ The mounted `/dev` and `--privileged` are necessary because CustomPiOS at some
 point uses `losetup` to create and write to a loop device.
 
 On success, CustomPiOS will leave a `.img` file in `src/workspace`.
+
+# Environment variables added for Porttracker
+
+- `FEEDER_SERIAL_AIS`
+- `FEEDER_PORTTRACKER_DATA_SHARING_KEY`
+- `FEEDER_PORTTRACKER_STATION_ID`
+- `FEEDER_PORTTRACKER_MQTT_URL`
+- `FEEDER_PORTTRACKER_MQTT_CLIENT_ID`
+- `FEEDER_PORTTRACKER_MQTT_QOS`
+- `FEEDER_PORTTRACKER_MQTT_TOPIC`
+- `FEEDER_PORTTRACKER_MQTT_MSGFORMAT`
+- `AF_IS_PORTTRACKER_ENABLED`
+
+# Current manual steps
+
+- enable wifi on device
+- ssh into it, root shell (`sudo su -`)
+- `systemctl disable --now nftables`
+- `apk add curl bash`
+- curl the install script: `curl https://raw.githubusercontent.com/Navisense/adsb-feeder-image/main/src/tools/app-install.sh | sudo bash -s -- --web-port 80 --enable-mdns`
+- script will tell what needs to be installed (starts with `apk add ...`, just
+  copy and paste)
+- curl the script again, should run through
+- localhost in browser should show interface

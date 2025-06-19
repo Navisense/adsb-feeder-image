@@ -349,6 +349,7 @@ class NetworkManagerWifi(GenericWifi):
                 print_err(f"found SSIDs: {ssids}")
                 self.ssids = ssids
             else:
+                # TODO this gets logged a lot+++++++++++++++
                 print_err("no SSIDs found")
 
         except Exception as e:

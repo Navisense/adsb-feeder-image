@@ -304,6 +304,7 @@ echo "$ADSB_IM_VERSION" > adsb.im.version
 touch ${APP_DIR}/app.adsb.feeder.image
 
 cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
+# TODO write the proper config through a python script here+++++++++
 {
     cat ${APP_DIR}/docker.image.versions
     echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"

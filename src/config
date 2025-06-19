@@ -14,3 +14,9 @@ export BASE_OVERRIDE_HOSTNAME=adsb-feeder
 export MODULES="base(network,adsb-feeder(adsb-docker))"
 
 export BASE_IMAGE_ENLARGEROOT=1500
+export BASE_ARCH=arm64
+export BASE_BOARD=raspberrypiarm64
+export BASE_USER_PASSWORD=<pw>
+export ROOT_PWD=<pw>
+export SSH_PUB_KEY=
+export FEEDER_IMAGE_NAME=adsb-im-raspberrypi64-pi-2-3-4-5-g-c7b66b23.img

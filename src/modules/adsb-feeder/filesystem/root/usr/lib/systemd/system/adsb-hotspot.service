@@ -4,6 +4,8 @@ After=network-online.target
 # The firewall gets in the way of serving the hotspot, DNS, etc.
 Conflicts=nftables.service
 
+# This will only ever execute once, so it will never create a hotspot again
+# after it's seen the internet even one time+++++++++
 [Service]
 Type=oneshot
 WorkingDirectory=/opt/adsb

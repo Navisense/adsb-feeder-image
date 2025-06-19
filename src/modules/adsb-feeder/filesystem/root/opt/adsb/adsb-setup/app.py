@@ -202,6 +202,8 @@ class AdsbIm:
                 open(os_flag_file, "w").close()
 
         if not os_flag_file.exists():
+            # TODO this disables much of the system management page for
+            # unknown oss++++++++++
             # we are running as an app under DietPi or some other OS
             self._d.is_feeder_image = False
             with open(self._d.data_path / "adsb-setup/templates/systemmgmt.html", "r+") as systemmgmt_file:
@@ -534,6 +536,8 @@ class AdsbIm:
         if not self._d.is_enabled("app_init_done"):
             # ok, we don't have them explicitly set, so let's set them up
             # with the app defaults
+            # TODO the .value will actually be the default (e.g. 80), not None,
+            # so this doesn't work++++++++++++
             for tag, default in [
                 ("webport", 1099),
                 ("tar1090port", 1090),
@@ -543,6 +547,7 @@ class AdsbIm:
                 ("dazzleport", 1094),
                 ("dazzleport", 1094),]:
                 if self._d.env_by_tags(tag).value is None:
+                    # TODO and this is completely wrong anyway+++++++++
                     self._d.env_by_tags("app_init_done").value = default
 
     def onlyAlphaNumDash(self, name):
@@ -1067,6 +1072,7 @@ class AdsbIm:
         for submit_key in self._other_aggregators.keys():
             key = submit_key.replace("--submit", "")
             if self._d.list_is_enabled(key, idx=0):
+                # TODO this gets logged on pi pmos. is that ok?++++++++
                 print_err(f"no semi-anonymous aggregator, but enabled {key}")
                 return True
 
@@ -3415,7 +3421,11 @@ def create_stage2_yml_files(n, ip):
         create_stage2_yml_from_template(f"/opt/adsb/config/{yml_file}", n, ip, f"/opt/adsb/config/{template}")
 
 
+# REFACTOR pull AdsbIm out into a separate file?+++++++++
 class Manager:
+    """
+    TODO++++++++++
+    """
     def __init__(self):
         self._adsb_im = None
         self._connectivity_monitor = None
@@ -3492,7 +3502,9 @@ def main():
     signal.signal(signal.SIGHUP, signal_handler)
 
     with PidFile(), Manager():
+        # print_err(f'started, threads: {threading.enumerate()}')++++++
         shutdown_event.wait()
+    # print_err(f'shut down, threads: {threading.enumerate()}', flush=True)+++++++++
 
 
 if __name__ == "__main__":

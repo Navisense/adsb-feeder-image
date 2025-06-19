@@ -10,6 +10,7 @@ DNS_HEADER_LENGTH = 12
 defaultIP = "192.168.199.1"  # we always respond with this IP
 
 
+# TODO use logging+++++++++++
 def print_err(*args, **kwargs):
     import math
     import time
