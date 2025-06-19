@@ -1,9 +1,11 @@
 import abc
+import collections
 import functools as ft
 import http.client
 import logging
 import math
 import pathlib
+import queue
 import signal
 import socket
 import subprocess
@@ -33,12 +35,19 @@ def print_err(*args, **kwargs):
 
 
 class ConnectivityMonitor:
+    """
+    Monitor that regularly checks whether we have internet access.
+
+    If the state changes, puts the new value into its change_queue.
+    """
     NETWORK_TIMEOUT = 2
     CHECK_INTERVAL = 60
 
     def __init__(self):
+        self.change_queue = queue.Queue(maxsize=1)
         self._keep_running = None
-        self._check_thread = None
+        self._check_timer = None
+        self._check_timer_lock = threading.Lock()
         self._checks = {
             "google_quad8_https_head": ft.partial(
                 self._check_https_head, "8.8.8.8"),
@@ -47,38 +56,72 @@ class ConnectivityMonitor:
                 self._check_dns_resolve, "google.com"),
             "navisense.de_dns_resolve": ft.partial(
                 self._check_dns_resolve, "navisense.de"),}
-        self._stati = {check_name: False for check_name in self._checks}
+        self._status_history = collections.deque(maxlen=2)
         self._logger = logging.getLogger(type(self).__name__)
 
+    @property
+    def current_status(self):
+        try:
+            return any(self._status_history[-1].values())
+        except IndexError:
+            return None
+
+    @property
+    def previous_status(self):
+        try:
+            return any(self._status_history[-2].values())
+        except IndexError:
+            return None
+
     def start(self):
-        assert self._check_thread is None
+        assert self._check_timer is None
         self._keep_running = True
-        self._check_thread = threading.Thread(
-            target=self._check_loop, daemon=True)
-        self._check_thread.start()
+        # This will also start a timer for the next check.
+        self._do_check()
 
     def stop(self):
-        assert self._check_thread is not None
+        assert self._check_timer is not None
         self._keep_running = False
-        self._check_thread.join(timeout=self.NETWORK_TIMEOUT + 0.5)
-        if self._check_thread.is_alive():
-            self._logger.warning(
-                "Network check thread won't terminate cleanly.")
-        self._check_thread = None
-
-    def _check_loop(self):
-        while self._keep_running:
-            self._do_check()
-            time.sleep(self.CHECK_INTERVAL)
+        with self._check_timer_lock:
+            self._check_timer.cancel()
+            self._check_timer.join(timeout=self.NETWORK_TIMEOUT + 0.5)
+            if self._check_timer.is_alive():
+                self._logger.warning(
+                    "Network check thread won't terminate cleanly.")
+        self._check_timer = None
 
     def _do_check(self):
+        new_stati = {}
         for check_name, check_function in self._checks.items():
             if not self._keep_running:
                 return
-            status = check_function()
-            if not status:
-                self._logger.warning(f"Check {check_name} failed.")
-            self._stati[check_name] = status
+            new_stati[check_name] = check_function()
+        self._status_history.append(new_stati)
+        if len(set(new_stati.values())) != 1:
+            self._logger.warning(
+                "Inconsistent results for internet connectivity checks: some "
+                f"succeeded, some failed: {new_stati}.")
+        if self.current_status != self.previous_status:
+            self._logger.info(
+                "Internet connectivity has changed: was "
+                f"{self.previous_status}, is now {self.current_status}.")
+            self._publish_new_status()
+        with self._check_timer_lock:
+            if not self._keep_running:
+                return
+            self._check_timer = threading.Timer(
+                self.CHECK_INTERVAL, self._do_check)
+            self._check_timer.start()
+
+    def _publish_new_status(self):
+        while self._keep_running:
+            try:
+                self.change_queue.put(self.current_status, timeout=0.5)
+                return
+            except queue.Full:
+                self._logger.warning(
+                    "Tried to publish a new connectivity status, but no one "
+                    "has picked up the previous one yet.")
 
     def _check_https_head(self, host):
         conn = http.client.HTTPSConnection(host, timeout=self.NETWORK_TIMEOUT)
