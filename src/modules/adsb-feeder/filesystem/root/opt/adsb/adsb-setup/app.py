@@ -97,6 +97,10 @@ from werkzeug.utils import secure_filename
 from flask.logging import logging as flask_logging
 
 
+ADSB_DIR = pathlib.Path("/opt/adsb")
+CONFIG_DIR = pathlib.Path("/opt/adsb/config")
+
+
 # don't log static assets
 class NoStatic(flask_logging.Filter):
     def filter(record):
@@ -158,7 +162,7 @@ class AdsbIm:
         os_flag_file = self._d.data_path / "os.adsb.feeder.image"
         if not os_flag_file.exists():
             # so this could be a pre-0.15 image, or it could indeed be the app
-            app_flag_file = adsb_dir / "app.adsb.feeder.image"
+            app_flag_file = ADSB_DIR / "app.adsb.feeder.image"
             if not app_flag_file.exists():
                 # there should be no app without the app flag file, so assume that
                 # this is an older image that was upgraded and hence didn't get the
@@ -565,7 +569,6 @@ class AdsbIm:
         # if all the user wanted is to make sure the housekeeping tasks are completed,
         # don't start the flask app and exit instead
         if no_server:
-            signal.raise_signal(signal.SIGTERM)
             return
 
         # if using gpsd, try to update the location
@@ -3383,50 +3386,78 @@ def create_stage2_yml_files(n, ip):
         create_stage2_yml_from_template(f"/opt/adsb/config/{yml_file}", n, ip, f"/opt/adsb/config/{template}")
 
 
+class Manager:
+    def __init__(self, no_server):
+        self.no_server = no_server
+        self._adsb_im = None
+        self._ensure_config_exists()
+
+    def _ensure_config_exists(self):
+        # setup the config folder if that hasn't happened yet
+        # this is designed for two scenarios:
+        # (a) /opt/adsb/config is a subdirectory of /opt/adsb (that gets created if necessary)
+        #     and the config files are moved to reside there
+        # (b) prior to starting this app, /opt/adsb/config is created as a symlink to the
+        #     OS designated config dir (e.g., /mnt/dietpi_userdata/adsb-feeder) and the config
+        #     files are moved to that place instead
+        if not CONFIG_DIR.exists():
+            CONFIG_DIR.mkdir()
+            env_file = ADSB_DIR / ".env"
+            if env_file.exists():
+                shutil.move(env_file, CONFIG_DIR / ".env")
+
+        moved = False
+        for config_file in ADSB_DIR.glob("*.yml"):
+            if config_file.exists():
+                moved = True
+                new_file = CONFIG_DIR / config_file.name
+                shutil.move(config_file, new_file)
+        if moved:
+            print_err(f"moved yml files to {CONFIG_DIR}")
+
+        if not pathlib.Path(CONFIG_DIR / ".env").exists():
+            # I don't understand how that could happen
+            shutil.copyfile(
+                ADSB_DIR / "docker.image.versions", CONFIG_DIR / ".env")
+
+    def __enter__(self):
+        assert self._adsb_im is None
+        self._adsb_im = AdsbIm()
+        if self.no_server:
+            # No-server mode has been requested, in which the app just runs
+            # some config maintenance and then exits. Signal a SIGTERM when
+            # done so we can exit.
+            self._adsb_im.run(no_server=True)
+            signal.raise_signal(signal.SIGTERM)
+        else:
+            # Otherwise, run in a thread, which starts the flask server.
+            threading.Thread(
+                target=self._adsb_im.run, kwargs={"no_server": False}).start()
+        return self
+
+    def __exit__(self, *_):
+        assert self._adsb_im is not None
+        self._adsb_im.exiting = True
+        self._adsb_im.write_planes_seen_per_day()
+        self._adsb_im = None
+        # Raise a SIGTERM, which should get the flask app and possibly some
+        # other stuff to shut down.
+        signal.raise_signal(signal.SIGTERM)
+        return False
+
+
 if __name__ == "__main__":
-    # setup the config folder if that hasn't happened yet
-    # this is designed for two scenarios:
-    # (a) /opt/adsb/config is a subdirectory of /opt/adsb (that gets created if necessary)
-    #     and the config files are moved to reside there
-    # (b) prior to starting this app, /opt/adsb/config is created as a symlink to the
-    #     OS designated config dir (e.g., /mnt/dietpi_userdata/adsb-feeder) and the config
-    #     files are moved to that place instead
-
-    adsb_dir = pathlib.Path("/opt/adsb")
-    config_dir = pathlib.Path("/opt/adsb/config")
-
-    if not config_dir.exists():
-        config_dir.mkdir()
-        env_file = adsb_dir / ".env"
-        if env_file.exists():
-            shutil.move(env_file, config_dir / ".env")
-
-    moved = False
-    for config_file in adsb_dir.glob("*.yml"):
-        if config_file.exists():
-            moved = True
-            new_file = config_dir / config_file.name
-            shutil.move(config_file, new_file)
-    if moved:
-        print_err(f"moved yml files to {config_dir}")
-
-    if not pathlib.Path(config_dir / ".env").exists():
-        # I don't understand how that could happen
-        shutil.copyfile(adsb_dir / "docker.image.versions", config_dir / ".env")
-
-    no_server = len(sys.argv) > 1 and sys.argv[1] == "--update-config"
-
-    a = AdsbIm()
+    no_server = "--update-config" in sys.argv
+    shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
         print_err(f"received signal {sig}, shutting down...")
-        a.exiting = True
-        a.write_planes_seen_per_day()
+        shutdown_event.set()
         signal.signal(sig, signal.SIG_DFL)  # Restore default handler
-        signal.raise_signal(sig)
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    a.run(no_server=no_server)
+    with Manager(no_server):
+        shutdown_event.wait()
