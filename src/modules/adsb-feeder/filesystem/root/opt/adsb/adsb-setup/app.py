@@ -129,6 +129,25 @@ class NoStatic(flask_logging.Filter):
 flask_logging.getLogger("werkzeug").addFilter(NoStatic)
 
 
+class PidFile:
+    PID_FILE = pathlib.Path("/run/adsb-feeder.pid")
+
+    def __init__(self):
+        self._logger = logging.getLogger(type(self).__name__)
+
+    def __enter__(self):
+        if self.PID_FILE.exists():
+            self._logger.warning(
+                f"PID file {self.PID_FILE} already exists. Overwriting it, "
+                "since adsb-feeder should only run once.")
+        self.PID_FILE.write_text(str(os.getpid()))
+        return self
+
+    def __exit__(self, *_):
+        self.PID_FILE.unlink()
+        return False
+
+
 class AdsbIm:
     def __init__(self):
         print_err("starting AdsbIm.__init__", level=4)
@@ -3455,8 +3474,7 @@ class Manager:
         return False
 
 
-if __name__ == "__main__":
-    setup_logging()
+def main():
     if "--update-config" in sys.argv:
         # Just get AdsbIm to do some housekeeping and exit.
         AdsbIm().update_config()
@@ -3473,5 +3491,10 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    with Manager():
+    with PidFile(), Manager():
         shutdown_event.wait()
+
+
+if __name__ == "__main__":
+    setup_logging()
+    main()

@@ -10,6 +10,7 @@ SyslogIdentifier=adsb-setup
 WorkingDirectory=/opt/adsb/adsb-setup
 ExecStartPre=/bin/bash /opt/adsb/pre-start.sh
 ExecStart=/usr/bin/systemd-inhibit --what=idle:sleep --who=adsb-feeder --why="adsb-feeder needs to continue receiving messages" /usr/bin/python3 /opt/adsb/adsb-setup/app.py
+ExecStop=/bin/bash /opt/adsb/stop-adsb-setup.bash
 ExecStopPost=/opt/adsb/scripts/log2disk.sh
 Restart=always
 Type=simple
