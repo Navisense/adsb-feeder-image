@@ -565,24 +565,9 @@ class AdsbIm:
             t.start()
             t.join()
 
-    def run(self, no_server=False):
+    def run(self):
+        self.update_config()
         debug = os.environ.get("ADSBIM_DEBUG") is not None
-
-        # hopefully very temporary hack to deal with a broken container that
-        # doesn't run on Raspberry Pi 5 boards
-        board = self._d.env_by_tags("board_name").value
-        if board.startswith("Raspberry Pi 5"):
-            self._d.env_by_tags(["container", "planefinder"]).value = (
-                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
-            )
-
-        self.handle_implied_settings()
-        self.write_envfile()
-
-        # if all the user wanted is to make sure the housekeeping tasks are completed,
-        # don't start the flask app and exit instead
-        if no_server:
-            return
 
         # if using gpsd, try to update the location
         if self._d.is_enabled("use_gpsd"):
@@ -608,6 +593,18 @@ class AdsbIm:
             port=int(self._d.env_by_tags("webport").value),
             debug=debug,
         )
+
+    def update_config(self):
+        # hopefully very temporary hack to deal with a broken container that
+        # doesn't run on Raspberry Pi 5 boards
+        board = self._d.env_by_tags("board_name").value
+        if board.startswith("Raspberry Pi 5"):
+            self._d.env_by_tags(["container", "planefinder"]).value = (
+                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
+            )
+
+        self.handle_implied_settings()
+        self.write_envfile()
 
     # only need to check for undervoltage during runtime in monitor_dmesg
     # let's keep this around for the moment
@@ -3400,8 +3397,7 @@ def create_stage2_yml_files(n, ip):
 
 
 class Manager:
-    def __init__(self, no_server):
-        self.no_server = no_server
+    def __init__(self):
         self._adsb_im = None
         self._connectivity_monitor = None
         self._ensure_config_exists()
@@ -3440,21 +3436,12 @@ class Manager:
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
         self._connectivity_monitor.start()
         self._adsb_im = AdsbIm()
-        if self.no_server:
-            # No-server mode has been requested, in which the app just runs
-            # some config maintenance and then exits. Signal a SIGTERM when
-            # done so we can exit.
-            self._adsb_im.run(no_server=True)
-            signal.raise_signal(signal.SIGTERM)
-        else:
-            # Otherwise, run in a thread, which starts the flask server.
-            threading.Thread(
-                target=self._adsb_im.run, kwargs={"no_server": False}).start()
+        threading.Thread(target=self._adsb_im.run).start()
         return self
 
     def __exit__(self, *_):
         assert self._adsb_im is not None
-        assert self.no_server or self._connectivity_monitor is not None
+        assert self._connectivity_monitor is not None
         self._adsb_im.exiting = True
         self._adsb_im.write_planes_seen_per_day()
         self._adsb_im = None
@@ -3462,13 +3449,19 @@ class Manager:
         self._connectivity_monitor = None
         # Raise a SIGTERM, which should get the flask app and possibly some
         # other stuff to shut down.
+        # TODO it would be nice if there was a stop() or something so we didn't
+        # have to do this++++++++++++++
         signal.raise_signal(signal.SIGTERM)
         return False
 
 
 if __name__ == "__main__":
     setup_logging()
-    no_server = "--update-config" in sys.argv
+    if "--update-config" in sys.argv:
+        # Just get AdsbIm to do some housekeeping and exit.
+        AdsbIm().update_config()
+        sys.exit(0)
+
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
@@ -3480,5 +3473,5 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    with Manager(no_server):
+    with Manager():
         shutdown_event.wait()
