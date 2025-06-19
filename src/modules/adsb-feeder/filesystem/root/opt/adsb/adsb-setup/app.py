@@ -2,6 +2,8 @@ import copy
 import filecmp
 import gzip
 import json
+import logging
+import logging.config
 import math
 import os
 import os.path
@@ -99,6 +101,17 @@ from flask.logging import logging as flask_logging
 
 ADSB_DIR = pathlib.Path("/opt/adsb")
 CONFIG_DIR = pathlib.Path("/opt/adsb/config")
+
+
+def setup_logging():
+    fmt = '%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s'
+    logging.config.dictConfig({
+        'version': 1,
+        'formatters': {'simple': {'format': fmt}},
+        'handlers': {
+            'stream_handler': {
+                'class': 'logging.StreamHandler', 'formatter': 'simple'}},
+        'root': {'level': 'DEBUG', 'handlers': ['stream_handler']},})
 
 
 # don't log static assets
@@ -3447,6 +3460,7 @@ class Manager:
 
 
 if __name__ == "__main__":
+    setup_logging()
     no_server = "--update-config" in sys.argv
     shutdown_event = threading.Event()
 
