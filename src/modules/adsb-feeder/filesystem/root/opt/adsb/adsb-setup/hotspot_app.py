@@ -1,8 +1,11 @@
 import abc
+import functools as ft
+import http.client
+import logging
 import math
 import pathlib
 import signal
-import socketserver
+import socket
 import subprocess
 import sys
 import threading
@@ -27,6 +30,72 @@ def print_err(*args, **kwargs):
         math.modf(time.time())[0] * 1000
     )
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
+
+
+class ConnectivityMonitor:
+    NETWORK_TIMEOUT = 2
+    CHECK_INTERVAL = 60
+
+    def __init__(self):
+        self._keep_running = None
+        self._check_thread = None
+        self._checks = {
+            "google_quad8_https_head": ft.partial(
+                self._check_https_head, "8.8.8.8"),
+            "quad9_https_head": ft.partial(self._check_https_head, "9.9.9.9"),
+            "google.com_dns_resolve": ft.partial(
+                self._check_dns_resolve, "google.com"),
+            "navisense.de_dns_resolve": ft.partial(
+                self._check_dns_resolve, "navisense.de"),}
+        self._stati = {check_name: False for check_name in self._checks}
+        self._logger = logging.getLogger(type(self).__name__)
+
+    def start(self):
+        assert self._check_thread is None
+        self._keep_running = True
+        self._check_thread = threading.Thread(
+            target=self._check_loop, daemon=True)
+        self._check_thread.start()
+
+    def stop(self):
+        assert self._check_thread is not None
+        self._keep_running = False
+        self._check_thread.join(timeout=self.NETWORK_TIMEOUT + 0.5)
+        if self._check_thread.is_alive():
+            self._logger.warning(
+                "Network check thread won't terminate cleanly.")
+        self._check_thread = None
+
+    def _check_loop(self):
+        while self._keep_running:
+            self._do_check()
+            time.sleep(self.CHECK_INTERVAL)
+
+    def _do_check(self):
+        for check_name, check_function in self._checks.items():
+            if not self._keep_running:
+                return
+            status = check_function()
+            if not status:
+                self._logger.warning(f"Check {check_name} failed.")
+            self._stati[check_name] = status
+
+    def _check_https_head(self, host):
+        conn = http.client.HTTPSConnection(host, timeout=self.NETWORK_TIMEOUT)
+        try:
+            conn.request("HEAD", "/")
+            return True
+        except:
+            return False
+        finally:
+            conn.close()
+
+    def _check_dns_resolve(self, host):
+        try:
+            socket.gethostbyname(host)
+            return True
+        except:
+            return False
 
 
 class Hotspot(abc.ABC):

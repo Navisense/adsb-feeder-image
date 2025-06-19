@@ -58,7 +58,7 @@ from flask import (
     url_for,
 )
 
-
+import hotspot_app
 from utils.data import Data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
@@ -3403,6 +3403,7 @@ class Manager:
     def __init__(self, no_server):
         self.no_server = no_server
         self._adsb_im = None
+        self._connectivity_monitor = None
         self._ensure_config_exists()
 
     def _ensure_config_exists(self):
@@ -3435,6 +3436,9 @@ class Manager:
 
     def __enter__(self):
         assert self._adsb_im is None
+        assert self._connectivity_monitor is None
+        self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
+        self._connectivity_monitor.start()
         self._adsb_im = AdsbIm()
         if self.no_server:
             # No-server mode has been requested, in which the app just runs
@@ -3450,9 +3454,12 @@ class Manager:
 
     def __exit__(self, *_):
         assert self._adsb_im is not None
+        assert self.no_server or self._connectivity_monitor is not None
         self._adsb_im.exiting = True
         self._adsb_im.write_planes_seen_per_day()
         self._adsb_im = None
+        self._connectivity_monitor.stop()
+        self._connectivity_monitor = None
         # Raise a SIGTERM, which should get the flask app and possibly some
         # other stuff to shut down.
         signal.raise_signal(signal.SIGTERM)
