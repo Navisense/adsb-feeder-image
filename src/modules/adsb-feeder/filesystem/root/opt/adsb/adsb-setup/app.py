@@ -5,6 +5,7 @@ import json
 import logging
 import logging.config
 import math
+import multiprocessing
 import os
 import os.path
 import pathlib
@@ -377,6 +378,55 @@ class AdsbIm:
         with config_lock:
             write_values_to_config_json(self._d.env_values, reason="Startup")
 
+    def run(self):
+        self.update_config()
+        debug = os.environ.get("ADSBIM_DEBUG") is not None
+
+        # if using gpsd, try to update the location
+        if self._d.is_enabled("use_gpsd"):
+            self.get_lat_lon_alt()
+
+        self._every_minute = Background(60, self.every_minute)
+        # every_minute stuff is required to initialize some values, run it synchronously
+        self.every_minute()
+
+        if self._d.is_enabled("stage2"):
+            # let's make sure we tell the micro feeders every ten minutes that
+            # the stage2 is around, looking at them
+            threading.Thread(target=self.stage2_checks).start()
+            self._stage2_checks = Background(600, self.stage2_checks)
+
+        # reset undervoltage indicator
+        self._d.env_by_tags("under_voltage").value = False
+
+        threading.Thread(target=self.monitor_dmesg).start()
+
+        signal.signal(signal.SIGTERM, self._shutdown)
+        self.app.run(
+            host="0.0.0.0",
+            port=int(self._d.env_by_tags("webport").value),
+            debug=debug,
+        )
+
+    def update_config(self):
+        # hopefully very temporary hack to deal with a broken container that
+        # doesn't run on Raspberry Pi 5 boards
+        board = self._d.env_by_tags("board_name").value
+        if board.startswith("Raspberry Pi 5"):
+            self._d.env_by_tags(["container", "planefinder"]).value = (
+                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
+            )
+
+        self.handle_implied_settings()
+        self.write_envfile()
+
+    def _shutdown(self,sig, frame):
+        self.exiting = True
+        self.write_planes_seen_per_day()
+        # Restore default handler and raise again for Flask.
+        signal.signal(sig, signal.SIG_DFL)
+        signal.raise_signal(signal.SIGTERM)
+
     def update_boardname(self):
         board = ""
         if pathlib.Path("/sys/firmware/devicetree/base/model").exists():
@@ -571,47 +621,6 @@ class AdsbIm:
                 # for it as well.
                 args.append(host_name)
             subprocess.run(args)
-
-    def run(self):
-        self.update_config()
-        debug = os.environ.get("ADSBIM_DEBUG") is not None
-
-        # if using gpsd, try to update the location
-        if self._d.is_enabled("use_gpsd"):
-            self.get_lat_lon_alt()
-
-        self._every_minute = Background(60, self.every_minute)
-        # every_minute stuff is required to initialize some values, run it synchronously
-        self.every_minute()
-
-        if self._d.is_enabled("stage2"):
-            # let's make sure we tell the micro feeders every ten minutes that
-            # the stage2 is around, looking at them
-            threading.Thread(target=self.stage2_checks).start()
-            self._stage2_checks = Background(600, self.stage2_checks)
-
-        # reset undervoltage indicator
-        self._d.env_by_tags("under_voltage").value = False
-
-        threading.Thread(target=self.monitor_dmesg).start()
-
-        self.app.run(
-            host="0.0.0.0",
-            port=int(self._d.env_by_tags("webport").value),
-            debug=debug,
-        )
-
-    def update_config(self):
-        # hopefully very temporary hack to deal with a broken container that
-        # doesn't run on Raspberry Pi 5 boards
-        board = self._d.env_by_tags("board_name").value
-        if board.startswith("Raspberry Pi 5"):
-            self._d.env_by_tags(["container", "planefinder"]).value = (
-                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
-            )
-
-        self.handle_implied_settings()
-        self.write_envfile()
 
     # only need to check for undervoltage during runtime in monitor_dmesg
     # let's keep this around for the moment
@@ -3405,8 +3414,9 @@ def create_stage2_yml_files(n, ip):
 
 class Manager:
     def __init__(self):
-        self._adsb_im = None
+        self._adsb_im_process = None
         self._connectivity_monitor = None
+        self._logger = logging.getLogger(type(self).__name__)
         self._ensure_config_exists()
 
     def _ensure_config_exists(self):
@@ -3430,7 +3440,7 @@ class Manager:
                 new_file = CONFIG_DIR / config_file.name
                 shutil.move(config_file, new_file)
         if moved:
-            print_err(f"moved yml files to {CONFIG_DIR}")
+            self._logger.info(f"moved yml files to {CONFIG_DIR}")
 
         if not pathlib.Path(CONFIG_DIR / ".env").exists():
             # I don't understand how that could happen
@@ -3438,28 +3448,33 @@ class Manager:
                 ADSB_DIR / "docker.image.versions", CONFIG_DIR / ".env")
 
     def __enter__(self):
-        assert self._adsb_im is None
+        assert self._adsb_im_process is None
         assert self._connectivity_monitor is None
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
         self._connectivity_monitor.start()
-        self._adsb_im = AdsbIm()
-        threading.Thread(target=self._adsb_im.run).start()
+        self._adsb_im_process = multiprocessing.Process(
+            target=self._run_adsb_im)
+        self._adsb_im_process.start()
         return self
 
     def __exit__(self, *_):
-        assert self._adsb_im is not None
+        assert self._adsb_im_process is not None
         assert self._connectivity_monitor is not None
-        self._adsb_im.exiting = True
-        self._adsb_im.write_planes_seen_per_day()
-        self._adsb_im = None
         self._connectivity_monitor.stop()
         self._connectivity_monitor = None
-        # Raise a SIGTERM, which should get the flask app and possibly some
-        # other stuff to shut down.
-        # TODO it would be nice if there was a stop() or something so we didn't
-        # have to do this++++++++++++++
-        signal.raise_signal(signal.SIGTERM)
+        self._adsb_im_process.terminate()
+        self._adsb_im_process.join(10)
+        if self._adsb_im_process.is_alive():
+            self._logger.error(
+                "AdsbIm process failed to shut down gracefully after timeout, "
+                "killing it.")
+            self._adsb_im_process.kill()
         return False
+
+    @staticmethod
+    def _run_adsb_im():
+        adsb_im = AdsbIm()
+        adsb_im.run()
 
 
 def main():
