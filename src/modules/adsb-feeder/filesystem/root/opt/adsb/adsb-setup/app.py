@@ -12,6 +12,7 @@ import os.path
 import pathlib
 import pickle
 import platform
+import queue
 import re
 import shlex
 import requests
@@ -3435,8 +3436,10 @@ def create_stage2_yml_files(n, ip):
 
 class Manager:
     def __init__(self):
-        self._adsb_im_process = None
         self._connectivity_monitor = None
+        self._connectivity_change_thread = None
+        self._adsb_im_process = None
+        self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
         self._ensure_config_exists()
 
@@ -3469,20 +3472,66 @@ class Manager:
                 ADSB_DIR / "docker.image.versions", CONFIG_DIR / ".env")
 
     def __enter__(self):
-        assert self._adsb_im_process is None
         assert self._connectivity_monitor is None
+        assert self._connectivity_change_thread is None
+        assert self._adsb_im_process is None
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
+        self._connectivity_change_thread = threading.Thread(
+            target=self._connectivity_change_loop)
+        self._connectivity_change_thread.start()
         self._connectivity_monitor.start()
-        self._adsb_im_process = multiprocessing.Process(
-            target=self._run_adsb_im)
-        self._adsb_im_process.start()
         return self
 
     def __exit__(self, *_):
-        assert self._adsb_im_process is not None
         assert self._connectivity_monitor is not None
+        assert self._connectivity_change_thread is not None
+        self._keep_running = False
         self._connectivity_monitor.stop()
         self._connectivity_monitor = None
+        self._connectivity_change_thread.join(2)
+        if self._connectivity_change_thread.is_alive():
+            self._logger.error(
+                "Connectivity change thread failed to terminate.")
+        self._maybe_stop_adsb_im()
+        return False
+
+    def _connectivity_change_loop(self):
+        self._logger.info(
+            "Waiting for the connectivity monitor to tell us whether we have "
+            "internet access.")
+        while self._keep_running:
+            try:
+                has_access = self._connectivity_monitor.change_queue.get(
+                    timeout=1)
+            except queue.Empty:
+                continue
+            if has_access:
+                if self._adsb_im_process is not None:
+                    self._logger.warning(
+                        "Connectivity monitor says we have connection, but "
+                        "the main app is already running.")
+                    continue
+                self._logger.info(
+                    "We have internet access, starting the main app.")
+                self._start_adsb_im()
+            else:
+                self._logger.info(
+                    "We don't have internet access, starting the hotspot.")
+                self._maybe_stop_adsb_im()
+
+    def _start_adsb_im(self):
+        self._adsb_im_process = multiprocessing.Process(
+            target=self._run_adsb_im)
+        self._adsb_im_process.start()
+
+    @staticmethod
+    def _run_adsb_im():
+        adsb_im = AdsbIm()
+        adsb_im.run()
+
+    def _maybe_stop_adsb_im(self):
+        if self._adsb_im_process is None:
+            return
         self._adsb_im_process.terminate()
         self._adsb_im_process.join(10)
         if self._adsb_im_process.is_alive():
@@ -3490,12 +3539,7 @@ class Manager:
                 "AdsbIm process failed to shut down gracefully after timeout, "
                 "killing it.")
             self._adsb_im_process.kill()
-        return False
-
-    @staticmethod
-    def _run_adsb_im():
-        adsb_im = AdsbIm()
-        adsb_im.run()
+        self._adsb_im_process = None
 
 
 def main():
