@@ -4,13 +4,11 @@ import functools as ft
 import http.client
 import json
 import logging
-import math
 import pathlib
 import queue
 import re
 import signal
 import socket
-import sys
 import threading
 import time
 
@@ -25,14 +23,7 @@ from flask import (
 import fakedns
 import utils.data
 import utils.util
-from utils.wifi import make_wifi
-
-
-def print_err(*args, **kwargs):
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
-        math.modf(time.time())[0] * 1000
-    )
-    print(*((timestamp,) + args), file=sys.stderr, **kwargs)
+import utils.wifi
 
 
 def make_hotspot(wlan):
@@ -164,7 +155,7 @@ class Hotspot(abc.ABC):
         self._hotspot_is_running = False
         self.app = Flask(__name__)
         self.wlan = wlan
-        self.wifi = make_wifi(wlan)
+        self.wifi = utils.wifi.make_wifi(wlan)
         if pathlib.Path("/opt/adsb/adsb.im.version").exists():
             with open("/opt/adsb/adsb.im.version", "r") as f:
                 self.version = f.read().strip()
@@ -177,7 +168,7 @@ class Hotspot(abc.ABC):
         self._dns_server = fakedns.Server()
         self._wifi_test_thread = None
         self._setup_config_files()
-        print_err("trying to scan for SSIDs")
+        self._logger.info("Scanning for SSIDs.")
         self.wifi.ssids = []
         startTime = time.time()
         while time.time() - startTime < 20:
@@ -293,7 +284,9 @@ class Hotspot(abc.ABC):
 
         if self._request_looks_like_wifi_credentials():
             if self._wifi_test_thread is not None:
-                print_err("A wifi test thread is already running.")
+                self._logger.warning(
+                    "Received wifi credentials while a wifi test thread is "
+                    "already running. Returning the main page again.")
                 return self.hotspot()
             self.restart_state = "restarting"
 
@@ -302,7 +295,6 @@ class Hotspot(abc.ABC):
 
             self._wifi_test_thread = threading.Thread(target=self.test_wifi)
             self._wifi_test_thread.start()
-            print_err("started wifi test thread")
 
             return redirect("/restarting")
 
@@ -332,20 +324,20 @@ class Hotspot(abc.ABC):
         if self._d.is_enabled("mdns"):
             self._systemctl(
                 ["restart"], "adsb-avahi-alias@adsb-feeder.local.service")
-        print_err("Starting DNS server.")
+        self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
-        except Exception as e:
-            print_err(f"Error starting DNS server: {e}.")
-        print_err("started hotspot")
+        except:
+            self._logger.exception("Error starting DNS server.")
+        self._logger.info("Started hotspot.")
         self._hotspot_is_running = True
 
     def _teardown_hotspot_locked(self):
-        print_err("Stopping DNS server.")
+        self._logger.info("Stopping DNS server.")
         try:
             self._dns_server.stop()
-        except Exception as e:
-            print_err(f"Error stopping DNS server: {e}.")
+        except:
+            self._logger.exception("Error stopping DNS server.")
         if self._d.is_enabled("mdns"):
             self._systemctl(
                 ["stop"], "adsb-avahi-alias@adsb-feeder.local.service")
@@ -357,7 +349,7 @@ class Hotspot(abc.ABC):
             f"ip addr flush {self.wlan}; ip link set dev {self.wlan} down")
         self._restart_wifi_client()
         # used to wait here, just spin around the wifi instead
-        print_err("turned off hotspot")
+        self._logger.info("Stopped hotspot.")
         self._hotspot_is_running = False
 
     def _systemctl(self, commands, services):
@@ -371,18 +363,18 @@ class Hotspot(abc.ABC):
         return procs
 
     def test_wifi(self):
+        self._logger.info("Starting wifi test.")
         # the parent process needs to return from the call to POST
         time.sleep(1.0)
         with self._hotspot_lock:
             self._teardown_hotspot_locked()
 
-            print_err(f"testing the '{self.ssid}' network")
+            self._logger.info(f"Testing the '{self.ssid}' network.")
 
             success = self.wifi.wifi_connect(self.ssid, self.passwd)
             self.restart_state = "done"
             if not success:
-                print_err(f"test_wifi failed to connect to '{self.ssid}'")
-
+                self._logger.info(f"Failed to connect to '{self.ssid}'.")
                 self.comment = "Failed to connect, wrong SSID or password, please try again."
                 # now we bring back up the hotspot in order to deliver the result to the user
                 # and have them try again
@@ -390,10 +382,10 @@ class Hotspot(abc.ABC):
                 self._wifi_test_thread = None
                 return
 
-            print_err(f"successfully connected to '{self.ssid}'")
-            # the shell script that launched this app will do a final connectivity check
-            # if there is no connectivity despite being able to join the wifi, it will re-launch this app (unlikely)
-            print_err("exiting the hotspot app")
+            self._logger.info(f"Successfully connected to '{self.ssid}'.")
+            # Exit the hotspot. Afterwards, the connectivity monitor should
+            # pick up that we have internet access. Otherwise, the manager will
+            # have to restart the hotspot.
             self._wifi_test_thread = None
         signal.raise_signal(signal.SIGTERM)
 
@@ -419,11 +411,12 @@ class NetworkManagerHotspot(Hotspot):
             if not self._dnsmasq_is_running():
                 break
             if i > 0:
-                print_err("Tried to stop dnsmasq, but it's still running.")
+                self._logger.warning(
+                    "Tried to stop dnsmasq, but it's still running.")
                 time.sleep(0.5)
             self._kill_dnsmasq()
         else:
-            print_err("Giving up trying to stop dnsmasq.")
+            self._logger.error("Giving up trying to stop dnsmasq.")
 
     def _dnsmasq_is_running(self):
         proc = utils.util.shell_with_combined_output("ps -e | grep dnsmasq")
