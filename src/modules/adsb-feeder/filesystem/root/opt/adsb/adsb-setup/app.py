@@ -3438,6 +3438,25 @@ def create_stage2_yml_files(n, ip):
 
 
 class Manager:
+    """
+    Application manager.
+
+    The main purpose of this manager is to decide whether the main app should
+    be running, or the hotspot app used to provide a convenient way of
+    configuring a wifi password.
+
+    This decision is based mostly on input from the ConnectivityMonitor, which
+    regularly checks whether we can reach the open internet. If we can, we want
+    to run the main app, otherwise the hotspot.
+
+    However, an additional criterion is that the hotspot shouldn't run for too
+    long if it yields no success. That's because it blocks the wifi device, so
+    in case a lost connection is actually an upstream issue (e.g. in the
+    router), we have to stop the hotspot or we won't notice this. So after a
+    while, the hotspot is disabled an the main app started. If we then find we
+    have connection again, it is kept running, otherwise the hotspot is started
+    again.
+    """
     CONNECTIVITY_CHECK_INTERVAL = 60
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
