@@ -3437,11 +3437,17 @@ def create_stage2_yml_files(n, ip):
 
 
 class Manager:
+    CONNECTIVITY_CHECK_INTERVAL = 60
+    HOTSPOT_TIMEOUT = 300
+    HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
+
     def __init__(self):
+        self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
         self._adsb_im_process = None
         self._hotspot_process = None
+        self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
         self._ensure_config_exists()
@@ -3479,7 +3485,8 @@ class Manager:
         assert self._connectivity_change_thread is None
         assert self._adsb_im_process is None
         assert self._hotspot_process is None
-        self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
+        self._connectivity_monitor = hotspot_app.ConnectivityMonitor(
+            self._event_queue, check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
         self._connectivity_change_thread.start()
@@ -3506,37 +3513,71 @@ class Manager:
             "internet access.")
         while self._keep_running:
             try:
-                has_access = self._connectivity_monitor.change_queue.get(
-                    timeout=1)
+                event_type, value = self._event_queue.get(timeout=1)
             except queue.Empty:
                 continue
-            if has_access:
-                if self._adsb_im_process is not None:
-                    self._logger.info(
-                        "Connectivity monitor says we have connection, but "
-                        "the main app is already running.")
-                    continue
-                self._logger.info(
-                    "We have internet access, starting the main app.")
-                self._maybe_stop_hotspot()
-                self._maybe_start_adsb_im()
-            else:
-                if self._hotspot_process is not None:
-                    self._logger.info(
-                        "Connectivity monitor says we don\'t have connection, "
-                        "but the hotspot app is already running.")
-                    continue
-                self._logger.info(
-                    "We don't have internet access, starting the hotspot.")
-                self._maybe_stop_adsb_im()
-                self._maybe_start_hotspot()
+            if event_type == "connectivity_change":
+                self._handle_connectivity_change(value)
+            elif event_type == "hotspot_timeout":
+                self._handle_hotspot_timeout()
+            elif event_type == "hotspot_recheck_timeout":
+                self._handle_hotspot_recheck_timeout()
 
-    def _maybe_start_adsb_im(self):
+    def _handle_connectivity_change(self, has_access):
+        if has_access:
+            if self._adsb_im_process is not None:
+                self._logger.info(
+                    "Connectivity monitor says we have connection, but the "
+                    "main app is already running.")
+                return
+            self._logger.info(
+                "We have internet access, starting the main app.")
+            self._maybe_stop_hotspot()
+            self._maybe_start_adsb_im()
+        else:
+            if self._hotspot_process is not None:
+                self._logger.info(
+                    "Connectivity monitor says we don't have connection, but "
+                    "the hotspot app is already running.")
+                return
+            self._logger.info(
+                "We don't have internet access, starting the hotspot.")
+            self._maybe_stop_adsb_im()
+            self._maybe_start_hotspot()
+
+    def _handle_hotspot_timeout(self):
+        self._logger.info(
+            "Hotspot has been active for a while without success. Shutting it "
+            "down to see if connectivity has returned.")
+        self._maybe_stop_hotspot()
+        self._maybe_start_adsb_im(hotspot_recheck=True)
+
+    def _handle_hotspot_recheck_timeout(self):
+        self._hotspot_timer = None
+        if self._connectivity_monitor.current_status:
+            self._logger.info(
+                "After shutting down the hotspot, connectivity has returned. "
+                "Keeping the main app running.")
+        else:
+            self._logger.info(
+                "After shutting down the hotspot, we still don't have "
+                "connectivity. Switching back to the hotspot.")
+            self._maybe_stop_adsb_im()
+            self._maybe_start_hotspot()
+
+    def _maybe_start_adsb_im(self, *, hotspot_recheck=False):
         if self._adsb_im_process is not None:
             return
         self._adsb_im_process = multiprocessing.Process(
-            target=self._run_adsb_im)
+            target=self._run_adsb_im, name="main app")
         self._adsb_im_process.start()
+        if hotspot_recheck:
+            # We're starting this to see if we have connectivity again. Shut it
+            # down again after a while if not.
+            self._hotspot_timer = threading.Timer(
+                self.HOTSPOT_RECHECK_TIMEOUT, self._event_queue.put,
+                args=(("hotspot_recheck_timeout", None),))
+            self._hotspot_timer.start()
 
     @staticmethod
     def _run_adsb_im():
@@ -3550,20 +3591,28 @@ class Manager:
     def _maybe_stop_process(self, process):
         if process is None:
             return
+        if self._hotspot_timer:
+            self._hotspot_timer.cancel()
+            self._hotspot_timer.join()
+            self._hotspot_timer = None
         process.terminate()
         process.join(15)
         if process.is_alive():
             self._logger.error(
-                "Process failed to shut down gracefully after timeout, "
-                "killing it.")
+                f"Process {process} failed to shut down gracefully after "
+                "timeout, killing it.")
             process.kill()
 
     def _maybe_start_hotspot(self):
         if self._hotspot_process is not None:
             return
         self._hotspot_process = multiprocessing.Process(
-            target=self._run_hotspot)
+            target=self._run_hotspot, name="hotspot")
         self._hotspot_process.start()
+        self._hotspot_timer = threading.Timer(
+            self.HOTSPOT_TIMEOUT, self._event_queue.put,
+            args=(("hotspot_timeout", None),))
+        self._hotspot_timer.start()
 
     @staticmethod
     def _run_hotspot():

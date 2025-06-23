@@ -47,13 +47,13 @@ class ConnectivityMonitor:
     """
     Monitor that regularly checks whether we have internet access.
 
-    If the state changes, puts the new value into its change_queue.
+    If the state changes, puts an item into its event queue.
     """
     NETWORK_TIMEOUT = 2
-    CHECK_INTERVAL = 60
 
-    def __init__(self):
-        self.change_queue = queue.Queue(maxsize=1)
+    def __init__(self, event_queue, *, check_interval):
+        self._event_queue = event_queue
+        self.check_interval = check_interval
         self._keep_running = None
         self._check_timer = None
         self._check_timer_lock = threading.Lock()
@@ -115,18 +115,19 @@ class ConnectivityMonitor:
             if not self._keep_running:
                 return
             self._check_timer = threading.Timer(
-                self.CHECK_INTERVAL, self._do_check)
+                self.check_interval, self._do_check)
             self._check_timer.start()
 
     def _publish_new_status(self):
         while self._keep_running:
+            event = ("connectivity_change", self.current_status)
             try:
-                self.change_queue.put(self.current_status, timeout=0.5)
+                self._event_queue.put(event, timeout=0.5)
                 return
             except queue.Full:
                 self._logger.warning(
-                    "Tried to publish a new connectivity status, but no one "
-                    "has picked up the previous one yet.")
+                    "Tried to publish a new connectivity status, but the "
+                    "event queue was full.")
 
     def _check_https_head(self, host):
         conn = http.client.HTTPSConnection(host, timeout=self.NETWORK_TIMEOUT)
