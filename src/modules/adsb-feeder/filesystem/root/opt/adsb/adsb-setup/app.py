@@ -45,6 +45,7 @@ from utils.config import (
     write_values_to_config_json,
     write_values_to_env_file,
 )
+import utils.util
 from utils.util import create_fake_info, make_int, print_err, report_issue, mf_get_ip_and_triplet, string2file
 from utils.wifi import make_wifi
 
@@ -3606,17 +3607,31 @@ class Manager:
     def _maybe_start_hotspot(self):
         if self._hotspot_process is not None:
             return
+        wlan = self._find_wlan_device()
         self._hotspot_process = multiprocessing.Process(
-            target=self._run_hotspot, name="hotspot")
+            target=self._run_hotspot, args=(wlan,), name="hotspot")
         self._hotspot_process.start()
         self._hotspot_timer = threading.Timer(
             self.HOTSPOT_TIMEOUT, self._event_queue.put,
             args=(("hotspot_timeout", None),))
         self._hotspot_timer.start()
 
+    def _find_wlan_device(self):
+        raw_output = utils.util.shell_with_combined_output(
+            "iw dev | grep Interface | cut -d' ' -f2")
+        wlans = [wlan for wlan in raw_output.stdout.split("\n") if wlan]
+        if not wlans:
+            raise RuntimeError(
+                f"No wlan device found in {raw_output}. Unable to start "
+                "hotspot.")
+        if len(wlans) > 1:
+            self._logger.info(
+                f"Found more than one wlan device: {wlans}. Using {wlans[0]}")
+        return wlans[0]
+
     @staticmethod
-    def _run_hotspot():
-        hotspot = hotspot_app.make_hotspot("wlan0")
+    def _run_hotspot(wlan):
+        hotspot = hotspot_app.make_hotspot(wlan)
         hotspot.run()
 
     def _maybe_stop_hotspot(self):
