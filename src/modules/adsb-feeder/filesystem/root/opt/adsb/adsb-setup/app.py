@@ -563,26 +563,14 @@ class AdsbIm:
         else:
             self._current_site_name = site_name
         if should_set_hostname:
-            t = threading.Thread(
-                target=subprocess.run,
-                args=(["/usr/bin/hostnamectl", "hostname",
-                       host_name],))
-            t.start()
-            t.join()
+            subprocess.run(["/usr/bin/hostnamectl", "hostname", host_name])
         if should_start_mdns:
+            args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
             if host_name:
                 # If we have a hostname, make the mDNS script create an alias
                 # for it as well.
-                setup_script_args = [host_name]
-            else:
-                # Without a hostname, just create mDNS for adsb-feeder.local.
-                setup_script_args = []
-            t = threading.Thread(
-                target=subprocess.run, args=(
-                    ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
-                    + setup_script_args,))
-            t.start()
-            t.join()
+                args.append(host_name)
+            subprocess.run(args)
 
     def run(self):
         self.update_config()
