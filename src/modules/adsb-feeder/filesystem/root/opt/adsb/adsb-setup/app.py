@@ -106,6 +106,8 @@ from flask.logging import logging as flask_logging
 ADSB_DIR = pathlib.Path("/opt/adsb")
 CONFIG_DIR = pathlib.Path("/opt/adsb/config")
 
+logger = None
+
 
 def setup_logging():
     fmt = '%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s'
@@ -3439,6 +3441,7 @@ class Manager:
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
         self._adsb_im_process = None
+        self._hotspot_process = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
         self._ensure_config_exists()
@@ -3475,6 +3478,7 @@ class Manager:
         assert self._connectivity_monitor is None
         assert self._connectivity_change_thread is None
         assert self._adsb_im_process is None
+        assert self._hotspot_process is None
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor()
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
@@ -3493,6 +3497,7 @@ class Manager:
             self._logger.error(
                 "Connectivity change thread failed to terminate.")
         self._maybe_stop_adsb_im()
+        self._maybe_stop_hotspot()
         return False
 
     def _connectivity_change_loop(self):
@@ -3507,19 +3512,28 @@ class Manager:
                 continue
             if has_access:
                 if self._adsb_im_process is not None:
-                    self._logger.warning(
+                    self._logger.info(
                         "Connectivity monitor says we have connection, but "
                         "the main app is already running.")
                     continue
                 self._logger.info(
                     "We have internet access, starting the main app.")
-                self._start_adsb_im()
+                self._maybe_stop_hotspot()
+                self._maybe_start_adsb_im()
             else:
+                if self._hotspot_process is not None:
+                    self._logger.info(
+                        "Connectivity monitor says we don\'t have connection, "
+                        "but the hotspot app is already running.")
+                    continue
                 self._logger.info(
                     "We don't have internet access, starting the hotspot.")
                 self._maybe_stop_adsb_im()
+                self._maybe_start_hotspot()
 
-    def _start_adsb_im(self):
+    def _maybe_start_adsb_im(self):
+        if self._adsb_im_process is not None:
+            return
         self._adsb_im_process = multiprocessing.Process(
             target=self._run_adsb_im)
         self._adsb_im_process.start()
@@ -3530,16 +3544,35 @@ class Manager:
         adsb_im.run()
 
     def _maybe_stop_adsb_im(self):
-        if self._adsb_im_process is None:
-            return
-        self._adsb_im_process.terminate()
-        self._adsb_im_process.join(10)
-        if self._adsb_im_process.is_alive():
-            self._logger.error(
-                "AdsbIm process failed to shut down gracefully after timeout, "
-                "killing it.")
-            self._adsb_im_process.kill()
+        self._maybe_stop_process(self._adsb_im_process)
         self._adsb_im_process = None
+
+    def _maybe_stop_process(self, process):
+        if process is None:
+            return
+        process.terminate()
+        process.join(15)
+        if process.is_alive():
+            self._logger.error(
+                "Process failed to shut down gracefully after timeout, "
+                "killing it.")
+            process.kill()
+
+    def _maybe_start_hotspot(self):
+        if self._hotspot_process is not None:
+            return
+        self._hotspot_process = multiprocessing.Process(
+            target=self._run_hotspot)
+        self._hotspot_process.start()
+
+    @staticmethod
+    def _run_hotspot():
+        hotspot = hotspot_app.make_hotspot("wlan0")
+        hotspot.run()
+
+    def _maybe_stop_hotspot(self):
+        self._maybe_stop_process(self._hotspot_process)
+        self._hotspot_process = None
 
 
 def main():
@@ -3551,7 +3584,7 @@ def main():
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
-        print_err(f"received signal {sig}, shutting down...")
+        logger.info(f"Received signal {sig}, shutting down.")
         shutdown_event.set()
         signal.signal(sig, signal.SIG_DFL)  # Restore default handler
 
@@ -3561,8 +3594,10 @@ def main():
 
     with PidFile(), Manager():
         shutdown_event.wait()
+    logger.info("Shut down.")
 
 
 if __name__ == "__main__":
     setup_logging()
+    logger = logging.getLogger(__name__)
     main()

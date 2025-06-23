@@ -8,7 +8,6 @@ import pathlib
 import queue
 import signal
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -32,6 +31,16 @@ def print_err(*args, **kwargs):
         math.modf(time.time())[0] * 1000
     )
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
+
+
+def make_hotspot(wlan):
+    baseos = utils.util.get_baseos()
+    if baseos == "dietpi":
+        return NetworkingHotspot(wlan)
+    elif baseos in ["raspbian", "postmarketos"]:
+        return NetworkManagerHotspot(wlan)
+    else:
+        raise ValueError(f"unknown OS {baseos}")
 
 
 class ConnectivityMonitor:
@@ -139,7 +148,10 @@ class ConnectivityMonitor:
 
 class Hotspot(abc.ABC):
     def __init__(self, wlan):
+        self._logger = logging.getLogger(type(self).__name__)
         self._d = utils.data.Data()
+        self._hotspot_lock = threading.Lock()
+        self._hotspot_is_running = False
         self.app = Flask(__name__)
         self.wlan = wlan
         self.wifi = make_wifi(wlan)
@@ -153,6 +165,7 @@ class Hotspot(abc.ABC):
         self.ssid = ""
         self.passwd = ""
         self._dns_server = fakedns.Server()
+        self._wifi_test_thread = None
         print_err("trying to scan for SSIDs")
         self.wifi.ssids = []
         startTime = time.time()
@@ -184,6 +197,27 @@ class Hotspot(abc.ABC):
     def _stop_wifi_client(self):
         raise NotImplementedError
 
+    def run(self):
+        with self._hotspot_lock:
+            self._setup_hotspot_locked()
+        signal.signal(signal.SIGTERM, self._shutdown)
+        self.app.run(host="0.0.0.0", port=80)
+
+    def _shutdown(self, sig, frame):
+        self._logger.info("Shutting down.")
+        if self._wifi_test_thread:
+            # Wait for the test thread to finish.
+            self._wifi_test_thread.join(15)
+            if self._wifi_test_thread.is_alive():
+                self._logger.warning(
+                    "Wifi test thread failed to finish within timeout.")
+        with self._hotspot_lock:
+            if self._hotspot_is_running:
+                self._teardown_hotspot_locked()
+            # Restore default handler and raise again for Flask.
+            signal.signal(sig, signal.SIG_DFL)
+            signal.raise_signal(signal.SIGTERM)
+
     def healthz(self):
         if request.method == "OPTIONS":
             response = make_response()
@@ -213,13 +247,16 @@ class Hotspot(abc.ABC):
             return redirect("/restarting")
 
         if self._request_looks_like_wifi_credentials():
-            self.lastUserInput = time.monotonic()
+            if self._wifi_test_thread is not None:
+                print_err("A wifi test thread is already running.")
+                return self.hotspot()
             self.restart_state = "restarting"
 
             self.ssid = request.form.get("ssid")
             self.passwd = request.form.get("passwd")
 
-            threading.Thread(target=self.test_wifi).start()
+            self._wifi_test_thread = threading.Thread(target=self.test_wifi)
+            self._wifi_test_thread.start()
             print_err("started wifi test thread")
 
             return redirect("/restarting")
@@ -234,118 +271,102 @@ class Hotspot(abc.ABC):
     def restarting(self):
         return render_template("hotspot-restarting.html")
 
-    def run(self):
-        self.setup_hotspot()
-
-        self.lastUserInput = time.monotonic()
-
-        def idle_exit():
-            while True:
-                idleTime = time.monotonic() - self.lastUserInput
-                if idleTime > 300:
-                    break
-
-                time.sleep(300 - idleTime)
-
-            # 5 minutes without user interaction: quit the app and have the shell script check if networking is working now
-            self.restart_state = "restarting"
-            self.teardown_hotspot()
-            print_err("exiting the hotspot app after 5 minutes idle")
-            signal.raise_signal(signal.SIGTERM)
-
-        threading.Thread(target=idle_exit).start()
-
-        self.app.run(host="0.0.0.0", port=80)
-
-    def setup_hotspot(self):
+    def _setup_hotspot_locked(self):
         # We need to stop any existing wifi service in case there's already an
         # incorrect password configured so it doesn't disrupt hostapd, and to
         # get rid of any DNS proxy that may block port 53.
         self._stop_wifi_client()
-
-        subprocess.run(
-            f"ip li set {self.wlan} up && ip ad add 192.168.199.1/24 broadcast 192.168.199.255 dev {self.wlan} && systemctl start hostapd.service",
-            shell=True,
-        )
+        utils.util.shell_with_combined_output(
+            f"ip li set {self.wlan} up && "
+            "ip ad add 192.168.199.1/24 broadcast 192.168.199.255 "
+            f"dev {self.wlan}")
+        self._systemctl(["unmask", "start"], "hostapd.service")
         time.sleep(2)
-        subprocess.run(
-            f"systemctl start isc-kea-dhcp4-server.service",
-            shell=True,
-        )
+        self._systemctl(
+            ["unmask", "start"], "isc-kea-dhcp4-server.service")
         if self._d.is_enabled("mdns"):
-            subprocess.run(
-                f"systemctl start adsb-avahi-alias@adsb-feeder.local.service",
-                shell=True,
-            )
+            self._systemctl(
+                ["start"], "adsb-avahi-alias@adsb-feeder.local.service")
         print_err("Starting DNS server.")
         try:
             self._dns_server.start()
         except Exception as e:
             print_err(f"Error starting DNS server: {e}.")
         print_err("started hotspot")
+        self._hotspot_is_running = True
 
-    def teardown_hotspot(self):
+    def _teardown_hotspot_locked(self):
         print_err("Stopping DNS server.")
         try:
             self._dns_server.stop()
         except Exception as e:
             print_err(f"Error stopping DNS server: {e}.")
         if self._d.is_enabled("mdns"):
-            subprocess.run(
-                f"systemctl stop adsb-avahi-alias@adsb-feeder.local.service",
-                shell=True,
-            )
-        subprocess.run(
-            f"systemctl stop isc-kea-dhcp4-server.service; systemctl stop hostapd.service; ip ad del 192.168.199.1/24 dev {self.wlan}; ip addr flush {self.wlan}; ip link set dev {self.wlan} down",
-            shell=True,
-        )
+            self._systemctl(
+                ["stop"], "adsb-avahi-alias@adsb-feeder.local.service")
+        self._systemctl(
+            ["stop", "disable", "mask"],
+            "isc-kea-dhcp4-server.service hostapd.service")
+        utils.util.shell_with_combined_output(
+            f"ip ad del 192.168.199.1/24 dev {self.wlan}; "
+            f"ip addr flush {self.wlan}; ip link set dev {self.wlan} down")
         self._restart_wifi_client()
         # used to wait here, just spin around the wifi instead
         print_err("turned off hotspot")
+        self._hotspot_is_running = False
+
+    def _systemctl(self, commands, services):
+        procs = []
+        for command in commands:
+            proc = utils.util.shell_with_combined_output(
+                f"systemctl {command} {services}")
+            if proc.returncode:
+                self._logger.error(f"systemctl failed: {proc.stdout}")
+            procs.append(proc)
+        return procs
 
     def test_wifi(self):
         # the parent process needs to return from the call to POST
         time.sleep(1.0)
-        self.teardown_hotspot()
+        with self._hotspot_lock:
+            self._teardown_hotspot_locked()
 
-        print_err(f"testing the '{self.ssid}' network")
+            print_err(f"testing the '{self.ssid}' network")
 
-        success = self.wifi.wifi_connect(self.ssid, self.passwd)
-        self.restart_state = "done"
-        if not success:
-            print_err(f"test_wifi failed to connect to '{self.ssid}'")
+            success = self.wifi.wifi_connect(self.ssid, self.passwd)
+            self.restart_state = "done"
+            if not success:
+                print_err(f"test_wifi failed to connect to '{self.ssid}'")
 
-            self.comment = "Failed to connect, wrong SSID or password, please try again."
-            # now we bring back up the hotspot in order to deliver the result to the user
-            # and have them try again
-            self.setup_hotspot()
-            return
+                self.comment = "Failed to connect, wrong SSID or password, please try again."
+                # now we bring back up the hotspot in order to deliver the result to the user
+                # and have them try again
+                self._setup_hotspot_locked()
+                self._wifi_test_thread = None
+                return
 
-        print_err(f"successfully connected to '{self.ssid}'")
-        # the shell script that launched this app will do a final connectivity check
-        # if there is no connectivity despite being able to join the wifi, it will re-launch this app (unlikely)
-        print_err("exiting the hotspot app")
+            print_err(f"successfully connected to '{self.ssid}'")
+            # the shell script that launched this app will do a final connectivity check
+            # if there is no connectivity despite being able to join the wifi, it will re-launch this app (unlikely)
+            print_err("exiting the hotspot app")
+            self._wifi_test_thread = None
         signal.raise_signal(signal.SIGTERM)
 
 
 class NetworkingHotspot(Hotspot):
     """Hotspot using networking.service."""
     def _stop_wifi_client(self):
-        utils.util.shell_with_combined_output(
-            "systemctl stop networking.service")
+        self._systemctl(["stop"],  "networking.service")
 
     def _restart_wifi_client(self):
-        proc = utils.util.shell_with_combined_output(
-            "systemctl restart --no-block networking.service")
-        print_err(
-            f"restarted networking.service: {proc.returncode}\n{proc.stdout}")
+        self._systemctl(["restart --no-block"], "networking.service")
 
 
 class NetworkManagerHotspot(Hotspot):
     """Hotspot using NetworkManager."""
     def _stop_wifi_client(self):
-        utils.util.shell_with_combined_output(
-            "systemctl stop NetworkManager wpa_supplicant; iw reg set 00")
+        self._systemctl(["stop"], "NetworkManager wpa_supplicant")
+        utils.util.shell_with_combined_output("iw reg set 00")
         # In some configurations, NetworkManager starts a dnsmasq as a DNS
         # proxy that can hang around even after we've stopped NetworkManager.
         # We need to stop it so we get port 53 back for our stub DNS server.
@@ -364,28 +385,11 @@ class NetworkManagerHotspot(Hotspot):
         return proc.returncode == 0
 
     def _kill_dnsmasq(self):
-        proc = utils.util.shell_with_combined_output("systemctl stop dnsmasq")
+        proc, = self._systemctl(["stop"], "dnsmasq")
         if proc.returncode == 0:
             return
         utils.util.shell_with_combined_output("killall dnsmasq")
 
     def _restart_wifi_client(self):
-        utils.util.shell_with_combined_output(
-            "iw reg set 00; systemctl restart wpa_supplicant NetworkManager")
-
-
-if __name__ == "__main__":
-    wlan = "wlan0"
-    if len(sys.argv) == 2:
-        wlan = sys.argv[1]
-    baseos = utils.util.get_baseos()
-    if baseos == "dietpi":
-        hotspot = NetworkingHotspot(wlan)
-    elif baseos in ["raspbian", "postmarketos"]:
-        hotspot = NetworkManagerHotspot(wlan)
-    else:
-        print_err(f"Unknown OS {baseos} - giving up.")
-        sys.exit(1)
-    print_err(f"Starting hotspot for {wlan}.")
-
-    hotspot.run()
+        utils.util.shell_with_combined_output("iw reg set 00")
+        self._systemctl(["restart"], "wpa_supplicant NetworkManager")
