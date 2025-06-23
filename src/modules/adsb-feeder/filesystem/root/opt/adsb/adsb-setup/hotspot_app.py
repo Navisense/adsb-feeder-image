@@ -331,7 +331,7 @@ class Hotspot(abc.ABC):
             ["unmask", "start"], "isc-kea-dhcp4-server.service")
         if self._d.is_enabled("mdns"):
             self._systemctl(
-                ["start"], "adsb-avahi-alias@adsb-feeder.local.service")
+                ["restart"], "adsb-avahi-alias@adsb-feeder.local.service")
         print_err("Starting DNS server.")
         try:
             self._dns_server.start()
