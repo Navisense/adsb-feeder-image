@@ -154,6 +154,7 @@ class AdsbIm:
     def __init__(self):
         print_err("starting AdsbIm.__init__", level=4)
         self._executor = concurrent.futures.ThreadPoolExecutor()
+        self._background_tasks = {}
         self.app = Flask(__name__)
         self.app.secret_key = urandom(16).hex()
 
@@ -238,8 +239,6 @@ class AdsbIm:
         self._last_stage2_contact_time = 0
 
         self._last_base_info = dict()
-
-        self._multi_outline_bg = None
 
         self.lastSetGainWrite = 0
 
@@ -388,7 +387,8 @@ class AdsbIm:
         if self._d.is_enabled("use_gpsd"):
             self.get_lat_lon_alt()
 
-        self._every_minute = Background(60, self.every_minute)
+        self._background_tasks["every_minute"] = (
+            Background(60, self.every_minute))
         # every_minute stuff is required to initialize some values, run it synchronously
         self.every_minute()
 
@@ -396,7 +396,8 @@ class AdsbIm:
             # let's make sure we tell the micro feeders every ten minutes that
             # the stage2 is around, looking at them
             self._executor.submit(self.stage2_checks)
-            self._stage2_checks = Background(600, self.stage2_checks)
+            self._background_tasks["stage2_checks"] = (
+                Background(600, self.stage2_checks))
 
         # reset undervoltage indicator
         self._d.env_by_tags("under_voltage").value = False
@@ -424,8 +425,10 @@ class AdsbIm:
 
     def _shutdown(self,sig, frame):
         self.exiting = True
-        self._executor.shutdown()
         self.write_planes_seen_per_day()
+        for task in self._background_tasks.values():
+            task.stop_and_wait()
+        self._executor.shutdown()
         # Restore default handler and raise again for Flask.
         signal.signal(sig, signal.SIG_DFL)
         signal.raise_signal(signal.SIGTERM)
@@ -2157,11 +2160,12 @@ class AdsbIm:
 
         # check if we need the stage2 multiOutline job
         if self._d.is_enabled("stage2"):
-            if not self._multi_outline_bg:
+            if "multi_outline" not in self._background_tasks:
                 self.push_multi_outline()
-                self._multi_outline_bg = Background(60, self.push_multi_outline)
+                self._background_tasks["multi_outline"] = (
+                    Background(60, self.push_multi_outline))
         else:
-            self._multi_outline_bg = None
+            self._background_tasks.pop("multi_outline", None)
 
         self.generate_agg_structure()
 
@@ -2312,9 +2316,11 @@ class AdsbIm:
                 if key == "turn_off_stage2":
                     # let's just switch back
                     self._d.env_by_tags("stage2").value = False
-                    if self._multi_outline_bg:
-                        self._multi_outline_bg.cancel()
-                        self._multi_outline_bg = None
+                    try:
+                        task = self._background_tasks.pop("multi_outline")
+                        task.cancel()
+                    except KeyError:
+                        pass
                     self._d.env_by_tags("aggregators_chosen").value = False
                     self._d.env_by_tags("aggregator_choice").value = ""
 
@@ -2631,9 +2637,10 @@ class AdsbIm:
                 if key == "aggregator_choice" and value == "stage2":
                     next_url = url_for("stage2")
                     self._d.env_by_tags("stage2").value = True
-                    if not self._multi_outline_bg:
+                    if "multi_outline" not in self._background_tasks:
                         self.push_multi_outline()
-                        self._multi_outline_bg = Background(60, self.push_multi_outline)
+                        self._background_tasks["multi_outline"] = (
+                            Background(60, self.push_multi_outline))
                     unique_name = self.unique_site_name(form.get("site_name"), 0)
                     self._d.env_by_tags("site_name").list_set(0, unique_name)
                 # if this is a regular feeder and the user is changing to 'individual' selection

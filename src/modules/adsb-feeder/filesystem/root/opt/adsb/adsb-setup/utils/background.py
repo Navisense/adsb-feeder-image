@@ -25,3 +25,8 @@ class Background:
     def cancel(self):
         self._timer.cancel()
         self._running = False
+
+    def stop_and_wait(self):
+        if self._timer:
+            self.cancel()
+            self._timer.join()
