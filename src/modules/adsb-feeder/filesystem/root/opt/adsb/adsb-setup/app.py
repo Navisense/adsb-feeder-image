@@ -16,6 +16,7 @@ import re
 import shlex
 import requests
 import secrets
+import select
 import signal
 import shutil
 import string
@@ -150,6 +151,70 @@ class PidFile:
         return False
 
 
+class DmesgMonitor:
+    def __init__(self, *, on_usb_change, on_undervoltage):
+        self._on_usb_change = on_usb_change
+        self._on_undervoltage = on_undervoltage
+        self._monitor_thread = None
+        self._keep_running = True
+        self._logger = logging.getLogger(type(self).__name__)
+
+    def start(self):
+        assert self._monitor_thread is None
+        self._monitor_thread = threading.Thread(
+            target=self._monitor_loop, daemon=True)
+        self._monitor_thread.start()
+
+    def stop(self):
+        assert self._monitor_thread is not None
+        self._keep_running = False
+        self._monitor_thread.join(2)
+        if self._monitor_thread.is_alive():
+            self._logger.warning("dmesg monitor thread failed to stop.")
+        else:
+            self._logger.info("Stopped dmesg monitor.")
+
+    def _monitor_loop(self):
+        while self._keep_running:
+            poll = select.poll()
+            try:
+                self._monitor(poll)
+            except:
+                self._logger.exception(
+                    "Error monitoring dmesg. Trying to restart in a few "
+                    "seconds.")
+                time.sleep(10)
+
+    def _monitor(self, poll):
+        self._logger.info("Starting dmesg monitor.")
+        # --follow-new: Wait and print only new messages. bufsize=0 so we can
+        # poll() repeatedly (otherwise the buffer hides new output).
+        proc = subprocess.Popen(
+            ["dmesg", "--follow-new"],
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            text=True,
+            bufsize=0,
+        )
+        poll.register(proc.stdout, select.POLLIN)
+        try:
+            while self._keep_running:
+                new_output = ""
+                while poll.poll(500):
+                    new_output += proc.stdout.readline()
+                if not new_output:
+                    continue
+                if ("New USB device found" in new_output
+                        or "USB disconnect" in new_output):
+                    self._on_usb_change()
+                if ("Undervoltage" in new_output
+                        or "under-voltage" in new_output):
+                    self._on_undervoltage
+        finally:
+            poll.unregister(proc.stdout)
+
+
 class AdsbIm:
     def __init__(self):
         print_err("starting AdsbIm.__init__", level=4)
@@ -230,6 +295,10 @@ class AdsbIm:
 
         self.last_dns_check = 0
         self.undervoltage_epoch = 0
+
+        self._dmesg_monitor = DmesgMonitor(
+            on_usb_change=self._sdrdevices._ensure_populated,
+            on_undervoltage=self._set_undervoltage)
 
         self._current_site_name = None
         self._agg_status_instances = dict()
@@ -379,6 +448,10 @@ class AdsbIm:
         with config_lock:
             write_values_to_config_json(self._d.env_values, reason="Startup")
 
+    def _set_undervoltage(self):
+        self._d.env_by_tags("under_voltage").value = True
+        self.undervoltage_epoch = time.time()
+
     def run(self):
         self.update_config()
         debug = os.environ.get("ADSBIM_DEBUG") is not None
@@ -402,7 +475,7 @@ class AdsbIm:
         # reset undervoltage indicator
         self._d.env_by_tags("under_voltage").value = False
 
-        threading.Thread(target=self.monitor_dmesg).start()
+        self._dmesg_monitor.start()
 
         signal.signal(signal.SIGTERM, self._shutdown)
         self.app.run(
@@ -425,6 +498,7 @@ class AdsbIm:
 
     def _shutdown(self,sig, frame):
         self.exiting = True
+        self._dmesg_monitor.stop()
         self.write_planes_seen_per_day()
         for task in self._background_tasks.values():
             task.stop_and_wait()
@@ -627,56 +701,6 @@ class AdsbIm:
                 # for it as well.
                 args.append(host_name)
             subprocess.run(args)
-
-    # only need to check for undervoltage during runtime in monitor_dmesg
-    # let's keep this around for the moment
-    def check_undervoltage(self):
-        # next check if there were under-voltage events (this is likely only relevant on an RPi)
-        self._d.env_by_tags("under_voltage").value = False
-        board = self._d.env_by_tags("board_name").value
-        if board and board.startswith("Raspberry"):
-            try:
-                # yes, the except / else is a bit unintuitive, but that seemed the easiest way to do this;
-                # if we don't find the text (the good case) we get an exception
-                # ... on my kernels the message seems to be "Undervoltage", but on the web I find references to "under-voltage"
-                subprocess.check_call(
-                    "dmesg | grep -iE under.?voltage",
-                    shell=True,
-                    stdout=subprocess.DEVNULL,
-                )
-            except subprocess.CalledProcessError:
-                pass
-            else:
-                self._d.env_by_tags("under_voltage").value = True
-
-
-    def monitor_dmesg(self):
-        while True:
-            try:
-                # --follow-new: Wait and print only new messages.
-                proc = subprocess.Popen(
-                    ["dmesg", "--follow-new"],
-                    stderr=subprocess.STDOUT,
-                    stdout=subprocess.PIPE,
-                    stdin=subprocess.PIPE,
-                    text=True,
-                )
-
-                while True:
-                    line = proc.stdout.readline()
-                    if "New USB device found" in line or "USB disconnect" in line:
-                        self._sdrdevices._ensure_populated()
-                    if "Undervoltage" in line or "under-voltage" in line:
-                        self._d.env_by_tags("under_voltage").value = True
-                        self.undervoltage_epoch = time.time()
-                    # print_err(f"dmesg: {line.rstrip()}")
-
-            except:
-                print_err(traceback.format_exc())
-
-            # this shouldn't happen
-            print_err("monitor_dmesg: unexpected exit")
-            time.sleep(10)
 
     def set_tz(self, timezone):
         # timezones don't have spaces, only underscores
