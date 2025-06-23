@@ -1,3 +1,4 @@
+import concurrent.futures
 import copy
 import filecmp
 import gzip
@@ -152,6 +153,7 @@ class PidFile:
 class AdsbIm:
     def __init__(self):
         print_err("starting AdsbIm.__init__", level=4)
+        self._executor = concurrent.futures.ThreadPoolExecutor()
         self.app = Flask(__name__)
         self.app.secret_key = urandom(16).hex()
 
@@ -393,7 +395,7 @@ class AdsbIm:
         if self._d.is_enabled("stage2"):
             # let's make sure we tell the micro feeders every ten minutes that
             # the stage2 is around, looking at them
-            threading.Thread(target=self.stage2_checks).start()
+            self._executor.submit(self.stage2_checks)
             self._stage2_checks = Background(600, self.stage2_checks)
 
         # reset undervoltage indicator
@@ -422,6 +424,7 @@ class AdsbIm:
 
     def _shutdown(self,sig, frame):
         self.exiting = True
+        self._executor.shutdown()
         self.write_planes_seen_per_day()
         # Restore default handler and raise again for Flask.
         signal.signal(sig, signal.SIG_DFL)
@@ -567,7 +570,7 @@ class AdsbIm:
                 print_err("ERROR: we appear to have lost DNS")
 
         self.last_dns_check = time.time()
-        threading.Thread(target=update_dns).start()
+        self._executor.submit(update_dns)
 
     def write_envfile(self):
         write_values_to_env_file(self._d.envs_for_envfile)
@@ -714,11 +717,7 @@ class AdsbIm:
             subprocess.run(
                 ["bash", "/opt/adsb/push_multioutline.sh", f"{self._d.env_by_tags('num_micro_sites').value}"]
             )
-
-        thread = threading.Thread(
-            target=push_mo,
-        )
-        thread.start()
+        self._executor.submit(push_mo)
 
     def stage2_checks(self):
         for i in self.micro_indices():
@@ -852,15 +851,12 @@ class AdsbIm:
             except BrokenPipeError:
                 report_issue(f"warning: backup download aborted mid-stream")
 
-        thread = threading.Thread(
-            target=zip2fobj,
-            kwargs={
-                "fobj": pipeIn,
-                "include_graphs": include_graphs,
-                "include_heatmap": include_heatmap,
-            },
+        self._executor.submit(
+            zip2fobj,
+            fobj=pipeIn,
+            include_graphs=include_graphs,
+            include_heatmap=include_heatmap,
         )
-        thread.start()
 
         site_name = self._d.env_by_tags("site_name_sanitized").list_get(0)
         if self._d.is_enabled("stage2"):
@@ -1354,7 +1350,7 @@ class AdsbIm:
             agg = entry[0]
             for idx in [0] + self.micro_indices():
                 if self._d.list_is_enabled(agg, idx):
-                    threading.Thread(target=self.get_agg_status, args=(agg, idx)).start()
+                    self._executor.submit(self.get_agg_status, agg, idx)
 
     def get_agg_status(self, agg, idx):
 
@@ -3149,7 +3145,7 @@ class AdsbIm:
                 print_err("ERROR: broken IPv6 state detected")
 
         # refresh docker ps cache so the aggregator status is nicely up to date
-        threading.Thread(target=self._system.refreshDockerPs).start()
+        self._executor.submit(self._system.refreshDockerPs)
 
         self.cache_agg_status()
 
@@ -3273,13 +3269,7 @@ class AdsbIm:
                 timeout=30,
             )
 
-        thread = threading.Thread(
-            target=get_log,
-            kwargs={
-                "fobj": pipeIn,
-            },
-        )
-        thread.start()
+        self._executor.submit(get_log, fobj=pipeIn)
 
         site_name = self._d.env_by_tags("site_name").list_get(0)
         now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
