@@ -2,10 +2,12 @@ import abc
 import collections
 import functools as ft
 import http.client
+import json
 import logging
 import math
 import pathlib
 import queue
+import re
 import signal
 import socket
 import sys
@@ -148,6 +150,13 @@ class ConnectivityMonitor:
 
 
 class Hotspot(abc.ABC):
+    HOSTAPD_SRC_PATH = pathlib.Path("/opt/adsb/accesspoint/hostapd.conf")
+    HOSTAPD_DEST_PATH = pathlib.Path("/etc/hostapd/hostapd.conf")
+    KEA_SRC_PATH = pathlib.Path("/opt/adsb/accesspoint/kea-dhcp4.conf")
+    KEA_DEST_PATH = pathlib.Path("/etc/kea/kea-dhcp4.conf")
+    AVAHI_UNIT_PATH = pathlib.Path(
+        "/usr/lib/systemd/system/adsb-avahi-alias@.service")
+
     def __init__(self, wlan):
         self._logger = logging.getLogger(type(self).__name__)
         self._d = utils.data.Data()
@@ -167,6 +176,7 @@ class Hotspot(abc.ABC):
         self.passwd = ""
         self._dns_server = fakedns.Server()
         self._wifi_test_thread = None
+        self._setup_config_files()
         print_err("trying to scan for SSIDs")
         self.wifi.ssids = []
         startTime = time.time()
@@ -197,6 +207,40 @@ class Hotspot(abc.ABC):
     @abc.abstractmethod
     def _stop_wifi_client(self):
         raise NotImplementedError
+
+    def _setup_config_files(self):
+        # Set the correct wlan device in config files.
+        has_replaced = False
+        with self.HOSTAPD_SRC_PATH.open("r") as hostapd_in:
+            hostapd_config = []
+            for line in hostapd_in:
+                if line.startswith("interface="):
+                    line = f"interface={self.wlan}\n"
+                    has_replaced = True
+                hostapd_config.append(line)
+        if not has_replaced:
+            self._logger.warning("Interface not replaced in hostapd config.")
+        with self.HOSTAPD_DEST_PATH.open("w") as hostapd_out:
+            hostapd_out.writelines(hostapd_config)
+        with self.KEA_SRC_PATH.open("r") as kea_in:
+            kea_config = json.load(kea_in)
+            kea_config["Dhcp4"]["interfaces-config"]["interfaces"] = [
+                self.wlan]
+        with self.KEA_DEST_PATH.open("w") as kea_out:
+            json.dump(kea_config, kea_out, indent=4)
+        has_replaced = False
+        with self.AVAHI_UNIT_PATH.open("r+") as avahi_file:
+            avahi_config = []
+            for line in avahi_file:
+                line, subs = re.subn(r"dev \S*", f"dev {self.wlan}", line)
+                has_replaced |= bool(subs)
+                avahi_config.append(line)
+            avahi_file.seek(0)
+            avahi_file.writelines(avahi_config)
+            avahi_file.truncate()
+        if not has_replaced:
+            self._logger.warning(
+                "Interface not replaced in avahi unit config.")
 
     def run(self):
         with self._hotspot_lock:
