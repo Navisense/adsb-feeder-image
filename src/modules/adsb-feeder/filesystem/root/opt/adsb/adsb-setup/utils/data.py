@@ -665,6 +665,7 @@ class Data:
         "PW_CONTAINER": "planewatch",
         "TNUK_CONTAINER": "1090uk",
         "SDRMAP_CONTAINER": "sdrmap",
+        "SHIPFEEDER_CONTAINER": "shipfeeder",
     }
     with open(data_path / "docker.image.versions", "r") as file:
         for line in file:
@@ -848,6 +849,8 @@ class Data:
         if type(tags) != list:
             tags = [tags]
         e = self._get_enabled_env_by_tags(tags)
+        if e is None:
+            return False
         if type(e._value) == list:
             ret = e and is_true(e.list_get(0))
             print_err(f"is_enabled called on list: {e}[0] = {ret}")
