@@ -350,12 +350,12 @@ class Hotspot(abc.ABC):
         self._logger.info("Stopped hotspot.")
         self._hotspot_is_running = False
 
-    def _systemctl(self, commands, services):
+    def _systemctl(self, commands, services, *, ignore_errors=False):
         procs = []
         for command in commands:
             proc = utils.util.shell_with_combined_output(
                 f"systemctl {command} {services}")
-            if proc.returncode:
+            if proc.returncode and not ignore_errors:
                 self._logger.error(f"systemctl failed: {proc.stdout}")
             procs.append(proc)
         return procs
@@ -421,7 +421,8 @@ class NetworkManagerHotspot(Hotspot):
         return proc.returncode == 0
 
     def _kill_dnsmasq(self):
-        proc, = self._systemctl(["stop"], "dnsmasq")
+        # This may not exist, we'll get it with killall. Ignore errors.
+        proc, = self._systemctl(["stop"], "dnsmasq", ignore_errors=True)
         if proc.returncode == 0:
             return
         utils.util.shell_with_combined_output("killall dnsmasq")
