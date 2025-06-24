@@ -17,12 +17,6 @@ function test_network() {
 FAILS=0
 
 while sleep 120; do
-    # don't check when adsb-hotspot is running
-    HOTSPOT=$(systemctl is-active adsb-hotspot)
-    if [[ "$HOTSPOT" == "activating" ]]; then
-        continue
-    fi
-
     if test_network; then
         # network is working, reset failure count
         FAILS=0

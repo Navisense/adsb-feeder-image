@@ -114,7 +114,6 @@ fi
 systemctl enable adsb-setup.service
 systemctl enable adsb-docker.service
 systemctl enable adsb-bootstrap.service
-systemctl enable adsb-hotspot.service
 systemctl enable adsb-zram.service
 systemctl enable adsb-update.timer
 systemctl enable adsb-netdog.service

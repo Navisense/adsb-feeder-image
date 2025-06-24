@@ -137,8 +137,8 @@ EOF
     ln -sf /dev/null "$MNT_DIR"/etc/systemd/system/hostapd.service
     # systemctl mask isc-dhcp-server.service
     ln -sf /dev/null "$MNT_DIR"/etc/systemd/system/isc-dhcp-server.service
-    # enable hotspot service
-    ln -sf /usr/lib/systemd/system/adsb-hotspot.service "$MNT_DIR"/etc/systemd/system/multi-user.target.wants/adsb-hotspot.service
+    # enable setup service
+    ln -sf /usr/lib/systemd/system/adsb-setup.service "$MNT_DIR"/etc/systemd/system/multi-user.target.wants/adsb-setup.service
 
     # reduce default networking timeout from 300 to 120 seconds for dietpi
     # (don't think this actually does anything)

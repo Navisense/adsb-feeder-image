@@ -319,14 +319,7 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the services
 systemctl daemon-reload
-if [ "${ENABLE_HOTSPOT}" == "True" ] ; then
-    # We start the hotspot, which exits once it's got internet access.
-    # adsb-setup waits until it's done and then starts.
-    systemctl enable adsb-setup
-    systemctl start adsb-hotspot adsb-setup
-else
-    systemctl enable --now adsb-setup
-fi
+systemctl enable --now adsb-setup
 
 # while the user is getting ready, let's try to pull the key docker
 # containers in the background -- that way startup will feel quicker
