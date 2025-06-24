@@ -99,6 +99,7 @@ from utils.background import Background
 # nofmt: off
 # isort: on
 
+import werkzeug.serving
 from werkzeug.utils import secure_filename
 
 from flask.logging import logging as flask_logging
@@ -222,6 +223,7 @@ class DmesgMonitor:
 class AdsbIm:
     def __init__(self):
         print_err("starting AdsbIm.__init__", level=4)
+        self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
         self.app = Flask(__name__)
@@ -453,13 +455,107 @@ class AdsbIm:
         with config_lock:
             write_values_to_config_json(self._d.env_values, reason="Startup")
 
+    # REFACTOR++++++++
+    def _decide(self,view_func):
+        def handle_request(*args,**kwargs):
+            if request.path=="/overview":
+                return view_func(*args,**kwargs)
+            if self.hotspot_mode:
+                if request.path=="/healthz" and request.method in ["OPTIONS", "GET"]:
+                    return self._hotspot.healthz()
+                elif request.path=="/hotspot" and request.method in ["GET"]:
+                    return self._hotspot.hotspot()
+                elif request.path=="/restarting":
+                    return self._hotspot.restarting()
+                elif request.path=="/restart" and request.method in ["POST", "GET"]:
+                    return self._hotspot.restart()
+                else:
+                    return self._hotspot.catch_all(request.path)
+            return view_func(*args,**kwargs)
+        return handle_request
+
+    # REFACTOR++++++++
+    # def _catch_all(self,path):
+    #     print_err(f"url_rule: {request.url_rule}")
+    #     print_err(f"rule: {request.url_rule.rule}")
+    #     print_err(f"path: {request.path}")
+    #     # request.url_rule.
+    #     # TODO handle path parameters++++++++
+    #     if request.url_rule.rule=="/hotspot_test":
+    #         return  self.hotspot_test()#, "hotspot_test",)
+    #     if request.url_rule.rule=="/restarting":
+    #         return  self.restarting()#, "restarting",)
+    #     if request.url_rule.rule=="/shutdownpage":
+    #         return  self.shutdownpage()#, "shutdownpage",)
+    #     if request.url_rule.rule=="/restart" and request.method in ["GET", "POST"]:
+    #          return self.restart() #, "restart",, methods=["GET", "POST"])
+    #     if request.url_rule.rule=="/waiting":
+    #         return self.waiting() #"waiting",
+    #     if request.url_rule.rule=="/stream-log":
+    #         return self.stream_log() #"stream_log",
+    #     if request.url_rule.rule=="/running":
+    #         return self.running() #"running",
+    #     if request.url_rule.rule=="/backup":
+    #         return self.backup() #"backup",
+    #     if request.url_rule.rule=="/backupexecutefull":
+    #         return self.backup_execute_full() #"backupexecutefull",
+    #     if request.url_rule.rule=="/backupexecutegraphs":
+    #         return self.backup_execute_graphs() #"backupexecutegraphs",
+    #     if request.url_rule.rule=="/backupexecuteconfig":
+    #         return self.backup_execute_config() #"backupexecuteconfig",
+    #     # self.app.add_url_rule("/restore", "restore", self.restore, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/executerestore", "executerestore", self.executerestore, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/sdr_setup", "sdr_setup", self.sdr_setup, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/visualization", "visualization", self.visualization, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/expert", "expert", self.expert, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/systemmgmt", "systemmgmt", self.systemmgmt, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/aggregators", "aggregators", self.aggregators, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/", "director", self.director, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/index", "index", self.index, methods=["GET", "POST"])
+    #     if request.url_rule.rule=="/info":
+    #         return self.info()#"info",
+    #     if request.url_rule.rule=="/overview":
+    #         return self.overview()#"overview",
+    #     # self.app.add_url_rule("/support", "support", self.support, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/setup", "setup", self.setup, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/stage2", "stage2", self.stage2, methods=["GET", "POST"])
+    #     # self.app.add_url_rule("/update", "update", self.update, methods=["POST"])
+    #     # self.app.add_url_rule("/sdplay_license", "sdrplay_license", self.sdrplay_license, methods=["GET", "POST"])
+    #     if request.url_rule.rule=="/api/ip_info":
+    #         return self.ip_info()#"ip_info",
+    #     if request.url_rule.rule=="/api/sdr_info":
+    #         return self.sdr_info()#"sdr_info",
+    #     if request.url_rule.rule=="/api/base_info":
+    #         return self.base_info()#"base_info",
+    #     if request.url_rule.rule=="/api/stage2_info":
+    #         return self.stage2_info()#"stage2_info",
+    #     if request.url_rule.rule=="/api/stage2_stats":
+    #         return self.stage2_stats()#"stage2_stats",
+    #     if request.url_rule.rule=="/api/stats":
+    #         return self.stats()#"stats",
+    #     if request.url_rule.rule=="/api/micro_settings":
+    #         return self.micro_settings()#"micro_settings",
+    #     # self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self.check_remote_feeder)
+    #     # self.app.add_url_rule(f"/api/status/<agg>", "beast", self.agg_status)
+    #     if request.url_rule.rule=="/api/stage2_connection":
+    #         return self.stage2_connection()#"stage2_connection",
+    #     if request.url_rule.rule=="/api/get_temperatures.json":
+    #         return self.temperatures()#"temperatures",
+    #     # self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self.feeder_update)
+    #     if request.url_rule.rule==f"/get-logs":
+    #         return self.get_logs()#get-logs",
+    #     if request.url_rule.rule==f"/view-logs":
+    #         return self.view_logs()#view-logs",
+
     def _set_undervoltage(self):
         self._d.env_by_tags("under_voltage").value = True
         self.undervoltage_epoch = time.time()
 
-    def run(self):
+    def start(self):
+        if self._server:
+            raise RuntimeError("already started")
+        assert self._server_thread is None
         self.update_config()
-        debug = os.environ.get("ADSBIM_DEBUG") is not None
 
         # if using gpsd, try to update the location
         if self._d.is_enabled("use_gpsd"):
@@ -482,12 +578,12 @@ class AdsbIm:
 
         self._dmesg_monitor.start()
 
-        signal.signal(signal.SIGTERM, self._shutdown)
-        self.app.run(
-            host="0.0.0.0",
-            port=int(self._d.env_by_tags("webport").value),
-            debug=debug,
-        )
+        self._server = werkzeug.serving.make_server(
+            host="0.0.0.0", port=int(self._d.env_by_tags("webport").value),
+            app=self.app, threaded=True)
+        self._server_thread = threading.Thread(
+            target=self._server.serve_forever, name="AdsbIm")
+        self._server_thread.start()
 
     def update_config(self):
         # hopefully very temporary hack to deal with a broken container that
@@ -501,16 +597,20 @@ class AdsbIm:
         self.handle_implied_settings()
         self.write_envfile()
 
-    def _shutdown(self,sig, frame):
+    def stop(self):
+        if not self._server:
+            raise RuntimeError("not started")
+        assert self._server_thread is not None
         self.exiting = True
         self._dmesg_monitor.stop()
         self.write_planes_seen_per_day()
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
-        # Restore default handler and raise again for Flask.
-        signal.signal(sig, signal.SIG_DFL)
-        signal.raise_signal(signal.SIGTERM)
+        self._server.shutdown()
+        self._server_thread.join()
+        self._server.server_close()
+        self._server = self._server_thread = None
 
     def update_boardname(self):
         board = ""
@@ -3484,7 +3584,7 @@ class Manager:
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
-        self._adsb_im_process = None
+        self._adsb_im = None
         self._hotspot_process = None
         self._hotspot_timer = None
         self._keep_running = True
@@ -3522,7 +3622,7 @@ class Manager:
     def __enter__(self):
         assert self._connectivity_monitor is None
         assert self._connectivity_change_thread is None
-        assert self._adsb_im_process is None
+        assert self._adsb_im is None
         assert self._hotspot_process is None
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor(
             self._event_queue, check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
@@ -3564,7 +3664,7 @@ class Manager:
 
     def _handle_connectivity_change(self, has_access):
         if has_access:
-            if self._adsb_im_process is not None:
+            if self._adsb_im is not None:
                 self._logger.info(
                     "Connectivity monitor says we have connection, but the "
                     "main app is already running.")
@@ -3605,11 +3705,10 @@ class Manager:
             self._maybe_start_hotspot()
 
     def _maybe_start_adsb_im(self, *, hotspot_recheck=False):
-        if self._adsb_im_process is not None:
+        if self._adsb_im is not None:
             return
-        self._adsb_im_process = multiprocessing.Process(
-            target=self._run_adsb_im, name="main app")
-        self._adsb_im_process.start()
+        self._adsb_im = AdsbIm()
+        self._adsb_im.start()
         if hotspot_recheck:
             # We're starting this to see if we have connectivity again. Shut it
             # down again after a while if not.
@@ -3618,29 +3717,15 @@ class Manager:
                 args=(("hotspot_recheck_timeout", None),))
             self._hotspot_timer.start()
 
-    @staticmethod
-    def _run_adsb_im():
-        adsb_im = AdsbIm()
-        adsb_im.run()
-
     def _maybe_stop_adsb_im(self):
-        self._maybe_stop_process(self._adsb_im_process)
-        self._adsb_im_process = None
-
-    def _maybe_stop_process(self, process):
-        if process is None:
+        if self._adsb_im is None:
             return
         if self._hotspot_timer:
             self._hotspot_timer.cancel()
             self._hotspot_timer.join()
             self._hotspot_timer = None
-        process.terminate()
-        process.join(15)
-        if process.is_alive():
-            self._logger.error(
-                f"Process {process} failed to shut down gracefully after "
-                "timeout, killing it.")
-            process.kill()
+        self._adsb_im.stop()
+        self._adsb_im = None
 
     def _maybe_start_hotspot(self):
         if self._hotspot_process is not None:
@@ -3673,7 +3758,19 @@ class Manager:
         hotspot.run()
 
     def _maybe_stop_hotspot(self):
-        self._maybe_stop_process(self._hotspot_process)
+        if self._hotspot_process is None:
+            return
+        if self._hotspot_timer:
+            self._hotspot_timer.cancel()
+            self._hotspot_timer.join()
+            self._hotspot_timer = None
+        self._hotspot_process.terminate()
+        self._hotspot_process.join(15)
+        if self._hotspot_process.is_alive():
+            self._logger.error(
+                f"Process {self._hotspot_process} failed to shut down "
+                "gracefully after timeout, killing it.")
+            self._hotspot_process.kill()
         self._hotspot_process = None
 
 
