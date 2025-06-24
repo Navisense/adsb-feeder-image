@@ -24,11 +24,10 @@ service_names=()
 for name in "${names[@]}"; do
     service_name="adsb-avahi-alias@${name}.service"
     service_names+=("${service_name}")
-    # is-active returns true when the service is started, in that case we don't need to do anything
-    if ! systemctl is-active --quiet "${service_name}" ; then
-        systemctl enable "${service_name}"
-        systemctl restart "${service_name}"
-    fi
+    # Make sure the service is enabled, and restart it in case it is already
+    # running but our IP changed since it started.
+    systemctl enable "${service_name}"
+    systemctl restart "${service_name}"
 done
 
 systemctl list-units | grep '^\s*adsb-avahi-alias@' | awk '{print $1}' | \
