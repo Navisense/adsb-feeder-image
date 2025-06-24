@@ -12,7 +12,6 @@ USAGE="
   -f               # finish an install on DietPi using dietpi-software
   --web-port port  # the port for the web interface (default: 1099)
   --enable-mdns    # enable the mDNS server (off by default)
-  --enable-hotspot # enable hotspot to connect to wifi (off by default)
 "
 
 ROOT_REQUIRED="
@@ -45,7 +44,6 @@ TAG=""
 FINISH_DIETPI=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
-ENABLE_HOTSPOT="False"
 
 while (( $# ))
 do
@@ -61,8 +59,6 @@ do
         '--web-port') shift; WEB_PORT=$1
             ;;
         '--enable-mdns') ENABLE_MDNS="True"
-            ;;
-        '--enable-hotspot') ENABLE_HOTSPOT="True"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -124,10 +120,10 @@ PKG_NAME_DOCKER_COMPOSE="docker-compose"
 PKG_NAME_USBUTILS="usbutils"
 PKG_NAME_JQ="jq"
 PKG_NAME_IW="iw"
-PKG_NAME_AVAHI="avahi"
-PKG_NAME_AVAHI_TOOLS="avahi-tools"
 PKG_NAME_HOSTAPD="hostapd"
 PKG_NAME_KEA="kea"
+PKG_NAME_AVAHI="avahi"
+PKG_NAME_AVAHI_TOOLS="avahi-tools"
 if [ "$distro" == "debian" ]; then
     PKG_NAME_DOCKER="docker.io"
     PKG_NAME_AVAHI="avahi-daemon"
@@ -169,21 +165,20 @@ if ! which iw &> /dev/null; then
     missing+="${PKG_NAME_IW} "
 fi
 
+if ! which hostapd &> /dev/null; then
+    missing+="${PKG_NAME_HOSTAPD} "
+fi
+
+if ! which kea-dhcp4 &> /dev/null; then
+    missing+="${PKG_NAME_KEA} "
+fi
+
 if [ "${ENABLE_MDNS}" == "True" ] ; then
     if ! which avahi-daemon &> /dev/null; then
         missing+="${PKG_NAME_AVAHI} "
     fi
     if ! which avahi-publish &> /dev/null; then
         missing+="${PKG_NAME_AVAHI_TOOLS} "
-    fi
-fi
-
-if [ "${ENABLE_HOTSPOT}" == "True" ] ; then
-    if ! which hostapd &> /dev/null; then
-        missing+="${PKG_NAME_HOSTAPD} "
-    fi
-    if ! which kea-dhcp4 &> /dev/null; then
-        missing+="${PKG_NAME_KEA} "
     fi
 fi
 
@@ -317,7 +312,7 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
     echo "AF_IS_MDNS_ENABLED=${ENABLE_MDNS}"
  } >> .env
 
-# run the final steps of the setup and then enable the services
+# run the final steps of the setup and then enable the service
 systemctl daemon-reload
 systemctl enable --now adsb-setup
 
