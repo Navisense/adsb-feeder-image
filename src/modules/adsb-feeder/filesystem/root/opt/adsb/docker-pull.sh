@@ -9,6 +9,7 @@ if [ $(id -u) != "0" ] ; then
 fi
 
 # wait for chrony to sync so this doesn't fail due to certs
+# TODO doesn't exist on pmos (or at least the daemon isn't running)+++++++++++
 chronyc waitsync
 
 # docker compose pull on all activated containers (and ultrafeeder even if not configured yet)

@@ -5,6 +5,7 @@ After=avahi-daemon.service
 
 [Service]
 Type=simple
+# TODO this needs to fail reliably+++++++++++
 ExecStart=/bin/bash -c "/usr/bin/avahi-publish -a -R %i $(avahi-resolve -4 -n %H.local > /dev/null && ip -json addr show dev wlan0 | jq -r '[.[0].addr_info[] | select(.family==\"inet\")][0].local')"
 Restart=always
 RestartSec=90

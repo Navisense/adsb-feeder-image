@@ -101,6 +101,7 @@ fi
 distro=$(get_distro)
 echo "You appear to be on a ${distro}-style distribution"
 
+# TODO add curl as explicit dependency++++++++
 # now that we know that there isn't anything obviously wrong with
 # the command line arguments, let's check if all the dependencies
 # are installed
@@ -294,11 +295,13 @@ else
     OS="unrecognized OS"
 fi
 echo "app-install" > ${APP_DIR}/adsb.im.previous-version
+# TODO rename from ads-b feeder app++++++++
 echo "ADS-B Feeder app running on ${OS}" > feeder-image.name
 echo "$ADSB_IM_VERSION" > adsb.im.version
 touch ${APP_DIR}/app.adsb.feeder.image
 
 cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
+# TODO write the proper config through a python script here+++++++++
 {
     cat ${APP_DIR}/docker.image.versions
     echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"

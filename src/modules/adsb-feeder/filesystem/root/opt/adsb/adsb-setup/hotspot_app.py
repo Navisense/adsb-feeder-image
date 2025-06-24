@@ -159,6 +159,7 @@ class Hotspot(abc.ABC):
         self.version = self._d.read_version()
         self._setup_config_files()
         self._app = self._setup_flask()
+        # TODO do this on "activation", i.e. when we need it, not only on init+++++++++++
         self._scan_for_ssids()
 
     @abc.abstractmethod

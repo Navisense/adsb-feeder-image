@@ -226,6 +226,9 @@ class AdsbIm:
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
+        self.hotspot_mode=False
+        # REFACTOR unhardcode wlan device++++++++++++
+        # self._hotspot=hotspot_app.make_hotspot("wlan0")
         self.app = Flask(__name__)
         self.app.secret_key = urandom(16).hex()
 
@@ -277,6 +280,8 @@ class AdsbIm:
                 open(os_flag_file, "w").close()
 
         if not os_flag_file.exists():
+            # TODO this disables much of the system management page for
+            # unknown oss++++++++++
             # we are running as an app under DietPi or some other OS
             self._d.is_feeder_image = False
             with open(self._d.data_path / "adsb-setup/templates/systemmgmt.html", "r+") as systemmgmt_file:
@@ -398,47 +403,88 @@ class AdsbIm:
         )
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
-        self.app.add_url_rule("/hotspot_test", "hotspot_test", self.hotspot_test)
-        self.app.add_url_rule("/restarting", "restarting", self.restarting)
-        self.app.add_url_rule("/shutdownpage", "shutdownpage", self.shutdownpage)
-        self.app.add_url_rule("/restart", "restart", self.restart, methods=["GET", "POST"])
-        self.app.add_url_rule("/waiting", "waiting", self.waiting)
-        self.app.add_url_rule("/stream-log", "stream_log", self.stream_log)
-        self.app.add_url_rule("/running", "running", self.running)
-        self.app.add_url_rule("/backup", "backup", self.backup)
-        self.app.add_url_rule("/backupexecutefull", "backupexecutefull", self.backup_execute_full)
-        self.app.add_url_rule("/backupexecutegraphs", "backupexecutegraphs", self.backup_execute_graphs)
-        self.app.add_url_rule("/backupexecuteconfig", "backupexecuteconfig", self.backup_execute_config)
-        self.app.add_url_rule("/restore", "restore", self.restore, methods=["GET", "POST"])
-        self.app.add_url_rule("/executerestore", "executerestore", self.executerestore, methods=["GET", "POST"])
-        self.app.add_url_rule("/sdr_setup", "sdr_setup", self.sdr_setup, methods=["GET", "POST"])
-        self.app.add_url_rule("/visualization", "visualization", self.visualization, methods=["GET", "POST"])
-        self.app.add_url_rule("/expert", "expert", self.expert, methods=["GET", "POST"])
-        self.app.add_url_rule("/systemmgmt", "systemmgmt", self.systemmgmt, methods=["GET", "POST"])
-        self.app.add_url_rule("/aggregators", "aggregators", self.aggregators, methods=["GET", "POST"])
-        self.app.add_url_rule("/", "director", self.director, methods=["GET", "POST"])
-        self.app.add_url_rule("/index", "index", self.index, methods=["GET", "POST"])
-        self.app.add_url_rule("/info", "info", self.info)
-        self.app.add_url_rule("/overview", "overview", self.overview)
-        self.app.add_url_rule("/support", "support", self.support, methods=["GET", "POST"])
-        self.app.add_url_rule("/setup", "setup", self.setup, methods=["GET", "POST"])
-        self.app.add_url_rule("/stage2", "stage2", self.stage2, methods=["GET", "POST"])
-        self.app.add_url_rule("/update", "update", self.update, methods=["POST"])
-        self.app.add_url_rule("/sdplay_license", "sdrplay_license", self.sdrplay_license, methods=["GET", "POST"])
-        self.app.add_url_rule("/api/ip_info", "ip_info", self.ip_info)
-        self.app.add_url_rule("/api/sdr_info", "sdr_info", self.sdr_info)
-        self.app.add_url_rule("/api/base_info", "base_info", self.base_info)
-        self.app.add_url_rule("/api/stage2_info", "stage2_info", self.stage2_info)
-        self.app.add_url_rule("/api/stage2_stats", "stage2_stats", self.stage2_stats)
-        self.app.add_url_rule("/api/stats", "stats", self.stats)
-        self.app.add_url_rule("/api/micro_settings", "micro_settings", self.micro_settings)
-        self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self.check_remote_feeder)
-        self.app.add_url_rule(f"/api/status/<agg>", "beast", self.agg_status)
-        self.app.add_url_rule("/api/stage2_connection", "stage2_connection", self.stage2_connection)
-        self.app.add_url_rule("/api/get_temperatures.json", "temperatures", self.temperatures)
-        self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self.feeder_update)
-        self.app.add_url_rule(f"/get-logs", "get-logs", self.get_logs)
-        self.app.add_url_rule(f"/view-logs", "view-logs", self.view_logs)
+        # self.app.add_url_rule("/hotspot_test", "hotspot_test", self.hotspot_test)
+        # self.app.add_url_rule("/restarting", "restarting", self.restarting)
+        # self.app.add_url_rule("/shutdownpage", "shutdownpage", self.shutdownpage)
+        # self.app.add_url_rule("/restart", "restart", self.restart, methods=["GET", "POST"])
+        # self.app.add_url_rule("/waiting", "waiting", self.waiting)
+        # self.app.add_url_rule("/stream-log", "stream_log", self.stream_log)
+        # self.app.add_url_rule("/running", "running", self.running)
+        # self.app.add_url_rule("/backup", "backup", self.backup)
+        # self.app.add_url_rule("/backupexecutefull", "backupexecutefull", self.backup_execute_full)
+        # self.app.add_url_rule("/backupexecutegraphs", "backupexecutegraphs", self.backup_execute_graphs)
+        # self.app.add_url_rule("/backupexecuteconfig", "backupexecuteconfig", self.backup_execute_config)
+        # self.app.add_url_rule("/restore", "restore", self.restore, methods=["GET", "POST"])
+        # self.app.add_url_rule("/executerestore", "executerestore", self.executerestore, methods=["GET", "POST"])
+        # self.app.add_url_rule("/sdr_setup", "sdr_setup", self.sdr_setup, methods=["GET", "POST"])
+        # self.app.add_url_rule("/visualization", "visualization", self.visualization, methods=["GET", "POST"])
+        # self.app.add_url_rule("/expert", "expert", self.expert, methods=["GET", "POST"])
+        # self.app.add_url_rule("/systemmgmt", "systemmgmt", self.systemmgmt, methods=["GET", "POST"])
+        # self.app.add_url_rule("/aggregators", "aggregators", self.aggregators, methods=["GET", "POST"])
+        # self.app.add_url_rule("/", "director", self.director, methods=["GET", "POST"])
+        # self.app.add_url_rule("/index", "index", self.index, methods=["GET", "POST"])
+        # self.app.add_url_rule("/info", "info", self.info)
+        # self.app.add_url_rule("/overview", "overview", self.overview)
+        # self.app.add_url_rule("/support", "support", self.support, methods=["GET", "POST"])
+        # self.app.add_url_rule("/setup", "setup", self.setup, methods=["GET", "POST"])
+        # self.app.add_url_rule("/stage2", "stage2", self.stage2, methods=["GET", "POST"])
+        # self.app.add_url_rule("/update", "update", self.update, methods=["POST"])
+        # self.app.add_url_rule("/sdplay_license", "sdrplay_license", self.sdrplay_license, methods=["GET", "POST"])
+        # self.app.add_url_rule("/api/ip_info", "ip_info", self.ip_info)
+        # self.app.add_url_rule("/api/sdr_info", "sdr_info", self.sdr_info)
+        # self.app.add_url_rule("/api/base_info", "base_info", self.base_info)
+        # self.app.add_url_rule("/api/stage2_info", "stage2_info", self.stage2_info)
+        # self.app.add_url_rule("/api/stage2_stats", "stage2_stats", self.stage2_stats)
+        # self.app.add_url_rule("/api/stats", "stats", self.stats)
+        # self.app.add_url_rule("/api/micro_settings", "micro_settings", self.micro_settings)
+        # self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self.check_remote_feeder)
+        # self.app.add_url_rule(f"/api/status/<agg>", "beast", self.agg_status)
+        # self.app.add_url_rule("/api/stage2_connection", "stage2_connection", self.stage2_connection)
+        # self.app.add_url_rule("/api/get_temperatures.json", "temperatures", self.temperatures)
+        # self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self.feeder_update)
+        # self.app.add_url_rule(f"/get-logs", "get-logs", self.get_logs)
+        # self.app.add_url_rule(f"/view-logs", "view-logs", self.view_logs)
+        self.app.add_url_rule("/hotspot_test", "hotspot_test", self._decide(self.hotspot_test))
+        self.app.add_url_rule("/restarting", "restarting", self._decide(self.restarting))
+        self.app.add_url_rule("/shutdownpage", "shutdownpage", self._decide(self.shutdownpage))
+        self.app.add_url_rule("/restart", "restart", self._decide(self.restart), methods=["GET", "POST"])
+        self.app.add_url_rule("/waiting", "waiting", self._decide(self.waiting))
+        self.app.add_url_rule("/stream-log", "stream_log", self._decide(self.stream_log))
+        self.app.add_url_rule("/running", "running", self._decide(self.running))
+        self.app.add_url_rule("/backup", "backup", self._decide(self.backup))
+        self.app.add_url_rule("/backupexecutefull", "backupexecutefull", self._decide(self.backup_execute_full))
+        self.app.add_url_rule("/backupexecutegraphs", "backupexecutegraphs", self._decide(self.backup_execute_graphs))
+        self.app.add_url_rule("/backupexecuteconfig", "backupexecuteconfig", self._decide(self.backup_execute_config))
+        self.app.add_url_rule("/restore", "restore", self._decide(self.restore), methods=["GET", "POST"])
+        self.app.add_url_rule("/executerestore", "executerestore", self._decide(self.executerestore), methods=["GET", "POST"])
+        self.app.add_url_rule("/sdr_setup", "sdr_setup", self._decide(self.sdr_setup), methods=["GET", "POST"])
+        self.app.add_url_rule("/visualization", "visualization", self._decide(self.visualization), methods=["GET", "POST"])
+        self.app.add_url_rule("/expert", "expert", self._decide(self.expert), methods=["GET", "POST"])
+        self.app.add_url_rule("/systemmgmt", "systemmgmt", self._decide(self.systemmgmt), methods=["GET", "POST"])
+        self.app.add_url_rule("/aggregators", "aggregators", self._decide(self.aggregators), methods=["GET", "POST"])
+        self.app.add_url_rule("/", "director", self._decide(self.director), methods=["GET", "POST"])
+        self.app.add_url_rule("/index", "index", self._decide(self.index), methods=["GET", "POST"])
+        self.app.add_url_rule("/info", "info", self._decide(self.info))
+        self.app.add_url_rule("/overview", "overview", self._decide(self.overview))
+        self.app.add_url_rule("/support", "support", self._decide(self.support), methods=["GET", "POST"])
+        self.app.add_url_rule("/setup", "setup", self._decide(self.setup), methods=["GET", "POST"])
+        self.app.add_url_rule("/stage2", "stage2", self._decide(self.stage2), methods=["GET", "POST"])
+        self.app.add_url_rule("/update", "update", self._decide(self.update), methods=["POST"])
+        self.app.add_url_rule("/sdplay_license", "sdrplay_license", self._decide(self.sdrplay_license), methods=["GET", "POST"])
+        self.app.add_url_rule("/api/ip_info", "ip_info", self._decide(self.ip_info))
+        self.app.add_url_rule("/api/sdr_info", "sdr_info", self._decide(self.sdr_info))
+        self.app.add_url_rule("/api/base_info", "base_info", self._decide(self.base_info))
+        self.app.add_url_rule("/api/stage2_info", "stage2_info", self._decide(self.stage2_info))
+        self.app.add_url_rule("/api/stage2_stats", "stage2_stats", self._decide(self.stage2_stats))
+        self.app.add_url_rule("/api/stats", "stats", self._decide(self.stats))
+        self.app.add_url_rule("/api/micro_settings", "micro_settings", self._decide(self.micro_settings))
+        self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self._decide(self.check_remote_feeder))
+        self.app.add_url_rule(f"/api/status/<agg>", "beast", self._decide(self.agg_status))
+        self.app.add_url_rule("/api/stage2_connection", "stage2_connection", self._decide(self.stage2_connection))
+        self.app.add_url_rule("/api/get_temperatures.json", "temperatures", self._decide(self.temperatures))
+        self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self._decide(self.feeder_update))
+        self.app.add_url_rule(f"/get-logs", "get-logs", self._decide(self.get_logs))
+        self.app.add_url_rule(f"/view-logs", "view-logs", self._decide(self.view_logs))
         # fmt: on
         self.update_boardname()
         self.update_version()
@@ -601,6 +647,7 @@ class AdsbIm:
         if not self._server:
             raise RuntimeError("not started")
         assert self._server_thread is not None
+        # TODO log that we're shutting down++++++++
         self.exiting = True
         self._dmesg_monitor.stop()
         self.write_planes_seen_per_day()
@@ -609,6 +656,7 @@ class AdsbIm:
         self._executor.shutdown()
         self._server.shutdown()
         self._server_thread.join()
+        # TODO join with timeout, log if it takes too long+++++++++++++++
         self._server.server_close()
         self._server = self._server_thread = None
 
@@ -769,6 +817,8 @@ class AdsbIm:
         if not self._d.is_enabled("app_init_done"):
             # ok, we don't have them explicitly set, so let's set them up
             # with the app defaults
+            # TODO the .value will actually be the default (e.g. 80), not None,
+            # so this doesn't work++++++++++++
             for tag, default in [
                 ("webport", 1099),
                 ("tar1090port", 1090),
@@ -778,6 +828,7 @@ class AdsbIm:
                 ("dazzleport", 1094),
                 ("dazzleport", 1094),]:
                 if self._d.env_by_tags(tag).value is None:
+                    # TODO and this is completely wrong anyway+++++++++
                     self._d.env_by_tags("app_init_done").value = default
 
     def onlyAlphaNumDash(self, name):
@@ -1192,6 +1243,7 @@ class AdsbIm:
         for submit_key in self._other_aggregators.keys():
             key = submit_key.replace("--submit", "")
             if self._d.list_is_enabled(key, idx=0):
+                # TODO this gets logged on pi pmos. is that ok?++++++++
                 print_err(f"no semi-anonymous aggregator, but enabled {key}")
                 return True
 
@@ -3556,6 +3608,10 @@ def create_stage2_yml_files(n, ip):
         create_stage2_yml_from_template(f"/opt/adsb/config/{yml_file}", n, ip, f"/opt/adsb/config/{template}")
 
 
+# REFACTOR pull AdsbIm out into a separate file?+++++++++
+# TODO start adsb_im in thread (using make_server() from werkzeug), add hotspot
+# routes to it, switch to hotspot mode, add a utility that switches around the
+# system services++++++++++++
 class Manager:
     """
     Application manager.
@@ -3591,6 +3647,7 @@ class Manager:
         self._logger = logging.getLogger(type(self).__name__)
         self._ensure_config_exists()
 
+    # REFACTOR unify with the adsb_im init++++++++++++
     def _ensure_config_exists(self):
         # setup the config folder if that hasn't happened yet
         # this is designed for two scenarios:

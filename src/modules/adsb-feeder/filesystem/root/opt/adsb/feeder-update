@@ -108,6 +108,10 @@ else
     if ! cd /opt/adsb-feeder-update/adsb-feeder-image || ! git fetch --force --tags --prune --prune-tags ; then
         cd /opt/adsb-feeder-update || exit_with_message "can't cd /opt/adsb-feeder-update"
         rm -rf /opt/adsb-feeder-update/adsb-feeder-image
+        # TODO this here means that clicking on update in the ui will install
+        # the normal feeder image, not our fork+++++++++++++++
+        # TODO parametrize where the repo is, also in the install script and
+        # anywhere else it's used+++++++++++++++
         git clone https://github.com/dirkhh/adsb-feeder-image || exit_with_message "git clone failed, giving up"
         cd adsb-feeder-image || exit_with_message "can't cd /opt/adsb-feeder-update/adsb-feeder-image"
     fi
@@ -206,6 +210,7 @@ echo "$(date -u +"%FT%T.%3NZ") starting the actual upgrade to ${VERSION}"
 
 # we now need some software that may not have been installed originally
 
+# TODO uncopypaste this with the install script++++++++++
 function check_missing() {
     if ! python3 -c "import requests" &>/dev/null ; then
         missing+=("python3-requests")
@@ -218,6 +223,7 @@ function check_missing() {
             systemctl mask hostapd
             systemctl mask isc-kea-dhcp4-server
         fi
+        # TODO mdns for app, not just with os.adsb.feeder.image++++++++++
         # get avahi-utils if necessary
         if ! command -v avahi-publish &>/dev/null || ! command -v avahi-resolve &>/dev/null; then
             missing+=("avahi-utils")
