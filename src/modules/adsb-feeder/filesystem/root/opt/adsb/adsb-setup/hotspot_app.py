@@ -12,13 +12,8 @@ import socket
 import threading
 import time
 
-from flask import (
-    Flask,
-    make_response,
-    redirect,
-    render_template,
-    request,
-)
+import flask
+from flask import request
 
 import fakedns
 import utils.data
@@ -149,47 +144,22 @@ class Hotspot(abc.ABC):
         "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
     def __init__(self, wlan):
-        self._logger = logging.getLogger(type(self).__name__)
-        self._d = utils.data.Data()
+        self.wlan = wlan
         self._hotspot_lock = threading.Lock()
         self._hotspot_is_running = False
-        self.app = Flask(__name__)
-        self.wlan = wlan
-        self.wifi = utils.wifi.make_wifi(wlan)
-        if pathlib.Path("/opt/adsb/adsb.im.version").exists():
-            with open("/opt/adsb/adsb.im.version", "r") as f:
-                self.version = f.read().strip()
-        else:
-            self.version = "unknown"
+        self._wifi_test_thread = None
         self.comment = ""
         self.restart_state = "done"
         self.ssid = ""
         self.passwd = ""
         self._dns_server = fakedns.Server()
-        self._wifi_test_thread = None
+        self._d = utils.data.Data()
+        self._logger = logging.getLogger(type(self).__name__)
+        self.wifi = utils.wifi.make_wifi(self.wlan)
+        self.version = self._d.read_version()
         self._setup_config_files()
-        self._logger.info("Scanning for SSIDs.")
-        self.wifi.ssids = []
-        startTime = time.time()
-        while time.time() - startTime < 20:
-            self.wifi.scan_ssids()
-            if len(self.wifi.ssids) > 0:
-                break
-
-        self.app.add_url_rule(
-            "/healthz", view_func=self.healthz, methods=["OPTIONS", "GET"])
-        self.app.add_url_rule("/hotspot", view_func=self.hotspot, methods=["GET"])
-        self.app.add_url_rule("/restarting", view_func=self.restarting)
-
-        self.app.add_url_rule("/restart", view_func=self.restart, methods=["POST", "GET"])
-        self.app.add_url_rule(
-            "/",
-            "/",
-            view_func=self.catch_all,
-            defaults={"path": ""},
-            methods=["GET", "POST"],
-        )
-        self.app.add_url_rule("/<path:path>", view_func=self.catch_all, methods=["GET", "POST"])
+        self._app = self._setup_flask()
+        self._scan_for_ssids()
 
     @abc.abstractmethod
     def _restart_wifi_client(self):
@@ -233,11 +203,39 @@ class Hotspot(abc.ABC):
             self._logger.warning(
                 "Interface not replaced in avahi unit config.")
 
+    def _scan_for_ssids(self):
+        self._logger.info("Scanning for SSIDs.")
+        start_time = time.time()
+        while time.time() - start_time < 20:
+            self.wifi.scan_ssids()
+            if len(self.wifi.ssids) > 0:
+                return
+            time.sleep(0.5)
+
+    def _setup_flask(self):
+        app = flask.Flask(__name__)
+        app.add_url_rule(
+            "/healthz", view_func=self.healthz, methods=["OPTIONS", "GET"])
+        app.add_url_rule("/hotspot", view_func=self.hotspot, methods=["GET"])
+        app.add_url_rule("/restarting", view_func=self.restarting)
+        app.add_url_rule(
+            "/restart", view_func=self.restart, methods=["POST", "GET"])
+        app.add_url_rule(
+            "/",
+            "/",
+            view_func=self.catch_all,
+            defaults={"path": ""},
+            methods=["GET", "POST"],
+        )
+        app.add_url_rule(
+            "/<path:path>", view_func=self.catch_all, methods=["GET", "POST"])
+        return app
+
     def run(self):
         with self._hotspot_lock:
             self._setup_hotspot_locked()
         signal.signal(signal.SIGTERM, self._shutdown)
-        self.app.run(host="0.0.0.0", port=80)
+        self._app.run(host="0.0.0.0", port=80)
 
     def _shutdown(self, sig, frame):
         self._logger.info("Shutting down.")
@@ -256,12 +254,12 @@ class Hotspot(abc.ABC):
 
     def healthz(self):
         if request.method == "OPTIONS":
-            response = make_response()
+            response = flask.make_response()
             response.headers.add("Access-Control-Allow-Origin", "*")
             response.headers.add("Access-Control-Allow-Headers", "*")
             response.headers.add("Access-Control-Allow-Methods", "*")
         else:
-            response = make_response("ok")
+            response = flask.make_response("ok")
             response.headers.add("Access-Control-Allow-Origin", "*")
         return response
 
@@ -269,7 +267,7 @@ class Hotspot(abc.ABC):
         return self.restart_state
 
     def hotspot(self):
-        return render_template(
+        return flask.render_template(
             "hotspot.html", version=self.version, comment=self.comment,
             ssids=self.wifi.ssids, mdns_enabled=self._d.is_enabled("mdns"))
 
@@ -280,7 +278,7 @@ class Hotspot(abc.ABC):
         # wifi credentials, try those and restart. In all other cases, render
         # the /hotspot page.
         if self.restart_state == "restarting":
-            return redirect("/restarting")
+            return flask.redirect("/restarting")
 
         if self._request_looks_like_wifi_credentials():
             if self._wifi_test_thread is not None:
@@ -296,7 +294,7 @@ class Hotspot(abc.ABC):
             self._wifi_test_thread = threading.Thread(target=self.test_wifi)
             self._wifi_test_thread.start()
 
-            return redirect("/restarting")
+            return flask.redirect("/restarting")
 
         return self.hotspot()
 
@@ -306,7 +304,7 @@ class Hotspot(abc.ABC):
             and "passwd" in request.form)
 
     def restarting(self):
-        return render_template("hotspot-restarting.html")
+        return flask.render_template("hotspot-restarting.html")
 
     def _setup_hotspot_locked(self):
         # We need to stop any existing wifi service in case there's already an

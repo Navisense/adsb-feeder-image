@@ -787,6 +787,14 @@ class Data:
     def stage2_envs(self):
         return [e for e in self._env if e.is_list]
 
+    def read_version(self):
+        """Read the version string from the version file."""
+        try:
+            with self.version_file.open() as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            return "unknown"
+
     # helper function to find env by name
     def env(self, name: str):
         for e in self._env:
