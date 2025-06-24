@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% set active_page = "overview" %}
+{% block content %}
+  <h1 class="mt-3 text-center text-danger">
+    {% block title %}Overview{% endblock title %}
+  </h1>
+  <ul>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Feeder version:</strong></span> {{ version }}
+    </li>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ board }}
+    </li>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Base:</strong></span> {{ base }}
+    </li>
+    {% endif %}
+  </li>
+    <li>
+      <strong>Containers:</strong>
+      <ul>
+        {% for container in containers %}<li>{{ container }}</li>{% endfor %}
+      </ul>
+    </li>
+    <li>
+      <strong>SDR(s):</strong>
+      {% if sdrs %}
+        <ul>
+          {% for sdr in sdrs %}
+            <li>
+              <pre>{{ sdr }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        no SDRs connected
+      {% endif %}
+    </li>
+  </ul>
+{% endblock content %}
