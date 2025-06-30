@@ -301,10 +301,12 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 
 # run the final steps of the setup and then enable the service
 systemctl daemon-reload
-systemctl enable --now adsb-setup
+systemctl enable adsb-setup
+systemctl start adsb-setup
 
 if [ "${EXPAND_ROOTFS}" == "True" ] ; then
-    systemctl enable --now expand-rootfs
+    systemctl enable expand-rootfs
+    systemctl start expand-rootfs
 fi
 
 # while the user is getting ready, let's try to pull the key docker
