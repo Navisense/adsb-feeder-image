@@ -156,33 +156,15 @@ else
     missing+="${PKG_NAME_DOCKER} ${PKG_NAME_DOCKER_COMPOSE} "
 fi
 
-if ! which lsusb &> /dev/null; then
-    missing+="${PKG_NAME_USBUTILS} "
-fi
-
-if ! which jq &> /dev/null; then
-    missing+="${PKG_NAME_JQ} "
-fi
-
-if ! which iw &> /dev/null; then
-    missing+="${PKG_NAME_IW} "
-fi
-
-if ! which hostapd &> /dev/null; then
-    missing+="${PKG_NAME_HOSTAPD} "
-fi
-
-if ! which kea-dhcp4 &> /dev/null; then
-    missing+="${PKG_NAME_KEA} "
-fi
+which lsusb &> /dev/null || missing+="${PKG_NAME_USBUTILS} "
+which jq &> /dev/null || missing+="${PKG_NAME_JQ} "
+which iw &> /dev/null || missing+="${PKG_NAME_IW} "
+which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "
+which kea-dhcp4 &> /dev/null || missing+="${PKG_NAME_KEA} "
 
 if [ "${ENABLE_MDNS}" == "True" ] ; then
-    if ! which avahi-daemon &> /dev/null; then
-        missing+="${PKG_NAME_AVAHI} "
-    fi
-    if ! which avahi-publish &> /dev/null; then
-        missing+="${PKG_NAME_AVAHI_TOOLS} "
-    fi
+    which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
+    which avahi-publish &> /dev/null || missing+="${PKG_NAME_AVAHI_TOOLS} "
 fi
 
 if [ "$distro" == "postmarketos" ]; then
@@ -209,9 +191,7 @@ if [ "$distro" == "postmarketos" ]; then
         missing+="iproute2 "
     fi
 
-    if ! which bash &> /dev/null; then
-        missing+="bash "
-    fi
+    which bash &> /dev/null || missing+="bash "
 fi
 
 if [[ $missing != "" ]] ; then
