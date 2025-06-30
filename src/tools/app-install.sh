@@ -105,6 +105,7 @@ echo "You appear to be on a ${distro}-style distribution"
 # the command line arguments, let's check if all the dependencies
 # are installed
 # - Python 3.6 or later and Flask 2 or later
+# - curl
 # - git
 # - docker
 # - docker compose
@@ -114,6 +115,7 @@ echo "You appear to be on a ${distro}-style distribution"
 PKG_NAME_PYTHON3="python3"
 PKG_NAME_PYTHON3_FLASK="python3-flask"
 PKG_NAME_PYTHON3_REQUESTS="python3-requests"
+PKG_NAME_CURL="curl"
 PKG_NAME_GIT="git"
 PKG_NAME_DOCKER="docker"
 PKG_NAME_DOCKER_COMPOSE="docker-compose"
@@ -145,6 +147,7 @@ else
     missing+="${PKG_NAME_PYTHON3} ${PKG_NAME_PYTHON3_FLASK} ${PKG_NAME_PYTHON3_REQUESTS} "
 fi
 
+which curl &> /dev/null || missing+="${PKG_NAME_CURL} "
 which git &> /dev/null || missing+="${PKG_NAME_GIT} "
 
 if which docker &> /dev/null ; then
