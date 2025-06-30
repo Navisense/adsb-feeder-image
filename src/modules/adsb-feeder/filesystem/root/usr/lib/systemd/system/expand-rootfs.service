@@ -1,0 +1,9 @@
+[Unit]
+Description=Expand the root file system
+
+[Service]
+Type=oneshot
+ExecStart=/opt/adsb/expand-rootfs.bash
+
+[Install]
+WantedBy=sysinit.target

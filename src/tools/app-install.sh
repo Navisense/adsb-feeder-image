@@ -12,6 +12,7 @@ USAGE="
   -f               # finish an install on DietPi using dietpi-software
   --web-port port  # the port for the web interface (default: 1099)
   --enable-mdns    # enable the mDNS server (off by default)
+  --expand-rootfs  # enable a service to expand the root file system
 "
 
 ROOT_REQUIRED="
@@ -44,6 +45,7 @@ TAG=""
 FINISH_DIETPI=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
+EXPAND_ROOTFS="False"
 
 while (( $# ))
 do
@@ -59,6 +61,8 @@ do
         '--web-port') shift; WEB_PORT=$1
             ;;
         '--enable-mdns') ENABLE_MDNS="True"
+            ;;
+        '--expand-rootfs') EXPAND_ROOTFS="True"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -298,6 +302,10 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
 # run the final steps of the setup and then enable the service
 systemctl daemon-reload
 systemctl enable --now adsb-setup
+
+if [ "${EXPAND_ROOTFS}" == "True" ] ; then
+    systemctl enable --now expand-rootfs
+fi
 
 # while the user is getting ready, let's try to pull the key docker
 # containers in the background -- that way startup will feel quicker
