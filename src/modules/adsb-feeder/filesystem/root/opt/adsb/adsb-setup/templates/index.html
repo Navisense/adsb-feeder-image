@@ -73,6 +73,13 @@
     Position / Message rate: <a {% if env_value_by_tag('aggregator_choice') != 'nano' %} href="/stats_0/" {% endif %}><span id="{% if not is_enabled('stage2') %}mf_status_0{% endif %}"></span> &mdash;
       <span id="{% if not is_enabled('stage2') %}mf_stats_0{% endif %}"></span></a>
   </div>
+<div class="col-12 mb-3">
+  AIS Message rate:
+  <span id="ais_msg_rate" class="fw-bold">--</span>
+  — Vessels (last min):
+  <span id="ais_vessel_count" class="fw-bold">--</span>
+</div>
+
   <div class="col-12 mb-3 {% if not is_enabled('stage2') %} d-none {% endif %}">
     <h5>You are running as Stage 2 feeder</h5>
     <div class="col-12 mb-3">{% if env_value_by_tag('num_micro_sites') == 0 %}No micro feeder sites configured, yet.
@@ -502,6 +509,23 @@
   let context = document.getElementById("plane-history-chart");
   let shownIndices = new Set();
   let chartGlobal = undefined;
+function updateAisStats() {
+
+  const aisEndpoint =
+    `${window.location.protocol}//${window.location.hostname}:41580/api/stat.json`;
+
+  fetch(aisEndpoint, { signal: AbortSignal.timeout(15000) })
+    .then(r => r.json())
+    .then(d => {
+      const msgRate = (d.msg_rate ?? 0).toFixed(1) + " msg/s";
+      const vessels = d.last_minute?.vessels ?? d.vessel_count ?? 0;
+
+      document.getElementById("ais_msg_rate").textContent = msgRate;
+      document.getElementById("ais_vessel_count").textContent = vessels;
+    })
+    .catch(err => console.error("AIS stats fetch failed:", err));
+}
+
 
   function getStatsData() {
     function elaborateUpdateChart(chart, datasets, labels) {
@@ -765,6 +789,7 @@
     get_status("{{ agg }}");
     {% endfor %}
     getStatsData()
+    updateAisStats();
   }
 
   function reset_status(agg, idx) {
