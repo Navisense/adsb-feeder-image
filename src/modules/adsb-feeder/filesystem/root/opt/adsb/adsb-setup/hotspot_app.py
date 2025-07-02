@@ -48,7 +48,8 @@ class ConnectivityMonitor:
         self._checks = {
             "google_quad8_https_head": ft.partial(
                 self._check_https_head, "8.8.8.8"),
-            "quad9_https_head": ft.partial(self._check_https_head, "9.9.9.9"),}
+            "cloudflare_quad1_https_head": ft.partial(
+                self._check_https_head, "1.1.1.1"),}
         self._status_history = collections.deque(maxlen=2)
         self._logger = logging.getLogger(type(self).__name__)
 
