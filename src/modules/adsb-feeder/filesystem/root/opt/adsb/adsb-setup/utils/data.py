@@ -1,5 +1,3 @@
-# dataclass
-from dataclasses import dataclass
 from pathlib import Path
 
 from .environment import Env
@@ -8,7 +6,6 @@ from .util import is_true, print_err
 from utils.config import read_values_from_env_file
 
 
-@dataclass
 class Data:
     def __new__(cc):
         if not hasattr(cc, "instance"):
