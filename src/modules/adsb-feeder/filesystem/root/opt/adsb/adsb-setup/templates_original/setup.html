@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% set active_page = "setup" %}
+
+{% block content %}
+<h1 class="mt-3 text-center text-danger">{% block title %} Setup required parameters {% endblock %}</h1>
+<div class="alert alert-danger" role="alert" {% if env_value_by_tag('dns_state') %} style="display: none;" {% endif %}>
+  The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
+</div>
+<p>
+  The data below should match the exact location of your antenna (for a normal feeder). You can use the
+  <a href="https://www.freemaptools.com/elevation-finder.htm" target="_blank">location and elevation finder tool</a>
+  to find your Latitude, Longitude, and Altitude based on your address.
+</p>
+<p>
+  For a <strong>Stage 2</strong> feeder that connects with already running micro feeder(s), the data here defines the
+  position you want to be the center of your combined map display. Make sure you select <strong>Stage 2 Setup</strong>
+  below.
+</p>
+<p class="row">
+  <span class="col-md">
+    If you are re-installing the ADS-B Feeder Image and have made a backup of your configuration, you can also simply
+    restore those settings
+  </span>
+  <span class="col-md">
+    <a class="btn btn-secondary" href="{{  url_for('restore') }}">restore previous backup</a>
+  </span>
+</p>
+<form method="post" onsubmit="show_spinner(); return true;" action="{{ url_for('setup') }}">
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="site_name">Station Name (shows up on public maps if enabled later)</label>
+    </span>
+    <span class="col-md">
+      <input type="text" id="site_name" name="site_name" required placeholder="my-awesome-antenna" class="form-control"
+             pattern="[\-_.a-zA-Z0-9 ]+" title="Letters, numbers, -, _, ."
+             value="{{ list_value_by_tag('site_name', 0) }}" />
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="lat">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
+    </span>
+    <span class="col-md">
+      <input type="text" id="lat" name="lat" required placeholder="Antenna latitude" class="form-control"
+             pattern="(?:\+|-|)(?:(?:[0-8]?\d)(?:\.\d+)?|90(?:\.0+)?)(,(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?))?"
+             title="Number between -90 and 90" value="{{ list_value_by_tag('lat', 0) }}" />
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="lon">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
+    </span>
+    <span class="col-md">
+      <input type="text" id="lon" name="lon" required placeholder="Antenna longitude" class="form-control"
+             pattern="(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?)" title="Number between -180 and 180"
+             value="{{ list_value_by_tag('lon', 0) }}" />
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="alt">Altitude above mean sealevel, rounded to whole meters</label>
+    </span>
+    <span class="col-md">
+      <input type="text" id="alt" name="alt" required placeholder="in m - or add 'ft' to enter in ft" class="form-control"
+             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ list_value_by_tag('alt', 0) }}" />
+    </span>
+  </div>
+  <div class="form-group row align-items-center mb-1">
+    <span class="col-md">
+      <label for="tz">Timezone</label>
+      <button class="pb-1 btn btn-secondary"
+              onclick="updateTimezone(); return false; // return false inhibits the form to be submitted">update
+        timezone</button>
+    </span>
+    <span class="col-md">
+      <input type="text" name="tz" id="tz" required
+             placeholder="populate from the browser timezone by clicking the 'update timezone' button"
+             class="form-control mt-2" value="{{ list_value_by_tag('tz', 0) }}" />
+    </span>
+  </div>
+  <div class="form-group mt-3">
+    <label>
+      Which
+      <a href="#"
+         title="aggregators that don't require you to create an account or provide an email address">account-less
+      </a>
+      aggregators do you want to feed? There is a separate data sharing page for aggregators that require an account.
+    </label>
+    <br />
+    <div>
+      <input type="radio" name="aggregator_choice" id="all" value="all" required {% if env_value_by_tag("aggregator_choice")=="all"
+      %} checked {% endif %}>
+      <label class="form-check-label mr-3" for="all">All</label>
+      <input type="radio" name="aggregator_choice" id="privacy" value="privacy" {% if
+      env_value_by_tag("aggregator_choice")=="privacy" %} checked {% endif %}>
+      <label class="form-check-label mr-3" for="privacy">Aggregators with privacy policy</label>
+      <input type="radio" name="aggregator_choice" id="individual" value="individual" {% if
+      env_value_by_tag("aggregator_choice")=="individual" %} checked {% endif %}>
+      <label class="form-check-label" for="individual">Pick individually</label>
+      <input type="radio" name="aggregator_choice" id="micro" value="micro"
+             {% if env_value_by_tag("aggregator_choice")=="micro" %} checked {% endif %}>
+      <label class="form-check-label mr-3" for="micro">None (micro feeder)</label>
+      <input type="radio" name="aggregator_choice" id="nano" value="nano"
+             {% if env_value_by_tag("aggregator_choice")=="nano" %} checked {% endif %}>
+      <label class="form-check-label mr-3" for="nano">None (nano feeder)</label>
+      <input type="radio" name="aggregator_choice" id="stage2" value="stage2"
+             {% if env_value_by_tag("aggregator_choice")=="stage2" %} checked {% endif %}>
+      <label class="form-check-label mr-3" for="stage2">Stage 2 setup (select these later)</label>
+    </div>
+    <br>
+    <div id="explain-all" style="display: {% if env_value_by_tag('aggregator_choice')=='all' %} block {% else %} none {%
+            endif %}; font-size: normal;">
+      With this option you will feed data to
+      <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
+      <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
+      <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
+      <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
+      <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>,
+      <a href="https://adsb.fi/privacy">adsb.fi</a>,
+      <a href="https://skydata.hpradar.com/">hpradar</a>,
+      <a href="https://airplanes.live/privacy">airplanes.live</a>,
+      <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
+    </div>
+    <div id="explain-privacy" style="display: {% if env_value_by_tag('aggregator_choice')=='priv' %} block {% else %}
+            none {% endif %}; font-size: normal;">
+      With this option you will feed data to
+      <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
+      <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
+      <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
+      <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
+      <a href="https://adsb.fi/privacy">adsb.fi</a>
+      <a href="https://airplanes.live/privacy">airplanes.live</a>,
+      <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
+    </div>
+    <div id="explain-individual" style="display: {% if env_value_by_tag('aggregator_choice')=='ind' %} block {% else %}
+                none {% endif %}; font-size: normal;">
+      With this option you can make detailed selections on the Aggregator page.
+    </div>
+    <div id="explain-micro" style="display: {% if env_value_by_tag('aggregator_choice')=='micro' %} block {% else %}
+                    none {% endif %}; font-size: normal;">
+      With this option the image will be set up as a micro feeder, minimizing memory use and disabling many features.
+      This is designed to work with a second stage image that uses this feeder as its input and creates the map, feeds
+      the aggregators, etc.
+    </div>
+    <div id="explain-nano" style="display: {% if env_value_by_tag('aggregator_choice')=='nano' %} block {% else %}
+                none {% endif %}; font-size: normal;">
+      With this option the image will be set up as a nano feeder, even more minimizing memory use and disabling many
+      features, including the graphs running on the nano feeder.
+      This is designed to work with a second stage image that uses this feeder as its input and creates the map, feeds
+      the aggregators, etc. Compared to the micro feeder option this removes more local features and is additionally
+      optimized to reduce disk IO.
+    </div>
+    <div id="explain-stage2" style="display: {% if env_value_by_tag('aggregator_choice')=='stage2' %} block {% else %}
+                    none {% endif %}; font-size: normal;">
+      With this option the image will be set up as a Stage 2 system, designed to connect to one or more micro feeder(s).
+      You can select for each of them individually which aggregators you want to feed, and you get a combined map of all
+      the planes that the micro feeder(s) see.
+      <br>
+      {% if mem < 1800000 %} WARNING: Stage 2 setup with only {{ (mem / 1024) | int }} MB of memory
+      (400 to 600MB per microsite recommended){% endif %}
+    </div>
+  </div>
+  <br>
+  <div class="form-group">
+    <button type="submit" name="submit" value="go" class="btn btn-primary">Submit</button>
+  </div>
+  <p>{{ message }}</p>
+</form>
+<script>
+  $("#lat").on("blur", function () {
+    let lat_value = $("#lat").val();
+    let values = lat_value.split(",");
+    if (values.length > 1) {
+      $("#lat").val(values[0]);
+      $("#lon").val(values[1]);
+    }
+  });
+  function fixAlt() {
+    let alt_value = $("#alt").val();
+    let factor = 1.0;
+    if (alt_value.toLowerCase().includes("ft")) factor = 0.3048;
+    let new_alt = Math.round(parseFloat(alt_value) * factor);
+    if (new_alt.toString() == "NaN") new_alt = ""; else new_alt = new_alt + "m";
+    $("#alt").val(new_alt);
+  }
+  fixAlt();
+  $("#alt").on("blur", fixAlt);
+  function browserTZ() {
+    let timezone = "";
+    try {
+      timezone = Intl.DateTimeFormat("en-US").resolvedOptions().timeZone;
+    } catch (error) {
+      console.error(error);
+    }
+    console.log("browser timezone: " + timezone);
+    return timezone;
+  }
+  function updateTimezone() {
+    $("#tz").val(browserTZ());
+  }
+  // set timezone field to browser tz on load if not set already
+  if (!$("#tz").val()) {
+    $("#tz").val(browserTZ());
+  }
+  const explainAll = document.getElementById("explain-all");
+  const explainPriv = document.getElementById("explain-privacy");
+  const explainInd = document.getElementById("explain-individual");
+  const explainMicro = document.getElementById("explain-micro");
+  const explainNano = document.getElementById("explain-nano");
+  const explainStage2 = document.getElementById("explain-stage2");
+  function aggregatorClick() {
+    if (document.getElementById("all").checked) {
+      explainAll.style.display = "block";
+      explainPriv.style.display = "none";
+      explainInd.style.display = "none";
+      explainMicro.style.display = "none";
+      explainNano.style.display = "none";
+      explainStage2.style.display = "none";
+    } else if (document.getElementById("privacy").checked) {
+      explainAll.style.display = "none";
+      explainPriv.style.display = "block";
+      explainInd.style.display = "none";
+      explainMicro.style.display = "none";
+      explainNano.style.display = "none";
+      explainStage2.style.display = "none";
+    } else if (document.getElementById("individual").checked) {
+      explainAll.style.display = "none";
+      explainPriv.style.display = "none";
+      explainInd.style.display = "block";
+      explainMicro.style.display = "none";
+      explainNano.style.display = "none";
+      explainStage2.style.display = "none";
+    } else if (document.getElementById("micro").checked) {
+      explainAll.style.display = "none";
+      explainPriv.style.display = "none";
+      explainInd.style.display = "none";
+      explainMicro.style.display = "block";
+      explainNano.style.display = "none";
+      explainStage2.style.display = "none";
+    } else if (document.getElementById("nano").checked) {
+      explainAll.style.display = "none";
+      explainPriv.style.display = "none";
+      explainInd.style.display = "none";
+      explainMicro.style.display = "none";
+      explainNano.style.display = "block";
+      explainStage2.style.display = "none";
+    } else if (document.getElementById("stage2").checked) {
+      explainAll.style.display = "none";
+      explainPriv.style.display = "none";
+      explainInd.style.display = "none";
+      explainMicro.style.display = "none";
+      explainNano.style.display = "none";
+      explainStage2.style.display = "block";
+    }
+  }
+  const aggregatorBtns = document.querySelectorAll('input[name="aggregator_choice"]');
+  aggregatorBtns.forEach((radio) => {
+    radio.addEventListener("click", aggregatorClick);
+  });
+</script>
+{% endblock %}

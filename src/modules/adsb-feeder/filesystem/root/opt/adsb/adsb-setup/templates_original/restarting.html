@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1 class="mt-3 text-center text-danger">{% block title %} Restarting the ADS-B Feeder system {% endblock %}</h1>
+
+<body>
+  <script>
+    const extraArgs = "{{ extra_args }}";
+    // wait_restart python function waits 0.9s, so make this a bit longer than that
+    // if the timeout is too short due to RTT, it will be increased automatically
+
+    let httpTimeout = 1000;
+    let httpTimeoutMax = 10000;
+    const checkDelay = 500;
+    const busySince = new Date().getTime();
+    let checkTimer = null;
+
+    function checkSoon(delay) {
+      if (delay == undefined) {
+        delay = checkDelay;
+      }
+      clearTimeout(checkTimer);
+      checkTimer = setTimeout(checkRestartStatus, delay);
+    }
+
+    function checkRestartStatus() {
+      var request = new XMLHttpRequest();
+      request.open("GET", "/restart");
+
+      request.timeout = httpTimeout;
+      request.ontimeout = function () {
+        httpTimeout = Math.min(httpTimeoutMax, httpTimeout * 1.5);
+        console.log(`timeout: wait and try /restart again`);
+        checkSoon(0);
+      };
+
+      request.onerror = function () {
+        // ops, we got an error trying to talk to the server - could be it is briefly turned off for
+        // an update or something
+        console.log("request to GET /restart resulted in an error: ", request.status);
+        checkSoon();
+      };
+
+      request.onload = function () {
+        if (request.readyState === 4 && request.status === 200) {
+          if (request.responseText === "done") {
+            // restarting the ADS-B infra completed, redirect user
+            console.log('server says it is done, redirecting to /')
+            window.location.replace("/" + extraArgs);
+            return;
+          } else if (request.responseText === "busy") {
+            if (new Date().getTime() - busySince > 5 * 1000) {
+              // been waiting for more than 5 seconds, let's show the log scroller so the user has something to look at
+              console.log('redirecting to /waiting for webinterface stream log')
+              window.location.replace("/waiting" + extraArgs);
+              return;
+            }
+            // restart is still in progress, check again immediately
+            // the server does the delaying during the request processing
+            // if the server is done with the operation, the request will return immediately
+            console.log('response: busy')
+            checkRestartStatus();
+            return;
+          } else if (request.responseText === "stream-log") {
+            // the waiting-app has been detective active, switch to it
+            console.log('redirecting to / for waiting-app stream log')
+            window.location.replace("/" + extraArgs);
+            return;
+          } else if (request.responseText === "exiting") {
+            console.log('server is exiting, wait for it to start back up')
+            checkSoon();
+            return;
+          }
+          console.log("restarting.html: request to GET /restart returned unexpected responseText: ", request.responseText);
+          checkSoon();
+          return;
+        } else {
+          // ops, we got an error from the server - could be it is briefly turned off for
+          // an update or something
+          console.log(`restarting.html: request returned with readyState ${request.readyState}, status ${request.status} and text ${request.responseText}; keep waiting`);
+          checkSoon();
+          return;
+        }
+      };
+
+      request.send();
+    }
+
+    show_spinner();
+    checkRestartStatus();
+
+  </script>
+</body>
+{% endblock %}

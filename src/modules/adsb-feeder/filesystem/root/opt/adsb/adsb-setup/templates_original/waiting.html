@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+{% if env_value_by_tag is defined %}
+{% if env_value_by_tag("css_theme") == 'light' %}
+<html lang="en" data-mdb-theme="light">
+{% elif env_value_by_tag("css_theme") == 'dark' %}
+<html lang="en" data-mdb-theme="dark">
+{% else %}
+<html lang="en" data-mdb-theme="auto">
+{% endif %}
+{% endif %}
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See {{ url_for('static', filename='fonts/LICENSE.txt') }} -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" />
+  <!-- MDB -->
+  <link rel="stylesheet" id="css-theme" href="{{ url_for('static', filename='css/mdb.min.css') }}" />
+  {% if env_value_by_tag is defined %}
+  {% if not ((env_value_by_tag("css_theme") == 'light') or (env_value_by_tag("css_theme") == 'dark')) %}
+  <script>
+    ; (function () {
+      const htmlElement = document.querySelector("html")
+      if (htmlElement.getAttribute("data-mdb-theme") === 'auto') {
+        function updateTheme() {
+          document.querySelector("html").setAttribute("data-mdb-theme",
+            window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+        updateTheme()
+      }
+    })()
+  </script>
+  {% endif %}
+  {% endif %}
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <!-- Spinner -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <title>
+    {{ title }}
+  </title>
+</head>
+
+<body>
+  <div id="loader" style="display: none"></div>
+  <div id="overlay" style="display: none">
+    <div id="overlaytext">
+      please wait
+      <br />
+      this could take several minutes
+    </div>
+  </div>
+  <div class="bgimage">
+    <img src="/static/images/adsbim-background-transparent-4k.png" alt="">
+  </div>
+  <div class="container pt-5 mt-3">
+    <h1>{{ title }}</h1>
+    <h3 class="my-3">Please be patient</h3>
+    <div class="row overflow-auto" style="height: 75vh" id="logcontainer">
+      <pre class="col-6-sm col-12 small" id="log"></pre>
+    </div>
+  </div>
+
+  <script src="/static/js/jquery-3.7.1.slim.min.js" integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+          crossorigin="anonymous"></script>
+
+  <script>
+    // make sure we can propagate the target number if provided
+    const target = new URLSearchParams(window.location.search).get('m');
+    let extraArgs = "";
+    if (target) {
+      extraArgs = "?m=" + target;
+    }
+
+    function stream() {
+      var streamlog = new EventSource("/stream-log");
+      console.log("created EventSource")
+      streamErrorHandled = false;
+      streamlog.onerror = function (e) {
+        streamlog.close();
+        console.log("streamlog error");
+        checkSoon(0);
+      }
+      streamlog.onmessage = function (e) {
+        $('#log').append(e.data + "\n");
+        $('#logcontainer').scrollTop($('#logcontainer')[0].scrollHeight);
+      };
+    }
+    // wait_restart python function waits 0.9s, so make this a bit longer than that
+    // if the timeout is too short due to RTT, it will be increased automatically
+
+    let httpTimeout = 1000;
+    let httpTimeoutMax = 10000;
+    const checkDelay = 500;
+    let checkTimer = null;
+
+    function checkSoon(delay) {
+      if (delay == undefined) {
+        delay = checkDelay;
+      }
+      clearTimeout(checkTimer);
+      checkTimer = setTimeout(checkStatus, delay);
+    }
+
+    function checkStatus() {
+      var request = new XMLHttpRequest();
+      request.open('GET', '/restart');
+
+      request.timeout = httpTimeout;
+      request.ontimeout = function () {
+        httpTimeout = Math.min(httpTimeoutMax, httpTimeout * 1.5);
+        console.log(`timeout: wait and try /restart again`);
+        checkSoon(0);
+        return;
+      };
+
+      request.onerror = function () {
+        console.log("request returned an error - let's hope it's just restarting and try again");
+        checkSoon(checkDelay);
+        return;
+      };
+
+      request.onload = function () {
+        if (request.readyState === 4 && request.status === 200) {
+          if (request.responseText === 'done') {
+            console.log('adsb-setup webinterface indicates ready, redirect user to /');
+            window.location = '/' + extraArgs;
+            return;
+          } else if (request.responseText === 'busy') {
+            console.log('webinterface running, continue reading the stream log, redirect user to /waiting');
+            window.location = '/waiting' + extraArgs;
+            return;
+          } else if (request.responseText === 'stream-log') {
+            console.log('waiting-app running, continue reading the stream log, redirect user to /waiting');
+            window.location = '/waiting' + extraArgs;
+            return;
+          } else {
+            console.log("waiting.html: request to GET /restart returned unexpected responseText: ", request.responseText);
+            checkSoon(checkDelay);
+            return;
+          }
+        } else {
+          console.log(`waiting.html: request returned with readyState ${request.readyState}, status ${request.status} and text ${request.responseText}; keep waiting`);
+          checkSoon(checkDelay);
+          return;
+        }
+      };
+
+      request.send();
+    };
+
+    console.log("starting stream");
+    stream();
+  </script>
+</body>
+
+</html>

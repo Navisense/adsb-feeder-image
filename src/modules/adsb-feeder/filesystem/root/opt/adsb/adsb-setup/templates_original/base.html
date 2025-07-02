@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+{% if env_value_by_tag("css_theme") == 'light' %}
+<html lang="en" data-mdb-theme="light">
+{% elif env_value_by_tag("css_theme") == 'dark' %}
+<html lang="en" data-mdb-theme="dark">
+{% else %}
+<html lang="en" data-mdb-theme="auto">
+{% endif %}
+
+<head>
+  <!-- Required meta tags -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+  <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See {{ url_for('static', filename='fonts/LICENSE.txt') }} -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" />
+  <!-- MDB -->
+  <link rel="stylesheet" id="css-theme" href="{{ url_for('static', filename='css/mdb.min.css') }}" />
+  {% if not ((env_value_by_tag("css_theme") == 'light') or (env_value_by_tag("css_theme") == 'dark')) %}
+  <script>
+    ; (function () {
+      const htmlElement = document.querySelector("html")
+      if (htmlElement.getAttribute("data-mdb-theme") === 'auto') {
+        function updateTheme() {
+          document.querySelector("html").setAttribute("data-mdb-theme",
+            window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        }
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
+        updateTheme()
+      }
+    })()
+  </script>
+  {% endif %}
+  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
+  <!-- Spinner -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <title>
+    {{ list_value_by_tag("site_name", 0) }}{% if list_value_by_tag("site_name", 0) != "" %}:
+    {% endif %}{% block title %}{% endblock %}
+  </title>
+  <nav class="navbar fixed-top bg-body {% if is_enabled('stage2') %} navbar-expand-lg {% else %} navbar-expand-md {% endif %}">
+    <div class="container-fluid">
+      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for("director") }}">ADS-B Feeder</a>
+      <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
+        id="livemap-navbar-button"
+        href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Map</a>
+      <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
+        <span id="cpu" class="d-none"
+              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">CPU</span>
+        <span id="ext" class=" d-none"
+              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">EXT</span>
+        <span id="cpu_temp" class=" d-none"
+              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
+        <span id="ext_temp" class="d-none"
+              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
+      </div>
+      <div class="mx-auto"><!-- filler element --></div>
+      <div class="mx-1"><a href="https://ko-fi.com/H2H2H3JS5" target="_blank"><img height="2em" style="border:0.1em;height:1.8em;"
+                   src="/static/images/kofi_button_stroke_small.png" border="0" id="kofi-navbar-button"
+                   alt="Help sustain this project at ko-fi.com" /></a></div>
+      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
+              aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <svg viewBox="-5 0 10 8" width="1.5em">
+          <line y2="8" stroke="#000" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
+        </svg>
+      </button>
+      <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbarNav">
+        <ul class="navbar-nav ms-1 mb-2 mb-lg-0">
+          {% if is_enabled('stage2') %}
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFeederSelection" role="button"
+               data-mdb-toggle="dropdown" aria-expanded="false">Target: </a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownFeederSelection" style="width: 18em">
+              <div class="row mx-2 g-1">
+                <div class="col-12 my-1 text-secondary">Select the target for maps/sharing</div>
+                <div class="col-6 my-1">
+                  <button type="submit" class="btn-sm btn-outline-secondary btn-rounded btn-block"
+                          onclick="stage2_feeder_target_submit(0);return false;">Combined</button>
+                </div>
+                {% for i in range(env_value_by_tag('num_micro_sites')) %}
+                <div class="col-3 my-1">
+                  <button type="submit" class="btn-sm btn-outline-secondary btn-rounded btn-block"
+                          onclick="stage2_feeder_target_submit({{ i + 1 }});return false;"><span width="2em">{{ i + 1 }}</span></button>
+                </div>
+                {% endfor %}
+              </div>
+            </ul>
+          </li>
+          {% endif %}
+          <!-- Maps -->
+          <li class="nav-item dropdown {% if not is_enabled('base_config') %}d-none{% endif %}">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMaps" role="button"
+               data-mdb-toggle="dropdown" aria-expanded="false">Maps</a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownMaps">
+              <li><a id="live_traffic" class="dropdown-item" href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Traffic</a>
+              </li>
+              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
+              <li><a id="heatmap" class="dropdown-item" href="/map/?heatmap">Heatmap</a></li>
+              {% endif %}
+              <li><a id="tracks" class="dropdown-item" href="/map/?pTracks">Tracks</a></li>
+              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
+              <li><a id="replay" class="dropdown-item" href="/map/?replay">Replay</a></li>
+              {% endif %}
+              <li><a id="options" class="dropdown-item" href="/visualization">Options</a></li>
+            </ul>
+          </li>
+          <!-- Data Sharing -->
+          {% if not is_enabled('stage2') %}
+          <li class="nav-item"><a
+               class="nav-link {% if not is_enabled('base_config') or env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}"
+               href="/aggregators">Data Sharing</a>
+          </li>
+          {% else %}
+          <li id="data_sharing_current" class="nav-item">
+            <a class="nav-link" href="#" id="data_sharing_current_link">Data Sharing</a>
+          </li>
+          {% endif %}
+          <!-- Setup -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownSetup" role="button"
+               data-mdb-toggle="dropdown" aria-expanded="false">Setup</a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownSetup">
+              <li><a class="dropdown-item" href="/setup">{% if is_enabled('stage2') %}Stage
+                  2{% else %}Basic{% endif %}</a></li>
+              <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
+                   href="/sdr_setup">SDR</a></li>
+              <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
+                   href="/expert">Expert</a></li>
+            </ul>
+          </li>
+          <!-- System -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownLogs" role="button"
+               data-mdb-toggle="dropdown" aria-expanded="false">System</a>
+            <ul class="dropdown-menu" aria-labelledby="navbarDropdownLogs">
+              <li><a class="dropdown-item" href="/logs/">Logs</a></li>
+              <li><a class="dropdown-item" href="/info">Support Info</a></li>
+              <li><a class="dropdown-item" href="/support">Share Diagnostics</a></li>
+              <li><a class="dropdown-item" href="/systemmgmt">Management</a></li>
+              <li><a class="dropdown-item" href="/backup">Backup</a></li>
+              <li><a class="dropdown-item" href="/restore">Restore</a></li>
+              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
+              <li><a class="dropdown-item" href="/stats/">{%if is_enabled('stage2')%}Combined {%endif%}Stats</a></li>
+              {% if is_enabled('stage2') %}
+              <li><a id="stats_current" class="dropdown-item" href="/stats_1/">Current Stats</a></li>
+              {% endif %}
+              {% endif %}
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <script src="/static/js/jquery-3.7.1.slim.min.js" integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
+          crossorigin="anonymous"></script>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+  <script>
+    let verbose = true;
+
+    let tasks = [];
+    let timersActive = false;
+    let lastVisChange = 0;
+    function handleVisibilityChange() {
+      if (document.hidden && timersActive) {
+        verbose && console.log(new Date().toLocaleTimeString() + " visibility change: stopping tasks");
+        for (const task of tasks) {
+          clearTimeout(task.timer);
+        }
+        timersActive = false;
+      }
+      if (!document.hidden && !timersActive) {
+        let delay = 0;
+        if (Date.now() - lastVisChange < 20 * 1000) {
+          verbose && console.log(new Date().toLocaleTimeString() + " visibility change: starting tasks with short delay");
+          // delay before we run the tasks in case the tab was only recently put in the background
+          delay = 2 * 1000;
+        } else {
+          verbose && console.log(new Date().toLocaleTimeString() + " visibility change: starting tasks");
+          // extremely short delay before we run the tasks in case the tab will only be in the foreground for a split second
+          delay = 50;
+        }
+        for (const task of tasks) {
+          clearTimeout(task.timer);
+          task.timer = setTimeout(task.func, delay, { visibilityChange: true, })
+        }
+        timersActive = true;
+        lastVisChange = Date.now();
+      }
+    }
+
+    // Warn if the browser doesn't support addEventListener or the Page Visibility API
+    if (typeof document.addEventListener === "undefined" || document.hidden === undefined) {
+      console.error("hidden tab handler requires a browser that supports the Page Visibility API.");
+      timersActive = true; // timers will always stay active
+    } else {
+      document.addEventListener("visibilitychange", handleVisibilityChange, false);
+    }
+
+    handleVisibilityChange();
+
+    function registerTask(task) {
+      tasks.push(task);
+      if (timersActive) {
+        task.func();
+      }
+    }
+
+    function scheduleTask(task, delay) {
+      if (timersActive) {
+        clearTimeout(task.timer);
+        task.timer = setTimeout(task.func, delay);
+      }
+    }
+
+    let feederTarget = 0;
+    let parameters = location.search.substring(1).split('&');
+    for (let i = 0; i < parameters.length; i++) {
+      if (parameters[i].startsWith("m=")) {
+        feederTarget = parameters[i].split("=")[1];
+      }
+    }
+    {% if is_enabled('stage2') %}
+    console.log(`feederTarget: ${feederTarget}`);
+    {% endif %}
+    let siteNames = [];
+    {% for site in env_value_by_tag('site_name') %}
+    siteNames.push('{{site}}');
+    {% endfor %}
+    siteName = feederTarget == 0 ? siteName = "Combined": siteNames[feederTarget];
+    $("#navbarDropdownFeederSelection").text(`Target: ${siteName}`);
+    if (feederTarget > 0) {
+      let tag = "";
+      for (tag of ["live_traffic", "heatmap", "tracks", "replay"]) {
+        let oldhref = $("#" + tag).attr("href");
+        let newhref = oldhref.replace("/map/", "/map_" + feederTarget + "/");
+        $("#" + tag).attr("href", newhref);
+      }
+      $("#options").attr("href", "/visualization?m=" + feederTarget);
+      $("#data_sharing_current_link").attr("href", "/aggregators?m=" + feederTarget);
+      $("#data_sharing_current").removeClass("d-none");
+      $("#stats_current").removeClass("d-none");
+      $("#stats_current").attr("href", "/stats_" + feederTarget + "/");
+      $("#stats_current").text(`${siteName} Stats`);
+    } else {
+      $("#data_sharing_current").addClass("d-none");
+      $("#stats_current").addClass("d-none");
+    }
+
+    let check_mf_task = {};
+    check_mf_task.func = function() {
+      verbose && console.log(new Date().toLocaleTimeString() + " check_mf");
+      let url = "/api/stage2_stats";
+      fetch(url, {
+        method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+      })
+        .then(response => { return response.json() })
+        .then(data => {
+          data.forEach((d, i) => {
+            let color_class = "text-danger";
+            let tooltip = "not receiving any data"
+            if (d["pps"] > 0) {
+              color_class = "text-success";
+              tooltip = "receiving data (plane total since midnight UTC)"
+            } else if (d["uptime"] > 60) {
+              color_class = "text-warning";
+              tooltip = "receiving unusually little data"
+            }
+            $("#mf_status_" + i).removeClass("text-danger text-success text-warning");
+            $("#mf_status_" + i).addClass(color_class);
+            $("#mf_status_" + i).attr('title', tooltip);
+            $("#mf_status_" + i).text(d["pps"] + " pos / " + d["mps"] + " msg per sec");
+            $("#mf_stats_" + i).removeClass("text-danger text-success text-warning");
+            $("#mf_stats_" + i).addClass(color_class);
+            $("#mf_stats_" + i).text(d["planes"] + " planes / " + d["tplanes"] + " today");
+          })
+        });
+      scheduleTask(check_mf_task, 15000);
+    };
+
+    let temperatureTask = {};
+    temperatureTask.func = function() {
+      let url = "/api/get_temperatures.json";
+      fetch(url, {
+        method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+      })
+        .then(response => { return response.json() })
+        .then(data => {
+          update_temp_block(data["cpu"], data["ext"], data["age"]);
+        })
+        .catch((err) => {
+          console.log("requested temperatures and got error: " + err);
+        });
+      scheduleTask(temperatureTask, 15000);
+    }
+
+    function update_temp_block(cpu, ext, age) {
+      if (cpu == null && ext == null) {
+        $("#temperature_block").addClass('d-none');
+        return;
+      }
+      if (isNaN(age - 0)) {
+        age = 1
+      }
+      opacity = Math.min(1, 30 / (1 + age));
+      $("#temperature_block").css('opacity', opacity);
+      $("#temperature_block").removeClass('d-none');
+      if (cpu != null) {
+        $("#cpu").removeClass('d-none');
+        $("#cpu_temp").removeClass('d-none');
+        $("#cpu_temp").text(cpu + "°C");
+        if (cpu < 50) {
+          $("#cpu_temp").css('color', 'green');
+        } else if (cpu < 80) {
+          $("#cpu_temp").css('color', 'orange');
+        } else {
+          $("#cpu_temp").css('color', 'red');
+        }
+      } else {
+        $("#cpu").addClass('d-none');
+        $("#cpu_temp").addClass('d-none');
+      }
+      if (ext != null) {
+        $("#ext").removeClass('d-none');
+        $("#ext_temp").removeClass('d-none');
+        $("#ext_temp").text(ext + "°C");
+        if (ext < -10) {
+          $("#ext_temp").css('color', 'orange');
+        } else if (ext < 40) {
+          $("#ext_temp").css('color', 'green');
+        } else if (ext < 50) {
+          $("#ext_temp").css('color', 'orange');
+        } else {
+          $("#ext_temp").css('color', 'red');
+        }
+      } else {
+        $("#ext").addClass('d-none');
+        $("#ext_temp").addClass('d-none');
+      }
+    }
+
+    {% if is_enabled('temperature_block') %}
+    registerTask(temperatureTask);
+    {% endif %}
+
+    function show_spinner() {
+      document.getElementById("loader").style.display = "block";
+      document.getElementById("overlay").style.display = "block";
+      console.log('show_spinner');
+    }
+    function hide_spinner() {
+      document.getElementById("loader").style.display = "none";
+      document.getElementById("overlay").style.display = "none";
+      console.log('hide_spinner');
+    }
+    function stage2_feeder_target_submit(newTarget) {
+      if (newTarget == '*' || newTarget == '0' || newTarget =='' || newTarget == undefined) {
+        queryString = "";
+      } else {
+        queryString = "?m=" + newTarget;
+      }
+      location.replace(location.href.split('?')[0] + queryString);
+      return false;
+    }
+
+    $(document).find('form').each((key, value) => {
+      if ("no_spinner" in value.className.split(" ")) return;
+      value.addEventListener("submit", (event) => { show_spinner(); });
+    });
+    $(document).ready(function () {
+      $('[data-toggle="tooltip"]').tooltip();
+
+      $("form").submit(function () {
+        // stupid hack to get checkboxes that are unchecked into Flask
+        // first hide the form (so the checkboxes don't visibly turn back on)
+        // then artificially check them all, but give them values of 0/1 to represent
+        // whether they were checked or not
+        var this_master = $(this);
+        this_master.hide();
+        this_master.find('input[type="checkbox"]').each(function () {
+          var checkbox_this = $(this);
+          if (checkbox_this.is(":checked") == true) {
+            checkbox_this.attr("value", "1");
+          } else {
+            checkbox_this.prop("checked", true);
+            checkbox_this.attr("value", "0");
+          }
+        });
+      });
+    });
+  </script>
+</head>
+
+<body>
+  <div id="overlay" style="display: none">
+    <div id="loader" style="display: none"></div>
+    <div id="overlaytext">
+      please wait
+      <br />
+      this could take several minutes
+    </div>
+  </div>
+  <div class="container pt-5 my-3">
+    {% block content %}{% endblock %}
+    <footer class="text-start text-muted bg-body">
+      <hr class="mt-5" />
+      <section class="d-flex justify-content-between border-bottom ">
+        <a href="https://ko-fi.com/H2H2H3JS5" target="_blank" class="mb-3"><img height="2em" style="height:1.8em;"
+          src="/static/images/kofi_button_stroke.png" border="0" alt="Help sustain this project at ko-fi.com" /></a>
+      </section>
+      <section class="d-flex justify-content-between border-bottom small">
+        <div class="me-5 d-block">
+          <span>
+            Running <a href="https://adsb.im/home">ADS-B Feeder Image</a> {{ env_value_by_tag("base_version") }},
+            running on {{ env_value_by_tag("board_name") }}.
+            <br />
+            {{ env_value_by_tag("image_name") }}
+            <br />
+          </span>
+        </div>
+      </section>
+      <section class="d-flex justify-content-between border-bottom small">
+        <div class="d-block">
+          <span class="me-3 mb-1">
+            For help and questions, please go to the
+            <a href="https://adsblol.zulipchat.com/#narrow/stream/391168-adsb-feeder-image">adsb-feeder-image Zulip
+              channel</a>
+          </span>
+        </div>
+      </section>
+    </footer>
+  </div>
+</body>
+
+</html>
