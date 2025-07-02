@@ -512,7 +512,7 @@
 function updateAisStats() {
 
   const aisEndpoint =
-    `${window.location.protocol}//${window.location.hostname}:41580/api/stat.json`;
+    `${window.location.protocol}//${window.location.hostname}:{{ env_value_by_tag('aiscatcherport') }}/api/stat.json`;
 
   fetch(aisEndpoint, { signal: AbortSignal.timeout(15000) })
     .then(r => r.json())
