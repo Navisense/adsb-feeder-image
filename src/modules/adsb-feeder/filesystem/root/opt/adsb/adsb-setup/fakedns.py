@@ -1,28 +1,20 @@
 # based on code from https://github.com/pathes/fakedns
 # (c) 2014 Patryk Hes
 # released under the MIT license
+import logging
 import socketserver
 import struct
-import sys
 import threading
 
 DNS_HEADER_LENGTH = 12
 defaultIP = "192.168.199.1"  # we always respond with this IP
 
 
-def print_err(*args, **kwargs):
-    import math
-    import time
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
-        math.modf(time.time())[0] * 1000
-    )
-    print(*((timestamp,) + args), file=sys.stderr, **kwargs)
-
-
 class Server:
     """Reusable fake DNS server."""
     def __init__(self):
         self._server = self._thread = None
+        self._logger = logging.getLogger(type(self).__name__)
 
     def start(self):
         if self._server:
@@ -31,6 +23,7 @@ class Server:
         self._server = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.start()
+        self._logger.info("Fake DNS server started.")
 
     def stop(self):
         if not self._server:
@@ -40,9 +33,14 @@ class Server:
         self._thread.join()
         self._server.server_close()
         self._server = self._thread = None
+        self._logger.info("Fake DNS server stopped.")
 
 
 class DNSHandler(socketserver.BaseRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._logger = logging.getLogger(type(self).__name__)
+
     def handle(self):
         socket = self.request[1]
         data = self.request[0]
@@ -50,10 +48,9 @@ class DNSHandler(socketserver.BaseRequestHandler):
 
         # If request doesn't even contain full header, don't respond.
         if len(nonzeros) < DNS_HEADER_LENGTH:
-            print(
-                f"note: data length too small: overall {len(data)}, without trailing zeros {len(nonzeros)}",
-                file=sys.stderr,
-            )
+            self._logger.warning(
+                f"Data length too small: overall {len(data)}, without "
+                f"trailing zeros {len(nonzeros)}")
             return
 
         # Try to read questions - if they're invalid, don't respond.
@@ -68,8 +65,7 @@ class DNSHandler(socketserver.BaseRequestHandler):
         response = (
             self.dns_response_header(data, len(accepted_questions))
             + self.dns_response_questions(accepted_questions)
-            + self.dns_response_answers(accepted_questions)
-        )
+            + self.dns_response_answers(accepted_questions))
         socket.sendto(response, self.client_address)
 
     def _should_accept_question(self, question):
@@ -100,8 +96,7 @@ class DNSHandler(socketserver.BaseRequestHandler):
             question = {
                 "name": [],
                 "qtype": "",
-                "qclass": "",
-            }
+                "qclass": "",}
             length = data[pointer]
             # Read each label from QNAME part
             while length != 0:
@@ -111,9 +106,9 @@ class DNSHandler(socketserver.BaseRequestHandler):
                 pointer += length + 1
                 length = data[pointer]
             # Read QTYPE
-            question["qtype"] = data[pointer + 1 : pointer + 3]
+            question["qtype"] = data[pointer + 1:pointer + 3]
             # Read QCLASS
-            question["qclass"] = data[pointer + 3 : pointer + 5]
+            question["qclass"] = data[pointer + 3:pointer + 5]
             # Move pointer 5 octets further (zero length octet, QTYPE, QNAME)
             pointer += 5
             questions.append(question)
@@ -193,16 +188,7 @@ class DNSHandler(socketserver.BaseRequestHandler):
             # In case of QTYPE=A and QCLASS=IN, RDLENGTH=4.
             record += b"\x00\x04"
             # RDATA - in case of QTYPE=A and QCLASS=IN, it's IPv4 address.
-            record += b"".join(map(lambda x: bytes([int(x)]), defaultIP.split(".")))
+            record += b"".join(
+                map(lambda x: bytes([int(x)]), defaultIP.split(".")))
             records += record
         return records
-
-
-if __name__ == "__main__":
-    server = Server()
-    server.start()
-    print("\033[36mStarted DNS server.\033[39m")
-    try:
-        threading.Event().wait()
-    except KeyboardInterrupt:
-        server.stop()
