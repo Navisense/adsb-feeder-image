@@ -73,10 +73,21 @@
     <div class="mt-4">
       Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will attempt
       to connect to the network that you specified. If that WiFi connection is successful, the feeder should become
-      available on that WiFi network as <code>adsb-feeder.local</code>. If the connection fails, the feeder will once
-      again bring up this hotspot and you can try entering the credentials again.
+      available on that WiFi network as <code>adsb-feeder.local</code>. This requires mDNS to be enabled on your system
+      (it typically is). The test below checks whether it is working right now.
     </div>
-    <div id="mdns-status"></div>
+    <div class="mt-4">
+      If the connection fails, the feeder will once again bring up this hotspot and you can try entering the credentials
+      again.
+    </div>
+    <div class="mt-4">
+      A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the same
+      one you're on, you probably won't be able to reach the device. This is also commonly the case if you connect this
+      device to your router's guest access, but you connect to the internal network. In that case it may help to use
+      guest access yourself, but in some routers you need to enable an option that guest devices can communicate with
+      one another.
+    </div>
+    <div class="mt-4" id="mdns-status"></div>
     {% endif %}
     <footer class="text-center text-lg-start bg-light text-muted">
       <hr class="mt-5" />
