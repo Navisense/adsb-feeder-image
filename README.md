@@ -1,4 +1,11 @@
-# ADS-B Feeder Image
+# Navisense feeder
+
+This application is used on stations receiving AIS and/or ADS-B data to send
+that data to
+[Navisense](https://navisense.de)/[porttracker.co](https://porttracker.co). It
+is based on [ADS-B Feeder Image](https://adsb.im) by Dirk Hohndel.
+
+## ADS-B Feeder Image
 
 <a href="https://www.youtube.com/@adsb">intro videos</a> &nbsp;&nbsp;&nbsp;
 <a href="https://adsb.im/home"><img src="https://adsb.im/static/images/adsb.im.logo.png" height="30" alt="adsb.im homepage"></a>
