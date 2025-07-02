@@ -153,7 +153,9 @@ class Hotspot(abc.ABC):
         self.restart_state = "done"
         self.ssid = ""
         self.passwd = ""
-        self._dns_server = fakedns.Server()
+        self._dns_server = fakedns.Server(
+            response_ip="192.168.199.1",
+            non_response_domains={"local", "local.adsb-feeder.im"})
         self._d = utils.data.Data()
         self._logger = logging.getLogger(type(self).__name__)
         self.wifi = utils.wifi.make_wifi(self.wlan)

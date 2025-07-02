@@ -1,18 +1,24 @@
 # based on code from https://github.com/pathes/fakedns
 # (c) 2014 Patryk Hes
 # released under the MIT license
+import functools as ft
+import ipaddress
 import logging
 import socketserver
 import struct
 import threading
 
-DNS_HEADER_LENGTH = 12
-defaultIP = "192.168.199.1"  # we always respond with this IP
-
 
 class Server:
     """Reusable fake DNS server."""
-    def __init__(self):
+    def __init__(self, *, response_ip: str, non_response_domains: set[str]):
+        """
+        :param response_ip: The IP with which to respond to all queries.
+        :param non_response_domains: A set of domains (including subdomains)
+            for which no answer is returned.
+        """
+        self._make_handler = ft.partial(
+            DNSHandler, response_ip, non_response_domains)
         self._server = self._thread = None
         self._logger = logging.getLogger(type(self).__name__)
 
@@ -20,7 +26,8 @@ class Server:
         if self._server:
             raise ValueError("already started")
         assert self._thread is None
-        self._server = socketserver.ThreadingUDPServer(("", 53), DNSHandler)
+        self._server = socketserver.ThreadingUDPServer(("", 53),
+                                                       self._make_handler)
         self._thread = threading.Thread(target=self._server.serve_forever)
         self._thread.start()
         self._logger.info("Fake DNS server started.")
@@ -37,9 +44,20 @@ class Server:
 
 
 class DNSHandler(socketserver.BaseRequestHandler):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    DNS_HEADER_LENGTH = 12
+
+    def __init__(
+            self, response_ip, non_response_domains: set[str], *args,
+            **kwargs):
+        self._response_ip = ipaddress.ip_address(response_ip)
+        # Non-response domains as lists of encoded domain parts.
+        domain_parts = [domain.split(".") for domain in non_response_domains]
+        self._non_response_domains = {
+            tuple(part.encode()
+                  for part in parts)
+            for parts in domain_parts}
         self._logger = logging.getLogger(type(self).__name__)
+        super().__init__(*args, **kwargs)
 
     def handle(self):
         socket = self.request[1]
@@ -47,7 +65,7 @@ class DNSHandler(socketserver.BaseRequestHandler):
         nonzeros = data.rstrip("\0".encode())
 
         # If request doesn't even contain full header, don't respond.
-        if len(nonzeros) < DNS_HEADER_LENGTH:
+        if len(nonzeros) < self.DNS_HEADER_LENGTH:
             self._logger.warning(
                 f"Data length too small: overall {len(data)}, without "
                 f"trailing zeros {len(nonzeros)}")
@@ -69,12 +87,8 @@ class DNSHandler(socketserver.BaseRequestHandler):
         socket.sendto(response, self.client_address)
 
     def _should_accept_question(self, question):
-        if (question["name"][-1:] == [b"local"]
-                or question["name"][-3:] == [b"local", b"adsb-feeder", b"im"]):
-            # Don't answer DNS queries for names under .local or
-            # local.adsb-feeder.im (where adsb-feeder.im is the DNS suffix
-            # advertised via DHCP). Those are mDNS names that should be
-            # answered by the avahi service.
+        if any(question["name"][-len(d):] == d
+               for d in self._non_response_domains):
             return False
         # Filter only those questions, which have QTYPE=A and QCLASS=IN
         return (
@@ -90,25 +104,26 @@ class DNSHandler(socketserver.BaseRequestHandler):
         # Get number of questions from header's QDCOUNT
         n = (data[4] << 8) + data[5]
         # Where we actually read in data? Start at beginning of question sections.
-        pointer = DNS_HEADER_LENGTH
+        pointer = self.DNS_HEADER_LENGTH
         # Read each question section
         for i in range(n):
-            question = {
-                "name": [],
-                "qtype": "",
-                "qclass": "",}
             length = data[pointer]
             # Read each label from QNAME part
+            name_list = []
             while length != 0:
                 start = pointer + 1
                 end = pointer + length + 1
-                question["name"].append(data[start:end])
+                name_list.append(data[start:end])
                 pointer += length + 1
                 length = data[pointer]
             # Read QTYPE
-            question["qtype"] = data[pointer + 1:pointer + 3]
+            qtype = data[pointer + 1:pointer + 3]
             # Read QCLASS
-            question["qclass"] = data[pointer + 3:pointer + 5]
+            qclass = data[pointer + 3:pointer + 5]
+            question = {
+                "name": tuple(name_list),
+                "qtype": qtype,
+                "qclass": qclass,}
             # Move pointer 5 octets further (zero length octet, QTYPE, QNAME)
             pointer += 5
             questions.append(question)
@@ -188,7 +203,6 @@ class DNSHandler(socketserver.BaseRequestHandler):
             # In case of QTYPE=A and QCLASS=IN, RDLENGTH=4.
             record += b"\x00\x04"
             # RDATA - in case of QTYPE=A and QCLASS=IN, it's IPv4 address.
-            record += b"".join(
-                map(lambda x: bytes([int(x)]), defaultIP.split(".")))
+            record += self._response_ip.packed
             records += record
         return records
