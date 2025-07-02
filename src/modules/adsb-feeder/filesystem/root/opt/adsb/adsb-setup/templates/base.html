@@ -405,11 +405,12 @@
       <section class="d-flex justify-content-between border-bottom small">
         <div class="me-5 d-block">
           <span>
-            Running <a href="https://adsb.im/home">ADS-B Feeder Image</a> {{ env_value_by_tag("base_version") }},
-            running on {{ env_value_by_tag("board_name") }}.
+            Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Navisense AIS-Feeder</a>
+            {{ env_value_by_tag("base_version") }}, running on {{ env_value_by_tag("board_name") }}.
+            <br />
+            Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
             <br />
             {{ env_value_by_tag("image_name") }}
-            <br />
           </span>
         </div>
       </section>
