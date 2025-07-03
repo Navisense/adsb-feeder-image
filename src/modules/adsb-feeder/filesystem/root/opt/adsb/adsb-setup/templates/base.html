@@ -39,7 +39,7 @@
   </title>
   <nav class="navbar fixed-top bg-body {% if is_enabled('stage2') %} navbar-expand-lg {% else %} navbar-expand-md {% endif %}">
     <div class="container-fluid">
-      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for("director") }}">Navisense AIS-Feeder</a>
+      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for("director") }}">Navisense Feeder</a>
       <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
         id="livemap-adsb-navbar-button"
         href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Map (ADS-B)</a>
@@ -405,7 +405,7 @@
       <section class="d-flex justify-content-between border-bottom small">
         <div class="me-5 d-block">
           <span>
-            Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Navisense AIS-Feeder</a>
+            Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Navisense Feeder</a>
             {{ env_value_by_tag("base_version") }}, running on {{ env_value_by_tag("board_name") }}.
             <br />
             Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
