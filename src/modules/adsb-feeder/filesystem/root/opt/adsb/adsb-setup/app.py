@@ -64,7 +64,7 @@ from flask import (
     url_for,
 )
 
-import hotspot_app
+import hotspot
 from utils.data import Data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
@@ -3814,7 +3814,7 @@ class Manager:
         self._connectivity_change_thread = None
         data = Data()
         self._hotspot_app = HotspotApp(data, self._on_wifi_credentials)
-        self._hotspot = hotspot_app.make_hotspot(self._on_wifi_test_status)
+        self._hotspot = hotspot.make_hotspot(self._on_wifi_test_status)
         self._adsb_im = AdsbIm(data, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
@@ -3853,7 +3853,7 @@ class Manager:
         assert self._connectivity_monitor is None
         assert self._connectivity_change_thread is None
         self._keep_running = True
-        self._connectivity_monitor = hotspot_app.ConnectivityMonitor(
+        self._connectivity_monitor = hotspot.ConnectivityMonitor(
             self._event_queue, check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
