@@ -504,6 +504,37 @@
     connecting to those aggregators. A two stage setup which off-loads the connections to the aggregators to a different
     system might be a good idea.
   </div>
+  <ul>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Feeder version:</strong></span> {{ version }}
+    </li>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ board }}
+    </li>
+    <li>
+      <span style="display: inline-block; width: 6em;"><strong>Base:</strong></span> {{ base }}
+    </li>
+    <li>
+      <strong>Containers:</strong>
+      <ul>
+        {% for container in containers %}<li>{{ container }}</li>{% endfor %}
+      </ul>
+    </li>
+    <li>
+      <strong>SDR(s):</strong>
+      {% if sdrs %}
+        <ul>
+          {% for sdr in sdrs %}
+            <li>
+              <pre>{{ sdr }}</pre>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        no SDRs connected
+      {% endif %}
+    </li>
+  </ul>
 </div>
 <script src="/static/js/chart.js" integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
           crossorigin="anonymous"></script>

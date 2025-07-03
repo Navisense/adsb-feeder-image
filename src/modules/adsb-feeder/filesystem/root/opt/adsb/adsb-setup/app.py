@@ -3506,6 +3506,14 @@ class AdsbIm:
         self.cache_agg_status()
 
         channel, current_branch = self.extract_channel()
+        board = self._d.env_by_tags("board_name").value
+        base = self._d.env_by_tags("image_name").value
+        version = self._d.env_by_tags("base_version").value
+        containers = [
+            self._d.env_by_tags(["container", container]).value
+            for container in self._d.tag_for_name.values()
+            if self._d.is_enabled(container)
+            or container in ["ultrafeeder", "shipfeeder"]]
         return render_template(
             "index.html",
             aggregators=self.agg_structure,
@@ -3517,6 +3525,11 @@ class AdsbIm:
             matrix=self.agg_matrix,
             compose_up_failed=compose_up_failed,
             channel=channel,
+            board=board,
+            base=base,
+            version=version,
+            containers=containers,
+            sdrs=self._sdrdevices.sdrs,
         )
 
     @check_restart_lock
