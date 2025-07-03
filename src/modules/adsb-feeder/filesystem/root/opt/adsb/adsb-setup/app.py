@@ -138,6 +138,12 @@ class NoStatic(flask_logging.Filter):
 flask_logging.getLogger("werkzeug").addFilter(NoStatic)
 
 
+def only_alphanum_dash(name):
+    new_name = "".join(c for c in name if c.isalnum() or c == "-")
+    new_name = new_name.strip("-")[:63]
+    return new_name
+
+
 class PidFile:
     PID_FILE = pathlib.Path("/run/adsb-feeder.pid")
 
@@ -310,7 +316,7 @@ class AdsbIm:
         print_err("starting AdsbIm.__init__", level=4)
         self._d = data
         self._hotspot_app = hotspot_app
-        self.hotspot_mode = False
+        self._hotspot_mode = False
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
@@ -744,14 +750,14 @@ class AdsbIm:
         view function.
         """
         def handle_request(*args, **kwargs):
-            if self.hotspot_mode and not self._hotspot_app:
+            if self._hotspot_mode and not self._hotspot_app:
                 self._logger.error(
                     "We've been put into hotspot mode, but don't have a "
                     "hotspot. Disabling it.")
-                self.hotspot_mode = False
+                self._hotspot_mode = False
             if request.path == "/overview":
                 return view_func(*args, **kwargs)
-            elif self.hotspot_mode:
+            elif self._hotspot_mode:
                 return self._hotspot_app.handle_request(request)
             elif view_func:
                 return view_func(*args, **kwargs)
@@ -765,6 +771,23 @@ class AdsbIm:
     def _set_undervoltage(self):
         self._d.env_by_tags("under_voltage").value = True
         self.undervoltage_epoch = time.time()
+
+    @property
+    def hotspot_mode(self):
+        return self._hotspot_mode
+
+    @hotspot_mode.setter
+    def hotspot_mode(self, value):
+        self._hotspot_mode = value
+        # Restart the mDNS services, since our IP has probably changed coming
+        # in and out of hotspot mode.
+        self._maybe_enable_mdns()
+
+    @property
+    def hostname(self):
+        if not self._current_site_name:
+            return ""
+        return only_alphanum_dash(self._current_site_name)
 
     def start(self):
         if self._server:
@@ -993,34 +1016,24 @@ class AdsbIm:
                 ("dazzleport", 1094),
                 ("dazzleport", 1094),]:
                 if self._d.env_by_tags(tag).value is None:
+                    # TODO and this is completely wrong anyway+++++++++
                     self._d.env_by_tags("app_init_done").value = default
 
-    def onlyAlphaNumDash(self, name):
-        new_name = "".join(c for c in name if c.isalnum() or c == "-")
-        new_name = new_name.strip("-")[:63]
-        return new_name
-
     def set_hostname_and_enable_mdns(self, site_name: str):
-        # create a valid hostname from the site name and set it up as mDNS
-        # alias initially we only allowed alpha-numeric characters, but after
-        # fixing an error in the service file, we now can allow dash (or
-        # hyphen) as well.
-        host_name = self.onlyAlphaNumDash(site_name)
-        should_set_hostname = self._d.is_feeder_image
-        should_start_mdns = self._d.is_enabled("mdns")
-        if not host_name or self._current_site_name == site_name:
-            should_set_hostname = False
-        else:
-            self._current_site_name = site_name
+        self._current_site_name = site_name
+        should_set_hostname = self._d.is_feeder_image and self.hostname
         if should_set_hostname:
-            subprocess.run(["/usr/bin/hostnamectl", "hostname", host_name])
-        if should_start_mdns:
-            args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
-            if host_name:
-                # If we have a hostname, make the mDNS script create an alias
-                # for it as well.
-                args.append(host_name)
-            subprocess.run(args)
+            subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
+
+    def _maybe_enable_mdns(self):
+        if not self._d.is_enabled("mdns"):
+            return
+        args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
+        if self.hostname:
+            # If we have a hostname, make the mDNS script create an alias for
+            # it as well.
+            args.append(self.hostname)
+        subprocess.run(args)
 
     def set_tz(self, timezone):
         # timezones don't have spaces, only underscores
@@ -2788,7 +2801,7 @@ class AdsbIm:
                         )
                         cmd = ["/usr/bin/tailscale", "up"]
 
-                        name = self.onlyAlphaNumDash(self._d.env_by_tags("site_name").list_get(0))
+                        name = only_alphanum_dash(self._d.env_by_tags("site_name").list_get(0))
                         # due to the following error, we just add --reset to the options
                         # Error: changing settings via 'tailscale up' requires mentioning all
                         # non-default flags. To proceed, either re-run your command with --reset or
