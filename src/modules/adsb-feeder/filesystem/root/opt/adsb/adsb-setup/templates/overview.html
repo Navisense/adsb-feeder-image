@@ -318,42 +318,6 @@
   </div>
 </div>
 <div class="col-12">
-  <div id="UF"
-       class="row {% if env_value_by_tag('aggregator_choice') == 'nano' %}d-none{% endif %}">
-    <div class="col-12">
-      <h5>
-        {% if env_value_by_tag('aggregator_choice') == 'micro' %}Local{% endif %}
-        TAR1090 Mapping Interface
-      </h5>
-    </div>
-    <div class="col col-md-4 col-lg-3">
-      <ul>
-        <li>
-          <a href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params') ) }}">map</a>
-        </li>
-        <li>
-          <a href="{{ url_for('/stats/') }}">statistics and graphs</a>
-        </li>
-      </ul>
-    </div>
-    <div class="col col-md-4 col-lg-3">
-      <ul>
-        <li>
-          <a href="{{ url_for('/map/', replay=None) }}">timelapse / replay</a>
-        </li>
-        <li>
-          <a href="{{ url_for('/map/', heatmap=None) }}">heatmap</a>
-        </li>
-        <li>
-          <a href="{{ url_for('/map/', ptracks=None) }}">tracks</a>
-        </li>
-      </ul>
-    </div>
-    <div class="text-muted small mb-4 col-12">
-      Please note that after a restart (or first install) it can take up to a couple of minutes for the pages above to
-      respond, so if you get an error, please wait a moment and try again.
-    </div>
-  </div>
   {# figure out what's enabled for the integrated feeder or the microfeeders #}
   {% for idx in ns.site_indices %}
     {% if list_is_enabled("uat978", idx) %}
