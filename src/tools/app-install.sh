@@ -281,7 +281,7 @@ else
     OS="unrecognized OS"
 fi
 echo "app-install" > ${APP_DIR}/adsb.im.previous-version
-echo "ADS-B Feeder app running on ${OS}" > feeder-image.name
+echo "Porttracker Feeder app running on ${OS}" > feeder-image.name
 echo "$ADSB_IM_VERSION" > adsb.im.version
 touch ${APP_DIR}/app.adsb.feeder.image
 
