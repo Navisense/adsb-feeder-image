@@ -592,12 +592,6 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/index",
-            "index",
-            self._decide_route_hotspot_mode(self.index),
-            methods=["GET", "POST"],
-        )
-        self.app.add_url_rule(
             "/info",
             "info",
             self._decide_route_hotspot_mode(self.info),
@@ -606,6 +600,7 @@ class AdsbIm:
             "/overview",
             "overview",
             self._decide_route_hotspot_mode(self.overview),
+            methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/support",
@@ -1697,7 +1692,7 @@ class AdsbIm:
         # print_err("caching agg status")
 
         # launch all the status checks there are in separate threads
-        # they will be requested by the index page soon
+        # they will be requested by the overview page soon
         for entry in self.agg_structure:
             agg = entry[0]
             for idx in [0] + self.micro_indices():
@@ -3211,7 +3206,7 @@ class AdsbIm:
             return self.update()
         if not self._d.is_enabled("base_config"):
             print_err(f"director redirecting to setup, base_config not completed")
-            return self.setup()
+            return flask.redirect("/setup")
         # if we already figured out where to go next, let's just do that
         if self._next_url_from_director:
             print_err(f"director redirecting to next_url_from_director: {self._next_url_from_director}")
@@ -3248,7 +3243,7 @@ class AdsbIm:
             print_err(f"configured serials: {configured_serials}")
             print_err(f"available serials: {available_serials}")
             print_err("director redirecting to sdr_setup: unconfigured devices present")
-            return self.sdr_setup()
+            return flask.redirect("/sdr_setup")
 
         used_serials = [self._d.env_by_tags(purpose).value for purpose in ["978serial","1090serial","aisserial"]]
         used_serials = [serial for serial in used_serials if serial != ""]
@@ -3256,14 +3251,14 @@ class AdsbIm:
             print_err(f"used serials: {used_serials}")
             print_err(f"available serials: {available_serials}")
             print_err("director redirecting to sdr_setup: at least one used device is not present")
-            return self.sdr_setup()
+            return flask.redirect("/sdr_setup")
 
         # if the user chose to individually pick aggregators but hasn't done so,
         # they need to go to the aggregator page
         if self.at_least_one_aggregator() or self._d.env_by_tags("aggregators_chosen"):
-            return self.index()
+            return flask.redirect("/overview")
         print_err("director redirecting to aggregators: to be configured")
-        return self.aggregators()
+        return flask.redirect("/aggregators")
 
     def reset_planes_seen_per_day(self):
         self.planes_seen_per_day = [set() for i in [0] + self.micro_indices()]
@@ -3461,7 +3456,7 @@ class AdsbIm:
             self._im_status.check()
 
     @check_restart_lock
-    def index(self):
+    def overview(self):
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
@@ -3515,7 +3510,7 @@ class AdsbIm:
             if self._d.is_enabled(container)
             or container in ["ultrafeeder", "shipfeeder"]]
         return render_template(
-            "index.html",
+            "overview.html",
             aggregators=self.agg_structure,
             agg_tables=list({entry[4] for entry in self.agg_structure}),
             local_address=local_address,
@@ -3698,24 +3693,6 @@ class AdsbIm:
             ufargs=ufargs,
             envvars=envvars,
             netdog=netdog,
-        )
-
-    def overview(self):
-        board = self._d.env_by_tags("board_name").value
-        base = self._d.env_by_tags("image_name").value
-        version = self._d.env_by_tags("base_version").value
-        containers = [
-            self._d.env_by_tags(["container", container]).value
-            for container in self._d.tag_for_name.values()
-            if self._d.is_enabled(container)
-            or container in ["ultrafeeder", "shipfeeder"]]
-        return render_template(
-            "overview.html",
-            board=board,
-            base=base,
-            version=version,
-            containers=containers,
-            sdrs=self._sdrdevices.sdrs,
         )
 
     def waiting(self):
