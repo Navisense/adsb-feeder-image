@@ -51,6 +51,7 @@ from utils.wifi import make_wifi
 
 # nofmt: on
 # isort: off
+import flask
 from flask import (
     Flask,
     flash,
@@ -220,9 +221,96 @@ class DmesgMonitor:
             poll.unregister(proc.stdout)
 
 
+class HotspotApp:
+    """
+    Routes for the hotspot frontend.
+
+    Handles flask requests to display the frontend for the hotspot with which
+    you can set wifi credentials. Has a catch-all route, since the hotspot
+    intercepts (almost) all requests.
+    """
+    def __init__(self, data: Data, on_wifi_credentials):
+        self._d = data
+        self._on_wifi_credentials = on_wifi_credentials
+        self.ssids = []
+        self._restart_state = "done"
+        self._message = ""
+
+    def handle_request(self, request):
+        if request.path == "/healthz" and request.method in ["OPTIONS", "GET"]:
+            return self.healthz()
+        elif request.path == "/hotspot" and request.method in ["GET"]:
+            return self.hotspot()
+        elif request.path == "/restarting":
+            return self.restarting()
+        elif request.path == "/restart" and request.method in ["POST", "GET"]:
+            return self.restart()
+        else:
+            return self.catch_all()
+
+    def healthz(self):
+        if request.method == "OPTIONS":
+            response = flask.make_response()
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add("Access-Control-Allow-Headers", "*")
+            response.headers.add("Access-Control-Allow-Methods", "*")
+        else:
+            response = flask.make_response("ok")
+            response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
+
+    def restart(self):
+        return self._restart_state
+
+    def hotspot(self):
+        return flask.render_template(
+            "hotspot.html", version=self._d.read_version(),
+            comment=self._message, ssids=self.ssids,
+            mdns_enabled=self._d.is_enabled("mdns"))
+
+    def catch_all(self):
+        # Catch all requests not explicitly handled. Since our fake DNS server
+        # resolves all names to us, this may literally be any request the
+        # client tries to make to anyone. If it looks like they're sending us
+        # wifi credentials, try those and restart. In all other cases, render
+        # the /hotspot page.
+        try:
+            ssid, password = self._get_request_wifi_credentials()
+            self._on_wifi_credentials(ssid, password)
+            self._restart_state = "restarting"
+        except ValueError:
+            # Wasn't a request with credentials.
+            pass
+
+        if self._restart_state == "restarting":
+            return flask.redirect("/restarting")
+
+        return self.hotspot()
+
+    def _get_request_wifi_credentials(self):
+        ssid = request.form.get("ssid")
+        password = request.form.get("passwd")
+        if request.method != "POST" or None in [ssid, password]:
+            raise ValueError("no credentials")
+        return ssid, password
+
+    def restarting(self):
+        return flask.render_template("hotspot-restarting.html")
+
+    def on_wifi_test_status(self, success):
+        if not success:
+            self._message = (
+                "Failed to connect, wrong SSID or password, please try again.")
+        self._restart_state = "done"
+
+
 class AdsbIm:
-    def __init__(self):
+    def __init__(self, data: Data, hotspot_app):
+        self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
+        self._d = data
+        self._hotspot_app = hotspot_app
+        self.hotspot_mode = False
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
@@ -256,7 +344,6 @@ class AdsbIm:
             }
 
         self._routemanager = RouteManager(self.app)
-        self._d = Data()
         self._system = System(data=self._d)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
@@ -396,50 +483,241 @@ class AdsbIm:
             "uat978--is_enabled",
             "sdrmap--is_enabled", "sdrmap--user", "sdrmap--key",
         )
+        # fmt: on
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
-        self.app.add_url_rule("/hotspot_test", "hotspot_test", self.hotspot_test)
-        self.app.add_url_rule("/restarting", "restarting", self.restarting)
-        self.app.add_url_rule("/shutdownpage", "shutdownpage", self.shutdownpage)
-        self.app.add_url_rule("/restart", "restart", self.restart, methods=["GET", "POST"])
-        self.app.add_url_rule("/waiting", "waiting", self.waiting)
-        self.app.add_url_rule("/stream-log", "stream_log", self.stream_log)
-        self.app.add_url_rule("/running", "running", self.running)
-        self.app.add_url_rule("/backup", "backup", self.backup)
-        self.app.add_url_rule("/backupexecutefull", "backupexecutefull", self.backup_execute_full)
-        self.app.add_url_rule("/backupexecutegraphs", "backupexecutegraphs", self.backup_execute_graphs)
-        self.app.add_url_rule("/backupexecuteconfig", "backupexecuteconfig", self.backup_execute_config)
-        self.app.add_url_rule("/restore", "restore", self.restore, methods=["GET", "POST"])
-        self.app.add_url_rule("/executerestore", "executerestore", self.executerestore, methods=["GET", "POST"])
-        self.app.add_url_rule("/sdr_setup", "sdr_setup", self.sdr_setup, methods=["GET", "POST"])
-        self.app.add_url_rule("/visualization", "visualization", self.visualization, methods=["GET", "POST"])
-        self.app.add_url_rule("/expert", "expert", self.expert, methods=["GET", "POST"])
-        self.app.add_url_rule("/systemmgmt", "systemmgmt", self.systemmgmt, methods=["GET", "POST"])
-        self.app.add_url_rule("/aggregators", "aggregators", self.aggregators, methods=["GET", "POST"])
-        self.app.add_url_rule("/", "director", self.director, methods=["GET", "POST"])
-        self.app.add_url_rule("/index", "index", self.index, methods=["GET", "POST"])
-        self.app.add_url_rule("/info", "info", self.info)
-        self.app.add_url_rule("/overview", "overview", self.overview)
-        self.app.add_url_rule("/support", "support", self.support, methods=["GET", "POST"])
-        self.app.add_url_rule("/setup", "setup", self.setup, methods=["GET", "POST"])
-        self.app.add_url_rule("/stage2", "stage2", self.stage2, methods=["GET", "POST"])
-        self.app.add_url_rule("/update", "update", self.update, methods=["POST"])
-        self.app.add_url_rule("/sdplay_license", "sdrplay_license", self.sdrplay_license, methods=["GET", "POST"])
-        self.app.add_url_rule("/api/ip_info", "ip_info", self.ip_info)
-        self.app.add_url_rule("/api/sdr_info", "sdr_info", self.sdr_info)
-        self.app.add_url_rule("/api/base_info", "base_info", self.base_info)
-        self.app.add_url_rule("/api/stage2_info", "stage2_info", self.stage2_info)
-        self.app.add_url_rule("/api/stage2_stats", "stage2_stats", self.stage2_stats)
-        self.app.add_url_rule("/api/stats", "stats", self.stats)
-        self.app.add_url_rule("/api/micro_settings", "micro_settings", self.micro_settings)
-        self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self.check_remote_feeder)
-        self.app.add_url_rule(f"/api/status/<agg>", "beast", self.agg_status)
-        self.app.add_url_rule("/api/stage2_connection", "stage2_connection", self.stage2_connection)
-        self.app.add_url_rule("/api/get_temperatures.json", "temperatures", self.temperatures)
-        self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self.feeder_update)
-        self.app.add_url_rule(f"/get-logs", "get-logs", self.get_logs)
-        self.app.add_url_rule(f"/view-logs", "view-logs", self.view_logs)
-        # fmt: on
+        self.app.add_url_rule(
+            "/hotspot_test",
+            "hotspot_test",
+            self._decide_route_hotspot_mode(self.hotspot_test),
+        )
+        self.app.add_url_rule(
+            "/restarting",
+            "restarting",
+            self._decide_route_hotspot_mode(self.restarting),
+        )
+        self.app.add_url_rule(
+            "/shutdownpage",
+            "shutdownpage",
+            self._decide_route_hotspot_mode(self.shutdownpage),
+        )
+        self.app.add_url_rule(
+            "/restart",
+            "restart",
+            self._decide_route_hotspot_mode(self.restart),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/waiting",
+            "waiting",
+            self._decide_route_hotspot_mode(self.waiting),
+        )
+        self.app.add_url_rule(
+            "/stream-log",
+            "stream_log",
+            self._decide_route_hotspot_mode(self.stream_log),
+        )
+        self.app.add_url_rule(
+            "/running",
+            "running",
+            self._decide_route_hotspot_mode(self.running),
+        )
+        self.app.add_url_rule(
+            "/backup",
+            "backup",
+            self._decide_route_hotspot_mode(self.backup),
+        )
+        self.app.add_url_rule(
+            "/backupexecutefull",
+            "backupexecutefull",
+            self._decide_route_hotspot_mode(self.backup_execute_full),
+        )
+        self.app.add_url_rule(
+            "/backupexecutegraphs",
+            "backupexecutegraphs",
+            self._decide_route_hotspot_mode(self.backup_execute_graphs),
+        )
+        self.app.add_url_rule(
+            "/backupexecuteconfig",
+            "backupexecuteconfig",
+            self._decide_route_hotspot_mode(self.backup_execute_config),
+        )
+        self.app.add_url_rule(
+            "/restore",
+            "restore",
+            self._decide_route_hotspot_mode(self.restore),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/executerestore",
+            "executerestore",
+            self._decide_route_hotspot_mode(self.executerestore),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/sdr_setup",
+            "sdr_setup",
+            self._decide_route_hotspot_mode(self.sdr_setup),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/visualization",
+            "visualization",
+            self._decide_route_hotspot_mode(self.visualization),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/expert",
+            "expert",
+            self._decide_route_hotspot_mode(self.expert),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/systemmgmt",
+            "systemmgmt",
+            self._decide_route_hotspot_mode(self.systemmgmt),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/aggregators",
+            "aggregators",
+            self._decide_route_hotspot_mode(self.aggregators),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/",
+            "director",
+            self._decide_route_hotspot_mode(self.director),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/index",
+            "index",
+            self._decide_route_hotspot_mode(self.index),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/info",
+            "info",
+            self._decide_route_hotspot_mode(self.info),
+        )
+        self.app.add_url_rule(
+            "/overview",
+            "overview",
+            self._decide_route_hotspot_mode(self.overview),
+        )
+        self.app.add_url_rule(
+            "/support",
+            "support",
+            self._decide_route_hotspot_mode(self.support),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/setup",
+            "setup",
+            self._decide_route_hotspot_mode(self.setup),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/stage2",
+            "stage2",
+            self._decide_route_hotspot_mode(self.stage2),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/update",
+            "update",
+            self._decide_route_hotspot_mode(self.update),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/sdplay_license",
+            "sdrplay_license",
+            self._decide_route_hotspot_mode(self.sdrplay_license),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/api/ip_info",
+            "ip_info",
+            self._decide_route_hotspot_mode(self.ip_info),
+        )
+        self.app.add_url_rule(
+            "/api/sdr_info",
+            "sdr_info",
+            self._decide_route_hotspot_mode(self.sdr_info),
+        )
+        self.app.add_url_rule(
+            "/api/base_info",
+            "base_info",
+            self._decide_route_hotspot_mode(self.base_info),
+        )
+        self.app.add_url_rule(
+            "/api/stage2_info",
+            "stage2_info",
+            self._decide_route_hotspot_mode(self.stage2_info),
+        )
+        self.app.add_url_rule(
+            "/api/stage2_stats",
+            "stage2_stats",
+            self._decide_route_hotspot_mode(self.stage2_stats),
+        )
+        self.app.add_url_rule(
+            "/api/stats",
+            "stats",
+            self._decide_route_hotspot_mode(self.stats),
+        )
+        self.app.add_url_rule(
+            "/api/micro_settings",
+            "micro_settings",
+            self._decide_route_hotspot_mode(self.micro_settings),
+        )
+        self.app.add_url_rule(
+            "/api/check_remote_feeder/<ip>",
+            "check_remote_feeder",
+            self._decide_route_hotspot_mode(self.check_remote_feeder),
+        )
+        self.app.add_url_rule(
+            f"/api/status/<agg>",
+            "beast",
+            self._decide_route_hotspot_mode(self.agg_status),
+        )
+        self.app.add_url_rule(
+            "/api/stage2_connection",
+            "stage2_connection",
+            self._decide_route_hotspot_mode(self.stage2_connection),
+        )
+        self.app.add_url_rule(
+            "/api/get_temperatures.json",
+            "temperatures",
+            self._decide_route_hotspot_mode(self.temperatures),
+        )
+        self.app.add_url_rule(
+            f"/feeder-update-<channel>",
+            "feeder-update",
+            self._decide_route_hotspot_mode(self.feeder_update),
+        )
+        self.app.add_url_rule(
+            f"/get-logs",
+            "get-logs",
+            self._decide_route_hotspot_mode(self.get_logs),
+        )
+        self.app.add_url_rule(
+            f"/view-logs",
+            "view-logs",
+            self._decide_route_hotspot_mode(self.view_logs),
+        )
+        # Catch-all rules for the hotspot app.
+        self.app.add_url_rule(
+            "/",
+            "/",
+            view_func=self._decide_route_hotspot_mode(None),
+            methods=["GET", "POST"],
+        )
+        self.app.add_url_rule(
+            "/<path:path>",
+            view_func=self._decide_route_hotspot_mode(None),
+            methods=["GET", "POST"],
+        )
         self.update_boardname()
         self.update_version()
         self.update_meminfo()
@@ -455,97 +733,34 @@ class AdsbIm:
         with config_lock:
             write_values_to_config_json(self._d.env_values, reason="Startup")
 
-    # REFACTOR++++++++
-    def _decide(self,view_func):
-        def handle_request(*args,**kwargs):
-            if request.path=="/overview":
-                return view_func(*args,**kwargs)
-            if self.hotspot_mode:
-                if request.path=="/healthz" and request.method in ["OPTIONS", "GET"]:
-                    return self._hotspot.healthz()
-                elif request.path=="/hotspot" and request.method in ["GET"]:
-                    return self._hotspot.hotspot()
-                elif request.path=="/restarting":
-                    return self._hotspot.restarting()
-                elif request.path=="/restart" and request.method in ["POST", "GET"]:
-                    return self._hotspot.restart()
-                else:
-                    return self._hotspot.catch_all(request.path)
-            return view_func(*args,**kwargs)
-        return handle_request
+    def _decide_route_hotspot_mode(self, view_func):
+        """
+        Decide route based on hotspot mode setting.
 
-    # REFACTOR++++++++
-    # def _catch_all(self,path):
-    #     print_err(f"url_rule: {request.url_rule}")
-    #     print_err(f"rule: {request.url_rule.rule}")
-    #     print_err(f"path: {request.path}")
-    #     # request.url_rule.
-    #     # TODO handle path parameters++++++++
-    #     if request.url_rule.rule=="/hotspot_test":
-    #         return  self.hotspot_test()#, "hotspot_test",)
-    #     if request.url_rule.rule=="/restarting":
-    #         return  self.restarting()#, "restarting",)
-    #     if request.url_rule.rule=="/shutdownpage":
-    #         return  self.shutdownpage()#, "shutdownpage",)
-    #     if request.url_rule.rule=="/restart" and request.method in ["GET", "POST"]:
-    #          return self.restart() #, "restart",, methods=["GET", "POST"])
-    #     if request.url_rule.rule=="/waiting":
-    #         return self.waiting() #"waiting",
-    #     if request.url_rule.rule=="/stream-log":
-    #         return self.stream_log() #"stream_log",
-    #     if request.url_rule.rule=="/running":
-    #         return self.running() #"running",
-    #     if request.url_rule.rule=="/backup":
-    #         return self.backup() #"backup",
-    #     if request.url_rule.rule=="/backupexecutefull":
-    #         return self.backup_execute_full() #"backupexecutefull",
-    #     if request.url_rule.rule=="/backupexecutegraphs":
-    #         return self.backup_execute_graphs() #"backupexecutegraphs",
-    #     if request.url_rule.rule=="/backupexecuteconfig":
-    #         return self.backup_execute_config() #"backupexecuteconfig",
-    #     # self.app.add_url_rule("/restore", "restore", self.restore, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/executerestore", "executerestore", self.executerestore, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/sdr_setup", "sdr_setup", self.sdr_setup, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/visualization", "visualization", self.visualization, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/expert", "expert", self.expert, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/systemmgmt", "systemmgmt", self.systemmgmt, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/aggregators", "aggregators", self.aggregators, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/", "director", self.director, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/index", "index", self.index, methods=["GET", "POST"])
-    #     if request.url_rule.rule=="/info":
-    #         return self.info()#"info",
-    #     if request.url_rule.rule=="/overview":
-    #         return self.overview()#"overview",
-    #     # self.app.add_url_rule("/support", "support", self.support, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/setup", "setup", self.setup, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/stage2", "stage2", self.stage2, methods=["GET", "POST"])
-    #     # self.app.add_url_rule("/update", "update", self.update, methods=["POST"])
-    #     # self.app.add_url_rule("/sdplay_license", "sdrplay_license", self.sdrplay_license, methods=["GET", "POST"])
-    #     if request.url_rule.rule=="/api/ip_info":
-    #         return self.ip_info()#"ip_info",
-    #     if request.url_rule.rule=="/api/sdr_info":
-    #         return self.sdr_info()#"sdr_info",
-    #     if request.url_rule.rule=="/api/base_info":
-    #         return self.base_info()#"base_info",
-    #     if request.url_rule.rule=="/api/stage2_info":
-    #         return self.stage2_info()#"stage2_info",
-    #     if request.url_rule.rule=="/api/stage2_stats":
-    #         return self.stage2_stats()#"stage2_stats",
-    #     if request.url_rule.rule=="/api/stats":
-    #         return self.stats()#"stats",
-    #     if request.url_rule.rule=="/api/micro_settings":
-    #         return self.micro_settings()#"micro_settings",
-    #     # self.app.add_url_rule("/api/check_remote_feeder/<ip>", "check_remote_feeder", self.check_remote_feeder)
-    #     # self.app.add_url_rule(f"/api/status/<agg>", "beast", self.agg_status)
-    #     if request.url_rule.rule=="/api/stage2_connection":
-    #         return self.stage2_connection()#"stage2_connection",
-    #     if request.url_rule.rule=="/api/get_temperatures.json":
-    #         return self.temperatures()#"temperatures",
-    #     # self.app.add_url_rule(f"/feeder-update-<channel>", "feeder-update", self.feeder_update)
-    #     if request.url_rule.rule==f"/get-logs":
-    #         return self.get_logs()#get-logs",
-    #     if request.url_rule.rule==f"/view-logs":
-    #         return self.view_logs()#view-logs",
+        We can be put into hotspot mode, in which case almost all routes
+        (including a catch-all) should return the routes of the separate
+        hotspot app for the captive portal. The only exception is /overview,
+        which should be available there as well. Otherwise, use the configured
+        view function.
+        """
+        def handle_request(*args, **kwargs):
+            if self.hotspot_mode and not self._hotspot_app:
+                self._logger.error(
+                    "We've been put into hotspot mode, but don't have a "
+                    "hotspot. Disabling it.")
+                self.hotspot_mode = False
+            if request.path == "/overview":
+                return view_func(*args, **kwargs)
+            elif self.hotspot_mode:
+                return self._hotspot_app.handle_request(request)
+            elif view_func:
+                return view_func(*args, **kwargs)
+            else:
+                # This must have been the catch-all we only need in hotspot
+                # mode.
+                flask.abort(404)
+
+        return handle_request
 
     def _set_undervoltage(self):
         self._d.env_by_tags("under_voltage").value = True
@@ -3584,8 +3799,10 @@ class Manager:
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
-        self._adsb_im = None
-        self._hotspot_process = None
+        data = Data()
+        self._hotspot_app = HotspotApp(data, self._on_wifi_credentials)
+        self._hotspot = hotspot_app.make_hotspot(self._on_wifi_test_status)
+        self._adsb_im = AdsbIm(data, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
@@ -3622,14 +3839,14 @@ class Manager:
     def __enter__(self):
         assert self._connectivity_monitor is None
         assert self._connectivity_change_thread is None
-        assert self._adsb_im is None
-        assert self._hotspot_process is None
+        self._keep_running = True
         self._connectivity_monitor = hotspot_app.ConnectivityMonitor(
             self._event_queue, check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
         self._connectivity_change_thread.start()
         self._connectivity_monitor.start()
+        self._adsb_im.start()
         return self
 
     def __exit__(self, *_):
@@ -3642,9 +3859,14 @@ class Manager:
         if self._connectivity_change_thread.is_alive():
             self._logger.error(
                 "Connectivity change thread failed to terminate.")
-        self._maybe_stop_adsb_im()
+        self._maybe_stop_hotspot_timer()
+        self._adsb_im.stop()
         self._maybe_stop_hotspot()
         return False
+
+    def _maybe_stop_hotspot(self):
+        if self._hotspot:
+            self._hotspot.stop()
 
     def _connectivity_change_loop(self):
         self._logger.info(
@@ -3664,120 +3886,113 @@ class Manager:
 
     def _handle_connectivity_change(self, has_access):
         if has_access:
-            if self._adsb_im is not None:
+            if not self._adsb_im.hotspot_mode:
                 self._logger.info(
-                    "Connectivity monitor says we have connection, but the "
-                    "main app is already running.")
+                    "Connectivity monitor says we have connection, but we're "
+                    "already in regular mode.")
                 return
             self._logger.info(
-                "We have internet access, starting the main app.")
-            self._maybe_stop_hotspot()
-            self._maybe_start_adsb_im()
+                "We have internet access, enabling regular mode.")
+            self._enable_regular_mode()
+        elif self._hotspot is None:
+            self._logger.warning(
+                "Connectivity monitor says we don't have connection, but we "
+                "don't have a hotspot we could start. Enabling regular mode.")
+            self._enable_regular_mode()
         else:
-            if self._hotspot_process is not None:
+            if self._adsb_im.hotspot_mode:
                 self._logger.info(
                     "Connectivity monitor says we don't have connection, but "
-                    "the hotspot app is already running.")
+                    "we're already in hotspot mode.")
                 return
             self._logger.info(
-                "We don't have internet access, starting the hotspot.")
-            self._maybe_stop_adsb_im()
-            self._maybe_start_hotspot()
+                "We don't have internet access, enabling hotspot mode.")
+            self._enable_hotspot_mode()
 
     def _handle_hotspot_timeout(self):
         self._logger.info(
             "Hotspot has been active for a while without success. Shutting it "
             "down to see if connectivity has returned.")
-        self._maybe_stop_hotspot()
-        self._maybe_start_adsb_im(hotspot_recheck=True)
+        self._enable_regular_mode(hotspot_recheck=True)
 
     def _handle_hotspot_recheck_timeout(self):
-        self._hotspot_timer = None
+        assert self._hotspot is not None
+        self._maybe_stop_hotspot_timer()
         if self._connectivity_monitor.current_status:
             self._logger.info(
                 "After shutting down the hotspot, connectivity has returned. "
-                "Keeping the main app running.")
+                "Staying in regular mode.")
         else:
             self._logger.info(
                 "After shutting down the hotspot, we still don't have "
                 "connectivity. Switching back to the hotspot.")
-            self._maybe_stop_adsb_im()
-            self._maybe_start_hotspot()
+            self._enable_hotspot_mode()
 
-    def _maybe_start_adsb_im(self, *, hotspot_recheck=False):
-        if self._adsb_im is not None:
-            return
-        self._adsb_im = AdsbIm()
-        self._adsb_im.start()
+    def _enable_regular_mode(self, *, hotspot_recheck=False):
+        self._maybe_stop_hotspot_timer()
+        self._adsb_im.hotspot_mode = False
+        self._maybe_stop_hotspot()
         if hotspot_recheck:
-            # We're starting this to see if we have connectivity again. Shut it
-            # down again after a while if not.
+            # We're starting this to see if we have connectivity again. Switch
+            # back to regular mode again after a while if not.
             self._hotspot_timer = threading.Timer(
                 self.HOTSPOT_RECHECK_TIMEOUT, self._event_queue.put,
                 args=(("hotspot_recheck_timeout", None),))
             self._hotspot_timer.start()
 
-    def _maybe_stop_adsb_im(self):
-        if self._adsb_im is None:
+    def _enable_hotspot_mode(self):
+        assert self._hotspot is not None
+        if self._adsb_im.hotspot_mode:
             return
-        if self._hotspot_timer:
-            self._hotspot_timer.cancel()
-            self._hotspot_timer.join()
-            self._hotspot_timer = None
-        self._adsb_im.stop()
-        self._adsb_im = None
-
-    def _maybe_start_hotspot(self):
-        if self._hotspot_process is not None:
-            return
-        wlan = self._find_wlan_device()
-        self._hotspot_process = multiprocessing.Process(
-            target=self._run_hotspot, args=(wlan,), name="hotspot")
-        self._hotspot_process.start()
+        self._maybe_stop_hotspot_timer()
+        self._adsb_im.hotspot_mode = True
+        ssids = self._hotspot.start()
+        self._hotspot_app.ssids = ssids
         self._hotspot_timer = threading.Timer(
             self.HOTSPOT_TIMEOUT, self._event_queue.put,
             args=(("hotspot_timeout", None),))
         self._hotspot_timer.start()
 
-    def _find_wlan_device(self):
-        raw_output = utils.util.shell_with_combined_output(
-            "iw dev | grep Interface | cut -d' ' -f2")
-        wlans = [wlan for wlan in raw_output.stdout.split("\n") if wlan]
-        if not wlans:
-            raise RuntimeError(
-                f"No wlan device found in {raw_output}. Unable to start "
-                "hotspot.")
-        if len(wlans) > 1:
-            self._logger.info(
-                f"Found more than one wlan device: {wlans}. Using {wlans[0]}")
-        return wlans[0]
-
-    @staticmethod
-    def _run_hotspot(wlan):
-        hotspot = hotspot_app.make_hotspot(wlan)
-        hotspot.run()
-
-    def _maybe_stop_hotspot(self):
-        if self._hotspot_process is None:
-            return
+    def _maybe_stop_hotspot_timer(self):
         if self._hotspot_timer:
             self._hotspot_timer.cancel()
             self._hotspot_timer.join()
             self._hotspot_timer = None
-        self._hotspot_process.terminate()
-        self._hotspot_process.join(15)
-        if self._hotspot_process.is_alive():
-            self._logger.error(
-                f"Process {self._hotspot_process} failed to shut down "
-                "gracefully after timeout, killing it.")
-            self._hotspot_process.kill()
-        self._hotspot_process = None
+
+    def _on_wifi_credentials(self, ssid, password):
+        if not self._hotspot:
+            self._logger.warning(
+                "Got wifi credentials to try, but we don't even have a "
+                "hotspot.")
+            return
+        if not self._hotspot.active:
+            self._logger.warning(
+                "Got wifi credentials, but the hotspot isn't active. Where "
+                "did they come from?")
+        try:
+            self._hotspot.start_wifi_test(ssid, password)
+        except:
+            self._logger.exception(
+                "Unable to start a wifi test with the new credentials.")
+
+    def _on_wifi_test_status(self, success):
+        self._hotspot_app.on_wifi_test_status(success)
+        if success:
+            self._enable_regular_mode(hotspot_recheck=True)
+            if not self._hotspot:
+                self._logger.warning(
+                    "Got a wifi test status, but no hotspot exists. Where did "
+                    "that come from?")
+            elif self._hotspot.active:
+                self._logger.error(
+                    "The hotspot reports a successful wifi connection, but is "
+                    "still active. It should have shut itself off.")
 
 
 def main():
     if "--update-config" in sys.argv:
         # Just get AdsbIm to do some housekeeping and exit.
-        AdsbIm().update_config()
+        AdsbIm(Data(), None).update_config()
         sys.exit(0)
 
     shutdown_event = threading.Event()
