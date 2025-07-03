@@ -9,7 +9,7 @@ Changes since v2.3.3:
 
 > [!NOTE]
 > Currently the Odroid image and the default LePotato images do NOT support WiFi. For the default Raspberry Pi image (but not the new Raspbian image for LePotato), WiFi can be configured with the Pi Imager when you write the image to SD-card, DietPi based images do support WiFi, but they require editing two files on the DOS partition included with the image BEFORE the first boot. Please look at the [adsb.im FAQ](https://adsb.im/faq) for details.
-> Alternatively, if there is no network connection detected, all WiFi enabled images will create a hotspot named `navisense-feeder`. You can then connect to that hotspot and set up SSID/password of the access point you want the feeder to connect to.
+> Alternatively, if there is no network connection detected, all WiFi enabled images will create a hotspot named `porttracker-feeder`. You can then connect to that hotspot and set up SSID/password of the access point you want the feeder to connect to.
 
 For Raspberry Pis there are multiple images available. For most users the Raspbian based `adsb-im-raspberrypi64-pi-2-3-4-5-v....img.xz` is likely the best choice, but there are also two DietPi based images available for those who prefer that.
 

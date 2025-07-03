@@ -6,7 +6,7 @@ if [ "$(id -u)" != "0" ] ; then
     exit 1
 fi
 
-names=("adsb-feeder.local")
+names=("porttracker-feeder.local")
 if [ "$1" != "" ] ; then
     host_name="$1"
     host_name_no_dash="${host_name//-/}"

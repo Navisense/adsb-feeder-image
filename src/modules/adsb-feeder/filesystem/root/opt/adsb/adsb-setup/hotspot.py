@@ -169,12 +169,12 @@ class Hotspot(abc.ABC):
         self._hotspot_is_running = False
         self._wifi_test_thread = None
         # Don't answer DNS queries for names under .local or
-        # local.navisense-feeder.de (where navisense-feeder.de is the DNS
+        # local.porttracker-feeder.de (where porttracker-feeder.de is the DNS
         # suffix advertised via DHCP). Those are mDNS names that should be
         # answered by the avahi service.
         self._dns_server = fakedns.Server(
             response_ip=self.HOTSPOT_IP,
-            non_response_domains={"local", "local.navisense-feeder.de"})
+            non_response_domains={"local", "local.porttracker-feeder.de"})
         self._d = utils.data.Data()
         self._logger = logging.getLogger(type(self).__name__)
         self.wifi = utils.wifi.make_wifi(self.wlan)
@@ -275,8 +275,9 @@ class Hotspot(abc.ABC):
         self._systemctl(["unmask", "start"], "hostapd.service")
         self._systemctl(["unmask", "start"], "isc-kea-dhcp4-server.service")
         if self._d.is_enabled("mdns"):
-            self._systemctl(["restart"],
-                            "adsb-avahi-alias@adsb-feeder.local.service")
+            self._systemctl(
+                ["restart"],
+                "adsb-avahi-alias@porttracker-feeder.local.service")
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
@@ -292,8 +293,8 @@ class Hotspot(abc.ABC):
         except:
             self._logger.exception("Error stopping DNS server.")
         if self._d.is_enabled("mdns"):
-            self._systemctl(["stop"],
-                            "adsb-avahi-alias@adsb-feeder.local.service")
+            self._systemctl(
+                ["stop"], "adsb-avahi-alias@porttracker-feeder.local.service")
         self._systemctl(["stop", "disable", "mask"],
                         "isc-kea-dhcp4-server.service hostapd.service")
         utils.util.shell_with_combined_output(

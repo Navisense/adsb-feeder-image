@@ -1,8 +1,8 @@
-# Navisense feeder
+# Porttracker feeder
 
 This application is used on stations receiving AIS and/or ADS-B data to send
 that data to
-[Navisense](https://navisense.de)/[porttracker.co](https://porttracker.co). It
+[porttracker.co](https://porttracker.co)/[Navisense](https://navisense.de)/. It
 is based on [ADS-B Feeder Image](https://adsb.im) by Dirk Hohndel.
 
 ## ADS-B Feeder Image
@@ -68,7 +68,7 @@ an indoor or (much better) outdoor antenna is all you need. More detail on the [
 - use a tool like the [Raspberry Pi Imager](https://github.com/raspberrypi/rpi-imager/releases) to write the image to a µSD card on your computer
 - the standard Raspbian based images for Raspberry Pis allow configuring WiFi during image write with the Pi Imager, but in most cases it is easier to simply use the Hotspot method to connect to the image after boot and then set up the WiFi from a web browser. Simply wait after the first boot until you see a WiFi network called `adsb-feeder-image` - mode details at the [adsb.im Hotspot page](https://adsb.im/hotspot)
 - boot from the image
-- wait a couple of minutes for the initial boot to complete (with the DietPi based images that can mean quite a while, sometimes up to 10+ minutes if your internet is slow), then connect to the [ADSB-PI Setup Page](http://adsb-feeder.local) -- this link _should_ work to find the freshly booted system on your local network - assuming you have a reasonably standard setup with mDNS enabled. If this fails. got to the [adsb.im redirector](http://my.adsb.im) - which should forward you to the right local address on your network. In the rare case where this fails as well you'll need to manually find the board's IP address - either using a connected keyboard / monitor, or via your router or other source of local IP addresses.
+- wait a couple of minutes for the initial boot to complete (with the DietPi based images that can mean quite a while, sometimes up to 10+ minutes if your internet is slow), then connect to the [ADSB-PI Setup Page](http://porttracker-feeder.local) -- this link _should_ work to find the freshly booted system on your local network - assuming you have a reasonably standard setup with mDNS enabled. If this fails. got to the [adsb.im redirector](http://my.adsb.im) - which should forward you to the right local address on your network. In the rare case where this fails as well you'll need to manually find the board's IP address - either using a connected keyboard / monitor, or via your router or other source of local IP addresses.
 Please note: if you have more than one ADSB.im feeder on the same network, they will be assigned names like `adsb-feeder-2.local`, etc. So please pay attention which of the different systems you are connecting to in that case.
 - on the setup website enter the latitude, longitude, and elevation of your receiver as well as a name.
 - finally there's a quick selection of the 'account-less' aggregators to submit data to - the ones where you need accounts are on a separate config page
