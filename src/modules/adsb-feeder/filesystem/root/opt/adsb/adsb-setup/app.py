@@ -143,6 +143,27 @@ def only_alphanum_dash(name):
     new_name = new_name.strip("-")[:63]
     return new_name
 
+def url_for_with_empty_parameters(*args, **kwargs):
+    empty_parameters = set()
+    for parameter in list(kwargs):
+        if parameter.startswith("_"):
+            # Internal kwarg.
+            continue
+        if kwargs[parameter] is None:
+            del kwargs[parameter]
+            empty_parameters.add(parameter)
+    url = flask.url_for(*args, **kwargs)
+    if not empty_parameters:
+        return url
+    if "_anchor" in kwargs:
+        raise ValueError("adding an anchor is not supported")
+    parameter_string="&".join(empty_parameters)
+    if "?" in url:
+        # At least one parameter already, append after &.
+        return f"{url}&{parameter_string}"
+    # No other parameters, append after ?.
+    return f"{url}?{parameter_string}"
+
 
 class PidFile:
     PID_FILE = pathlib.Path("/run/adsb-feeder.pid")
@@ -347,6 +368,7 @@ class AdsbIm:
                 "list_value_by_tag": lambda tag, idx: list_value_by_tags([tag], idx),
                 "list_value_by_tags": lambda tag, idx: list_value_by_tags(tag, idx),
                 "env_values": self._d.env_values,
+                "url_for": url_for_with_empty_parameters,
             }
 
         self._routemanager = RouteManager(self.app)
