@@ -3989,17 +3989,27 @@ class Manager:
                 "Unable to start a wifi test with the new credentials.")
 
     def _on_wifi_test_status(self, success):
+        if not self._hotspot:
+            self._logger.warning(
+                "Got a wifi test status, but no hotspot exists. Where did "
+                "that come from?")
+        self._maybe_stop_hotspot_timer()
         self._hotspot_app.on_wifi_test_status(success)
         if success:
             self._enable_regular_mode(hotspot_recheck=True)
-            if not self._hotspot:
-                self._logger.warning(
-                    "Got a wifi test status, but no hotspot exists. Where did "
-                    "that come from?")
-            elif self._hotspot.active:
+            if self._hotspot and self._hotspot.active:
                 self._logger.error(
                     "The hotspot reports a successful wifi connection, but is "
                     "still active. It should have shut itself off.")
+        else:
+            if self._hotspot and not self._hotspot.active:
+                self._logger.error(
+                    "The hotspot reports an unsuccessful wifi connection "
+                    "attempt, but is not active. It should have stayed on.")
+            self._hotspot_timer = threading.Timer(
+                self.HOTSPOT_TIMEOUT, self._event_queue.put,
+                args=(("hotspot_timeout", None),))
+            self._hotspot_timer.start()
 
 
 def main():
