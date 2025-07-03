@@ -3,7 +3,8 @@ import subprocess
 import time
 import traceback
 
-from utils.util import get_baseos, print_err, run_shell_captured
+from utils.util import (
+    get_baseos, print_err, run_shell_captured, shell_with_combined_output)
 
 
 def make_wifi(wlan="wlan0"):
@@ -282,51 +283,32 @@ p2p_disabled=1
 class NetworkManagerWifi(GenericWifi):
     """Wifi using NetworkManager, e.g. for Raspbian."""
     def wifi_connect(self, ssid, passwd, country_code="00"):
-        success = False
-
-        # do a wifi scan to ensure the following connect works
-        # this is apparently necessary for NetworkManager
-        self.scan_ssids()
         # try for a while because it takes a bit for NetworkManager to come back up
         startTime = time.time()
         while time.time() - startTime < 20:
+            # do a wifi scan to ensure the following connect works
+            # this is apparently necessary for NetworkManager
+            self.scan_ssids()
+            # Before connecting, delete the connection if it exists.
+            # Apparently, not doing this can cause problems with
+            # NetworkManager. This will return an error if the connection
+            # doesn't exist, which we can ignore.
+            shell_with_combined_output(f"nmcli connection delete {ssid}")
             try:
-                result = subprocess.run(
-                    [
-                        "nmcli",
-                        "d",
-                        "wifi",
-                        "connect",
-                        f"{ssid}",
-                        "password",
-                        f"{passwd}",
-                        "ifname",
-                        f"{self.wlan}",
-                    ],
-                    capture_output=True,
-                    timeout=20.0,
-                )
-            except subprocess.SubprocessError as e:
-                # something went wrong
-                output = ""
-                if e.stdout:
-                    output += e.stdout.decode()
-                if e.stderr:
-                    output += e.stderr.decode()
-            else:
-                output = result.stdout.decode() + result.stderr.decode()
-
-            success = "successfully activated" in output
-
-            if success:
-                break
-            else:
-                # just to safeguard against super fast spin, sleep a bit
-                print_err(f"failed to connect to '{ssid}': {output}")
-                time.sleep(2)
+                proc = shell_with_combined_output(
+                    f"nmcli dev wifi connect {ssid} password {passwd} "
+                    f"ifname {self.wlan}", timeout=20.0)
+            except subprocess.TimeoutExpired:
+                print_err("Timeout in process connecting to wifi.")
                 continue
 
-        return success
+            if "successfully activated" in proc.stdout:
+                return True
+            # just to safeguard against super fast spin, sleep a bit
+            print_err(f"Failed to connect to '{ssid}': {proc.stdout}")
+            time.sleep(2)
+
+        return False
 
     def scan_ssids(self):
         try:
