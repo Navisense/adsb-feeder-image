@@ -637,12 +637,6 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/stage2",
-            "stage2",
-            self._decide_route_hotspot_mode(self.stage2),
-            methods=["GET", "POST"],
-        )
-        self.app.add_url_rule(
             "/update",
             "update",
             self._decide_route_hotspot_mode(self.update),
@@ -2650,11 +2644,6 @@ class AdsbIm:
                     flash(f"Removed micro site {name}", "success")
                     self._next_url_from_director = url_for("stage2")
                     continue
-                if key.startswith("edit_micro_"):
-                    # user has clicked Edit micro feeder on Stage 2 page
-                    # grab the micro feeder number that we know the user has provided
-                    num = int(key[len("edit_micro_") :])
-                    return render_template("stage2.html", edit_index=num)
                 if key.startswith("cancel_edit_micro_"):
                     # discard changes
                     flash(f"Cancelled changes", "success")
@@ -3555,9 +3544,6 @@ class AdsbIm:
             request.form.get("submit") == "go" or request.form.get("set_stage2_data") == "go"
         ):
             return self.update()
-        # is this a stage2 feeder?
-        if self._d.is_enabled("stage2"):
-            return render_template("stage2.html")
         # make sure DNS works
         self.update_dns_state()
         return render_template("setup.html", mem=self._memtotal)
@@ -3568,12 +3554,6 @@ class AdsbIm:
             return list(range(1, self._d.env_by_tags("num_micro_sites").value + 1))
         else:
             return []
-
-    @check_restart_lock
-    def stage2(self):
-        if request.method == "POST":
-            return self.update()
-        return render_template("stage2.html")
 
     def temperatures(self):
         temperature_json = {}
