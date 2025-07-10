@@ -6,7 +6,6 @@ import json
 import logging
 import logging.config
 import math
-import multiprocessing
 import os
 import os.path
 import pathlib
@@ -37,20 +36,6 @@ from typing import Dict, List
 from zlib import compress
 from copy import deepcopy
 
-from utils.config import (
-    config_lock,
-    log_consistency_warning,
-    read_values_from_config_json,
-    read_values_from_env_file,
-    write_values_to_config_json,
-    write_values_to_env_file,
-)
-import utils.util
-from utils.util import create_fake_info, make_int, print_err, report_issue, mf_get_ip_and_triplet, string2file
-from utils.wifi import make_wifi
-
-# nofmt: on
-# isort: off
 import flask
 from flask import (
     Flask,
@@ -63,12 +48,25 @@ from flask import (
     send_file,
     url_for,
 )
+import flask.logging
+import werkzeug.serving
+from werkzeug.utils import secure_filename
 
 import hotspot
+from utils.agg_status import AggStatus, ImStatus
+from utils.background import Background
+from utils.config import (
+    config_lock,
+    log_consistency_warning,
+    read_values_from_config_json,
+    read_values_from_env_file,
+    write_values_to_config_json,
+    write_values_to_env_file,
+)
 from utils.data import Data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
-from utils.netconfig import NetConfig, UltrafeederConfig
+from utils.netconfig import UltrafeederConfig
 from utils.other_aggregators import (
     ADSBHub,
     FlightAware,
@@ -82,29 +80,22 @@ from utils.other_aggregators import (
     Sdrmap,
     Porttracker,
 )
-from utils.sdr import SDR, SDRDevices
-from utils.agg_status import AggStatus, ImStatus
-from utils.system import System
+from utils.sdr import SDRDevices
+import utils.system
 from utils.util import (
     cleanup_str,
+    create_fake_info,
     generic_get_json,
     is_true,
-    print_err,
-    stack_info,
-    verbose,
     make_int,
+    mf_get_ip_and_triplet,
+    print_err,
+    report_issue,
     run_shell_captured,
+    string2file,
+    verbose,
 )
-from utils.background import Background
-
-# nofmt: off
-# isort: on
-
-import werkzeug.serving
-from werkzeug.utils import secure_filename
-
-from flask.logging import logging as flask_logging
-
+from utils.wifi import make_wifi
 
 ADSB_DIR = pathlib.Path("/opt/adsb")
 CONFIG_DIR = pathlib.Path("/opt/adsb/config")
@@ -124,7 +115,7 @@ def setup_logging():
 
 
 # don't log static assets
-class NoStatic(flask_logging.Filter):
+class NoStatic(flask.logging.Filter):
     def filter(record):
         msg = record.getMessage()
         if "GET /static/" in msg:
@@ -135,7 +126,7 @@ class NoStatic(flask_logging.Filter):
         return True
 
 
-flask_logging.getLogger("werkzeug").addFilter(NoStatic)
+flask.logging.getLogger("werkzeug").addFilter(NoStatic)
 
 
 def only_alphanum_dash(name):
@@ -372,7 +363,7 @@ class AdsbIm:
             }
 
         self._routemanager = RouteManager(self.app)
-        self._system = System(data=self._d)
+        self._system = utils.system.System(data=self._d)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
         self.wifi_ssid = ""
