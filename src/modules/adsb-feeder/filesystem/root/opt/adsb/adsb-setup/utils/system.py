@@ -1,12 +1,42 @@
+import logging
 import requests
 import socket
 import subprocess
 import threading
 import time
-from time import sleep
 
 from .data import Data
-from .util import print_err, run_shell_captured
+from .util import print_err, run_shell_captured, shell_with_combined_output
+
+
+class Systemctl:
+    """Serialized access to systemctl."""
+    def __init__(self):
+        self._logger = logging.getLogger(type(self).__name__)
+        self._lock = threading.Lock()
+
+    def run(
+            self, commands: list[str], units: list[str], *,
+            log_errors: bool = True):
+        """
+        Run systemctl commands.
+
+        Runs each of the commands on all of the units. Each command is run on
+        all units at once (i.e. converted to space-separated list). Commands
+        may contain flags, e.g. "enable --now".
+
+        Returns a list of CompletedProcess instances of the calls.
+        """
+        with self._lock:
+            procs = []
+            units_str = " ".join(units)
+            for command in commands:
+                proc = shell_with_combined_output(
+                    f"systemctl {command} {units_str}")
+                if proc.returncode and log_errors:
+                    self._logger.error(f"systemctl failed: {proc.stdout}")
+                procs.append(proc)
+            return procs
 
 
 class Restart:
@@ -92,12 +122,12 @@ class System:
         gotLock = self._restart.lock.acquire(blocking=False)
 
         def do_action():
-            sleep(delay)
+            time.sleep(delay)
             subprocess.call(cmd, shell=True)
             # just in case the reboot doesn't work,
             # release the lock after 30 seconds:
             if gotLock:
-                sleep(30)
+                time.sleep(30)
                 self._restart.lock.release()
 
         threading.Thread(target=do_action).start()
@@ -276,3 +306,14 @@ class System:
                     return "starting"
 
             return "up"
+
+
+_systemctl: Systemctl = None
+
+
+def systemctl() -> Systemctl:
+    """Get the global instance of Systemctl."""
+    global _systemctl
+    if _systemctl is None:
+        _systemctl = Systemctl()
+    return _systemctl
