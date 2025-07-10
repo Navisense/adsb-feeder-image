@@ -1,6 +1,7 @@
 import hashlib
 import inspect
 import itertools
+import logging
 import math
 import os
 import pathlib
@@ -11,9 +12,8 @@ import sys
 import time
 import subprocess
 import tempfile
-import traceback
 
-from flask import flash
+import flask
 
 verbose = (
     0 if not os.path.exists("/opt/adsb/config/verbose") else int(open("/opt/adsb/config/verbose", "r").read().strip())
@@ -60,7 +60,7 @@ def print_err(*args, **kwargs):
 
 def report_issue(msg, level=1):
     print_err(msg, level)
-    flash(msg)
+    flask.flash(msg)
 
 
 # this is based on https://www.regular-expressions.info/email.html
@@ -280,3 +280,71 @@ def shell_with_combined_output(args, **kwargs):
     return subprocess.run(
         args, **kwargs, shell=True, text=True, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT)
+
+
+class FlashingLogger(logging.getLoggerClass()):
+    """
+    Logger that can flash messages to the frontend.
+
+    Overrides the logging functions with an additional parameter flash_message.
+    If set, it uses flask's flash() method to store a message to be shown to
+    the user on the next request. The category is set based on the log level.
+
+    flash_message may be the message to show, or a boolean. If simply set to
+    True, the same message that is logged will be flashed.
+    """
+    def log(
+            self, level: int, msg: str, *args,
+            flash_message: bool | str = False, **kwargs):
+        if level in [logging.DEBUG, logging.INFO]:
+            category = "info"
+        elif level == logging.WARNING:
+            category = "warning"
+        elif level in [logging.ERROR, logging.CRITICAL]:
+            category = "error"
+        else:
+            category = "message"
+        self._maybe_flash(flash_message, msg, category)
+        return super().log(level, msg, *args, **kwargs)
+
+    def debug(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "info")
+        return super().debug(msg, *args, **kwargs)
+
+    def info(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "info")
+        return super().info(msg, *args, **kwargs)
+
+    def warning(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "warning")
+        return super().warning(msg, *args, **kwargs)
+
+    def error(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "error")
+        return super().error(msg, *args, **kwargs)
+
+    def critical(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "error")
+        return super().critical(msg, *args, **kwargs)
+
+    def exception(
+            self, msg: str, *args, flash_message: bool | str = False,
+            **kwargs):
+        self._maybe_flash(flash_message, msg, "error")
+        return super().exception(msg, *args, **kwargs)
+
+    def _maybe_flash(self, flash_message, msg, category):
+        if flash_message is True:
+            flash_message = msg
+        if flash_message:
+            flask.flash(flash_message, category)

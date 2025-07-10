@@ -81,6 +81,7 @@ from utils.other_aggregators import (
 )
 from utils.sdr import SDRDevices
 import utils.system
+import utils.util
 from utils.util import (
     cleanup_str,
     create_fake_info,
@@ -103,6 +104,7 @@ logger = None
 
 
 def setup_logging():
+    logging.setLoggerClass(utils.util.FlashingLogger)
     fmt = '%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s'
     logging.config.dictConfig({
         'version': 1,
