@@ -3087,11 +3087,10 @@ class AdsbIm:
 
     def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
         currently_enabled = self._d.is_enabled("prometheus_exporter")
-        if currently_enabled == should_be_enabled:
-            return
-        self._logger.info(
-            f"Toggling Prometheus metrics state from {currently_enabled} to "
-            f"{should_be_enabled}.")
+        if currently_enabled != should_be_enabled:
+            self._logger.info(
+                f"Toggling Prometheus metrics state from {currently_enabled} "
+                f"to {should_be_enabled}.")
         command = "enable" if should_be_enabled else "disable"
         proc, = utils.system.systemctl().run([f"{command} --now"],
                                              ["push-prometheus-metrics.timer"])
