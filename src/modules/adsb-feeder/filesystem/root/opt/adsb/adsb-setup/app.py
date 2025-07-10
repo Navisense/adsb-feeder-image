@@ -48,7 +48,6 @@ from flask import (
     send_file,
     url_for,
 )
-import flask.logging
 import werkzeug.serving
 from werkzeug.utils import secure_filename
 
@@ -113,20 +112,18 @@ def setup_logging():
                 'class': 'logging.StreamHandler', 'formatter': 'simple'}},
         'root': {'level': 'DEBUG', 'handlers': ['stream_handler']},})
 
+    class NoStatic(logging.Filter):
+        def filter(self, record: logging.LogRecord):
+            """Filter GETs for static assets and maybe others."""
+            msg = record.getMessage()
+            if "GET /static/" in msg:
+                return False
+            if not (verbose & 8) and "GET /api/" in msg:
+                return False
 
-# don't log static assets
-class NoStatic(flask.logging.Filter):
-    def filter(record):
-        msg = record.getMessage()
-        if "GET /static/" in msg:
-            return False
-        if not (verbose & 8) and "GET /api/" in msg:
-            return False
+            return True
 
-        return True
-
-
-flask.logging.getLogger("werkzeug").addFilter(NoStatic)
+    logging.getLogger("werkzeug").addFilter(NoStatic())
 
 
 def only_alphanum_dash(name):
