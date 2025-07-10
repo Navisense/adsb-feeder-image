@@ -3067,7 +3067,7 @@ class AdsbIm:
                 "Error enabling/disabling Prometheus metrics state: "
                 f"{proc.stdout}", flash_message=True)
             return
-        self._d.env_by_tags("prometheus_exporter").value = True
+        self._d.env_by_tags("prometheus_exporter").value = should_be_enabled
 
     @check_restart_lock
     def expert(self):
