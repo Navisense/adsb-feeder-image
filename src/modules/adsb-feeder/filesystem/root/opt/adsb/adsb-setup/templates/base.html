@@ -401,6 +401,15 @@
   </div>
   <div class="container pt-5 my-3">
     <h1 class="mt-3 text-center text-danger">{{ self.title() }}</h1>
+    <div id="flashed-messages">
+      {% with messages = get_flashed_messages() %}
+        {% for message in messages %}
+          <div class="alert alert-warning">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+    </div>
     {% block content %}{% endblock %}
     <footer class="text-start text-muted bg-body">
       <section class="d-flex justify-content-between border-bottom small">

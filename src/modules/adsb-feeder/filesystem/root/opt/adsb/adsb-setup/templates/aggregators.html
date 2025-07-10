@@ -7,17 +7,6 @@
 {% else %}
 {% set go = "go-" ~ m %}{% set stay = "stay-" ~ m %}
 {% endif %}
-  <div>
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-warning">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-  </div>
 <form class="row gy-2 gx-3 mx-1 mx-lg-3 mx-xl-5 align-items-center" method="post"
       onsubmit="show_spinner(); return true;">
   <input type="hidden" name="site_num" value="{{ m }}" />

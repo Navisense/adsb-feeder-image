@@ -3,17 +3,6 @@
 {% block title %}Setup Map Options{% if is_enabled('stage2') %} ({{ site }}){% endif %}{% endblock title %}
 {% block content %}
 {% if m == "0" %}{% set go = "go" %}{% else %}{% set go = "go-" ~ m %}{% endif %}
-  <div>
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-warning">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-  </div>
 <form class="row gy-2 gx-3 align-items-center" method="post">
   <div class="col-12 col-sm-6">
     <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="visualization"

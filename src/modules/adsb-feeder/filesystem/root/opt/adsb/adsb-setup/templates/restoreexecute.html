@@ -2,17 +2,6 @@
 {% set active_page = "restore" %}
 {% block title %}Restore setup from a backup{% endblock title %}
 {% block content %}
-  <div>
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-warning">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-  </div>
 <div>
   {% if unchanged | length > 0 %}
   <p>The following files appear unchanged:</p>

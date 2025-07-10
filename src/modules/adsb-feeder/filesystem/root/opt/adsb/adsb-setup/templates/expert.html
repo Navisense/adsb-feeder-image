@@ -2,17 +2,6 @@
 {% set active_page = "expert" %}
 {% block title %}Expert setup{% endblock title %}
 {% block content %}
-  <div>
-    {% with messages = get_flashed_messages() %}
-    {% if messages %}
-    {% for message in messages %}
-    <div class="alert alert-warning">
-      {{ message }}
-    </div>
-    {% endfor %}
-    {% endif %}
-    {% endwith %}
-  </div>
 <div class="row small">
   <div class="col-12 col-lg-6">
     <h5 class="mt-3">Add additional Ultrafeeder arguments</h5>

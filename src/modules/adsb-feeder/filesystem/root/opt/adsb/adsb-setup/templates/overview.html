@@ -15,13 +15,6 @@
     {% set ns.site_indices = [0] %}
   {% endif %}
   {% set num_micro_sites = (ns.site_indices | length) %}
-  <div>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for message in messages %}<div class="alert alert-warning">{{ message }}</div>{% endfor %}
-      {% endif %}
-    {% endwith %}
-  </div>
   <div class="alert alert-danger {% if env_value_by_tag('dns_state') %}d-none{% endif %}"
        role="alert">The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.</div>
   <div class="alert alert-danger {% if not ipv6_broken %}d-none{% endif %}"
