@@ -4,3 +4,6 @@ Description=Push Prometheus metrics every 3 minutes
 [Timer]
 OnCalendar=*-*-* *:0/3:0
 AccuracySec=5s
+
+[Install]
+WantedBy=multi-user.target
