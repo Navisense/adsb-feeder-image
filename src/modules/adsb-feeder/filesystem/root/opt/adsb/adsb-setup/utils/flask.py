@@ -45,7 +45,7 @@ class RouteManager:
 def check_restart_lock(f):
     @wraps(f)
     def decorated_function(self, *args, **kwargs):
-        if self._system._restart.lock.locked():
+        if self._system.is_restarting:
             return redirect("/restarting")
         return f(self, *args, **kwargs)
 

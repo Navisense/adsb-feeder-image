@@ -1,4 +1,3 @@
-import os
 import requests
 import socket
 import subprocess
@@ -10,34 +9,9 @@ from .data import Data
 from .util import print_err, run_shell_captured
 
 
-class Lock:
-    # This class is used to lock the system from being modified while
-    # pending changes are being made.
+class Restart:
     def __init__(self):
         self.lock = threading.Lock()
-
-    def acquire(self, blocking=True, timeout=-1):
-        return self.lock.acquire(blocking=blocking, timeout=timeout)
-
-    def release(self):
-        return self.lock.release()
-
-    def locked(self):
-        return self.lock.locked()
-
-    # make sure we can use "with Lock() as lock:"
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.release()
-
-
-class Restart:
-    def __init__(self, lock: Lock):
-        self.lock = lock
 
     def bg_run(self, cmdline=None, func=None, silent=False):
 
@@ -90,8 +64,7 @@ class Restart:
 
 class System:
     def __init__(self, data: Data):
-        self._restart_lock = Lock()
-        self._restart = Restart(self._restart_lock)
+        self._restart = Restart()
         self._d = data
 
         self.gateway_ips = None
@@ -101,8 +74,8 @@ class System:
         self.dockerPsCache = dict()
 
     @property
-    def restart(self):
-        return self._restart
+    def is_restarting(self):
+        return self._restart.is_restarting
 
     def shutdown_action(self, action="", delay=0):
         if (action == "shutdown"):
