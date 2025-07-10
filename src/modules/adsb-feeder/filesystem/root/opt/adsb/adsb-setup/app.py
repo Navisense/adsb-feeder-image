@@ -3065,7 +3065,7 @@ class AdsbIm:
         if proc.returncode != 0:
             self._logger.error(
                 "Error enabling/disabling Prometheus metrics state: "
-                f"{proc.stdout}")
+                f"{proc.stdout}", flash_message=True)
             return
         self._d.env_by_tags("prometheus_exporter").value = True
 
