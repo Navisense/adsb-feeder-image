@@ -1,3 +1,4 @@
+{# Base template with common skeleton for all pages. #}
 <!DOCTYPE html>
 {% if env_value_by_tag("css_theme") == 'light' %}
 <html lang="en" data-mdb-theme="light">
@@ -35,7 +36,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
   <title>
     {{ list_value_by_tag("site_name", 0) }}{%- if list_value_by_tag("site_name", 0) != "" -%}: {% endif %}
-    {% block title -%}{%- endblock title %}
+    {% block title required -%}{%- endblock title %}
   </title>
   <nav class="navbar fixed-top bg-body {% if is_enabled('stage2') %} navbar-expand-lg {% else %} navbar-expand-md {% endif %}">
     <div class="container-fluid">
@@ -401,16 +402,9 @@
   </div>
   <div class="container pt-5 my-3">
     <h1 class="mt-3 text-center text-danger">{{ self.title() }}</h1>
-    <div id="flashed-messages">
-      {% with messages = get_flashed_messages() %}
-        {% for message in messages %}
-          <div class="alert alert-warning">
-            {{ message }}
-          </div>
-        {% endfor %}
-      {% endwith %}
-    </div>
-    {% block content %}{% endblock %}
+    {% block base_content %}
+      {% block content required %}{% endblock content %}
+    {% endblock base_content %}
     <footer class="text-start text-muted bg-body">
       <section class="d-flex justify-content-between border-bottom small">
         <div class="me-5 d-block">
