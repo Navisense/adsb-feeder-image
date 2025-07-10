@@ -13,6 +13,7 @@ import time
 
 import fakedns
 import utils.data
+import utils.system
 import utils.util
 import utils.wifi
 
@@ -272,12 +273,13 @@ class Hotspot(abc.ABC):
             f"broadcast {self.HOTSPOT_BROADCAST} dev {self.wlan}")
         # Sleep for a bit to get hostapd and kea to start up properly.
         time.sleep(2)
-        self._systemctl(["unmask", "start"], "hostapd.service")
-        self._systemctl(["unmask", "start"], "isc-kea-dhcp4-server.service")
+        utils.system.systemctl().run(["unmask", "start"], ["hostapd.service"])
+        utils.system.systemctl().run(["unmask", "start"],
+                                     ["isc-kea-dhcp4-server.service"])
         if self._d.is_enabled("mdns"):
-            self._systemctl(
+            utils.system.systemctl().run(
                 ["restart"],
-                "adsb-avahi-alias@porttracker-feeder.local.service")
+                ["adsb-avahi-alias@porttracker-feeder.local.service"])
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
@@ -293,10 +295,12 @@ class Hotspot(abc.ABC):
         except:
             self._logger.exception("Error stopping DNS server.")
         if self._d.is_enabled("mdns"):
-            self._systemctl(
-                ["stop"], "adsb-avahi-alias@porttracker-feeder.local.service")
-        self._systemctl(["stop", "disable", "mask"],
-                        "isc-kea-dhcp4-server.service hostapd.service")
+            utils.system.systemctl().run(
+                ["stop"],
+                ["adsb-avahi-alias@porttracker-feeder.local.service"])
+        utils.system.systemctl().run(
+            ["stop", "disable", "mask"],
+            ["isc-kea-dhcp4-server.service", "hostapd.service"])
         utils.util.shell_with_combined_output(
             f"ip ad del {self.HOTSPOT_IP}/24 dev {self.wlan}; "
             f"ip addr flush {self.wlan}; ip link set dev {self.wlan} down")
@@ -304,16 +308,6 @@ class Hotspot(abc.ABC):
         # used to wait here, just spin around the wifi instead
         self._logger.info("Stopped hotspot.")
         self._hotspot_is_running = False
-
-    def _systemctl(self, commands, services, *, ignore_errors=False):
-        procs = []
-        for command in commands:
-            proc = utils.util.shell_with_combined_output(
-                f"systemctl {command} {services}")
-            if proc.returncode and not ignore_errors:
-                self._logger.error(f"systemctl failed: {proc.stdout}")
-            procs.append(proc)
-        return procs
 
     def start_wifi_test(self, ssid, password):
         if self._wifi_test_thread:
@@ -346,16 +340,18 @@ class Hotspot(abc.ABC):
 class NetworkingHotspot(Hotspot):
     """Hotspot using networking.service."""
     def _stop_wifi_client(self):
-        self._systemctl(["stop"], "networking.service")
+        utils.system.systemctl().run(["stop"], ["networking.service"])
 
     def _restart_wifi_client(self):
-        self._systemctl(["restart --no-block"], "networking.service")
+        utils.system.systemctl().run(["restart --no-block"],
+                                     ["networking.service"])
 
 
 class NetworkManagerHotspot(Hotspot):
     """Hotspot using NetworkManager."""
     def _stop_wifi_client(self):
-        self._systemctl(["stop"], "NetworkManager wpa_supplicant")
+        utils.system.systemctl().run(["stop"],
+                                     ["NetworkManager", "wpa_supplicant"])
         utils.util.shell_with_combined_output("iw reg set 00")
         # In some configurations, NetworkManager starts a dnsmasq as a DNS
         # proxy that can hang around even after we've stopped NetworkManager.
@@ -377,11 +373,13 @@ class NetworkManagerHotspot(Hotspot):
 
     def _kill_dnsmasq(self):
         # This may not exist, we'll get it with killall. Ignore errors.
-        proc, = self._systemctl(["stop"], "dnsmasq", ignore_errors=True)
+        proc, = utils.system.systemctl().run(["stop"], ["dnsmasq"],
+                                             log_errors=False)
         if proc.returncode == 0:
             return
         utils.util.shell_with_combined_output("killall dnsmasq")
 
     def _restart_wifi_client(self):
         utils.util.shell_with_combined_output("iw reg set 00")
-        self._systemctl(["restart"], "wpa_supplicant NetworkManager")
+        utils.system.systemctl().run(["restart"],
+                                     ["wpa_supplicant", "NetworkManager"])
