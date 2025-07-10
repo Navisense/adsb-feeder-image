@@ -129,6 +129,7 @@ PKG_NAME_IW="iw"
 PKG_NAME_HOSTAPD="hostapd"
 PKG_NAME_KEA="kea"
 PKG_NAME_PROMETHEUS_NODE_EXPORTER="prometheus-node-exporter"
+PKG_NAME_ZSTD="zstd"
 PKG_NAME_AVAHI="avahi"
 PKG_NAME_AVAHI_TOOLS="avahi-tools"
 if [ "$distro" == "debian" ]; then
@@ -167,6 +168,7 @@ which iw &> /dev/null || missing+="${PKG_NAME_IW} "
 which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "
 which kea-dhcp4 &> /dev/null || missing+="${PKG_NAME_KEA} "
 which node_exporter &> /dev/null || missing+="${PKG_NAME_PROMETHEUS_NODE_EXPORTER} "
+which zst &> /dev/null || missing+="${PKG_NAME_ZSTD} "
 
 if [ "${ENABLE_MDNS}" == "True" ] ; then
     which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
