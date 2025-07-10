@@ -58,11 +58,6 @@ def print_err(*args, **kwargs):
     print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
 
-def report_issue(msg, level=1):
-    print_err(msg, level)
-    flask.flash(msg)
-
-
 # this is based on https://www.regular-expressions.info/email.html
 def is_email(text: str):
     return re.match(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, flags=re.IGNORECASE)

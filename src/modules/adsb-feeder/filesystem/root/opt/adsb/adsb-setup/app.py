@@ -90,7 +90,6 @@ from utils.util import (
     make_int,
     mf_get_ip_and_triplet,
     print_err,
-    report_issue,
     run_shell_captured,
     string2file,
     verbose,
@@ -1040,7 +1039,9 @@ class AdsbIm:
         if success:
             self._d.env("FEEDER_TZ").list_set(0, timezone)
         else:
-            report_issue(f"timezone {timezone} probably invalid, defaulting to UTC")
+            self._logger.warning(
+                f"Timezone {timezone} probably invalid, defaulting to UTC.",
+                flash_message=True)
             self._d.env("FEEDER_TZ").list_set(0, "UTC")
             self.set_system_tz("UTC")
 
@@ -1148,8 +1149,9 @@ class AdsbIm:
                     check=True,
                 )
             except:
-                report_issue(f"{context}: docker exec failed - backed up graph data might miss up to 6h")
-                pass
+                self._logger.exception(
+                    f"{context}: docker exec failed - backed up graph data "
+                    "might miss up to 6h", flash_message=True)
             else:
                 count = 0
                 increment = 0.1
@@ -1161,7 +1163,9 @@ class AdsbIm:
                         print_err(f"{context}: success")
                         return
 
-                report_issue(f"{context}: writeback timed out - backed up graph data might miss up to 6h")
+                self._logger.error(
+                    f"{context}: writeback timed out - backed up graph data "
+                    "might miss up to 6h", flash_message=True)
 
         fdOut, fdIn = os.pipe()
         pipeOut = os.fdopen(fdOut, "rb")
@@ -1199,10 +1203,14 @@ class AdsbIm:
                             if graphs_path.exists():
                                 backup_zip.write(graphs_path, arcname=graphs_path.relative_to(adsb_path))
                             else:
-                                report_issue(f"graphs1090 backup failed, file not found: {graphs_path}")
+                                self._logger.error(
+                                    "graphs1090 backup failed, file not "
+                                    f"found: {graphs_path}", flash_message=True)
 
             except BrokenPipeError:
-                report_issue(f"warning: backup download aborted mid-stream")
+                self._logger.exception(
+                    f"warning: backup download aborted mid-stream",
+                    flash_message=True)
 
         self._executor.submit(
             zip2fobj,
@@ -1386,7 +1394,9 @@ class AdsbIm:
                     timeout=30.0,
                 )
             except subprocess.TimeoutExpired:
-                report_issue("timeout expired joining Zerotier network... trying to continue...")
+                self._logger.exception(
+                    "Timeout expired joining Zerotier network... trying to "
+                    "continue...", flash_message=True)
 
         self.handle_implied_settings()
         self.write_envfile()
@@ -1394,7 +1404,9 @@ class AdsbIm:
         try:
             subprocess.call("/opt/adsb/docker-compose-start", timeout=180.0, shell=True)
         except subprocess.TimeoutExpired:
-            report_issue("timeout expired re-starting docker... trying to continue...")
+            self._logger.exception(
+                "Timeout expired re-starting docker... trying to continue...",
+                flash_message=True)
 
     def base_is_configured(self):
         base_config: set[Env] = {env for env in self._d._env if env.is_mandatory}
@@ -1836,7 +1848,9 @@ class AdsbIm:
             issues_encountered = True
 
         if issues_encountered:
-            report_issue("failure while setting root password, check logs for details")
+            self._logger.error(
+                "Failure while setting root password, check logs for details",
+                flash_message=True)
 
     def unique_site_name(self, name, idx=-1):
         # make sure that a site name is unique - if the idx is given that's
@@ -2038,7 +2052,9 @@ class AdsbIm:
 
             print_err(f"done importing graphs and history from {ip}")
         except:
-            report_issue(f"ERROR when importing graphs and history from {ip}")
+            self._logger.exception(
+                f"ERROR when importing graphs and history from {ip}",
+                flash_message=True)
         finally:
             os.remove(tmpfile)
 
@@ -2621,8 +2637,9 @@ class AdsbIm:
                         print_err("successfully added new micro site")
                         self._next_url_from_director = url_for("stage2")
                     else:
-                        print_err(f"failed to add new micro site: {message}")
-                        flash(f"failed to add new micro site: {message}", "danger")
+                        self._logger.error(
+                            f"Failed to add new micro site: {message}",
+                            flash_message=True)
                         next_url = url_for("stage2")
                     continue
                 if key.startswith("remove_micro_"):
@@ -2763,11 +2780,12 @@ class AdsbIm:
                             ts_cli_switch, ts_cli_value = ["", ""]
 
                         if ts_cli_switch != "--login-server":
-                            report_issue(
-                                "at this point we only allow the --login-server=<server> argument; "
-                                "please let us know at the Zulip support link why you need "
-                                f"this to support {ts_cli_switch}"
-                            )
+                            self._logger.warning(
+                                "at this point we only allow the "
+                                "--login-server=<server> argument; please let "
+                                "us know at the Zulip support link why you "
+                                f"need this to support {ts_cli_switch}",
+                            flash_message=True)
                             continue
                         print_err(f"login server arg is {ts_cli_value}")
                         match = re.match(
@@ -2775,7 +2793,9 @@ class AdsbIm:
                             ts_cli_value,
                         )
                         if not match:
-                            report_issue(f"the login server URL didn't make sense {ts_cli_value}")
+                            self._logger.error(
+                                "The login server URL didn't make sense "
+                                f"{ts_cli_value}", flash_message=True)
                             continue
                     print_err(f"starting tailscale (args='{ts_args}')")
                     try:
@@ -2811,7 +2831,9 @@ class AdsbIm:
                         os.set_blocking(proc.stderr.fileno(), False)
                     except:
                         # this really needs a user visible error...
-                        report_issue("exception trying to set up tailscale - giving up")
+                        self._logger.exception(
+                            "Exception trying to set up tailscale - giving up",
+                            flash_message=True)
                         continue
                     else:
                         startTime = time.time()
@@ -2840,7 +2862,9 @@ class AdsbIm:
                         print_err(f"found login link {login_link}")
                         self._d.env_by_tags("tailscale_ll").value = login_link
                     else:
-                        report_issue(f"ERROR: tailscale didn't provide a login link within 30 seconds")
+                        self._logger.error(
+                            "ERROR: tailscale didn't provide a login link "
+                            "within 30 seconds", flash_message=True)
                     return redirect(url_for("systemmgmt"))
                 # tailscale handling uses 'continue' to avoid deep nesting - don't add other keys
                 # here at the end - instead insert them before tailscale
@@ -2894,7 +2918,9 @@ class AdsbIm:
                     except Exception as e:
                         print_err(f"error activating {key}: {e}")
                     if not is_successful:
-                        report_issue(f"did not successfully enable {base}")
+                        self._logger.error(
+                            f"did not successfully enable {base}",
+                            flash_message=True)
 
                     # immediately start the containers in case the user doesn't click "apply settings" after requesting a key
                     seen_go = True
@@ -2915,7 +2941,9 @@ class AdsbIm:
                 try:
                     subprocess.run(cmdline, timeout=5.0, shell=True)
                 except:
-                    report_issue("Error running Ultrafeeder autogain reset")
+                    self._logger.exception(
+                        "Error running Ultrafeeder autogain reset",
+                        flash_message=True)
                 continue
             if key == "resetuatgain" and value == "1":
                 # tell the dump978 container to restart the autogain processing
@@ -2923,7 +2951,8 @@ class AdsbIm:
                 try:
                     subprocess.run(cmdline, timeout=5.0, shell=True)
                 except:
-                    report_issue("Error running UAT autogain reset")
+                    self._logger.exception(
+                        "Error running UAT autogain reset", flash_message=True)
                 continue
             if allow_insecure and key == "ssh_pub":
                 ssh_dir = pathlib.Path("/root/.ssh")
@@ -2937,8 +2966,10 @@ class AdsbIm:
                     timeout=60,
                 )
                 if not success:
-                    report_issue(f"failed to enable ssh - check the logs for details")
-                    print_err(f"failed to enable ssh: {output}")
+                    self._logger.error(
+                        f"Failed to enable ssh: {output}",
+                        flash_message="Failed to enable ssh - check the logs "
+                        "for details.")
                 continue
             if key == "enable-prometheus-metrics":
                 self._ensure_prometheus_metrics_state(is_true(value))
@@ -2953,7 +2984,9 @@ class AdsbIm:
                             ["/usr/sbin/zerotier-cli", "join", f"{value}"],
                         )
                     except:
-                        report_issue("exception trying to set up zerorier - giving up")
+                        self._logger.exception(
+                            "Exception trying to set up zerorier - giving up",
+                            flash_message=True)
                 if key in {"lat", "lon"}:
                     # remove letters, spaces, degree symbols
                     value = str(float(re.sub("[a-zA-Z° ]", "", value)))
@@ -3208,8 +3241,9 @@ class AdsbIm:
             mqtt_password = request.form["porttracker-mqtt-password"]
             mqtt_topic = request.form["porttracker-mqtt-topic"]
         except KeyError as e:
-            report_issue(
-                f"Can't activate Porttracker: missing key {e}.", level=0)
+            self._logger.exception(
+                f"Can't activate Porttracker: missing key {e}.",
+                flash_message=True)
             return
         try:
             porttracker._activate(
@@ -3217,7 +3251,8 @@ class AdsbIm:
                 mqtt_port, mqtt_username, mqtt_password, mqtt_topic, site_num)
             print_err(f"Activated {porttracker} for site_num {site_num}.")
         except:
-            report_issue(f"Error activating Porttracker.", level=1)
+            self._logger.exception(
+                "Error activating Porttracker.", flash_message=True)
 
     @check_restart_lock
     def director(self):
@@ -3600,7 +3635,8 @@ class AdsbIm:
                 print_err(f"uploaded logs to {url}")
             else:
                 print_err(f"failed to upload logs, output: {output}")
-                report_issue(f"failed to upload logs")
+                self._logger.error(
+                    "Failed to upload logs.", flash_message=True)
             return render_template("support.html", url=url)
 
         if target == "termbin.com":
@@ -3614,7 +3650,8 @@ class AdsbIm:
                 print_err(f"uploaded logs to {url}")
             else:
                 print_err(f"failed to upload logs, output: {output}")
-                report_issue(f"failed to upload logs")
+                self._logger.error(
+                    "Failed to upload logs.", flash_message=True)
             return render_template("support.html", url=url)
 
         if target == "local_view" or target == "local_download":

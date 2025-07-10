@@ -1,10 +1,9 @@
+import logging
 import re
 import subprocess
-import typing as t
 
-from flask import flash
 from .system import System
-from .util import is_email, make_int, print_err, report_issue
+from .util import is_email, make_int
 
 
 class Aggregator:
@@ -19,6 +18,7 @@ class Aggregator:
         self._system = system
         self._d = system._d
         self._idx = 0
+        self._logger = logging.getLogger(type(self).__name__)
 
     @property
     def name(self):
@@ -67,7 +67,7 @@ class Aggregator:
         raise NotImplementedError
 
     def _download_docker_container(self, container: str) -> bool:
-        print_err(f"download_docker_container {container}")
+        self._logger.info(f"download_docker_container {container}")
         cmdline = f"docker pull {container}"
         try:
             result = subprocess.run(cmdline, timeout=180.0, shell=True)
@@ -85,9 +85,9 @@ class Aggregator:
                     capture_output=True,
                 )
             except subprocess.TimeoutExpired as exc2:
-                print_err(
-                    f"failed to remove the container {name} stderr: {str(exc2.stdout)} / stdout: {str(exc2.stderr)}"
-                )
+                self._logger.exception(
+                    f"Failed to remove the container {name} stderr: "
+                    f"{str(exc2.stdout)} / stdout: {str(exc2.stderr)}")
 
         # let's make sure the container isn't still there, if it is the docker run won't work
         force_remove_container("temp_container")
@@ -102,15 +102,19 @@ class Aggregator:
         except subprocess.TimeoutExpired as exc:
             # for several of these containers "timeout" is actually the expected behavior;
             # they don't stop on their own. So just grab the output and kill the container
-            print_err(f"docker run {cmdline} received a timeout error after {timeout} with output {exc.stdout}")
+            self._logger.exception(
+                f"docker run {cmdline} received a timeout error after "
+                f"{timeout} with output {exc.stdout}")
             output = exc.stdout.decode()
 
             force_remove_container("temp_container")
         except subprocess.SubprocessError as exc:
-            print_err(f"docker run {cmdline} ended with an exception {exc}")
+            self._logger.exception(
+                f"docker run {cmdline} ended with an exception {exc}")
         else:
             output = result.stdout
-            print_err(f"docker run {cmdline} completed with output {output}")
+            self._logger.info(
+                f"docker run {cmdline} completed with output {output}")
         return output
 
     # the default case is straight forward. Remember the key and enable the aggregator
@@ -144,7 +148,9 @@ class FlightRadar24(Aggregator):
 
     def _request_fr24_sharing_key(self, email: str):
         if not self._download_docker_container(self.container):
-            report_issue("failed to download the FR24 docker image")
+            self._logger.error(
+                "Failed to download the FR24 docker image.",
+                flash_message=True)
             return None
 
         lat = float(self.lat)
@@ -152,7 +158,8 @@ class FlightRadar24(Aggregator):
 
         if abs(lat) < 0.5 and abs(lon) < 0.5:
             # this is at null island, just fail for this
-            report_issue("FR24 cannot handle 'null island'")
+            self._logger.error(
+                "FR24 cannot handle 'null island'", flash_message=True)
             return None
 
         # so this signup doesn't work for latitude / longitude <0.1, work around that by just setting longitude 0.11 in that case
@@ -184,22 +191,29 @@ class FlightRadar24(Aggregator):
                 output += exc.stdout.decode()
             if exc.stderr:
                 output += exc.stderr.decode()
-            print_err(f"timeout running the FR24 signup script, output: {output}")
-            flash("FR24 signup script timed out")
+            self._logger.exception(
+                f"Timeout running the FR24 signup script, output: {output}",
+                flash_message="FR24 signup script timed out.")
             return None
 
         sharing_key_match = re.search("Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
         if not sharing_key_match:
-            print_err(f"couldn't find a sharing key in the container output: {output}")
-            flash("FR24: couldn't find a sharing key in server response")
+            self._logger.error(
+                "Couldn't find a sharing key in the container output: "
+                f"{output}",
+                flash_message="FR24: couldn't find a sharing key in server "
+                "response")
             return None
         adsb_key = sharing_key_match.group(1)
-        print_err(f"found adsb sharing key {adsb_key} in the container output")
+        self._logger.info(
+            f"Found adsb sharing key {adsb_key} in the container output")
         return adsb_key
 
     def _request_fr24_uat_sharing_key(self, email: str):
         if not self._download_docker_container(self.container):
-            report_issue("failed to download the FR24 docker image")
+            self._logger.error(
+                "Failed to download the FR24 docker image.",
+                flash_message=True)
             return None
 
         uat_signup_command = (
@@ -224,16 +238,21 @@ class FlightRadar24(Aggregator):
                 output += exc.stdout.decode()
             if exc.stderr:
                 output += exc.stderr.decode()
-            print_err(f"timeout running the FR24 UAT signup script, output: {output}")
-            flash("FR24 UAT signup script timed out")
+            self._logger.exception(
+                "timeout running the FR24 UAT signup script, output: "
+                f"{output}", flash_message="FR24 UAT signup script timed out.")
             return None
         sharing_key_match = re.search("Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
         if not sharing_key_match:
-            print_err(f"couldn't find a UAT sharing key in the container output: {output}")
-            flash("FR24: couldn't find a UAT sharing key in server response")
+            self._logger.error(
+                "couldn't find a UAT sharing key in the container output: "
+                f"{output}",
+                flash_message="FR24: couldn't find a UAT sharing key in "
+                "server response.")
             return None
         uat_key = sharing_key_match.group(1)
-        print_err(f"found uat sharing key {uat_key} in the container output")
+        self._logger.info(
+            f"Found uat sharing key {uat_key} in the container output")
         return uat_key
 
     def _activate(self, user_input: str, idx=0):
@@ -250,23 +269,25 @@ class FlightRadar24(Aggregator):
         if not adsb_sharing_key and not uat_sharing_key:
             return False
         self._idx = make_int(idx)  # this way the properties work correctly
-        print_err(f"FR_activate adsb |{adsb_sharing_key}| uat |{uat_sharing_key}| idx |{idx}|")
+        self._logger.info(
+            f"FR_activate adsb |{adsb_sharing_key}| uat |{uat_sharing_key}| idx |{idx}|")
 
         if is_email(adsb_sharing_key):
             # that's an email address, so we are looking to get a sharing key
             adsb_sharing_key = self._request_fr24_sharing_key(adsb_sharing_key)
-            print_err(f"got back sharing_key |{adsb_sharing_key}|")
+            self._logger.info(f"got back sharing_key |{adsb_sharing_key}|")
         if adsb_sharing_key and not re.match("[0-9a-zA-Z]+", adsb_sharing_key):
             adsb_sharing_key = None
-            report_issue("invalid FR24 sharing key")
+            self._logger.error("invalid FR24 sharing key", flash_message=True)
 
         if is_email(uat_sharing_key):
             # that's an email address, so we are looking to get a sharing key
             uat_sharing_key = self._request_fr24_uat_sharing_key(uat_sharing_key)
-            print_err(f"got back uat_sharing_key |{uat_sharing_key}|")
+            self._logger.info(f"got back uat_sharing_key |{uat_sharing_key}|")
         if uat_sharing_key and not re.match("[0-9a-zA-Z]+", uat_sharing_key):
             uat_sharing_key = None
-            report_issue("invalid FR24 UAT sharing key")
+            self._logger.error(
+                "invalid FR24 UAT sharing key", flash_message=True)
 
         # overwrite email in config so that the container is not started with the email as sharing key if failed
         # otherwise just set sharing key as appropriate
@@ -304,7 +325,9 @@ class FlightAware(Aggregator):
 
     def _request_fa_feeder_id(self):
         if not self._download_docker_container(self.container):
-            report_issue("failed to download the piaware docker image")
+            self._logger.error(
+                "failed to download the piaware docker image",
+                flash_message=True)
             return None
 
         cmdline = f"--rm {self.container}"
@@ -312,8 +335,10 @@ class FlightAware(Aggregator):
         feeder_id_match = re.search(" feeder ID is ([-a-zA-Z0-9]*)", output)
         if feeder_id_match:
             return feeder_id_match.group(1)
-        print_err(f"couldn't find a feeder ID in the container output: {output}")
-        flash("FlightAware: couldn't find a feeder ID in server response")
+        self._logger.error(
+            f"couldn't find a feeder ID in the container output: {output}",
+            flash_message="FlightAware: couldn't find a feeder ID in server "
+            "response")
         return None
 
     def _activate(self, user_input: str, idx=0):
@@ -323,7 +348,7 @@ class FlightAware(Aggregator):
             feeder_id = user_input
         else:
             feeder_id = self._request_fa_feeder_id()
-            print_err(f"got back feeder_id |{feeder_id}|")
+            self._logger.info(f"got back feeder_id |{feeder_id}|")
         if not feeder_id:
             return False
 
@@ -344,7 +369,9 @@ class RadarBox(Aggregator):
         docker_image = self._d.env_by_tags(["radarbox", "container"]).value
 
         if not self._download_docker_container(docker_image):
-            report_issue("failed to download the AirNav Radar docker image")
+            self._logger.error(
+                "failed to download the AirNav Radar docker image",
+                flash_message=True)
             return None
 
         suffix = f"_{idx}" if idx else ""
@@ -360,8 +387,11 @@ class RadarBox(Aggregator):
         output = self._docker_run_with_timeout(cmdline, 45.0)
         sharing_key_match = re.search("Your new key is ([a-zA-Z0-9]*)", output)
         if not sharing_key_match:
-            print_err(f"couldn't find a sharing key in the container output: {output}")
-            flash("AirNav Radar: couldn't find a sharing key in server response")
+            self._logger.error(
+                "couldn't find a sharing key in the container output: "
+                f"{output}",
+                flash_message="AirNav Radar: couldn't find a sharing key in "
+                "server response")
             return None
 
         return sharing_key_match.group(1)
@@ -394,7 +424,9 @@ class OpenSky(Aggregator):
         docker_image = self._d.env_by_tags(["opensky", "container"]).value
 
         if not self._download_docker_container(docker_image):
-            report_issue("failed to download the OpenSky docker image")
+            self._logger.error(
+                "failed to download the OpenSky docker image",
+                flash_message=True)
             return None
 
         cmdline = (
@@ -404,8 +436,11 @@ class OpenSky(Aggregator):
         output = self._docker_run_with_timeout(cmdline, 60.0)
         serial_match = re.search("Got a new serial number: ([-a-zA-Z0-9]*)", output)
         if not serial_match:
-            print_err(f"couldn't find a serial number in the container output: {output}")
-            flash("OpenSky: couldn't find a serial number in server response")
+            self._logger.error(
+                "couldn't find a serial number in the container output: "
+                f"{output}",
+                flash_message="OpenSky: couldn't find a serial number in "
+                "server response")
             return None
 
         return serial_match.group(1)
@@ -413,15 +448,15 @@ class OpenSky(Aggregator):
     def _activate(self, user_input: str, idx=0):
         self._idx = make_int(idx)
         serial, user = user_input.split("::")
-        print_err(f"passed in {user_input} seeing user |{user}| and serial |{serial}|")
+        self._logger.info(f"passed in {user_input} seeing user |{user}| and serial |{serial}|")
         if not user:
-            print_err(f"missing user name for OpenSky")
+            self._logger.error(f"missing user name for OpenSky")
             return False
         if not serial:
-            print_err(f"need to request serial for OpenSky")
+            self._logger.error(f"need to request serial for OpenSky")
             serial = self._request_fr_serial(user)
             if not serial:
-                print_err("failed to get OpenSky serial")
+                self._logger.error("failed to get OpenSky serial")
                 return False
         self._d.env_by_tags(self.tags + ["user"]).list_set(idx, user)
         self._d.env_by_tags(self.tags + ["key"]).list_set(idx, serial)
@@ -476,12 +511,13 @@ class Sdrmap(Aggregator):
     def _activate(self, user_input: str, idx=0):
         self._idx = make_int(idx)
         password, user = user_input.split("::")
-        print_err(f"passed in {user_input} seeing user |{user}| and password |{password}|")
+        self._logger.error(
+            f"passed in {user_input} seeing user |{user}| and password |{password}|")
         if not user:
-            print_err(f"missing user name for sdrmap")
+            self._logger.error(f"missing user name for sdrmap")
             return False
         if not password:
-            print_err(f"missing password for sdrmap")
+            self._logger.error(f"missing password for sdrmap")
             return False
         self._d.env_by_tags(self.tags + ["user"]).list_set(idx, user)
         self._d.env_by_tags(self.tags + ["key"]).list_set(idx, password)
