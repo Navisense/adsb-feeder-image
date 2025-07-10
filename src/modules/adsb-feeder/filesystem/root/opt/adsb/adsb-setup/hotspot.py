@@ -39,7 +39,7 @@ def _find_wlan_device():
     wlans = [wlan for wlan in raw_output.stdout.split("\n") if wlan]
     if not wlans:
         logger.warning(
-            f"No wlan device found in {raw_output}. Unable to start "
+            f"No wlan device found in {raw_output.stdout}. Unable to start "
             "hotspot.")
         return None
     if len(wlans) > 1:
