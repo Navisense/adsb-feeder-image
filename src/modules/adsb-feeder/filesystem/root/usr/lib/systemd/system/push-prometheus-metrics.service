@@ -1,0 +1,8 @@
+[Unit]
+Description=Push Prometheus metrics
+Requires=prometheus-node-exporter.service
+After=prometheus-node-exporter.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/adsb/prometheus/push-prometheus-metrics.bash

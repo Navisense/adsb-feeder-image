@@ -128,6 +128,7 @@ PKG_NAME_JQ="jq"
 PKG_NAME_IW="iw"
 PKG_NAME_HOSTAPD="hostapd"
 PKG_NAME_KEA="kea"
+PKG_NAME_PROMETHEUS_NODE_EXPORTER="prometheus-node-exporter"
 PKG_NAME_AVAHI="avahi"
 PKG_NAME_AVAHI_TOOLS="avahi-tools"
 if [ "$distro" == "debian" ]; then
@@ -165,6 +166,7 @@ which jq &> /dev/null || missing+="${PKG_NAME_JQ} "
 which iw &> /dev/null || missing+="${PKG_NAME_IW} "
 which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "
 which kea-dhcp4 &> /dev/null || missing+="${PKG_NAME_KEA} "
+which node_exporter &> /dev/null || missing+="${PKG_NAME_PROMETHEUS_NODE_EXPORTER} "
 
 if [ "${ENABLE_MDNS}" == "True" ] ; then
     which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
@@ -242,10 +244,11 @@ if [ "$distro" == "postmarketos" ]; then
         timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
     fi
 
-    # We have hostapd and kea available, but since these are (OpenRC-based)
-    # Alpine packages, no systemd unit files are installed. We have to copy our
-    # own.
-    cp -a ${SRC_ROOT}/opt/adsb/accesspoint/{hostapd,isc-kea-dhcp4-server}.service /usr/lib/systemd/system/
+    # We have hostapd, kea, and prometheus-node-exporter available, but since
+    # these are (OpenRC-based) Alpine packages, no systemd unit files are
+    # installed. We have to copy our own.
+    cp -a ${SRC_ROOT}/opt/adsb/accesspoint/{hostapd,isc-kea-dhcp4-server,prometheus-node-exporter}.service \
+        /usr/lib/systemd/system/
     systemctl daemon-reload
 fi
 

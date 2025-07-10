@@ -1,0 +1,43 @@
+[Unit]
+Description=Prometheus node exporter
+Wants=network-online.target
+After=network-online.target
+BindsTo=push-prometheus-metrics.service
+
+[Service]
+Type=exec
+ExecStart=/usr/bin/node_exporter \
+    --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/) \
+    --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$ \
+    --collector.network_route \
+    --collector.systemd \
+    --collector.wifi \
+    --no-collector.arp \
+    --no-collector.bcache \
+    --no-collector.bonding \
+    --no-collector.btrfs \
+    --no-collector.conntrack \
+    --no-collector.dmi \
+    --no-collector.edac \
+    --no-collector.entropy \
+    --no-collector.fibrechannel \
+    --no-collector.infiniband \
+    --no-collector.ipvs \
+    --no-collector.mdadm \
+    --no-collector.netstat \
+    --no-collector.nfs \
+    --no-collector.nfsd \
+    --no-collector.nvme \
+    --no-collector.powersupplyclass \
+    --no-collector.rapl \
+    --no-collector.selinux \
+    --no-collector.sockstat \
+    --no-collector.softnet \
+    --no-collector.stat \
+    --no-collector.tapestats \
+    --no-collector.timex \
+    --no-collector.udp_queues \
+    --no-collector.vmstat \
+    --no-collector.watchdog \
+    --no-collector.xfs \
+    --no-collector.zfs
