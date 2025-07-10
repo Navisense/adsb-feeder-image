@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% set active_page = "index" %}
+{% block title %}Porttracker Feeder Homepage{% endblock title %}
 {% block content %}
   {# painfully figure out which sites we are handling here - just the base, or a list of proxies? #}
   {% set ns = namespace() %}
@@ -14,11 +15,6 @@
     {% set ns.site_indices = [0] %}
   {% endif %}
   {% set num_micro_sites = (ns.site_indices | length) %}
-  <h1 class="mt-3 text-center text-danger">
-    {% block title %}
-      Porttracker Feeder Homepage
-    {% endblock title %}
-  </h1>
   <div>
     {% with messages = get_flashed_messages() %}
       {% if messages %}

@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% set active_page = "hotspot" %}
+{% block title %}Porttracker Feeder Hotspot{% endblock title %}
 {% block content %}
-  <h1 class="mt-3 text-center text-danger">
-    {% block title %}
-      Porttracker Feeder Hotspot
-    {% endblock title %}
-  </h1>
   <div class="container pt-5 mt-3">
     <h2 class="mt-5">Wifi Setup</h2>
     {% if comment == "" %}

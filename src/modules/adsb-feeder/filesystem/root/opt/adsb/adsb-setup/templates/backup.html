@@ -1,8 +1,7 @@
 {% extends 'base.html' %}
 {% set active_page = "backup" %}
-
+{% block title %}Create a backup of your configuration{% endblock title %}
 {% block content %}
-<h1 class="mt-3 text-center text-danger">{% block title %} Create a backup of your configuration {% endblock %}</h1>
   <div>
     {% with messages = get_flashed_messages() %}
     {% if messages %}

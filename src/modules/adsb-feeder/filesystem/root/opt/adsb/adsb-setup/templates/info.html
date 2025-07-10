@@ -1,8 +1,7 @@
 {% extends 'base.html' %}
 {% set active_page = "info" %}
-
+{% block title %}Support Info{% endblock title %}
 {% block content %}
-<h1 class="mt-3 text-center text-danger">{% block title %} Support Info {% endblock %}</h1>
 <p>Please cut and paste (or provide a screenshot of) this data when asking for help.</p>
 <ul>
   <li><span style="display: inline-block; width: 6em;"><strong>Current:</strong></span> {{ current }}</li>
