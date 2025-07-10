@@ -2938,6 +2938,8 @@ class AdsbIm:
                     report_issue(f"failed to enable ssh - check the logs for details")
                     print_err(f"failed to enable ssh: {output}")
                 continue
+            if key == "enable-prometheus-metrics":
+                self._ensure_prometheus_metrics_state(is_true(value))
             e = self._d.env_by_tags(key.split("--"))
             if e:
                 if allow_insecure and key == "zerotierid":
@@ -3047,6 +3049,23 @@ class AdsbIm:
             return render_template("/restarting.html", extra_args=extra_args)
         print_err("base config not completed", level=2)
         return redirect(url_for("director"))
+
+    def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
+        currently_enabled = self._d.is_enabled("prometheus_exporter")
+        if currently_enabled == should_be_enabled:
+            return
+        self._logger.info(
+            f"Toggling Prometheus metrics state from {currently_enabled} to "
+            f"{should_be_enabled}.")
+        command = "enable" if should_be_enabled else "disable"
+        proc, = utils.system.systemctl().run([f"{command} --now"],
+                                             ["push-prometheus-metrics.timer"])
+        if proc.returncode != 0:
+            self._logger.error(
+                "Error enabling/disabling Prometheus metrics state: "
+                f"{proc.stdout}")
+            return
+        self._d.env_by_tags("prometheus_exporter").value = True
 
     @check_restart_lock
     def expert(self):

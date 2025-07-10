@@ -78,6 +78,15 @@
              class="form-control mt-2" value="{{ list_value_by_tag('tz', 0) }}" />
     </span>
   </div>
+  <div class="form-check-prepend row align-items-center mb-1">
+    <span class="col-md">
+      <label for="enable-prometheus-metrics" class="form-check-label">Send metrics to Porttracker</label>
+    </span>
+    <span class="col-md">
+      <input type="checkbox" id="enable-prometheus-metrics" name="enable-prometheus-metrics"
+             class="form-check-input mt-2 pull-right" {%- if is_enabled("prometheus_exporter") -%}checked{%- endif -%}/>
+    </span>
+  </div>
   <div class="form-group mt-3">
     <label>
       Which
