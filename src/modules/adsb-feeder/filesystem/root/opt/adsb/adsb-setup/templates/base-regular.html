@@ -3,8 +3,17 @@ excluded in pages that redirect automatically. #}
 {% extends "base.html" %}
 {% block base_content %}
   <div id="flashed-messages">
-    {% with messages = get_flashed_messages() %}
-      {% for message in messages %}<div class="alert alert-warning">{{ message }}</div>{% endfor %}
+    {% with categories_and_messages = get_flashed_messages(with_categories=True) %}
+      {% for category, message in categories_and_messages %}
+        {% if category in ["info", "warning", "success"] %}
+          {% set alert_class = "alert-" + category %}
+        {% elif category == "error" %}
+          {% set alert_class = "alert-danger" %}
+        {% else %}
+          {% set alert_class = "alert-primary" %}
+        {% endif %}
+        <div class="alert {{ alert_class }}">{{ message }}</div>
+      {% endfor %}
     {% endwith %}
   </div>
   {{ super() }}
