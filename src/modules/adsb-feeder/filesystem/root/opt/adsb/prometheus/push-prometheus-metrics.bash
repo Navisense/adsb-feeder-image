@@ -11,7 +11,7 @@ fi
 
 touch $LOCKFILE
 log $0 "Start pushing metrics."
-curl -s http://localhost:9100/metrics | curl --data-binary @- --fail "${PUSH_URL}"
+curl -s http://localhost:9100/metrics | curl -X "PUT" --data-binary @- --fail "${PUSH_URL}"
 ret=$?
 log $0 "Done pushing metrics with code $ret"
 rm $LOCKFILE
