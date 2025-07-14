@@ -1,7 +1,9 @@
 #!/bin/bash
 
+INSTANCE_NAME=$1
+
 LOCKFILE=/var/lock/push-prometheus-metrics.lock
-PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/testtest"
+PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${INSTANCE_NAME}"
 
 source /opt/adsb/log.bash
 
