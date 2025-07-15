@@ -7,7 +7,7 @@
 # send the process a graceful SIGTERM. In case that doesn't work, just exiting
 # will get systemd to unceremoniously kill the process anyway.
 
-source /opt/adsb/log.bash
+source /opt/adsb/scripts/lib-common.bash
 
 PID_FILE="/run/adsb-feeder.pid"
 

@@ -13,13 +13,14 @@ source ${ENV_FILE}
 LOCKFILE=/var/lock/push-prometheus-metrics.lock
 PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${MLAT_SITE_NAME_SANITIZED}/station_id/${FEEDER_PORTTRACKER_STATION_ID}"
 
-source /opt/adsb/log.bash
+source /opt/adsb/scripts/lib-common.bash
 
 if [ -e $LOCKFILE ] ; then
     log_and_exit_sync 1 $0 "A metrics push is already in progress, quitting."
 fi
 
 touch $LOCKFILE
+trap "rm -f $LOCKFILE" EXIT
 
 log $0 "Preparing to push metrics."
 if [ -n "${FEEDER_SERIAL_AIS}" ] ; then
@@ -34,5 +35,4 @@ log $0 "Start pushing metrics."
 curl -s http://localhost:9100/metrics | curl -X "PUT" --data-binary @- --fail "${PUSH_URL}"
 ret=$?
 log $0 "Done pushing metrics with code $ret"
-rm $LOCKFILE
 exit $ret

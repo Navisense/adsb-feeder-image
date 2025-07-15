@@ -2,7 +2,7 @@
 
 # Expand the root partition and file system to use all available space.
 
-source /opt/adsb/log.bash
+source /opt/adsb/scripts/lib-common.bash
 
 DEVICE=/dev/mmcblk0
 ROOT_PARTITION_NUMBER=2

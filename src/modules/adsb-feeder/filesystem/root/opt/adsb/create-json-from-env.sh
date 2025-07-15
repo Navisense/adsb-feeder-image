@@ -3,11 +3,10 @@
 # if there is no config.json file in /opt/adsb/config, then we need to
 # piece one together...
 
-if [ ! -f /opt/adsb/scripts/common.sh ]
-then
-    echo "missing /opt/adsb/scripts/common.sh -- that's generally a bad sign"
+if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
+    echo "missing /opt/adsb/scripts/lib-common.bash -- that's generally a bad sign"
 else
-    . /opt/adsb/scripts/common.sh
+    . /opt/adsb/scripts/lib-common.bash
     rootcheck
     logparent
 fi
