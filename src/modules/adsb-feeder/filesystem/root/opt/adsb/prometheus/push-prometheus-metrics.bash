@@ -1,10 +1,12 @@
 #!/bin/bash
+#TODO doc+++++++
 
-INSTANCE_NAME=$1
-STATION_ID=$2
+ENV_FILE=$1
+
+source ${ENV_FILE}
 
 LOCKFILE=/var/lock/push-prometheus-metrics.lock
-PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${INSTANCE_NAME}/station_id/${STATION_ID}"
+PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${MLAT_SITE_NAME_SANITIZED}/station_id/${FEEDER_PORTTRACKER_STATION_ID}"
 
 source /opt/adsb/log.bash
 

@@ -5,6 +5,4 @@ After=prometheus-node-exporter.service
 
 [Service]
 Type=oneshot
-EnvironmentFile=/opt/adsb/config/.env
-ExecStart=/opt/adsb/prometheus/push-prometheus-metrics.bash \
-    ${MLAT_SITE_NAME_SANITIZED} ${FEEDER_PORTTRACKER_STATION_ID}
+ExecStart=/opt/adsb/prometheus/push-prometheus-metrics.bash /opt/adsb/config/.env
