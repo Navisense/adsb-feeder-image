@@ -368,6 +368,7 @@ class Data:
         ),
         Env("AF_IS_MDNS_ENABLED", default=True, tags=["mdns", "is_enabled"]),
         Env("AF_IS_PROMETHEUS_EXPORTER_ENABLED", default=False, tags=["prometheus_exporter", "is_enabled"]),
+        Env("AF_PROMETHEUS_TEXTFILE_DIR", default="/var/lib/prometheus/node-exporter", tags=["prometheus_exporter", "textfile_dir"]),
         # ports used by our proxy system
         Env("AF_WEBPORT", default=80, tags=["webport", "norestore"]),
         Env("AF_DAZZLE_PORT", default=9999, tags=["dazzleport", "norestore"]),

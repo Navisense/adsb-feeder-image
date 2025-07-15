@@ -6,7 +6,10 @@ BindsTo=push-prometheus-metrics.service
 
 [Service]
 Type=exec
+EnvironmentFile=/opt/adsb/config/.env
+ExecStartPre=/bin/mkdir -p ${AF_PROMETHEUS_TEXTFILE_DIR}
 ExecStart=/usr/bin/node_exporter \
+    --collector.textfile.directory=${AF_PROMETHEUS_TEXTFILE_DIR} \
     --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/kubelet/.+)($|/) \
     --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|sysfs|tracefs)$ \
     --collector.network_route \

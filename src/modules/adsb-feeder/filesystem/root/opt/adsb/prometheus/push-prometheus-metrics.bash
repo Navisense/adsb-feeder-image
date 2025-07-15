@@ -1,5 +1,10 @@
 #!/bin/bash
-#TODO doc+++++++
+
+# Push metrics from the Prometheus node exporter.
+#
+# Takes the output of the Prometheus node exporter and pushes it to
+# Porttracker's pushgateway. If the shipfeeder container is running, includes
+# its metrics.
 
 ENV_FILE=$1
 
@@ -15,6 +20,16 @@ if [ -e $LOCKFILE ] ; then
 fi
 
 touch $LOCKFILE
+
+log $0 "Preparing to push metrics."
+if [ -n "${FEEDER_SERIAL_AIS}" ] ; then
+    # An AIS serial device is set, which means the shipfeeder container with
+    # AIS-catcher should be running and exposing metrics.
+    log $0 "Getting AIS-catcher metrics."
+    curl -s http://localhost:${AF_AIS_CATCHER_PORT}/metrics > ${AF_PROMETHEUS_TEXTFILE_DIR}/ais-catcher.prom.tmp
+    mv ${AF_PROMETHEUS_TEXTFILE_DIR}/ais-catcher.prom.tmp ${AF_PROMETHEUS_TEXTFILE_DIR}/ais-catcher.prom
+fi
+
 log $0 "Start pushing metrics."
 curl -s http://localhost:9100/metrics | curl -X "PUT" --data-binary @- --fail "${PUSH_URL}"
 ret=$?
