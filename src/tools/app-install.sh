@@ -310,8 +310,8 @@ systemctl enable adsb-setup
 systemctl start adsb-setup
 
 if [ "${EXPAND_ROOTFS}" == "True" ] ; then
-    systemctl enable expand-rootfs
-    systemctl start expand-rootfs
+    systemctl enable adsb-expand-rootfs
+    systemctl start adsb-expand-rootfs
 fi
 
 # while the user is getting ready, let's try to pull the key docker

@@ -2,7 +2,7 @@
 Description=Prometheus node exporter
 Wants=network-online.target
 After=network-online.target
-BindsTo=push-prometheus-metrics.service
+BindsTo=adsb-push-prometheus-metrics.service
 
 [Service]
 Type=exec

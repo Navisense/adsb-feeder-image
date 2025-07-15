@@ -3092,8 +3092,8 @@ class AdsbIm:
                 f"Toggling Prometheus metrics state from {currently_enabled} "
                 f"to {should_be_enabled}.")
         command = "enable" if should_be_enabled else "disable"
-        proc, = utils.system.systemctl().run([f"{command} --now"],
-                                             ["push-prometheus-metrics.timer"])
+        proc, = utils.system.systemctl().run(
+            [f"{command} --now"], ["adsb-push-prometheus-metrics.timer"])
         if proc.returncode != 0:
             self._logger.error(
                 "Error enabling/disabling Prometheus metrics state: "
