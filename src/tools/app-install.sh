@@ -168,7 +168,7 @@ which iw &> /dev/null || missing+="${PKG_NAME_IW} "
 which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "
 which kea-dhcp4 &> /dev/null || missing+="${PKG_NAME_KEA} "
 which node_exporter &> /dev/null || missing+="${PKG_NAME_PROMETHEUS_NODE_EXPORTER} "
-which zst &> /dev/null || missing+="${PKG_NAME_ZSTD} "
+which zstd &> /dev/null || missing+="${PKG_NAME_ZSTD} "
 
 if [ "${ENABLE_MDNS}" == "True" ] ; then
     which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
