@@ -3531,10 +3531,6 @@ class AdsbIm:
             os.remove("/opt/adsb/adsb.im.passwd.and.keys")
 
         board = self._d.env_by_tags("board_name").value
-        # there are many other boards I should list here - but Pi 3 and Pi Zero are probably the most common
-        stage2_suggestion = board.startswith("Raspberry") and not (
-            board.startswith("Raspberry Pi 4") or board.startswith("Raspberry Pi 5")
-        )
         if self.local_address:
             local_address = self.local_address
         else:
@@ -3570,7 +3566,6 @@ class AdsbIm:
             local_address=local_address,
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,
-            stage2_suggestion=stage2_suggestion,
             matrix=self.agg_matrix,
             compose_up_failed=compose_up_failed,
             channel=channel,

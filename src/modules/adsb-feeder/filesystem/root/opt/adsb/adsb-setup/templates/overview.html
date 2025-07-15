@@ -1,20 +1,9 @@
 {% extends "base-regular.html" %}
 {% set active_page = "index" %}
-{% block title %}Porttracker Feeder Homepage{% endblock title %}
+{% block title %}
+  Porttracker Feeder Homepage
+{% endblock title %}
 {% block content %}
-  {# painfully figure out which sites we are handling here - just the base, or a list of proxies? #}
-  {% set ns = namespace() %}
-  {% set ns.site_indices = [] %}
-  {% if is_enabled('stage2') %}
-    {% for site in env_value_by_tag('site_name') %}
-      {% if loop.index0 > 0 %}
-        {% set ns.site_indices = ns.site_indices + [loop.index0] %}
-      {% endif %}
-    {% endfor %}
-  {% else %}
-    {% set ns.site_indices = [0] %}
-  {% endif %}
-  {% set num_micro_sites = (ns.site_indices | length) %}
   <div class="alert alert-danger {% if env_value_by_tag('dns_state') %}d-none{% endif %}"
        role="alert">The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.</div>
   <div class="alert alert-danger {% if not ipv6_broken %}d-none{% endif %}"
@@ -43,169 +32,60 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
-  <div class="row">
-    <div class="col-12 mb-3 {% if env_value_by_tag('aggregator_choice') not in ['micro', 'nano'] or is_enabled('stage2') %}d-none{% endif %}">
-      <h5>You are running in {{ env_value_by_tag("aggregator_choice") }} feeder mode</h5>
-      <div class="mt-3" id="stage2_contact_placeholder">Checking on last connection...</div>
-      <div class="mt-3 d-none" id="stage2_contact">
-        The Stage 2 system at address <span id="stage2_address"></span> has
-        recently accessed this feeder.
-      </div>
-      <div class="mt-3 d-none" id="stage2_no_recent_contact">
-        No Stage 2 system has recently accessed this feeder. The last
-        contact was from <span id="stage2_last_contact_ip"></span> <span id="stage2_last_contact_time_since"></span> ago
-      </div>
-      <div class="mt-3 d-none" id="stage2_no_contact_found">
-        Connect a Stage 2 system (which will feed aggregators) to this
-        system.
-        Most likely
-        {% if tailscale_address != "" or zerotier_address != "" %}one of{% endif %}
-        {{ local_address }}
-        {% if tailscale_address != "" %}, {{ tailscale_address }}{% endif %}
-        {% if zerotier_address != "" %}
-          ,
-          {{ zerotier_address }}
-        {% endif %}
-        will work as the IP address for this {{ env_value_by_tag("aggregator_choice") }} feeder.
-      </div>
-    </div>
-    <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
-    <div class="col-12 mb-3 {%- if is_enabled('stage2') -%}d-none{%- endif -%}">
-      Position / Message rate: <a {% if env_value_by_tag('aggregator_choice') != 'nano' %}href="/stats_0/"{% endif %}>
-      <span id="{%- if not is_enabled('stage2') -%}mf_status_0{%- endif -%}"></span> —
-      <span id="{%- if not is_enabled('stage2') -%}mf_stats_0{%- endif -%}"></span></a>
-  </div>
+  <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
   <div class="col-12 mb-3">
-    AIS Message rate:
-    <span id="ais_msg_rate" class="fw-bold">--</span>
-    — Vessels (last min):
-    <span id="ais_vessel_count" class="fw-bold">--</span>
-  </div>
-  <div class="col-12 mb-3 {% if not is_enabled('stage2') %}d-none{% endif %}">
-    <h5>You are running as Stage 2 feeder</h5>
-    <div class="col-12 mb-3">
-      {% if env_value_by_tag('num_micro_sites') == 0 %}
-        No micro feeder sites configured, yet.
-        Please do so on the <a href={{ url_for("stage2") }}>Stage 2 Setup page</a>.
-      {% else %}
-        <div class="row">
-          <div class="col-xl-5 col-lg-6 col-12">
-            <table class="table table-bordered table-sm lh-1 w-auto table-striped">
-              <thead>
-                <th class="text-center" scope="col">#</th>
-                <th class="text-center" scope="col">Name</th>
-                <th class="text-center" scope="col">Status / Stats</th>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="text-center" scope="row">*</td>
-                  <td class="text-left">
-                    <a href="/map/">{{ list_value_by_tag('site_name', 0) }}</a>
-                  </td>
-                  <td class="text-center">
-                  <a href="/stats/"><span class="small" id="mf_status_0"></span>
-                  <br />
-                  <span class="small" id="mf_stats_0"></span></a>
-              </td>
-            </tr>
-            {% for site in env_value_by_tag('site_name') if not site == list_value_by_tag('site_name', 0) %}
-              <tr>
-                <td class="text-center" scope="row">{{ loop.index }}</td>
-                <td class="text-left">
-                  <a href="/map_{{ loop.index }}/">{{ site }}</a>
-                </td>
-                <td class="text-center">
-                <a href="/stats_{{ loop.index }}/"><span id="mf_status_{{ loop.index }}" class="small"></span>
-                <br />
-                <span id="mf_stats_{{ loop.index }}" class="small"></span></a>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="col-lg-6 col-12">
-    {% if is_enabled('stage2') %}
-      <div style="position: relative;
-                  width: 100%;
-                  height: 100%"
-           id="chart-wrapper">
-        <canvas id="plane-history-chart"></canvas>
-      </div>
-    {% endif %}
-  </div>
-  <div class="col-12">
-    Configure micro feeders on the <a href={{ url_for("stage2") }}>Stage 2 Setup page</a>.
+    Position / Message rate: <a href="/stats_0/">
+    <span id="mf_status_0"></span> — <span id="mf_stats_0"></span>
+  </a>
+</div>
+<div class="col-12 mb-3">
+  AIS Message rate:
+  <span id="ais_msg_rate" class="fw-bold">--</span>
+  — Vessels (last min):
+  <span id="ais_vessel_count" class="fw-bold">--</span>
+</div>
+<div class="col-xl-5 col-lg-6 col-md-8 col-sm-10 col-12">
+  <div style="position: relative;
+              width: 100%;
+              height: 100%"
+       id="chart-wrapper">
+    <canvas id="plane-history-chart"></canvas>
   </div>
 </div>
-{% endif %}
-</div>
-</div>
-{% if not is_enabled('stage2') %}
-  <div class="col-xl-5 col-lg-6 col-md-8 col-sm-10 col-12">
-    <div style="position: relative;
-                width: 100%;
-                height: 100%"
-         id="chart-wrapper">
-      <canvas id="plane-history-chart"></canvas>
-    </div>
-  </div>
-{% endif %}
 <div class="col-12 {% if (aggregators | length) == 0 %}d-none{% endif %}">
   <h4>You are feeding</h4>
   <div class="row small">
     {% for tc in agg_tables %}
-      <div class="col-12 {% if num_micro_sites < 4 %}col-md-6{% endif %}"
-           style="overflow-x: auto">
+      <div class="col-12 col-md-6" style="overflow-x: auto">
         <table class="table table-bordered table-sm lh-1 table-striped">
           <thead>
             <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
-            <td class="text-center" colspan="{{ num_micro_sites }}">Enabled</td>
-            <td class="text-center" colspan="{{ num_micro_sites }}">Data</td>
-            <td class="text-center" colspan="{{ num_micro_sites }}">MLAT</td>
-            <td class="text-center" colspan="{{ num_micro_sites }}">Status</td>
+            <td class="text-center" colspan="1">Enabled</td>
+            <td class="text-center" colspan="1">Data</td>
+            <td class="text-center" colspan="1">MLAT</td>
+            <td class="text-center" colspan="1">Status</td>
           </thead>
           <tbody>
-            {% if num_micro_sites > 1 %}
-              <tr>
-                <td style="position: -webkit-sticky; position: sticky; left: 0px;">Feeder #</td>
-                {% for cols in [1,2,3,4] %}
-                  {% for idx in ns.site_indices %}
-                    <td class="text-center">
-                      <span width="3em">{{ loop.index }}</span>
-                    </td>
-                  {% endfor %}
-                {% endfor %}
-              </tr>
-            {% endif %}
             {% for agg, name, map, status, table in aggregators %}
               {% if (tc == table) %}
                 <tr>
                   <td style="position: -webkit-sticky; position: sticky; left: 0px;">
                     <a href="{{ map }}">{{ name }}</a>
                   </td>
-                  {% for idx in ns.site_indices %}
-                    <td class="text-center">
-                      <span id="{{ agg ~ 'span' ~ idx }}" width="3em">
-                        {% if list_is_enabled(agg, idx) %}✓{% endif %}
-                      </span>
-                    </td>
-                  {% endfor %}
-                  {% for idx in ns.site_indices %}
-                    <td class="text-center">
-                      <span id="{{ agg ~ 'beast' ~ idx }}" width="3em"></span>
-                    </td>
-                  {% endfor %}
-                  {% for idx in ns.site_indices %}
-                    <td class="text-center">
-                      <span id="{{ agg ~ 'mlat' ~ idx }}" width="3em"></span>
-                    </td>
-                  {% endfor %}
-                  {% for idx in ns.site_indices %}
-                    <td class="text-center">
-                      {% if status[idx] != "" and list_is_enabled(agg, idx) %}<a href="{{ status[idx] }}">🔗</a>{% endif %}
-                    </td>
-                  {% endfor %}
+                  <td class="text-center">
+                    <span id="{{ agg ~ 'span' ~ 0 }}" width="3em">
+                      {% if list_is_enabled(agg, 0) %}✓{% endif %}
+                    </span>
+                  </td>
+                  <td class="text-center">
+                    <span id="{{ agg ~ 'beast' ~ 0 }}" width="3em"></span>
+                  </td>
+                  <td class="text-center">
+                    <span id="{{ agg ~ 'mlat' ~ 0 }}" width="3em"></span>
+                  </td>
+                  <td class="text-center">
+                    {% if status[0] != "" and list_is_enabled(agg, 0) %}<a href="{{ status[0] }}">🔗</a>{% endif %}
+                  </td>
                 </tr>
               {% endif %}
             {% endfor %}
@@ -244,18 +124,12 @@
 </div>
 <div class="col-12 mb-4 {% if env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}">
   <div class="small">
-    {% if is_enabled('stage2') %}
-      {% if env_value_by_tag('num_micro_sites') > 0 %}
-        To configure aggregators, target a MicroSite at the top of the page and select the Data Sharing menu.
-      {% endif %}
+    {% if (aggregators | length) == 0 %}
+      No aggregators configured. Add aggregators:
     {% else %}
-      {% if (aggregators | length) == 0 %}
-        No aggregators configured. Add aggregators:
-      {% else %}
-        Add or remove aggregators:
-      {% endif %}
-      <a href="{{ url_for('aggregators') }}">Data Sharing</a>
+      Add or remove aggregators:
     {% endif %}
+    <a href="{{ url_for('aggregators') }}">Data Sharing</a>
   </div>
 </div>
 <div class="col-12 mb-4">
@@ -307,239 +181,6 @@
   </div>
 </div>
 <div class="col-12">
-  {# figure out what's enabled for the integrated feeder or the microfeeders #}
-  {% for idx in ns.site_indices %}
-    {% if list_is_enabled("uat978", idx) %}
-      {% set ns.uat978 = true %}
-    {% endif %}
-    {% if list_is_enabled("adsblol", idx) %}
-      {% set ns.adsblol = true %}
-    {% endif %}
-    {% if list_is_enabled("adsbx", idx) %}
-      {% set ns.adsbx = true %}
-    {% endif %}
-    {% if list_is_enabled("alive", idx) %}
-      {% set ns.alive = true %}
-    {% endif %}
-    {% if list_is_enabled("flightradar", idx) %}
-      {% set ns.flightradar = true %}
-    {% endif %}
-    {% if list_is_enabled("flightaware", idx) %}
-      {% set ns.flightaware = true %}
-    {% endif %}
-    {% if list_is_enabled("planefinder", idx) %}
-      {% set ns.planefinder = true %}
-    {% endif %}
-  {% endfor %}
-  <div id="UAT978" class="row {% if not ns.uat978 %}d-none{% endif %}">
-    <div class="col-12">
-      <h5>UAT978 Mapping Interface</h5>
-    </div>
-    <div class="col-12">
-      <ul>
-        {% for idx in ns.site_indices %}
-          {% if list_is_enabled("uat978", idx) %}
-            <li>
-              {% if idx == 0 or list_value_by_tag('mf_ip', idx) == 'local' %}
-                <a href="{{ url_for('/dump978/') }}">
-                  {% if idx != 0 %}{{ list_value_by_tag('site_name', idx) }}{% endif %}
-                Dump978 map</a>
-              {% else %}
-                <a href="http://{{ list_value_by_tag('mf_ip', idx) }}/dump978/">{{ list_value_by_tag('site_name', idx) }}
-                Dump978 map</a>
-              {% endif %}
-            </li>
-          {% endif %}
-        {% endfor %}
-      </ul>
-    </div>
-  </div>
-  <div class="row mt-3 {% if not (ns.adsblol or ns.flightradar or ns.planefinder or ns.adsbx or ns.alive or ns.flightaware) %}d-none{% endif %}">
-    <div class="col-12">
-      <h5>Additional aggregator links</h5>
-    </div>
-    <div class="col-12 mb-2 {% if not ns.adsblol %}d-none{% endif %}">
-      <div class="lead">ADSB.lol</div>
-      <ul class="mb-0">
-        <li>
-          <a href="https://status.adsb.lol/">ADSB.lol status</a>
-        </li>
-        <li>
-          <a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a>
-        </li>
-        {% if num_micro_sites == 1 %}
-          <li>
-            <a id="adsblol-link-0" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are
-            sending</a>
-          </li>
-          <li>
-            <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tag('lat', 0) }}#lon={{ list_value_by_tag('lon', 0) }}#zoom=10">ADSB.lol
-            MLAT feeder map for the area around {{ list_value_by_tag('site_name', 0) }}</a>
-          </li>
-        {% endif %}
-      </ul>
-      {% if num_micro_sites > 1 %}
-        <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-          <tbody>
-            {% for idx in ns.site_indices %}
-              {% if list_is_enabled("adsblol", idx) %}
-                <tr>
-                  <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                  <td>
-                    <a class="ms-1" id="adsblol-link-{{ idx }}">personal URL</a>
-                  </td>
-                  <td>
-                    <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tag('lat', idx) }}#lon={{ list_value_by_tag('lon', idx) }}#zoom=10">MLAT
-                    feeder map</a>
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      {% endif %}
-      {% if is_enabled('stage2') %}
-        (on the MLAT maps only feeders that have MLAT privacy disabled will be shown)
-      {% else %}
-        {% if list_is_enabled("mlat_privacy", 0) %}
-          (since you have MLAT privacy enabled, your feeder won't be shown)
-        {% else %}
-          (your feeder will be at an approximate location as {{ list_value_by_tag('site_name', 0) }})
-        {% endif %}
-      {% endif %}
-    </div>
-    <div class="col-12 {% if not ns.flightradar %}d-none{% endif %}">
-      <div class="lead">FlightRadar 24</div>
-      <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-        <tbody>
-          {% for idx in ns.site_indices %}
-            {% if list_is_enabled("flightradar", idx) %}
-              {% if idx != 0 %}
-                {% set suffix = '_'~idx %}
-              {% else %}
-                {% set suffix = "" %}
-              {% endif %}
-              <tr>
-                <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                <td>
-                  <a href="/fr24{{ suffix }}/">FR24 status</a>
-                </td>
-              </tr>
-            {% endif %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="col-12 {% if not ns.flightaware %}d-none{% endif %}">
-      <div class="lead">FlightAware</div>
-      <div class="small text-muted">
-        Note: The SkyAware map on the status page does not work, it's not needed to supply data to FA
-        <br>
-        (You can re-enable that map at the cost of increased cpu / memory consumption by adding PIAWARE_MINIMAL=false
-        to the environment variables on the expert page)
-      </div>
-      <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-        <tbody>
-          {% for idx in ns.site_indices %}
-            {% if list_is_enabled("flightaware", idx) %}
-              {% if idx != 0 %}
-                {% set suffix = '_'~idx %}
-              {% else %}
-                {% set suffix = "" %}
-              {% endif %}
-              <tr>
-                <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                <td>
-                  <a href="/fa-status{{ suffix }}/">FlightAware status</a>
-                </td>
-                <td class="d-none">
-                  <a href="/fa{{ suffix }}/">FlightAware map</a>
-                </td>
-              </tr>
-            {% endif %}
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="col-12 {% if not ns.planefinder %}d-none{% endif %}">
-      <div class="lead">PlaneFinder</div>
-      <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-        <tbody>
-          {% for idx in ns.site_indices %}
-            {% if list_is_enabled("planefinder", idx) %}
-              {% if idx != 0 %}
-                {% set suffix = '_'~idx %}
-              {% else %}
-                {% set suffix = "" %}
-              {% endif %}
-              <tr>
-                <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                <td>
-                  <a href="/planefinder{{ suffix }}/">Planefinder map</a>
-                  <td>
-                    <a href="/planefinder-stat{{ suffix }}/">Planefinder stats</a>
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="col-12 {% if not ns.adsbx %}d-none{% endif %}">
-        <div class="lead">ADSBExchange</div>
-        <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-          <tbody>
-            {% for idx in ns.site_indices %}
-              {% if list_is_enabled("adsbx", idx) %}
-                {% if idx != 0 %}
-                  {% set suffix = '_'~idx %}
-                {% else %}
-                  {% set suffix = "" %}
-                {% endif %}
-                <tr>
-                  <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                  <td>
-                    <a id="adsbxstatlink{{ suffix }}" href="">{{ s }}ADSBx Anywhere Stats</a>
-                  </td>
-                  <td>
-                    <a id="adsbxmaplink{{ suffix }}" href="">{{ s }}ADSBx Anywhere Map</a>
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="col-12 {% if not ns.alive %}d-none{% endif %}">
-        <div class="lead">airplanes.live</div>
-        <table class="table table-sm table-borderless lh-1 w-auto mt-0 mb-0 ms-2">
-          <tbody>
-            {% for idx in ns.site_indices %}
-              {% if list_is_enabled("alive", idx) %}
-                {% set suffix = '_'~idx %}
-                <tr>
-                  <th>{{ list_value_by_tag('site_name', idx) }}</th>
-                  <td>
-                    <a id="alivestatus{{ suffix }}" href="https://airplanes.live/myfeed/">{{ s }}Status</a>
-                  </td>
-                  <td>
-                    <a id="alivemaplink{{ suffix }}" href="">{{ s }}Map</a>
-                  </td>
-                </tr>
-              {% endif %}
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-12 {% if not stage2_suggestion or env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}">
-    <br>
-    Running the containers for the account-based aggregators on systems with 1GB of RAM or less can cause problems - it
-    certainly is possible, but many users have observed random issues like MLAT errors or generally issues reliably
-    connecting to those aggregators. A two stage setup which off-loads the connections to the aggregators to a different
-    system might be a good idea.
-  </div>
   <ul>
     <li>
       <span style="display: inline-block; width: 6em;"><strong>Feeder version:</strong></span> {{ version }}
@@ -553,7 +194,9 @@
     <li>
       <strong>Containers:</strong>
       <ul>
-        {% for container in containers %}<li>{{ container }}</li>{% endfor %}
+        {% for container in containers %}
+          <li>{{ container }}</li>
+        {% endfor %}
       </ul>
     </li>
     <li>
@@ -747,9 +390,6 @@ function updateAisStats() {
             }
             // now collect the feeder names - need to do this in jinja, not JS
             feeders[0] = "{{ list_value_by_tag('site_name', 0) }}";
-            {% for idx in ns.site_indices %}
-            feeders["{{ idx }}"] = "{{ list_value_by_tag('site_name', idx) }}";
-            {% endfor %}
             // now build the datasets
             for (let i = 0; i < len; i++) {
               datasets.push({
@@ -801,22 +441,18 @@ function updateAisStats() {
     scheduleTask(startPageTask, startPageTask.delay);
     $("#last_status_update").html(new Date().toLocaleTimeString());
 
-    if (!['micro', 'nano'].includes("{{ env_value_by_tags(['aggregator_choice']) }}")) {
-      fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(data => {
-          browser_ip = data["ip"];
-          compareIps();
-        });
-      fetch("/api/ip_info", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(data => {
-          feeder_ip = data["feeder_ip"];
-          compareIps();
-        });
-    } else {
-      get_stage2_connection_status();
-    }
+    fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
+      .then(response => response.json())
+      .then(data => {
+        browser_ip = data["ip"];
+        compareIps();
+      });
+    fetch("/api/ip_info", { signal: AbortSignal.timeout(15000) })
+      .then(response => response.json())
+      .then(data => {
+        feeder_ip = data["feeder_ip"];
+        compareIps();
+      });
     fetch("/api/status/im", { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(data => {
@@ -849,15 +485,11 @@ function updateAisStats() {
         }
       });
     {% for agg, name, m, s, table in aggregators %}
-    // agg {{ agg }}
-    {% for idx in ns.site_indices if matrix[idx] > 0 %}
-    // idx {{ idx }}
-    {% if list_is_enabled(agg, idx) %}
-    reset_status("{{ agg }}", {{ idx }});
+    {% if list_is_enabled(agg, 0) and matrix[0] > 0 %}
+    reset_status("{{ agg }}", 0);
     {% endif %}
     {% endfor %}
     get_status("{{ agg }}");
-    {% endfor %}
     getStatsData()
     updateAisStats();
   }
@@ -907,23 +539,6 @@ function updateAisStats() {
           }
         });
       });
-  }
-  function get_stage2_connection_status() {
-    fetch("/api/stage2_connection", { signal: AbortSignal.timeout(15000) })
-      .then(response => response.json())
-      .then(data => {
-        $("#stage2_contact_placeholder").addClass("d-none");
-        if (data["stage2_connected"] == "recent") {
-          $("#stage2_address").text(data["address"]);
-          $("#stage2_contact").removeClass("d-none");
-        } else if (data["stage2_connected"] == "never") {
-          $("#stage2_no_contact_found").removeClass("d-none");
-        } else {
-          $("#stage2_last_contact_ip").text(data["address"]);
-          $("#stage2_last_contact_time_since").text(data["stage2_connected"]);
-          $("#stage2_no_recent_contact").removeClass("d-none");
-        }
-      })
   }
 
   registerTask(check_mf_task);
