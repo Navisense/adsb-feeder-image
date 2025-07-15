@@ -50,12 +50,11 @@ sync-py-control:
 	src/modules/adsb-feeder/filesystem/root/opt/adsb/ \
 	root@$(HOST):/opt/adsb/
 
-	mkdir -p src/modules/adsb-feeder/filesystem/root/usr/bin
-	rsync -av \
-	--exclude="*.pyc" --progress \
+	mkdir -p src/modules/adsb-feeder/filesystem/root/usr/lib/systemd/system
+	rsync -av --progress \
 	-e "ssh -S ${SSH_CONTROL}" \
-	src/modules/adsb-feeder/filesystem/root/usr/bin/ \
-	root@$(HOST):/usr/bin/
+	src/modules/adsb-feeder/filesystem/root/usr/lib/systemd/system/ \
+	root@$(HOST):/usr/lib/systemd/system/
 
 	rsync -av \
 	--exclude="*.pyc" --progress \
@@ -73,6 +72,8 @@ sync-py-control:
 		rm -f /opt/adsb/.cachebust_done; \
 		bash /opt/adsb/scripts/cachebust.sh Makefile;\
 	'
+
+	ssh -S "${SSH_CONTROL}" root@$(HOST) 'systemctl daemon-reload'
 
 run-loop:
 # python3 app.py in a loop
