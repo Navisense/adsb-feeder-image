@@ -21,6 +21,7 @@ import signal
 import shutil
 import string
 import subprocess
+import tempfile
 import threading
 import time
 import tempfile
@@ -321,6 +322,8 @@ class HotspotApp:
 
 
 class AdsbIm:
+    PLANES_SEEN_PER_DAY_PATH = CONFIG_DIR / "planes_seen_per_day.json.gz"
+
     def __init__(self, data: Data, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
@@ -3325,7 +3328,7 @@ class AdsbIm:
         self.plane_stats_day = start_of_day.timestamp()
         self.plane_stats = [[] for i in [0] + self.micro_indices()]
         try:
-            with gzip.open("/opt/adsb/adsb_planes_seen_per_day.json.gz", "r") as f:
+            with gzip.open(self.PLANES_SEEN_PER_DAY_PATH, "r") as f:
                 planes = json.load(f)
                 ts = planes.get("timestamp", 0)
                 if ts >= start_of_day.timestamp():
@@ -3372,15 +3375,12 @@ class AdsbIm:
             planes = {"timestamp": int(time.time()), "planes": planelists, "stats": self.plane_stats}
             planes_json = json.dumps(planes, indent=2)
 
-            path = "/opt/adsb/adsb_planes_seen_per_day.json.gz"
-            tmp = path + ".tmp"
-            with gzip.open(tmp, "w") as f:
-                f.write(planes_json.encode("utf-8"))
-            os.rename(tmp, path)
-            print_err("wrote planes_seen_per_day")
-        except Exception as e:
-            print_err(f"error writing planes_seen_per_day:\n{traceback.format_exc()}")
-            pass
+            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+                tmp_file.write(gzip.compress(planes_json.encode()))
+            shutil.move(tmp_file.name, self.PLANES_SEEN_PER_DAY_PATH)
+            self._logger.info("Wrote planes_seen_per_day.")
+        except:
+            self._logger.exception("Error writing planes_seen_per_day")
 
     def get_current_planes(self, idx):
         planes = set()
