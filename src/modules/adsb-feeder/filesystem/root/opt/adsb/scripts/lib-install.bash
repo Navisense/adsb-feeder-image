@@ -120,3 +120,39 @@ clone_staging_dir() {
     fi
     echo ${clone_dir}
 }
+
+# Install stuff that is dependent on distro.
+#
+# install_distro_specific_quirks <distro>
+install_distro_specific_quirks() {
+    local distro=$1
+    if [ "$distro" == "postmarketos" ]; then
+        # Quirks for Alpine-based PostmarketOS.
+
+        # We don't have a /etc/timezone (which is a glibc thing), but we need it
+        # to mount into containers. Parse the timezone out of timedatectl.
+        if [ ! -f /etc/timezone ] ; then
+            timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
+        fi
+
+        # We have hostapd, kea, and prometheus-node-exporter available, but
+        # since these are (OpenRC-based) Alpine packages, no systemd unit files
+        # are installed. We have to copy our own.
+        cp -a ${SRC_ROOT}/opt/adsb/quirks_postmarketos/*.service \
+            /usr/lib/systemd/system/
+        systemctl daemon-reload
+    fi
+}
+
+
+# Install application files from a staging directory, for a specific distro.
+#
+# install_files <staging_dir> <distro>
+install_files() {
+    local staging_dir=$1
+    local distro=$2
+    local staging_root="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
+    cp -a "${staging_root}/opt/adsb/"* "${APP_DIR}/"
+    cp -a "${staging_root}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
+    install_distro_specific_quirks ${distro}
+}

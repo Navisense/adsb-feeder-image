@@ -102,27 +102,9 @@ SRC_ROOT="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
 cd "$SRC_ROOT" || exit_message "can't cd to $SRC_ROOT"
 ADSB_IM_VERSION=$(bash "${staging_dir}"/src/get_version.sh)
 
-if [ "$distro" == "postmarketos" ]; then
-    # Quirks for Alpine-based PostmarketOS.
-
-    # We don't have a /etc/timezone (which is a glibc thing), but we need it to
-    # mount into containers. Parse the timezone out of timedatectl.
-    if [ ! -f /etc/timezone ] ; then
-        timedatectl show | grep Timezone | cut -d= -f2 > /etc/timezone
-    fi
-
-    # We have hostapd, kea, and prometheus-node-exporter available, but since
-    # these are (OpenRC-based) Alpine packages, no systemd unit files are
-    # installed. We have to copy our own.
-    cp -a ${SRC_ROOT}/opt/adsb/quirks_postmarketos/*.service \
-        /usr/lib/systemd/system/
-    systemctl daemon-reload
-fi
-
-# copy the software in place
-cp -a "${SRC_ROOT}/opt/adsb/"* "${APP_DIR}/"
-rm -f "${SRC_ROOT}/usr/lib/systemd/system/adsb-bootstrap.service"
-cp -a "${SRC_ROOT}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
+install_files ${staging_dir} ${distro}
+# Remove the bootstrap service, only for image installs.
+rm -f "/usr/lib/systemd/system/adsb-bootstrap.service"
 
 # set the 'image name' and version that are shown in the footer of the Web UI
 cd "$APP_DIR" || exit_message "can't cd to $APP_DIR"
