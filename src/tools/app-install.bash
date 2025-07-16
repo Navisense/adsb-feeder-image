@@ -1,8 +1,13 @@
 #!/bin/bash
 
-# install the adsb-setup app, the config files, and the services for use of
-# the adsb-feeder on top of another OS.
-# the script assumes that the dependencies are installed by the caller
+# This script installs the adsb-setup app, and sets up config files and systemd
+# services for use of the adsb-feeder on top of another OS.
+
+# The following line sources a library with functions we need. The CI pipeline
+# will replace it with the contents of that library to get a fully
+# self-contained install script. If the line following this comment doesn't
+# begin with "source", you're looking at such a script.
+source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.bash
 
 USAGE="
  $0 arguments
