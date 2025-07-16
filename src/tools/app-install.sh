@@ -246,7 +246,7 @@ if [ "$distro" == "postmarketos" ]; then
     # We have hostapd, kea, and prometheus-node-exporter available, but since
     # these are (OpenRC-based) Alpine packages, no systemd unit files are
     # installed. We have to copy our own.
-    cp -a ${SRC_ROOT}/opt/adsb/accesspoint/{hostapd,isc-kea-dhcp4-server,prometheus-node-exporter}.service \
+    cp -a ${SRC_ROOT}/opt/adsb/quirks_postmarketos/*.service \
         /usr/lib/systemd/system/
     systemctl daemon-reload
 fi
