@@ -1,6 +1,8 @@
 # This bash library contains functions for installing and uninstalling the
 # application. It is meant to be sourced from other scripts.
 
+APP_DIR="/opt/adsb"
+REPO_URL="https://gitlab.navisense.de/navisense-public/adsb-feeder-image.git"
 
 get_distro() {
     local distro="unknown"
@@ -101,4 +103,20 @@ find_missing_packages() {
         which bash &> /dev/null || missing+="bash "
     fi
     echo "${missing}"
+}
+
+# Clone the repo at the specified ref to a temporary staging directory. The
+# directory will be deleted on script exit. Returns the directory.
+#
+# clone_staging_dir <ref>
+clone_staging_dir() {
+    local ref=$1
+    local clone_dir=$(mktemp -d)
+    trap "rm -rf ${clone_dir}" EXIT
+
+    git clone --branch ${ref} --depth 1 ${REPO_URL}
+    if [ $? -ne 0 ] ; then
+        return $?
+    fi
+    echo ${clone_dir}
 }

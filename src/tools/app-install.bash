@@ -11,9 +11,7 @@ source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.b
 
 USAGE="
  $0 arguments
-  -s srcdir        # the git checkout parent dir
-  -b branch        # the branch to use (default: main)
-  -t tag           # alternatively the tag to use
+  --ref ref        # the ref (e.g. branch or tag) to install (default: main)
   -f               # finish an install on DietPi using dietpi-software
   --web-port port  # the port for the web interface (default: 1099)
   --enable-mdns    # enable the mDNS server (off by default)
@@ -32,10 +30,7 @@ exit_message() {
 
 [ "$(id -u)" != "0" ] && exit_message "$ROOT_REQUIRED"
 
-APP_DIR="/opt/adsb"
-BRANCH=""
-GIT_PARENT_DIR=""
-TAG=""
+REF="main"
 FINISH_DIETPI=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
@@ -44,11 +39,7 @@ EXPAND_ROOTFS="False"
 while (( $# ))
 do
     case $1 in
-        '-s') shift; GIT_PARENT_DIR=$1
-            ;;
-        '-b') shift; BRANCH=$1
-            ;;
-        '-t') shift; TAG=$1
+        '--ref') shift; REF=$1
             ;;
         '-f') FINISH_DIETPI="1"
             ;;
@@ -63,6 +54,12 @@ do
     shift
 done
 
+if [[ ! -d "${APP_DIR}" ]] ; then
+    if ! mkdir -p "${APP_DIR}" ; then
+        exit_message "Failed to create ${APP_DIR}"
+    fi
+fi
+
 if [[ $FINISH_DIETPI == "1" ]] ; then
     # are we just finishing up the install from dietpi-software?
     if [[ -d /boot/dietpi && -f /boot/dietpi/.version ]] ; then
@@ -74,22 +71,6 @@ if [[ $FINISH_DIETPI == "1" ]] ; then
         exit 0
     else
         exit_message "do not use '-f' outside of installing via dietpi-software on DietPi"
-    fi
-fi
-
-if [[ $GIT_PARENT_DIR == '' ]] ; then
-    GIT_PARENT_DIR=$(mktemp -d)
-    # shellcheck disable=SC2064
-    trap "rm -rf $GIT_PARENT_DIR" EXIT
-fi
-if [[ $TAG == '' && $BRANCH == '' ]] ; then
-    BRANCH="main"
-elif [[ $TAG != '' && $BRANCH != '' ]] ; then
-    exit_message "Please set either branch or tag, not both"
-fi
-if [[ ! -d "$APP_DIR" ]] ; then
-    if ! mkdir -p "$APP_DIR" ; then
-        exit_message "failed to create $APP_DIR"
     fi
 fi
 
@@ -111,27 +92,15 @@ if [[ "${missing_packages}" != "" ]] ; then
 fi
 
 # ok, now we should have all we need, let's get started
-
-if ! git clone 'https://github.com/Navisense/adsb-feeder-image.git' "$GIT_PARENT_DIR"/adsb-feeder ; then
-    exit_message "cannot check out the git repo to ${GIT_PARENT_DIR}"
-fi
-
-cd "$GIT_PARENT_DIR"/adsb-feeder || exit_message "can't find $GIT_PARENT_DIR/adsb-feeder"
-
-if [[ $BRANCH != '' ]] ; then
-    if ! git checkout "$BRANCH" ; then
-        exit_message "cannot check out the branch ${BRANCH}"
-    fi
-else  # because of the sanity checks above we know that we have a tag
-    if ! git checkout "$TAG" ; then
-        exit_message "cannot check out the tag ${TAG}"
-    fi
+staging_dir=$(clone_staging_dir ${REF})
+if [ $? -n 0 ] ; then
+    exit_message "Cannot check out repository ref ${REF}"
 fi
 
 # determine the version
-SRC_ROOT="${GIT_PARENT_DIR}/adsb-feeder/src/modules/adsb-feeder/filesystem/root"
+SRC_ROOT="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
 cd "$SRC_ROOT" || exit_message "can't cd to $SRC_ROOT"
-ADSB_IM_VERSION=$(bash "${GIT_PARENT_DIR}"/adsb-feeder/src/get_version.sh)
+ADSB_IM_VERSION=$(bash "${staging_dir}"/src/get_version.sh)
 
 if [ "$distro" == "postmarketos" ]; then
     # Quirks for Alpine-based PostmarketOS.
@@ -154,7 +123,6 @@ fi
 cp -a "${SRC_ROOT}/opt/adsb/"* "${APP_DIR}/"
 rm -f "${SRC_ROOT}/usr/lib/systemd/system/adsb-bootstrap.service"
 cp -a "${SRC_ROOT}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
-rm -rf "${GIT_PARENT_DIR}/adsb-feeder"
 
 # set the 'image name' and version that are shown in the footer of the Web UI
 cd "$APP_DIR" || exit_message "can't cd to $APP_DIR"
