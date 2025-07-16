@@ -1,7 +1,8 @@
 #!/bin/bash
 
 if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
-    echo "missing /opt/adsb/scripts/lib-common.bash -- that's generally a bad sign"
+    echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
+    exit 1
 else
     . /opt/adsb/scripts/lib-common.bash
     rootcheck
@@ -15,19 +16,19 @@ if [[ -f /run/adsb-feeder-image.log ]] && (( $(wc -l < /run/adsb-feeder-image.lo
 fi
 
 # if this is the update check at 1:30am, do the updates if configured
-currenttime=$(TZ=$(grep -e "FEEDER_TZ=" /opt/adsb/config/.env | cut -d= -f2) date '+%H:%M')
+currenttime=$(TZ=$(grep -e "FEEDER_TZ=" /etc/adsb/.env | cut -d= -f2) date '+%H:%M')
 if [[ "$currenttime" > "01:20" ]] && [[ "$currenttime" < "01:40" ]]; then
     # check in the .env file what we should do
-    if grep -q "^AF_IS_NIGHTLY_BASE_UPDATE_ENABLED=True" config/.env ; then
+    if grep -q "^AF_IS_NIGHTLY_BASE_UPDATE_ENABLED=True" /etc/adsb/.env ; then
         echo "$(date -u +"%FT%T.%3NZ") Nightly OS update:"
         /opt/adsb/scripts/update-os
         echo "$(date -u +"%FT%T.%3NZ") Nightly OS update: done"
     fi
-    if grep "^AF_IS_NIGHTLY_FEEDER_UPDATE_ENABLED=True" config/.env ; then
+    if grep "^AF_IS_NIGHTLY_FEEDER_UPDATE_ENABLED=True" /etc/adsb/.env ; then
         echo "$(date -u +"%FT%T.%3NZ") Nightly feeder update:"
         # just running feeder-update is unnecessary disk thrashing.
         # check instead if there is an update available
-        PORT=$(grep AF_WEBPORT /opt/adsb/config/.env | cut -d= -f2)
+        PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
         # if the advice is empty, we don't need to update:
         if curl -sS "http://127.0.0.1:${PORT}/api/status/im" | jq -e '.in_channel_update == 0' >/dev/null; then
             echo "$(date -u +"%FT%T.%3NZ") Nightly feeder update: no new version availabe"

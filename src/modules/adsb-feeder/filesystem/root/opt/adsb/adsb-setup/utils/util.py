@@ -16,7 +16,7 @@ import tempfile
 import flask
 
 verbose = (
-    0 if not os.path.exists("/opt/adsb/config/verbose") else int(open("/opt/adsb/config/verbose", "r").read().strip())
+    0 if not os.path.exists("/etc/adsb/verbose") else int(open("/etc/adsb/verbose", "r").read().strip())
 )
 
 # create a board unique but otherwise random / anonymous ID

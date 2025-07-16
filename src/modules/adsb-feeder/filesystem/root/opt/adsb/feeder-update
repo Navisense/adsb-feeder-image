@@ -32,7 +32,7 @@ start_wait_app() {
     python3 /opt/adsb/old-setup/adsb-setup/waiting-app.py "$@" &>> "$LOGFILE"
 }
 kill_wait_app() {
-    PORT=$(grep AF_WEBPORT /opt/adsb/config/.env | cut -d= -f2)
+    PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
     PORTHEX=$(printf "%04x" "$PORT")
 
     # figure out if something is listening to that port and give it some time to stop running
@@ -67,7 +67,7 @@ waiting_placeholder() {
     kill_wait_app
 
     # finally start the waiting-app
-    PORT=$(grep AF_WEBPORT /opt/adsb/config/.env | cut -d= -f2)
+    PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
     start_wait_app "$PORT" "$LOGFILE" "Updating the" &
 }
 LAST_ARG=${!#}
@@ -190,9 +190,9 @@ if [ ! -L /opt/adsb/adsb-setup.log ]; then
 fi
 
 # we know that the adsb-setup app has been shut down so, let's do a quick backup of the config data
-mkdir -p /opt/adsb/config/backups
-cp /opt/adsb/config/.env /opt/adsb/config/backups/env."$TIMESTAMP" &> /dev/null
-cp /opt/adsb/config/config.json /opt/adsb/config/backups/config.json."$TIMESTAMP" &> /dev/null
+mkdir -p /etc/adsb/backups."$TIMESTAMP"
+cp /etc/adsb/.env /etc/adsb/backups."$TIMESTAMP"/.env &> /dev/null
+cp /etc/adsb/config.json /etc/adsb/backups."$TIMESTAMP"/config.json &> /dev/null
 
 cd "${DIR}/adsb-feeder-image" || exit_with_message "can't cd to ${DIR}/adsb-feeder-image"
 
@@ -319,7 +319,7 @@ for service in "${services[@]}"; do
     rm -vf "/etc/systemd/system/$service"
 done
 
-if grep -qs -i -e "AF_IS_STAGE2=True" /opt/adsb/config/.env && ! diff -q /opt/adsb/webproxy/locations.conf ./opt/adsb/webproxy/locations.conf; then
+if grep -qs -i -e "AF_IS_STAGE2=True" /etc/adsb/.env && ! diff -q /opt/adsb/webproxy/locations.conf ./opt/adsb/webproxy/locations.conf; then
     restart_webproxy=true
 fi
 
@@ -420,8 +420,8 @@ cp -f adsb.im.version adsb.im.previous-version
 # and end up being part of the VERSION string - those need to be escaped for sed
 echo "$VERSION" > /opt/adsb/adsb.im.version
 SEDVERSION=${VERSION//\//\\\/}
-sed -i "s/BASE_VERSION=.*/BASE_VERSION=$SEDVERSION/" /opt/adsb/config/.env
-sed -i "s/\"_ADSBIM_BASE_VERSION\": \"[^\"]*\"/\"_ADSBIM_BASE_VERSION\": \"$SEDVERSION\"/" /opt/adsb/config/config.json
+sed -i "s/BASE_VERSION=.*/BASE_VERSION=$SEDVERSION/" /etc/adsb/.env
+sed -i "s/\"_ADSBIM_BASE_VERSION\": \"[^\"]*\"/\"_ADSBIM_BASE_VERSION\": \"$SEDVERSION\"/" /etc/adsb/config.json
 
 # if there is any special handling in the adsb-setup app for changes to the config files,
 # env var names, etc (like in the v1.2.3->v1.3.0 upgrade), we need to run that

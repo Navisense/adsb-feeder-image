@@ -33,7 +33,7 @@ class MultiOutline:
         hwt_feeders = []
         now = time.time()
         tar1090port = 8080
-        with open("/opt/adsb/config/.env", "r") as env:
+        with open("/etc/adsb/.env", "r") as env:
             for line in env:
                 match = re.search(r"AF_TAR1090_PORT=(\d+)", line)
                 if match:

@@ -10,9 +10,9 @@ fi
 systemctl stop adsb-setup
 
 TMP="$(mktemp config.json.XXXX)"
-JSON="/opt/adsb/config/config.json"
+JSON="/etc/adsb/config.json"
 jq < "$JSON" '."AF_IS_SECURE_IMAGE" = false' > "$TMP" && mv "$TMP" "$JSON"
-sed -i '/_ADSBIM_STATE_IS_SECURE_IMAGE=True/d' /opt/adsb/config/.env
+sed -i '/_ADSBIM_STATE_IS_SECURE_IMAGE=True/d' /etc/adsb/.env
 rm /opt/adsb/adsb.im.secure_image
 
 systemctl restart adsb-setup

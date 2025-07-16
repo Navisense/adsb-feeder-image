@@ -11,7 +11,7 @@ SEPARATOR="
 # and also append a bunch of other diagnostic info
 SANITIZED_LOG="
 important:
-$(jq '{ version: ._ADSBIM_BASE_VERSION, board: ._ADSBIM_STATE_BOARD_NAME, user_env: ._ADSBIM_STATE_EXTRA_ENV, user_ultrafeeder: ._ADSBIM_STATE_ULTRAFEEDER_EXTRA_ARGS }' /opt/adsb/config/config.json 2>&1)
+$(jq '{ version: ._ADSBIM_BASE_VERSION, board: ._ADSBIM_STATE_BOARD_NAME, user_env: ._ADSBIM_STATE_EXTRA_ENV, user_ultrafeeder: ._ADSBIM_STATE_ULTRAFEEDER_EXTRA_ARGS }' /etc/adsb/config.json 2>&1)
 ${SEPARATOR}
 uname -a:
 $(uname -a)
@@ -86,10 +86,10 @@ lsusb -v:
 $(timeout 4 lsusb -v 2>&1)
 ${SEPARATOR}
 config.json:
-$(cat /opt/adsb/config/config.json 2>&1)
+$(cat /etc/adsb/config.json 2>&1)
 ${SEPARATOR}
 .env:
-$(cat /opt/adsb/config/.env 2>&1)
+$(cat /etc/adsb/.env 2>&1)
 ${SEPARATOR}
 journalctl -e -n3000:
 $(journalctl -e -n3000 2>&1)

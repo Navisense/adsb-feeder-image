@@ -5,4 +5,4 @@ After=prometheus-node-exporter.service
 
 [Service]
 Type=oneshot
-ExecStart=/opt/adsb/prometheus/push-prometheus-metrics.bash /opt/adsb/config/.env
+ExecStart=/opt/adsb/prometheus/push-prometheus-metrics.bash /etc/adsb/.env

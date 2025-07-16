@@ -97,7 +97,7 @@ from utils.util import (
 from utils.wifi import make_wifi
 
 ADSB_DIR = pathlib.Path("/opt/adsb")
-CONFIG_DIR = pathlib.Path("/opt/adsb/config")
+CONFIG_DIR = pathlib.Path("/etc/adsb")
 
 logger = None
 
@@ -1253,7 +1253,7 @@ class AdsbIm:
                 return redirect(request.url)
             if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
                 filename = secure_filename(file.filename)
-                restore_path = pathlib.Path("/opt/adsb/config/restore")
+                restore_path = CONFIG_DIR / "restore"
                 # clean up the restore path when saving a fresh zipfile
                 shutil.rmtree(restore_path, ignore_errors=True)
                 restore_path.mkdir(mode=0o644, exist_ok=True)
@@ -1283,8 +1283,7 @@ class AdsbIm:
         # be very careful with the content of this zip file...
         print_err("zip file uploaded, looking at the content")
         filename = request.args["zipfile"]
-        adsb_path = pathlib.Path("/opt/adsb/config")
-        restore_path = adsb_path / "restore"
+        restore_path = CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         restored_files: List[str] = []
         with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
@@ -1311,8 +1310,8 @@ class AdsbIm:
                 if len(parts) < 3:
                     continue
                 uf_paths.add(parts[0] + "/" + parts[1] + "/")
-            elif os.path.isfile(adsb_path / name):
-                if filecmp.cmp(adsb_path / name, restore_path / name):
+            elif os.path.isfile(CONFIG_DIR / name):
+                if filecmp.cmp(CONFIG_DIR / name, restore_path / name):
                     print_err(f"{name} is unchanged")
                     unchanged.append(name)
                 else:
@@ -1327,9 +1326,8 @@ class AdsbIm:
     def restore_post(self, form):
         # they have selected the files to restore
         print_err("restoring the files the user selected")
-        adsb_path = pathlib.Path("/opt/adsb/config")
-        (adsb_path / "ultrafeeder").mkdir(mode=0o755, exist_ok=True)
-        restore_path = adsb_path / "restore"
+        (CONFIG_DIR / "ultrafeeder").mkdir(mode=0o755, exist_ok=True)
+        restore_path = CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         try:
             subprocess.call("/opt/adsb/docker-compose-adsb down -t 20", timeout=40.0, shell=True)
@@ -1338,9 +1336,9 @@ class AdsbIm:
         for name, value in form.items():
             if value == "1":
                 print_err(f"restoring {name}")
-                dest = adsb_path / name
+                dest = CONFIG_DIR / name
                 if dest.is_file():
-                    shutil.move(dest, adsb_path / (name + ".dist"))
+                    shutil.move(dest, CONFIG_DIR / (name + ".dist"))
                 elif dest.is_dir():
                     shutil.rmtree(dest, ignore_errors=True)
 
@@ -1368,7 +1366,7 @@ class AdsbIm:
                         write_values_to_config_json(values, reason="execute_restore from .env")
 
         # clean up the restore path
-        restore_path = pathlib.Path("/opt/adsb/config/restore")
+        restore_path = CONFIG_DIR / "restore"
         shutil.rmtree(restore_path, ignore_errors=True)
 
         # now that everything has been moved into place we need to read all the values from config.json
@@ -2169,7 +2167,7 @@ class AdsbIm:
                 print_err(f"found suspicious characters in IP address {ip} - let's not use this in a command")
                 return (False, f"found suspicious characters in IP address {ip} - rejected")
             else:
-                data_dir = pathlib.Path("/opt/adsb/config/ultrafeeder")
+                data_dir = CONFIG_DIR / "ultrafeeder"
                 if (data_dir / f"{old_ip}").exists() and (data_dir / f"{old_ip}").is_dir():
                     # ok, as one would hope, there's an Ultrafeeder directory for the old IP
                     if (data_dir / f"{ip}").exists():
@@ -2223,10 +2221,10 @@ class AdsbIm:
 
     def setRtlGain(self):
         if self._d.is_enabled("stage2_nano") or self._d.env_by_tags("aggregator_choice").value == "nano":
-            gaindir = pathlib.Path("/opt/adsb/config/nanofeeder/globe_history/autogain")
+            gaindir = CONFIG_DIR / "nanofeeder/globe_history/autogain"
             setGainPath = pathlib.Path("/run/adsb-feeder-nanofeeder/readsb/setGain")
         else:
-            gaindir = pathlib.Path("/opt/adsb/config/ultrafeeder/globe_history/autogain")
+            gaindir = CONFIG_DIR / "ultrafeeder/globe_history/autogain"
             setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
@@ -3805,7 +3803,7 @@ def create_stage2_yml_files(n, ip):
         [f"rv_{n}.yml", "rv_stage2_template.yml"],
         [f"sdrmap_{n}.yml", "sdrmap_stage2_template.yml"],
     ]:
-        create_stage2_yml_from_template(f"/opt/adsb/config/{yml_file}", n, ip, f"/opt/adsb/config/{template}")
+        create_stage2_yml_from_template(f"/opt/adsb/compose_files/{yml_file}", n, ip, f"/opt/adsb/compose_files/{template}")
 
 
 class Manager:
@@ -3846,32 +3844,15 @@ class Manager:
         self._ensure_config_exists()
 
     def _ensure_config_exists(self):
-        # setup the config folder if that hasn't happened yet
-        # this is designed for two scenarios:
-        # (a) /opt/adsb/config is a subdirectory of /opt/adsb (that gets created if necessary)
-        #     and the config files are moved to reside there
-        # (b) prior to starting this app, /opt/adsb/config is created as a symlink to the
-        #     OS designated config dir (e.g., /mnt/dietpi_userdata/adsb-feeder) and the config
-        #     files are moved to that place instead
         if not CONFIG_DIR.exists():
             CONFIG_DIR.mkdir()
-            env_file = ADSB_DIR / ".env"
-            if env_file.exists():
-                shutil.move(env_file, CONFIG_DIR / ".env")
-
-        moved = False
-        for config_file in ADSB_DIR.glob("*.yml"):
-            if config_file.exists():
-                moved = True
-                new_file = CONFIG_DIR / config_file.name
-                shutil.move(config_file, new_file)
-        if moved:
-            self._logger.info(f"moved yml files to {CONFIG_DIR}")
 
         if not pathlib.Path(CONFIG_DIR / ".env").exists():
-            # I don't understand how that could happen
-            shutil.copyfile(
-                ADSB_DIR / "docker.image.versions", CONFIG_DIR / ".env")
+            env_file = ADSB_DIR / ".env"
+            if not env_file.exists():
+                env_file = ADSB_DIR / "docker.image.versions"
+            shutil.copyfile(env_file, CONFIG_DIR / ".env")
+
 
     def __enter__(self):
         assert self._connectivity_monitor is None

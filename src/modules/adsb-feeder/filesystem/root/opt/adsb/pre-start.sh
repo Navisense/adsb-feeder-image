@@ -4,14 +4,14 @@
 # is (re)started
 
 if [ -f /opt/adsb/verbose ] ; then
-    mkdir -p /opt/adsb/config
-    mv /opt/adsb/verbose /opt/adsb/config/verbose
+    mkdir -p /etc/adsb
+    mv /opt/adsb/verbose /etc/adsb/verbose
 fi
 
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh"
 
 kill_wait_app() {
-    PORT=$(grep AF_WEBPORT /opt/adsb/config/.env | cut -d= -f2)
+    PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
     PORTHEX=$(printf "%04x" "$PORT")
 
     # figure out if something is listening to that port and give it some time to stop running
@@ -72,8 +72,8 @@ done
 # first make sure we have an /opt/adsb/config directory (or a link to one)
 # once we have those two things in place, the setup app will successfully
 # start and finish the rest of the work
-[[ -d /opt/adsb/config ]] || mkdir -p /opt/adsb/config
-cd /opt/adsb/config
+[[ -d /etc/adsb ]] || mkdir -p /etc/adsb
+cd /etc/adsb
 if [ ! -f .env ] ; then
     cp /opt/adsb/docker.image.versions .env
     echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> .env

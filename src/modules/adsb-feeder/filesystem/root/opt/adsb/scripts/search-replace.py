@@ -3,7 +3,7 @@
 import sys
 import json
 
-config = json.load(open("/opt/adsb/config/config.json", "r"))
+config = json.load(open("/etc/adsb/config.json", "r"))
 
 sr = []
 

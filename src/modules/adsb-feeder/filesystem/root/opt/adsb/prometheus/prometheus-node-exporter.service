@@ -6,7 +6,7 @@ BindsTo=adsb-push-prometheus-metrics.service
 
 [Service]
 Type=exec
-EnvironmentFile=/opt/adsb/config/.env
+EnvironmentFile=/etc/adsb/.env
 ExecStartPre=/bin/mkdir -p ${AF_PROMETHEUS_TEXTFILE_DIR}
 ExecStart=/usr/bin/node_exporter \
     --collector.textfile.directory=${AF_PROMETHEUS_TEXTFILE_DIR} \

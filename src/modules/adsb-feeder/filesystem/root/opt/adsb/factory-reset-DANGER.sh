@@ -4,7 +4,7 @@ systemctl stop adsb-setup
 echo "FACTORY RESET" >> /run/adsb-feeder-image.log
 
 /opt/adsb/docker-compose-adsb down
-rm -f /opt/adsb/config/{.env,config.json};
+rm -rf /etc/adsb
 rm -f /opt/adsb/init-complete
 [ "$1" = "-prune" ] && docker system prune -a -f
 

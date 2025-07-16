@@ -109,8 +109,8 @@ services:
       # USER_PROVIDED_ENV_START
       # USER_PROVIDED_ENV_END
     volumes:
-      - /opt/adsb/config/ultrafeeder/globe_history:/var/globe_history
-      - /opt/adsb/config/ultrafeeder/graphs1090:/var/lib/collectd
+      - /etc/adsb/ultrafeeder/globe_history:/var/globe_history
+      - /etc/adsb/ultrafeeder/graphs1090:/var/lib/collectd
       - /usr/local/share/osm_tiles_offline:/usr/local/share/osm_tiles_offline
       - /proc/diskstats:/proc/diskstats:ro
       - /dev:/dev:ro

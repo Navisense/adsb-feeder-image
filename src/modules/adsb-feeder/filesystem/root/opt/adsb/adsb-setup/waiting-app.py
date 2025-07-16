@@ -73,8 +73,8 @@ if __name__ == "__main__":
         title = argv[3] + " ADS-B Feeder System"
 
     print_err(f'Starting waiting-app.py on port {port} with title "{title}" streaming logfile {logfile}')
-    if os.path.exists("/opt/adsb/config/config.json"):
-        with open("/opt/adsb/config/config.json") as f:
+    if os.path.exists("/etc/adsb/config.json"):
+        with open("/etc/adsb/config.json") as f:
             config = json.load(f)
         theme = config.get("_ASDBIM_CSS_THEME", "auto")
     app.run(host="0.0.0.0", port=port)

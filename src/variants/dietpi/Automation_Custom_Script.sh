@@ -142,7 +142,7 @@ ln -s /mnt/dietpi_userdata/adsb-feeder/config /opt/adsb/
 # move the services in place
 mv -v /opt/adsb/usr/lib/systemd/system/* /usr/lib/systemd/system
 
-ENV_FILE=/opt/adsb/config/.env
+ENV_FILE=/etc/adsb/.env
 cp /opt/adsb/docker.image.versions "$ENV_FILE"
 echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"
 echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"

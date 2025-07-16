@@ -64,6 +64,6 @@ fi
 echo "PRUNING DONE"
 
 
-sed -i "s/CONTAINER_VERSION=.*/CONTAINER_VERSION=$TIME/" /opt/adsb/config/.env
+sed -i "s/CONTAINER_VERSION=.*/CONTAINER_VERSION=$TIME/" /etc/adsb/.env
 
 echo "$(date -Iseconds): done"

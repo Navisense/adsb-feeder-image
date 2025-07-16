@@ -5,7 +5,8 @@
 # to logging to /run
 
 if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
-    echo "missing /opt/adsb/scripts/lib-common.bash -- that's generally a bad sign"
+    echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
+    exit 1
 else
     . /opt/adsb/scripts/lib-common.bash
     rootcheck

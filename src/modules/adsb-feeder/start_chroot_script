@@ -57,8 +57,8 @@ fi
 echo "Using feeder image name $(cat /opt/adsb/feeder-image.name)"
 
 # setup initial .env with container versions
-mkdir -p /opt/adsb/config
-ENV_FILE=/opt/adsb/config/.env
+mkdir -p /etc/adsb
+ENV_FILE=/etc/adsb/.env
 cp /opt/adsb/docker.image.versions "$ENV_FILE"
 echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"
 echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"

@@ -98,9 +98,6 @@ if [[ ! -d "$APP_DIR" ]] ; then
         exit_message "failed to create $APP_DIR"
     fi
 fi
-if [[ ! -d "$APP_DIR"/config ]] ; then
-    mkdir -p "$APP_DIR"/config
-fi
 
 distro=$(get_distro)
 echo "You appear to be on a ${distro}-style distribution"
@@ -290,7 +287,7 @@ echo "Porttracker Feeder app running on ${OS}" > feeder-image.name
 echo "$ADSB_IM_VERSION" > adsb.im.version
 touch ${APP_DIR}/app.adsb.feeder.image
 
-cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
+mkdir -p /etc/adsb
 {
     cat ${APP_DIR}/docker.image.versions
     echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"
@@ -302,7 +299,7 @@ cd ${APP_DIR}/config || exit_message "can't find ${APP_DIR}/config"
     echo "AF_PIAWARESTAT_PORT=1093"
     echo "AF_DAZZLE_PORT=1094"
     echo "AF_IS_MDNS_ENABLED=${ENABLE_MDNS}"
- } >> .env
+ } >> /etc/adsb/.env
 
 # run the final steps of the setup and then enable the service
 systemctl daemon-reload

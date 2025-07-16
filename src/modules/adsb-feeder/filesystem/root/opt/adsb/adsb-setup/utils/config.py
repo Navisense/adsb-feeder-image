@@ -5,7 +5,7 @@ import tempfile
 import threading
 from .util import make_int, print_err, verbose
 
-CONF_DIR = "/opt/adsb/config"
+CONF_DIR = "/etc/adsb"
 ENV_FILE_PATH = CONF_DIR + "/.env"
 USER_ENV_FILE_PATH = CONF_DIR + "/.env.user"
 JSON_FILE_PATH = CONF_DIR + "/config.json"

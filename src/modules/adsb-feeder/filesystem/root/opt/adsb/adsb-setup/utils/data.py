@@ -13,7 +13,7 @@ class Data:
         return cc.instance
 
     data_path = Path("/opt/adsb")
-    config_path = data_path / "config"
+    config_path = Path("/etc/adsb")
     env_file_path = config_path / ".env"
     version_file = data_path / "adsb.im.version"
     secure_image_path = data_path / "adsb.im.secure_image"
