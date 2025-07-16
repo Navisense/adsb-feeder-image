@@ -41,16 +41,9 @@ sync-py-control:
 	rsync -av \
 	--delete --exclude="*.pyc" --progress \
 	-e "ssh -S ${SSH_CONTROL}" \
-	src/modules/adsb-feeder/filesystem/root/opt/adsb/adsb-setup/ \
-	root@$(HOST):/opt/adsb/adsb-setup/
-
-	rsync -av \
-	--exclude="*.pyc" --progress \
-	-e "ssh -S ${SSH_CONTROL}" \
 	src/modules/adsb-feeder/filesystem/root/opt/adsb/ \
 	root@$(HOST):/opt/adsb/
 
-	mkdir -p src/modules/adsb-feeder/filesystem/root/usr/lib/systemd/system
 	rsync -av --progress \
 	-e "ssh -S ${SSH_CONTROL}" \
 	src/modules/adsb-feeder/filesystem/root/usr/lib/systemd/system/ \
