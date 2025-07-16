@@ -12,7 +12,6 @@ source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.b
 USAGE="
  $0 arguments
   --ref ref        # the ref (e.g. branch or tag) to install (default: main)
-  -f               # finish an install on DietPi using dietpi-software
   --web-port port  # the port for the web interface (default: 1099)
   --enable-mdns    # enable the mDNS server (off by default)
   --expand-rootfs  # enable a service to expand the root file system
@@ -31,7 +30,6 @@ exit_message() {
 [ "$(id -u)" != "0" ] && exit_message "$ROOT_REQUIRED"
 
 REF="main"
-FINISH_DIETPI=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
 EXPAND_ROOTFS="False"
@@ -40,8 +38,6 @@ while (( $# ))
 do
     case $1 in
         '--ref') shift; REF=$1
-            ;;
-        '-f') FINISH_DIETPI="1"
             ;;
         '--web-port') shift; WEB_PORT=$1
             ;;
@@ -57,20 +53,6 @@ done
 if [[ ! -d "${APP_DIR}" ]] ; then
     if ! mkdir -p "${APP_DIR}" ; then
         exit_message "Failed to create ${APP_DIR}"
-    fi
-fi
-
-if [[ $FINISH_DIETPI == "1" ]] ; then
-    # are we just finishing up the install from dietpi-software?
-    if [[ -d /boot/dietpi && -f /boot/dietpi/.version ]] ; then
-        # shellcheck disable=SC1091
-        source /boot/dietpi/.version
-        OS="DietPi ${G_DIETPI_VERSION_CORE}.${G_DIETPI_VERSION_SUB}"
-        echo "app-install from $OS" > ${APP_DIR}/adsb.im.previous-version
-        # and for now that's all we need
-        exit 0
-    else
-        exit_message "do not use '-f' outside of installing via dietpi-software on DietPi"
     fi
 fi
 
@@ -108,15 +90,7 @@ rm -f "/usr/lib/systemd/system/adsb-bootstrap.service"
 
 # set the 'image name' and version that are shown in the footer of the Web UI
 cd "$APP_DIR" || exit_message "can't cd to $APP_DIR"
-if [[ -d /boot/dietpi ]] ; then
-    if [[ -f /boot/dietpi/.version ]] ; then
-        # shellcheck disable=SC1091
-        source /boot/dietpi/.version
-        OS="DietPi ${G_DIETPI_VERSION_CORE}.${G_DIETPI_VERSION_SUB}"
-    else
-        OS="DietPi"
-    fi
-elif [[ -f /etc/dist_variant ]] ; then
+if [[ -f /etc/dist_variant ]] ; then
     OS=$(</etc/dist_variant)
 elif [[ -f /etc/os-release ]] ; then
     # shellcheck disable=SC1091
