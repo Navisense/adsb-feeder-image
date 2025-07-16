@@ -25,20 +25,9 @@ ROOT_REQUIRED="
  sudo bash $0 arguments
 "
 
-# simple way to provide a message and exit with an error code
 exit_message() {
     echo "$1"
     exit 1
-}
-
-get_distro() {
-    local distro="unknown"
-    grep -i fedora /etc/os-release &> /dev/null && distro="fedora"
-    grep -i centos /etc/os-release &> /dev/null && distro="fedora"
-    grep -i suse /etc/os-release &> /dev/null && distro="suse"
-    grep -i debian /etc/os-release &> /dev/null && distro="debian"
-    grep -i postmarketos /etc/os-release &> /dev/null && distro="postmarketos"
-    echo $distro
 }
 
 [ "$(id -u)" != "0" ] && exit_message "$ROOT_REQUIRED"
@@ -107,104 +96,9 @@ fi
 distro=$(get_distro)
 echo "You appear to be on a ${distro}-style distribution"
 
-# now that we know that there isn't anything obviously wrong with
-# the command line arguments, let's check if all the dependencies
-# are installed
-# - Python 3.6 or later and Flask 2 or later
-# - curl
-# - git
-# - docker
-# - docker compose
-# - jq
-# - usbutils
-# - avahi (if mDNS is enabled)
-PKG_NAME_PYTHON3="python3"
-PKG_NAME_PYTHON3_FLASK="python3-flask"
-PKG_NAME_PYTHON3_REQUESTS="python3-requests"
-PKG_NAME_CURL="curl"
-PKG_NAME_GIT="git"
-PKG_NAME_DOCKER="docker"
-PKG_NAME_DOCKER_COMPOSE="docker-compose"
-PKG_NAME_USBUTILS="usbutils"
-PKG_NAME_JQ="jq"
-PKG_NAME_IW="iw"
-PKG_NAME_HOSTAPD="hostapd"
-PKG_NAME_KEA="kea"
-PKG_NAME_PROMETHEUS_NODE_EXPORTER="prometheus-node-exporter"
-PKG_NAME_ZSTD="zstd"
-PKG_NAME_AVAHI="avahi"
-PKG_NAME_AVAHI_TOOLS="avahi-tools"
-if [ "$distro" == "debian" ]; then
-    PKG_NAME_DOCKER="docker.io"
-    PKG_NAME_AVAHI="avahi-daemon"
-    PKG_NAME_AVAHI_TOOLS="avahi-utils"
-elif [ "$distro" == "suse" ]; then
-    PKG_NAME_AVAHI_TOOLS="avahi-utils"
-elif [ "$distro" == "postmarketos" ]; then
-    PKG_NAME_PYTHON3_FLASK="py3-flask"
-    PKG_NAME_PYTHON3_REQUESTS="py3-requests"
-    PKG_NAME_DOCKER_COMPOSE="docker-cli-compose"
-fi
-missing=""
-if which python3 &> /dev/null ; then
-    python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 6" &> /dev/null && missing+="${PKG_NAME_PYTHON3} "
-    python3 -c "import requests" &>/dev/null || missing+="${PKG_NAME_PYTHON3_REQUESTS} "
-    python3 -c "import flask" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
-    python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
-else
-    missing+="${PKG_NAME_PYTHON3} ${PKG_NAME_PYTHON3_FLASK} ${PKG_NAME_PYTHON3_REQUESTS} "
-fi
+missing_packages=$(find_missing_packages ${distro})
 
-which curl &> /dev/null || missing+="${PKG_NAME_CURL} "
-which git &> /dev/null || missing+="${PKG_NAME_GIT} "
-
-if which docker &> /dev/null ; then
-	 ! docker compose version &> /dev/null && ! docker-compose version &> /dev/null && missing+="${PKG_NAME_DOCKER_COMPOSE} "
-else
-    missing+="${PKG_NAME_DOCKER} ${PKG_NAME_DOCKER_COMPOSE} "
-fi
-
-which lsusb &> /dev/null || missing+="${PKG_NAME_USBUTILS} "
-which jq &> /dev/null || missing+="${PKG_NAME_JQ} "
-which iw &> /dev/null || missing+="${PKG_NAME_IW} "
-which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "
-which kea-dhcp4 &> /dev/null || missing+="${PKG_NAME_KEA} "
-which node_exporter &> /dev/null || missing+="${PKG_NAME_PROMETHEUS_NODE_EXPORTER} "
-which zstd &> /dev/null || missing+="${PKG_NAME_ZSTD} "
-
-if [ "${ENABLE_MDNS}" == "True" ] ; then
-    which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
-    which avahi-publish &> /dev/null || missing+="${PKG_NAME_AVAHI_TOOLS} "
-fi
-
-if [ "$distro" == "postmarketos" ]; then
-    # PostmarketOS is based on Alpine, which is missing some tools and uses
-    # busybox instead of full-featured versions that we need.
-
-    # busybox' lsusb doesn't have a real -v option (just doesn't show details).
-    if lsusb --help 2>&1 | grep BusyBox &> /dev/null ; then
-        missing+="${PKG_NAME_USBUTILS} "
-    fi
-
-    # busybox' grep is missing the -P option.
-    if grep --help 2>&1 | grep BusyBox &> /dev/null ; then
-        missing+="grep "
-    fi
-
-    # busybox' ps is missing the -q option.
-    if ps --help 2>&1 | grep BusyBox &> /dev/null ; then
-        missing+="procps "
-    fi
-
-    # busybox' ip is missing the -json option.
-    if ip --help 2>&1 | grep BusyBox &> /dev/null ; then
-        missing+="iproute2 "
-    fi
-
-    which bash &> /dev/null || missing+="bash "
-fi
-
-if [[ $missing != "" ]] ; then
+if [[ "${missing_packages}" != "" ]] ; then
     inst=""
         [ "$distro" == "fedora" ] && inst="dnf install -y"
         [ "$distro" == "suse" ] && inst="zypper install -y"
@@ -212,7 +106,7 @@ if [[ $missing != "" ]] ; then
         [ "$distro" == "postmarketos" ] && inst="apk add"
 
     echo "Please install the missing packages before re-running this script:"
-    echo "$inst $missing"
+    echo "$inst ${missing_packages}"
     exit 1
 fi
 
