@@ -141,44 +141,6 @@
     <br />
     <span id="advice" class="small">&nbsp;</span>
   </div>
-  <div id="update_buttons" class="text-secondary">
-    <h5 class="mt-1">Update feeder applications</h5>
-    <form method="post" onsubmit="show_spinner(); return true;">
-      <label for="update_feeder_aps">
-        Update the web UI, setup apps, and containers to the latest beta or stable version.
-        <span onclick="$('#update_explain').toggleClass('d-none'); return false;">
-          <a class="small" href="">Toggle update duration information</a>
-        </span>
-        <span class="small d-none" id="update_explain">
-          <br />
-          If this update brings in new container images, even with a fast
-          internet connection this can easily take more than ten minutes to complete. The web UI will pause while the
-          update is running, but the feeder apps will only be briefly interrupted once all new components have been
-        downloaded.</span>
-      </label>
-      <div class="mt-2">
-        <button type="submit"
-                class="btn btn-primary mb-3 ml-3 col-md-2"
-                name="update_feeder_aps_beta"
-                id="update_feeder_aps_beta"
-                disabled
-                value="go">Update (beta)</button>
-        <button type="submit"
-                class="btn btn-primary mb-3 ml-3 col-md-2"
-                name="update_feeder_aps_stable"
-                id="update_feeder_aps_stable"
-                disabled
-                value="go">Update (stable)</button>
-        {% if "dev" in channel %}
-          <button type="submit"
-                  class="btn btn-primary mb-3 ml-3 col-md-3"
-                  name="update_feeder_aps_branch"
-                  id="update_feeder_aps_branch"
-                  value="go">DANGER: Update ({{ channel }})</button>
-        {% endif %}
-      </div>
-    </form>
-  </div>
 </div>
 <div class="col-12">
   <ul>
@@ -452,37 +414,6 @@ function updateAisStats() {
       .then(data => {
         feeder_ip = data["feeder_ip"];
         compareIps();
-      });
-    fetch("/api/status/im", { signal: AbortSignal.timeout(15000) })
-      .then(response => response.json())
-      .then(data => {
-        $("#latest_tag").text(data["latest_tag"]);
-        $("#version_update").text(data["latest_date"]);
-        $("#advice").html(data["advice"] + "&nbsp;");
-        if (data["show_update"] == "1") {
-          $("#update_buttons").removeClass("text-secondary");
-          const dev = data["advice"] && data["advice"].startsWith("you are running a development version");
-          if (dev || data["beta_changelog"]) {
-            $("#update_feeder_aps_beta").attr("disabled", false);
-            $("#update_feeder_aps_beta").attr("title", data["beta_changelog"]);
-            $("#advice").attr("title", data["beta_changelog"]);
-          }
-          if (dev || data["main_changelog"]) {
-            let message = data["main_changelog"];
-            let set_disabled = false;
-            if (!dev && data["main_changelog"] == "this will get you back to the last release version") {
-              message = "you can downgrade to the last release version on the System->Management page";
-              set_disabled = true;
-            }
-            $("#update_feeder_aps_stable").attr("disabled", set_disabled);
-            $("#update_feeder_aps_stable").attr("title", message);
-            $("#latest_tag").attr("title", message);
-          }
-        } else {
-          $("#update_buttons").addClass("text-secondary");
-          $("#update_feeder_aps_beta").attr("disabled", true);
-          $("#update_feeder_aps_stable").attr("disabled", true);
-        }
       });
     {% for agg, name, m, s, table in aggregators %}
     {% if list_is_enabled(agg, 0) and matrix[0] > 0 %}
