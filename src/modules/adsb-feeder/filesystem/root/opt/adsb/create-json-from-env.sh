@@ -16,8 +16,8 @@ if [ ! -f /etc/adsb/config.json ] ; then
     if [ ! -f /etc/adsb/.env ] ; then
         log $0 "Creating config.json file from scratch."
         lines=$(cat /opt/adsb/docker.image.versions)
-        lines+=$'\n'"_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)"
-        lines+=$'\n'"_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)"
+        lines+=$'\n'"_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)"
+        lines+=$'\n'"_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)"
     else
         log $0 "Creating config.json file from .env."
         lines=$(cat /etc/adsb/.env)

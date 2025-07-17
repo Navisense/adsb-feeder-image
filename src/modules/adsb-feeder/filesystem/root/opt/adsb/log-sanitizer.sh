@@ -17,7 +17,7 @@ uname -a:
 $(uname -a)
 ${SEPARATOR}
 base_image:
-$(cat /opt/adsb/feeder-image.name 2>/dev/null || echo "probably app install")
+$(cat /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt 2>/dev/null || echo "probably app install")
 ${SEPARATOR}
 /etc/os-release:
 $(cat /etc/os-release 2>&1)

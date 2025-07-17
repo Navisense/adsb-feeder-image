@@ -574,7 +574,7 @@ class ImStatus:
                     self._next_check = time.time() + 60
                     if self._d.previous_version:
                         self._d.previous_version = ""
-                        pathlib.Path("/opt/adsb/adsb.im.previous-version").unlink(missing_ok=True)
+                        pathlib.Path("/opt/adsb/porttracker_feeder_install_metadata/previous_version.txt").unlink(missing_ok=True)
                 else:
                     # check again no earlier than 10 seconds from now
                     self._next_check = time.time() + 10

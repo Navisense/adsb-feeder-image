@@ -105,15 +105,15 @@ elif [[ -f /etc/os-release ]] ; then
 else
     OS="unrecognized OS"
 fi
-echo "app-install" > ${APP_DIR}/adsb.im.previous-version
-echo "Porttracker Feeder app running on ${OS}" > feeder-image.name
-echo "$ADSB_IM_VERSION" > adsb.im.version
+echo "app-install" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
+echo "Porttracker Feeder running on ${OS}" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
+echo "$ADSB_IM_VERSION" > /opt/adsb/porttracker_feeder_install_metadata/version.txt
 
 mkdir -p /etc/adsb
 {
     cat ${APP_DIR}/docker.image.versions
-    echo "_ADSBIM_BASE_VERSION=$(cat ${APP_DIR}/adsb.im.version)"
-    echo "_ADSBIM_CONTAINER_VERSION=$(cat ${APP_DIR}/adsb.im.version)"
+    echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)"
+    echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)"
     echo "AF_WEBPORT=${WEB_PORT}"
     echo "AF_TAR1090_PORT=1090"
     echo "AF_UAT978_PORT=1091"

@@ -35,26 +35,22 @@ bash /opt/adsb/scripts/cachebust.sh
 kill_wait_app
 
 ACTION="update to"
-if [[ -f "/opt/adsb/finish-update.done" ]]; then
+if [[ -f "/opt/adsb/porttracker_feeder_install_metadata/finish-update.done" ]]; then
     # so we have completed one of the 'post 0.15' updates already.
     # let's see if the version changed (i.e. if this is another new update)
     # if not, then we ran this script already and can exit
-    if cmp /opt/adsb/finish-update.done /opt/adsb/adsb.im.version > /dev/null 2>&1; then
+    if cmp /opt/adsb/porttracker_feeder_install_metadata/finish-update.done /opt/adsb/porttracker_feeder_install_metadata/version.txt > /dev/null 2>&1; then
         echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh done"
         exit 0
     fi
 else
     ACTION="initial install of"
-    if ! [[ -f /opt/adsb/adsb.im.previous-version ]]; then
-        echo "unknown-install" > /opt/adsb/adsb.im.previous-version
+    if ! [[ -f /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt ]]; then
+        echo "unknown-install" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
     fi
 fi
 
-# if we updated from a fairly old version, the feeder-update script will have written
-# the new version into /etc, not /opt/adsb - if that's the case, simply move it
-[[ -f /etc/adsb.im.version && ! -f /opt/adsb/adsb.im.version ]] && mv -f /etc/adsb.im.version /opt/adsb/adsb.im.version
-
-NEW_VERSION=$(</opt/adsb/adsb.im.version)
+NEW_VERSION=$(</opt/adsb/porttracker_feeder_install_metadata/version.txt)
 echo "$(date -u +"%FT%T.%3NZ") final housekeeping for the $ACTION $NEW_VERSION" >> /run/adsb-feeder-image.log
 
 # remove any left-over apps and files from previous versions
@@ -66,8 +62,6 @@ for app in "${USR_BIN_APPS[@]}"; do
     [[ -f "/opt/adsb/$app" ]] && rm -f "/usr/bin/$app"
 done
 
-[[ -f /etc/adsb.im.version ]] && rm -f /etc/adsb.im.version
-
 # make sure that we have a .env file so the setup app will start
 # first make sure we have an /opt/adsb/config directory (or a link to one)
 # once we have those two things in place, the setup app will successfully
@@ -76,14 +70,14 @@ done
 cd /etc/adsb
 if [ ! -f .env ] ; then
     cp /opt/adsb/docker.image.versions .env
-    echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> .env
-    echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)" >> .env
+    echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> .env
+    echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> .env
 fi
 if [ ! -f config.json ] ; then
     bash /opt/adsb/create-json-from-env.sh
 fi
 
 # remember that we handled the housekeeping for this version
-cp /opt/adsb/adsb.im.version /opt/adsb/finish-update.done
+cp /opt/adsb/porttracker_feeder_install_metadata/version.txt /opt/adsb/porttracker_feeder_install_metadata/finish-update.done
 
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh done"

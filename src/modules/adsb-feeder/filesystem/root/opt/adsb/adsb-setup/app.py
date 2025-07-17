@@ -894,10 +894,9 @@ class AdsbIm:
 
     def get_previous_version(self):
         previous_version = ""
-        pv_file = "/opt/adsb/adsb.im.previous-version"
 
-        if pathlib.Path(pv_file).exists():
-            with open(pv_file, "r") as f:
+        if self._d.previous_version_file.exists():
+            with self._d.previous_version_file.open() as f:
                 previous_version = f.read().strip()
 
         return previous_version

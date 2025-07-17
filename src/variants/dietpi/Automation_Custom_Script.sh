@@ -144,8 +144,8 @@ mv -v /opt/adsb/usr/lib/systemd/system/* /usr/lib/systemd/system
 
 ENV_FILE=/etc/adsb/.env
 cp /opt/adsb/docker.image.versions "$ENV_FILE"
-echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"
-echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/adsb.im.version)" >> "$ENV_FILE"
+echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
+echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
 
 # make sure all the ADS-B Feeder services are enabled and started
 systemctl enable --now adsb-bootstrap.service adsb-setup.service adsb-update.timer adsb-zram.service adsb-netdog.service

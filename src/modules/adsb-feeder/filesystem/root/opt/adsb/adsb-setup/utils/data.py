@@ -15,7 +15,10 @@ class Data:
     data_path = Path("/opt/adsb")
     config_path = Path("/etc/adsb")
     env_file_path = config_path / ".env"
-    version_file = data_path / "adsb.im.version"
+    metadata_path = data_path / "porttracker_feeder_install_metadata"
+    version_file = metadata_path / "version.txt"
+    previous_version_file = metadata_path / "previous_version.txt"
+    friendly_name_file = metadata_path / "friendly_name.txt"
     secure_image_path = data_path / "adsb.im.secure_image"
     _env_by_tags_dict = dict()
     ultrafeeder = []
@@ -383,12 +386,10 @@ class Data:
         Env("_ADSBIM_STATE_PACKAGE", tags=["pack", "norestore"]),
         Env(
             "_ADSBIM_STATE_IMAGE_NAME",
-            # somehow I can't make a path relative to data_path work here...
             default_call=lambda: (
-                Path("/opt/adsb/feeder-image.name").read_text().strip()
-                if Path("/opt/adsb/feeder-image.name").exists()
-                else "ADS-B Feeder Image prior to v0.12"
-            ),
+                Data.friendly_name_file.read_text().strip()
+                if Data.friendly_name_file.exists() else
+                "ADS-B Feeder Image prior to v0.12"),
             tags=["image_name", "norestore"],
         ),
         # legacy secure image state, now handled via separate file
