@@ -105,6 +105,27 @@ find_missing_packages() {
     echo "${missing}"
 }
 
+# Generate a command to install the given packages, based on distro.
+#
+# install_command <distro> <packages>
+install_command () {
+    local distro=$1
+    local packages=$2
+    inst=""
+    if [ "$distro" == "fedora" ] ; then
+        inst="dnf install -y"
+    elif [ "$distro" == "suse" ] ; then
+        inst="zypper install -y"
+    elif [ "$distro" == "debian" ] ; then
+        inst="apt-get install -y"
+    elif [ "$distro" == "postmarketos" ] ; then
+        inst="apk add"
+    else
+        return 1
+    fi
+    echo "$inst ${missing_packages}"
+}
+
 # Clone the repo at the specified ref to a temporary staging directory. Returns
 # the directory.
 #

@@ -11,10 +11,11 @@ source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.b
 
 USAGE="
  $0 arguments
-  --ref ref        # the ref (e.g. branch or tag) to install (default: main)
-  --web-port port  # the port for the web interface (default: 1099)
-  --enable-mdns    # enable the mDNS server (off by default)
-  --expand-rootfs  # enable a service to expand the root file system
+  --ref ref                   # the ref (e.g. branch or tag) to install (default: main)
+  --web-port port             # the port for the web interface (default: 1099)
+  --enable-mdns               # enable the mDNS server (off by default)
+  --expand-rootfs             # enable a service to expand the root file system
+  --auto-install-dependencies # automatically install needed dependencies (off by default)
 "
 
 ROOT_REQUIRED="
@@ -33,6 +34,7 @@ REF="main"
 WEB_PORT="1099"
 ENABLE_MDNS="False"
 EXPAND_ROOTFS="False"
+AUTO_INSTALL_DEPENDENCIES="False"
 
 while (( $# ))
 do
@@ -44,6 +46,8 @@ do
         '--enable-mdns') ENABLE_MDNS="True"
             ;;
         '--expand-rootfs') EXPAND_ROOTFS="True"
+            ;;
+        '--auto-install-dependencies') AUTO_INSTALL_DEPENDENCIES="True"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -60,17 +64,16 @@ distro=$(get_distro)
 echo "You appear to be on a ${distro}-style distribution"
 
 missing_packages=$(find_missing_packages ${distro})
-
 if [[ "${missing_packages}" != "" ]] ; then
-    inst=""
-        [ "$distro" == "fedora" ] && inst="dnf install -y"
-        [ "$distro" == "suse" ] && inst="zypper install -y"
-        [ "$distro" == "debian" ] && inst="apt-get install -y"
-        [ "$distro" == "postmarketos" ] && inst="apk add"
-
-    echo "Please install the missing packages before re-running this script:"
-    echo "$inst ${missing_packages}"
-    exit 1
+    cmd=$(install_command ${distro} "${missing_packages}")
+    if [ "${AUTO_INSTALL_DEPENDENCIES}" == "False" ] ; then
+        echo "Please install the missing packages before re-running this script:"
+        echo "${cmd}"
+        exit 1
+    elif ! ${cmd} > /dev/null ; then
+        echo "Error installing packages using ${cmd}".
+        exit 1
+    fi
 fi
 
 # ok, now we should have all we need, let's get started
