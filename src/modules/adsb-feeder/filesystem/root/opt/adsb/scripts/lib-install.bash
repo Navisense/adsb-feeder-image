@@ -105,16 +105,15 @@ find_missing_packages() {
     echo "${missing}"
 }
 
-# Clone the repo at the specified ref to a temporary staging directory. The
-# directory will be deleted on script exit. Returns the directory.
+# Clone the repo at the specified ref to a temporary staging directory. Returns
+# the directory.
 #
 # clone_staging_dir <ref>
 clone_staging_dir() {
     local ref=$1
     local clone_dir=$(mktemp -d)
-    trap "rm -rf ${clone_dir}" EXIT
 
-    git clone --branch ${ref} --depth 1 ${REPO_URL}
+    git clone --branch ${ref} --depth 1 ${REPO_URL} ${clone_dir} > /dev/null 2>&1
     if [ $? -ne 0 ] ; then
         return $?
     fi

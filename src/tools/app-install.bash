@@ -75,9 +75,10 @@ fi
 
 # ok, now we should have all we need, let's get started
 staging_dir=$(clone_staging_dir ${REF})
-if [ $? -n 0 ] ; then
+if [ $? -ne 0 ] ; then
     exit_message "Cannot check out repository ref ${REF}"
 fi
+trap "rm -rf ${staging_dir}" EXIT
 
 # determine the version
 SRC_ROOT="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
@@ -85,8 +86,6 @@ cd "$SRC_ROOT" || exit_message "can't cd to $SRC_ROOT"
 ADSB_IM_VERSION=$(bash "${staging_dir}"/src/get_version.sh)
 
 install_files ${staging_dir} ${distro}
-# Remove the bootstrap service, only for image installs.
-rm -f "/usr/lib/systemd/system/adsb-bootstrap.service"
 
 # set the 'image name' and version that are shown in the footer of the Web UI
 cd "$APP_DIR" || exit_message "can't cd to $APP_DIR"
