@@ -2,6 +2,7 @@
 # application. It is meant to be sourced from other scripts.
 
 APP_DIR="/opt/adsb"
+METADATA_DIR="${APP_DIR}/porttracker_feeder_install_metadata"
 REPO_URL="https://gitlab.navisense.de/navisense-public/adsb-feeder-image.git"
 
 get_distro() {
@@ -190,9 +191,10 @@ write_install_metadata() {
         fi
     fi
 
-    echo "${previous_version}" > ${APP_DIR}/porttracker_feeder_install_metadata/previous_version.txt
-    echo "Porttracker Feeder running on ${os}" > ${APP_DIR}/porttracker_feeder_install_metadata/friendly_name.txt
-    echo "${version}" > ${APP_DIR}/porttracker_feeder_install_metadata/version.txt
+    mkdir -p ${METADATA_DIR}
+    echo "${previous_version}" > ${METADATA_DIR}/previous_version.txt
+    echo "Porttracker Feeder running on ${os}" > ${METADATA_DIR}/friendly_name.txt
+    echo "${version}" > ${METADATA_DIR}/version.txt
 }
 
 # Install application files from a staging directory, for a specific distro.
