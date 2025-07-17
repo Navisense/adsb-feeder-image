@@ -14,7 +14,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"/../.. || croak "cannot cd to top-level direc
 d="$HOME/.adsb.im.secrets"
 mkdir -p "$d"
 
-v=$(bash ./src/get_version.sh | sed 's/([^)]*)//g')
+v=$(cat ../version.txt | sed 's/([^)]*)//g')
 pu=$(openssl rand -base64 18 | tr -d /=+ | cut -c -16)
 pr=$(openssl rand -base64 18 | tr -d /=+ | cut -c -16)
 pk=$(openssl rand -base64 18 | tr -d /=+ | cut -c -16)

@@ -196,7 +196,7 @@ EOF
     fi
     exit 0
 else
-    VERSION=$(bash "${DIR}/get_version.sh")
+    VERSION=$(cat ../version.txt)
     echo "image-install" > modules/adsb-feeder/filesystem/root//opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
     echo "$VERSION" > modules/adsb-feeder/filesystem/root/opt/adsb/porttracker_feeder_install_metadata/version.txt
 

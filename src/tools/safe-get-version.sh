@@ -49,4 +49,4 @@ fi
     git fetch --tags -f
     git pull
 ) > /dev/null 2>&1
-bash src/get_version.sh | sed 's/)-.*/)/'
+bash $(cat ../version.txt) | sed 's/)-.*/)/'
