@@ -281,7 +281,7 @@ class HotspotApp:
 
     def hotspot(self):
         return flask.render_template(
-            "hotspot.html", version=self._d.read_version(),
+            "hotspot.html", version=self._d.env_by_tags("base_version").value,
             comment=self._message, ssids=self.ssids,
             mdns_enabled=self._d.is_enabled("mdns"))
 
@@ -698,8 +698,6 @@ class AdsbIm:
         self.update_meminfo()
         self.update_journal_state()
 
-        self._d.previous_version = self.get_previous_version()
-
         self.load_planes_seen_per_day()
 
         # now all the envs are loaded and reconciled with the data on file - which means we should
@@ -871,35 +869,7 @@ class AdsbIm:
         self._d.env_by_tags("board_name").value = board
 
     def update_version(self):
-        conf_version = self._d.env_by_tags("base_version").value
-        if pathlib.Path(self._d.version_file).exists():
-            with open(self._d.version_file, "r") as f:
-                file_version = f.read().strip()
-        else:
-            file_version = ""
-        if file_version:
-            if file_version != conf_version:
-                print_err(
-                    f"found version '{conf_version}' in memory, but '{file_version}' on disk, updating to {file_version}"
-                )
-                self._d.env_by_tags("base_version").value = file_version
-        else:
-            if conf_version:
-                print_err(f"no version found on disk, using {conf_version}")
-                with open(self._d.version_file, "w") as f:
-                    f.write(conf_version)
-            else:
-                print_err("no version found on disk or in memory, using v0.0.0")
-                self._d.env_by_tags("base_version").value = "v0.0.0"
-
-    def get_previous_version(self):
-        previous_version = ""
-
-        if self._d.previous_version_file.exists():
-            with self._d.previous_version_file.open() as f:
-                previous_version = f.read().strip()
-
-        return previous_version
+        self._d.env_by_tags("base_version").value = self._d.read_version()
 
     def update_meminfo(self):
         self._memtotal = 0

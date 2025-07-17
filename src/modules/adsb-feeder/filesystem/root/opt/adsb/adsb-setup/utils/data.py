@@ -22,7 +22,6 @@ class Data:
     secure_image_path = data_path / "adsb.im.secure_image"
     _env_by_tags_dict = dict()
     ultrafeeder = []
-    previous_version = ""
 
     _proxy_routes = [
         # endpoint, port, url_path
@@ -386,10 +385,7 @@ class Data:
         Env("_ADSBIM_STATE_PACKAGE", tags=["pack", "norestore"]),
         Env(
             "_ADSBIM_STATE_IMAGE_NAME",
-            default_call=lambda: (
-                Data.friendly_name_file.read_text().strip()
-                if Data.friendly_name_file.exists() else
-                "ADS-B Feeder Image prior to v0.12"),
+            default="Porttracker feeder",
             tags=["image_name", "norestore"],
         ),
         # legacy secure image state, now handled via separate file
@@ -684,6 +680,10 @@ class Data:
             entry.value = value  # always use value from docker.image.versions as definitive source
             _env.add(entry)  # add to _env set
 
+    def __init__(self):
+        self.previous_version = self._read_previous_version()
+        self.env_by_tags("image_name").value = self._read_friendly_name()
+
     @property
     def envs_for_envfile(self):
 
@@ -789,8 +789,17 @@ class Data:
 
     def read_version(self):
         """Read the version string from the version file."""
+        return self._read_file(self.version_file)
+
+    def _read_previous_version(self):
+        return self._read_file(self.previous_version_file)
+
+    def _read_friendly_name(self):
+        return self._read_file(self.friendly_name_file)
+
+    def _read_file(self, file: Path) -> str:
         try:
-            with self.version_file.open() as f:
+            with file.open() as f:
                 return f.read().strip()
         except FileNotFoundError:
             return "unknown"

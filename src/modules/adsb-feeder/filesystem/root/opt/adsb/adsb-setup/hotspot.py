@@ -179,7 +179,6 @@ class Hotspot(abc.ABC):
         self._d = utils.data.Data()
         self._logger = logging.getLogger(type(self).__name__)
         self.wifi = utils.wifi.make_wifi(self.wlan)
-        self.version = self._d.read_version()
         self._setup_config_files()
 
     @abc.abstractmethod
