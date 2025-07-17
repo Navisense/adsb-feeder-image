@@ -80,33 +80,8 @@ if [ $? -ne 0 ] ; then
 fi
 trap "rm -rf ${staging_dir}" EXIT
 
-# determine the version
-SRC_ROOT="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
-cd "$SRC_ROOT" || exit_message "can't cd to $SRC_ROOT"
-ADSB_IM_VERSION=$(bash "${staging_dir}"/src/get_version.sh)
-
 install_files ${staging_dir} ${distro}
-
-# set the 'image name' and version that are shown in the footer of the Web UI
-cd "$APP_DIR" || exit_message "can't cd to $APP_DIR"
-if [[ -f /etc/dist_variant ]] ; then
-    OS=$(</etc/dist_variant)
-elif [[ -f /etc/os-release ]] ; then
-    # shellcheck disable=SC1091
-    source /etc/os-release
-    if [[ $PRETTY_NAME != '' ]] ; then
-        OS="$PRETTY_NAME"
-    elif [[ $NAME != '' ]] ; then
-        OS="$NAME"
-    else
-        OS="unrecognized OS"
-    fi
-else
-    OS="unrecognized OS"
-fi
-echo "app-install" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
-echo "Porttracker Feeder running on ${OS}" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
-echo "$ADSB_IM_VERSION" > /opt/adsb/porttracker_feeder_install_metadata/version.txt
+write_install_metadata ${REF} "fresh install"
 
 mkdir -p /etc/adsb
 {

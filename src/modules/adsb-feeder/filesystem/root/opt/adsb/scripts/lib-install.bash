@@ -143,6 +143,35 @@ install_distro_specific_quirks() {
     fi
 }
 
+# Write metadata files about the install.
+#
+# write_install_metadata <ref> <previous_version>
+write_install_metadata() {
+    local ref=$1
+    local previous_version=$2
+    local version=$(cat ${APP_DIR}/version.txt)
+    if [[ "${version}" != "${ref}" ]] ; then
+        # The ref that was installed wasn't a tag (or it would match exactly the
+        # version file). Include the ref in the friendly version.
+        version="${ref} building on ${version}"
+    fi
+
+    local os="unrecognized OS"
+    if [[ -f /etc/dist_variant ]] ; then
+        os=$(</etc/dist_variant)
+    elif [[ -f /etc/os-release ]] ; then
+        source /etc/os-release
+        if [[ $PRETTY_NAME != '' ]] ; then
+            os="$PRETTY_NAME"
+        elif [[ $NAME != '' ]] ; then
+            os="$NAME"
+        fi
+    fi
+
+    echo "${previous_version}" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
+    echo "Porttracker Feeder running on ${os}" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
+    echo "${version}" > /opt/adsb/porttracker_feeder_install_metadata/version.txt
+}
 
 # Install application files from a staging directory, for a specific distro.
 #
