@@ -2,7 +2,7 @@ default:
   image: 958883103414.dkr.ecr.eu-central-1.amazonaws.com/ci-toolkit:3
 
 variables:
-  VERSION_FILE: ./version.txt
+  VERSION_FILE: src/modules/adsb-feeder/filesystem/root/opt/adsb/version.txt
 
 stages:
   - tag
