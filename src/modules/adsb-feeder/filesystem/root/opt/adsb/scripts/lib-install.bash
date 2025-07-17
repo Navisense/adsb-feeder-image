@@ -143,9 +143,9 @@ clone_staging_dir() {
 
 # Install stuff that is dependent on distro.
 #
-# install_distro_specific_quirks <staging_dir> <distro>
+# install_distro_specific_quirks <staging_root> <distro>
 install_distro_specific_quirks() {
-    local staging_dir=$1
+    local staging_root=$1
     local distro=$2
     if [ "$distro" == "postmarketos" ]; then
         # Quirks for Alpine-based PostmarketOS.
@@ -159,7 +159,7 @@ install_distro_specific_quirks() {
         # We have hostapd, kea, and prometheus-node-exporter available, but
         # since these are (OpenRC-based) Alpine packages, no systemd unit files
         # are installed. We have to copy our own.
-        cp -a ${staging_dir}${APP_DIR}/quirks_postmarketos/*.service \
+        cp -a ${staging_root}${APP_DIR}/quirks_postmarketos/*.service \
             /usr/lib/systemd/system/
         systemctl daemon-reload
     fi
@@ -204,5 +204,5 @@ install_files() {
     local staging_root="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
     cp -a "${staging_root}${APP_DIR}/"* "${APP_DIR}/"
     cp -a "${staging_root}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
-    install_distro_specific_quirks ${staging_dir} ${distro}
+    install_distro_specific_quirks ${staging_root} ${distro}
 }
