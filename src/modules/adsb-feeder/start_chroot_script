@@ -121,9 +121,3 @@ systemctl enable adsb-netdog.service
 # Disable some things we don't need and that only eat memory (assuming they exist)
 systemctl disable bluetooth.service || true
 systemctl disable ModemManager.service || true
-
-
-# finally, create a flag file as indicator that this is a complete ADS-B Feeder
-# Image, and not just the app running on a different OS.
-touch /opt/adsb/os.adsb.feeder.image
-

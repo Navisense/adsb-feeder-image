@@ -3,11 +3,6 @@
 set -e
 trap 'echo "[ERROR] Error in line $LINENO when executing: $BASH_COMMAND"' ERR
 
-# only run on adsb.im images
-if ! [[ -f /opt/adsb/os.adsb.feeder.image ]]; then
-    exit 0
-fi
-
 function vm_tweaks () {
 
     if grep </proc/swaps -qs -F -v -e zram -e Filename; then

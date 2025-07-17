@@ -4,7 +4,7 @@
 exit_with_message() { echo "$1"; exit; }
 
 # let's make sure this is an app installation
-[ -f /opt/adsb/app.adsb.feeder.image ] || exit_with_message "This doesn't appear to be an adsb.im Feeder Image app install - giving up"
+[ -f /opt/adsb/porttracker_feeder_install_metadata/version.txt ] || exit_with_message "This doesn't appear to be an adsb.im Feeder Image app install - giving up"
 
 # are we running as root?
 [ "$(id -u)" == "0" ] || exit_with_message "Please run this as superuser, e.g. as sudo bash $0"

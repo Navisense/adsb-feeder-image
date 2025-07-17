@@ -109,7 +109,6 @@ if [[ "$VARIANT" == "dietpi"* ]] ; then
     echo "$FEEDER_IMAGE_NAME" > "$MNT_DIR"/opt/adsb/feeder-image.name
     echo "image-install" > "$MNT_DIR"/opt/adsb/adsb.im.previous-version
     echo "$VERSION" > "$MNT_DIR"/opt/adsb/adsb.im.version
-    touch "$MNT_DIR"/opt/adsb/os.adsb.feeder.image
     touch "$MNT_DIR"/opt/adsb/adsb.im.passwd.and.keys
 
     # speed up apt-get operations by not rebuilding the man-db cache:

@@ -369,38 +369,9 @@ class AdsbIm:
         self.wifi = None
         self.wifi_ssid = ""
 
-        # prepare for app use (vs ADS-B Feeder Image use)
-        # newer images will include a flag file that indicates that this is indeed
-        # a full image - but in case of upgrades from older version, this heuristic
-        # should be sufficient to guess if this is an image or an app
-        os_flag_file = self._d.data_path / "os.adsb.feeder.image"
-        if not os_flag_file.exists():
-            # so this could be a pre-0.15 image, or it could indeed be the app
-            app_flag_file = ADSB_DIR / "app.adsb.feeder.image"
-            if not app_flag_file.exists():
-                # there should be no app without the app flag file, so assume that
-                # this is an older image that was upgraded and hence didn't get the
-                # os flag file at install time
-                open(os_flag_file, "w").close()
-
-        if not os_flag_file.exists():
-            # we are running as an app under DietPi or some other OS
-            self._d.is_feeder_image = False
-            with open(self._d.data_path / "adsb-setup/templates/systemmgmt.html", "r+") as systemmgmt_file:
-                systemmgmt_html = systemmgmt_file.read()
-                systemmgmt_file.seek(0)
-                systemmgmt_file.write(
-                    re.sub(
-                        "FULL_IMAGE_ONLY_START.*? FULL_IMAGE_ONLY_END",
-                        "",
-                        systemmgmt_html,
-                        flags=re.DOTALL,
-                    )
-                )
-                systemmgmt_file.truncate()
-            # v1.3.4 ended up not installing the correct port definitions - if that's
-            # the case, then insert them into the settings
-            self.setup_app_ports()
+        # v1.3.4 ended up not installing the correct port definitions - if that's
+        # the case, then insert them into the settings
+        self.setup_app_ports()
 
         self._sdrdevices = SDRDevices()
         for i in [0] + self.micro_indices():
@@ -1019,8 +990,7 @@ class AdsbIm:
 
     def set_hostname_and_enable_mdns(self, site_name: str):
         self._current_site_name = site_name
-        should_set_hostname = self._d.is_feeder_image and self.hostname
-        if should_set_hostname:
+        if self.hostname:
             subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
 
     def _maybe_enable_mdns(self):
@@ -2512,7 +2482,7 @@ class AdsbIm:
             if self.at_least_one_aggregator():
                 self._d.env_by_tags("aggregators_chosen").value = True
 
-            if self._d.is_feeder_image and not self._d.env_by_tags("journal_configured").value:
+            if not self._d.env_by_tags("journal_configured").value:
                 try:
                     cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
                     print_err(cmd)
@@ -3008,7 +2978,7 @@ class AdsbIm:
                         if "is_enabled" in ev.tags:
                             if "other_aggregator" in ev.tags or "ultrafeeder" in ev.tags:
                                 ev.list_set(0, False)
-                    if value == "nano" and self._d.is_feeder_image:
+                    if value == "nano":
                         # make sure we don't log to disk at all
                         try:
                             subprocess.call("bash /opt/adsb/scripts/journal-set-volatile.sh", shell=True, timeout=5)
@@ -3116,36 +3086,35 @@ class AdsbIm:
             return self.update()
         tailscale_running = False
         zerotier_running = False
-        if self._d.is_feeder_image:
-            success, output = run_shell_captured("ps -e", timeout=2)
-            zerotier_running = "zerotier-one" in output
-            tailscale_running = "tailscaled" in output
-            # is tailscale set up?
-            try:
-                if not tailscale_running:
-                    raise ProcessLookupError
-                result = subprocess.run(
-                    "tailscale status --json 2>/dev/null",
-                    shell=True,
-                    check=True,
-                    capture_output=True,
-                )
-            except:
-                # a non-zero return value means tailscale isn't configured or tailscale is disabled
-                # reset both associated env vars
-                # if tailscale recovers / is re-enabled and the system management page is visited,
-                # the code below will set the appropriate tailscale_name once more.
-                self._d.env_by_tags("tailscale_name").value = ""
+        success, output = run_shell_captured("ps -e", timeout=2)
+        zerotier_running = "zerotier-one" in output
+        tailscale_running = "tailscaled" in output
+        # is tailscale set up?
+        try:
+            if not tailscale_running:
+                raise ProcessLookupError
+            result = subprocess.run(
+                "tailscale status --json 2>/dev/null",
+                shell=True,
+                check=True,
+                capture_output=True,
+            )
+        except:
+            # a non-zero return value means tailscale isn't configured or tailscale is disabled
+            # reset both associated env vars
+            # if tailscale recovers / is re-enabled and the system management page is visited,
+            # the code below will set the appropriate tailscale_name once more.
+            self._d.env_by_tags("tailscale_name").value = ""
+            self._d.env_by_tags("tailscale_ll").value = ""
+        else:
+            ts_status = json.loads(result.stdout.decode())
+            if ts_status.get("BackendState") == "Running" and ts_status.get("Self"):
+                tailscale_name = ts_status.get("Self").get("HostName")
+                print_err(f"configured as {tailscale_name} on tailscale")
+                self._d.env_by_tags("tailscale_name").value = tailscale_name
                 self._d.env_by_tags("tailscale_ll").value = ""
             else:
-                ts_status = json.loads(result.stdout.decode())
-                if ts_status.get("BackendState") == "Running" and ts_status.get("Self"):
-                    tailscale_name = ts_status.get("Self").get("HostName")
-                    print_err(f"configured as {tailscale_name} on tailscale")
-                    self._d.env_by_tags("tailscale_name").value = tailscale_name
-                    self._d.env_by_tags("tailscale_ll").value = ""
-                else:
-                    self._d.env_by_tags("tailscale_name").value = ""
+                self._d.env_by_tags("tailscale_name").value = ""
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))

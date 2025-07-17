@@ -210,22 +210,20 @@ function check_missing() {
     if ! python3 -c "import requests" &>/dev/null ; then
         missing+=("python3-requests")
     fi
-    if [ -f /opt/adsb/os.adsb.feeder.image ] ; then
-        # get hostapd / kea if necessary
-        if ! command -v hostapd &>/dev/null || ! which kea-dhcp4 ; then
-            missing+=("hostapd" "kea")
-            # make sure they are never enabled by masking the services
-            systemctl mask hostapd
-            systemctl mask isc-kea-dhcp4-server
-        fi
-        # get avahi-utils if necessary
-        if ! command -v avahi-publish &>/dev/null || ! command -v avahi-resolve &>/dev/null; then
-            missing+=("avahi-utils")
-        fi
-        if [[ -d /boot/dietpi/ ]] && ! command -v ifplugd &>/dev/null; then
-            configure_ifplugd="yes"
-            missing+=("ifplugd" "ifmetric")
-        fi
+    # get hostapd / kea if necessary
+    if ! command -v hostapd &>/dev/null || ! which kea-dhcp4 ; then
+        missing+=("hostapd" "kea")
+        # make sure they are never enabled by masking the services
+        systemctl mask hostapd
+        systemctl mask isc-kea-dhcp4-server
+    fi
+    # get avahi-utils if necessary
+    if ! command -v avahi-publish &>/dev/null || ! command -v avahi-resolve &>/dev/null; then
+        missing+=("avahi-utils")
+    fi
+    if [[ -d /boot/dietpi/ ]] && ! command -v ifplugd &>/dev/null; then
+        configure_ifplugd="yes"
+        missing+=("ifplugd" "ifmetric")
     fi
     if ! command -v jq &>/dev/null; then
         missing+=("jq")
@@ -257,57 +255,54 @@ if [[ ${#missing[@]} -gt 0 ]] ; then
     fi
 fi
 
-if [ -f /opt/adsb/os.adsb.feeder.image ] ; then
-
-    if grep -qs /etc/systemd/system.conf -e '^RebootWatchdogSec=2min'; then
-        sed -i -e '/^RuntimeWatchdogSec.*/d' -e '/^RebootWatchdogSec.*/d' /etc/systemd/system.conf
-    fi
-    if ! grep -qs /etc/systemd/system.conf -e '^RuntimeWatchdogSec='; then
-        cat >> /etc/systemd/system.conf <<EOF
+if grep -qs /etc/systemd/system.conf -e '^RebootWatchdogSec=2min'; then
+    sed -i -e '/^RuntimeWatchdogSec.*/d' -e '/^RebootWatchdogSec.*/d' /etc/systemd/system.conf
+fi
+if ! grep -qs /etc/systemd/system.conf -e '^RuntimeWatchdogSec='; then
+    cat >> /etc/systemd/system.conf <<EOF
 RuntimeWatchdogSec=15
 RebootWatchdogSec=10min
 EOF
-        need_reload="yes"
-    fi
-    # make dhclient not sleep as long (retry default is 5 min)
-    # also ensure the canonical timeout is set
-    if [[ -f /etc/dhcp/dhclient.conf ]] && ! grep -qs -e '^retry' /etc/dhcp/dhclient.conf; then
-        cat >>/etc/dhcp/dhclient.conf  <<EOF
+    need_reload="yes"
+fi
+# make dhclient not sleep as long (retry default is 5 min)
+# also ensure the canonical timeout is set
+if [[ -f /etc/dhcp/dhclient.conf ]] && ! grep -qs -e '^retry' /etc/dhcp/dhclient.conf; then
+    cat >>/etc/dhcp/dhclient.conf  <<EOF
 timeout 30;
 retry 30;
 EOF
-    fi
-    sed -i -e 's/^retry\s.*/retry 30;/' -e 's/^timeout\s.*/timeout 30;/' /etc/dhcp/dhclient.conf
-
-    if [[ -d /boot/dietpi/ ]] && ! grep -qs -e '^metric' /etc/network/interfaces; then
-        echo "adding metric lines to /etc/network/interfaces"
-        sed -i /etc/network/interfaces -e 's/iface eth0.*/\0\nmetric 100/'  -e 's/iface wlan0.*/\0\nmetric 600/'
-    fi
-    if [[ "$configure_ifplugd" == "yes" ]]; then
-        sed -i  /etc/default/ifplugd \
-            -e 's/^INTERFACES=.*/INTERFACES="eth0"/' \
-            -e 's/^ARGS=.*/ARGS="-q -f -u2 -d2 -w -I --initial-down"/'
-        systemctl restart --no-block ifplugd
-
-        # ifplugd will handle eth0, not necessary for networking service to bring it up
-        sed -i -e 's/^allow-hotplug\s*eth0/#\0/' /etc/network/interfaces
-    fi
-    if [[ -d /boot/dietpi/ ]] && ! grep -qs -e 'network=' /etc/wpa_supplicant/wpa_supplicant.conf; then
-        # if no network is configured in wpa_supplicant.conf, disable wifi
-        # it will be re-enabled by the hotspot or in the webinterface (wifi.py)
-        sed -i -e 's/^allow-hotplug\s*wlan0/#\0/' /etc/network/interfaces
-    fi
-
-    # in case a past feeder-update installed but didn't mask hostapd / isc-kea-dhcp4-server, fix that up
-    for service in hostapd.service isc-kea-dhcp4-server.service; do
-        if systemctl is-enabled "$service" &>/dev/null || ! [[ -L /etc/systemd/system/"$service" ]]; then
-            echo "stopping / disabling / masking $service"
-            systemctl stop "$service"
-            systemctl disable "$service"
-            systemctl mask "$service"
-        fi
-    done
 fi
+sed -i -e 's/^retry\s.*/retry 30;/' -e 's/^timeout\s.*/timeout 30;/' /etc/dhcp/dhclient.conf
+
+if [[ -d /boot/dietpi/ ]] && ! grep -qs -e '^metric' /etc/network/interfaces; then
+    echo "adding metric lines to /etc/network/interfaces"
+    sed -i /etc/network/interfaces -e 's/iface eth0.*/\0\nmetric 100/'  -e 's/iface wlan0.*/\0\nmetric 600/'
+fi
+if [[ "$configure_ifplugd" == "yes" ]]; then
+    sed -i  /etc/default/ifplugd \
+        -e 's/^INTERFACES=.*/INTERFACES="eth0"/' \
+        -e 's/^ARGS=.*/ARGS="-q -f -u2 -d2 -w -I --initial-down"/'
+    systemctl restart --no-block ifplugd
+
+    # ifplugd will handle eth0, not necessary for networking service to bring it up
+    sed -i -e 's/^allow-hotplug\s*eth0/#\0/' /etc/network/interfaces
+fi
+if [[ -d /boot/dietpi/ ]] && ! grep -qs -e 'network=' /etc/wpa_supplicant/wpa_supplicant.conf; then
+    # if no network is configured in wpa_supplicant.conf, disable wifi
+    # it will be re-enabled by the hotspot or in the webinterface (wifi.py)
+    sed -i -e 's/^allow-hotplug\s*wlan0/#\0/' /etc/network/interfaces
+fi
+
+# in case a past feeder-update installed but didn't mask hostapd / isc-kea-dhcp4-server, fix that up
+for service in hostapd.service isc-kea-dhcp4-server.service; do
+    if systemctl is-enabled "$service" &>/dev/null || ! [[ -L /etc/systemd/system/"$service" ]]; then
+        echo "stopping / disabling / masking $service"
+        systemctl stop "$service"
+        systemctl disable "$service"
+        systemctl mask "$service"
+    fi
+done
 
 echo "$(date -u +"%FT%T.%3NZ") copy the updated files in place"
 cd src/modules/adsb-feeder/filesystem/root || exit_with_message "can't cd src/modules/adsb-feeder/filesystem/root"
@@ -325,37 +320,16 @@ fi
 
 services_enable=()
 
-# if this an app and not the full image, prune some of the files that aren't wanted for the app
-# wanted for the app and copy the trees we need over
-if [ ! -f /opt/adsb/os.adsb.feeder.image ] ; then
-    rm -f ./usr/lib/systemd/system/adsb-bootstrap.service
-fi
-
 for path in ./usr/lib/systemd/system/*; do
     if ! diff -q "${path}" "${path:1}" &>/dev/null; then
         need_reload="yes"
     fi
 done
 
-if [ ! -f /opt/adsb/os.adsb.feeder.image ] ; then
-    # app install
-    set -x
-    cp -f -a ./usr/lib/systemd/system/* /usr/lib/systemd/system/
-    cp -f -a ./opt/adsb/* /opt/adsb
-    set +x
-else
-    # feeder image
-    if ! diff -q /opt/adsb/scripts/netdog.sh ./opt/adsb/scripts/netdog.sh; then
-        restart_netdog="true"
-    fi
-    # copy the complete tree into the / filesystem
-    set -x
-    cp -f -a ./* /
-    set +x
-
-    services_enable+=("adsb-zram.service")
-    services_enable+=("adsb-netdog.service")
-fi
+set -x
+cp -f -a ./usr/lib/systemd/system/* /usr/lib/systemd/system/
+cp -f -a ./opt/adsb/* /opt/adsb
+set +x
 
 # remove flag file so the caching helper script will run via pre-start.sh
 rm -f /opt/adsb/.cachebust_done
@@ -394,19 +368,17 @@ if [[ $(jq < /etc/docker/daemon.json '."default-address-pools" | has("base")' 2>
     timeout 5 docker ps || systemctl restart docker
 fi
 
-if [ -f /opt/adsb/os.adsb.feeder.image ] ; then
-    [[ "$restart_netdog" == "true" ]] && systemctl restart --no-block adsb-netdog.service
-    # try turning off dphys-swapfile on raspbian
-    if systemctl is-enabled dphys-swapfile &>/dev/null; then
-        systemctl disable --now dphys-swapfile || true
-        rm -f /var/swap
-    fi
-    # avoid unnecessary diskwrites by zerotier
-    ln -sf /dev/null /var/lib/zerotier-one/metrics.prom
-    # on dietpi, reduce the dhclient timeout
-    if [[ -f /etc/dhcp/dhclient.conf ]] && ! grep -qs /etc/dhcp/dhclient.conf -e '^timeout 30;'; then
-        echo "timeout 30;" >> /etc/dhcp/dhclient.conf
-    fi
+[[ "$restart_netdog" == "true" ]] && systemctl restart --no-block adsb-netdog.service
+# try turning off dphys-swapfile on raspbian
+if systemctl is-enabled dphys-swapfile &>/dev/null; then
+    systemctl disable --now dphys-swapfile || true
+    rm -f /var/swap
+fi
+# avoid unnecessary diskwrites by zerotier
+ln -sf /dev/null /var/lib/zerotier-one/metrics.prom
+# on dietpi, reduce the dhclient timeout
+if [[ -f /etc/dhcp/dhclient.conf ]] && ! grep -qs /etc/dhcp/dhclient.conf -e '^timeout 30;'; then
+    echo "timeout 30;" >> /etc/dhcp/dhclient.conf
 fi
 
 # shellcheck disable=SC2164

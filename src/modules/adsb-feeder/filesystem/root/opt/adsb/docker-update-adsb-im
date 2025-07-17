@@ -36,12 +36,10 @@ PRUNE_LIST=$( \
         -f <(docker ps -a --format '{{.Image}}') \
         -f <(cut -d= -f2 /opt/adsb/docker.image.versions) \
 )
-if ! [ -f os.adsb.feeder.image ]; then
-    # if running as an app, restrict pruned images to images used by adsb.im
-    PRUNE_LIST=$( echo "$PRUNE_LIST" |
-        grep -F -f <(cut -d= -f2 /opt/adsb/docker.image.versions | cut -d: -f1) \
-    )
-fi
+# Restrict pruned images to images used by the feeder.
+PRUNE_LIST=$( echo "$PRUNE_LIST" |
+    grep -F -f <(cut -d= -f2 /opt/adsb/docker.image.versions | cut -d: -f1) \
+)
 # remove images we use that don't have a tag:
 PRUNE_LIST_NOTAG=$(docker images -a \
         | grep -F -f <(cut -d= -f2 /opt/adsb/docker.image.versions | cut -d: -f1) \

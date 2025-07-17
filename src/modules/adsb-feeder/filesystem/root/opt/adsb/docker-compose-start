@@ -1,11 +1,9 @@
 #!/bin/bash
 
 if [[ ! -f /opt/adsb/init-complete ]] && grep -e 'AF_IS_BASE_CONFIG_FINISHED=True' /etc/adsb/.env; then
-    if [[ -f /opt/adsb/os.adsb.feeder.image ]] ; then
-        echo "feeder image first time adsb-system-restart: stop bootstrap"
-        systemctl disable adsb-bootstrap
-        systemctl stop adsb-bootstrap
-    fi
+    echo "First time adsb-system-restart: stop bootstrap"
+    systemctl disable adsb-bootstrap
+    systemctl stop adsb-bootstrap
     touch /opt/adsb/init-complete
 fi
 

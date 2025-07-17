@@ -17,7 +17,6 @@ class Data:
     env_file_path = config_path / ".env"
     version_file = data_path / "adsb.im.version"
     secure_image_path = data_path / "adsb.im.secure_image"
-    is_feeder_image = True
     _env_by_tags_dict = dict()
     ultrafeeder = []
     previous_version = ""

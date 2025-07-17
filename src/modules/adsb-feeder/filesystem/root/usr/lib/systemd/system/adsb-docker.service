@@ -9,7 +9,6 @@ Conflicts=nftables.service
 SyslogIdentifier=adsb-docker
 WorkingDirectory=/opt/adsb
 ExecStartPre=-/bin/bash -c "mount -o remount,exec,size=$(( $(cat /proc/meminfo | grep -i 'memtotal' | grep -o '[[:digit:]]*') / 2 ))k /run"
-ExecStartPre=/opt/adsb/scripts/fix-docker-network
 ExecStart=/opt/adsb/docker-compose-start
 RemainAfterExit=yes
 ExecStop=/opt/adsb/docker-compose-adsb stop -t 30
