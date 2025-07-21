@@ -66,6 +66,7 @@ from utils.config import (
 from utils.data import Data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
+import utils.gitlab as gitlab
 from utils.netconfig import UltrafeederConfig
 from utils.other_aggregators import (
     ADSBHub,
@@ -667,9 +668,10 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.temperatures),
         )
         self.app.add_url_rule(
-            f"/feeder-update-<channel>",
+            f"/feeder-update",
             "feeder-update",
             self._decide_route_hotspot_mode(self.feeder_update),
+            methods=["POST"],
         )
         self.app.add_url_rule(
             f"/get-logs",
@@ -1725,23 +1727,6 @@ class AdsbIm:
             m = 0
         return render_template("visualization.html", site=site, m=m)
 
-    def set_channel(self, channel: str):
-        with open(self._d.data_path / "update-channel", "w") as update_channel:
-            print(channel, file=update_channel)
-
-    def extract_channel(self) -> str:
-        channel = self._d.env_by_tags("base_version").value
-        if channel:
-            match = re.search(r"\((.*?)\)", channel)
-            if match:
-                channel = match.group(1)
-        branch = channel
-        if channel in ["stable", "beta", "main"]:
-            channel = ""
-        if channel and not channel.startswith("origin/"):
-            channel = f"origin/{channel}"
-        return channel, branch
-
     def clear_range_outline(self, idx=0):
         suffix = self.uf_suffix(idx)
         print_err(f"resetting range outline for {suffix}")
@@ -2686,11 +2671,6 @@ class AdsbIm:
                     self._d.env_by_tags(["use_gpsd", "is_enabled"]).value = False
                 if key in ["enable_parallel_docker", "disable_parallel_docker"]:
                     self.set_docker_concurrent(key == "enable_parallel_docker")
-                if key.startswith("update_feeder_aps"):
-                    channel = key.rsplit("_", 1)[-1]
-                    if channel == "branch":
-                        channel, _ = self.extract_channel()
-                    return self.do_feeder_update(channel)
                 if key == "nightly_update" or key == "zerotier":
                     # this will be handled through the separate key/value pairs
                     pass
@@ -3087,17 +3067,13 @@ class AdsbIm:
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
-        # if we are on a branch that's neither stable nor beta, pass the value to the template
-        # so that a third update button will be shown - separately, pass along unconditional
-        # information on the current branch the user is on so we can show that in the explanatory text.
-        channel, current_branch = self.extract_channel()
+        available_tags = gitlab.gitlab_repo().get_tags()
         return render_template(
             "systemmgmt.html",
             tailscale_running=tailscale_running,
             zerotier_running=zerotier_running,
             rpw=self.rpw,
-            channel=channel,
-            current_branch=current_branch,
+            tags=available_tags,
             containers=self._system.list_containers(),
             persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
@@ -3486,7 +3462,6 @@ class AdsbIm:
 
         self.cache_agg_status()
 
-        channel, current_branch = self.extract_channel()
         board = self._d.env_by_tags("board_name").value
         base = self._d.env_by_tags("image_name").value
         version = self._d.env_by_tags("base_version").value
@@ -3504,7 +3479,6 @@ class AdsbIm:
             zerotier_address=self.zerotier_address,
             matrix=self.agg_matrix,
             compose_up_failed=compose_up_failed,
-            channel=channel,
             board=board,
             base=base,
             version=version,
@@ -3698,20 +3672,9 @@ class AdsbIm:
         return Response(tail(), mimetype="text/event-stream")
 
     @check_restart_lock
-    def feeder_update(self, channel):
-        if channel not in ["stable", "beta"]:
-            return "This update functionality is only available for stable and beta"
-        return self.do_feeder_update(channel)
-
-    # internal helper function to start the feeder update
-    def do_feeder_update(self, channel):
-        self.set_channel(channel)
-        print_err(f"updating feeder to {channel} channel")
-        # the webinterface needs to stay in the waiting state until the feeder-update stops it
-        # because this is not guaranteed otherwise, add a sleep to the command running in the
-        # background
-        self._system._restart.bg_run(cmdline="systemctl start adsb-feeder-update.service; sleep 30")
-        self.exiting = True
+    def feeder_update(self):
+        tag=request.form["tag"]
+        self._logger.info(f"Update to {tag} requested.")
         return render_template("/restarting.html")
 
 
