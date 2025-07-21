@@ -127,15 +127,18 @@
         </div>
         <div class="row align-items-center">
           <div class="col-8">
-            <label for="tag-select">These versions are available to update to:</label>
-            <select id="tag-select" name="tag">
+            <label for="feeder-update-tag-select">These versions are available to update to:</label>
+            <select id="feeder-update-tag-select" name="tag">
               {% for tag in tags %}
                 <option value="{{ tag }}"{%- if tag == current_version -%}disabled{%- endif -%}>{{ tag }}</option>
               {% endfor %}
             </select>
           </div>
           <div class="col-4">
-            <button type="submit" class="btn btn-primary mx-auto w-100 col-12">Update</button>
+            <button id="feeder-update-submit" type="submit" class="btn btn-primary mx-auto w-100 col-12"
+            {%- if tags[0] == current_version -%}disabled{%- endif -%}>
+              Update
+            </button>
           </div>
         </div>
       {% endwith %}
@@ -292,4 +295,10 @@
     </form>
   </div>
 </div>
+<script>
+  $('#feeder-update-tag-select').on('change', function(event) {
+    const currentVersionSelected = event.target.value == '{{ env_value_by_tag("base_version") }}';
+    $('#feeder-update-submit').prop('disabled', currentVersionSelected);
+  });
+</script>
 {% endblock content %}
