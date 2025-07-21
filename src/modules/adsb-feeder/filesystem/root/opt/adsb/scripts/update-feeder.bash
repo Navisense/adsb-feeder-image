@@ -2,9 +2,9 @@
 
 # Update the running feeder to a given ref. This works by cloning the repo at
 # the given ref (e.g. a tag or a branch), and replacing the current files with
-# the checked-out version. Beforehand, all system services starting with adsb
-# are stopped. After the copy, a systemctl daemon-reload is executed in case
-# anything changed, and adsb-setup is started.
+# the checked-out version. Beforehand, all currently running units are stopped.
+# After the copy, a systemctl daemon-reload is executed in case anything
+# changed, and adsb-setup is started again.
 
 source /opt/adsb/scripts/lib-common.bash
 source /opt/adsb/scripts/lib-install.bash
@@ -43,10 +43,15 @@ fi
 # file.
 old_version=$(cat ${METADATA_DIR}/version.txt)
 
-# Stop all of our services.
-if ! systemctl stop 'adsb*' ; then
+# Stop the old version. That's all systemd units that contain "adsb", except
+# ones that also contain "update" (we don't want to kill ourselves here).
+running_units=$(
+    systemctl --no-pager -o json -t service -t timer list-units \
+    | jq -r ".[].unit" | grep adsb | grep -v update)
+log $0 "Stopping ${running_units}"
+if ! systemctl stop ${running_units} ; then
     # It failed to stop, try to start it back up.
-    systemctl start adsb-setup.service
+    systemctl start ${running_units}
     log_and_exit_sync 1 $0 "Unable to stop current services."
 fi
 log $0 "Shut down current version."
