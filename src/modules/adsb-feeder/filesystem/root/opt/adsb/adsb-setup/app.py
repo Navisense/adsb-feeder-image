@@ -3673,8 +3673,22 @@ class AdsbIm:
 
     @check_restart_lock
     def feeder_update(self):
-        tag=request.form["tag"]
-        self._logger.info(f"Update to {tag} requested.")
+        tag = request.form["tag"]
+        self._logger.info(f"Starting update to {tag}.")
+        # Submit the update script as a transient systemd unit, so the
+        # process is independent from us and can shut us down.
+        try:
+            utils.system.systemctl().run_transient(
+                "adsb-feeder-update",
+                ["/opt/adsb/scripts/update-feeder.bash", tag])
+        except:
+            self._logger.exception(
+                "Error starting update. Trying to redirect to home.")
+            return flask.redirect("/")
+        # Set the exiting flag, so the /restart endpoint can tell the
+        # restarting page that this instance is still going down. The new
+        # version will then say that the restart is complete.
+        self.exiting = True
         return render_template("/restarting.html")
 
 

@@ -38,6 +38,13 @@ class Systemctl:
                 procs.append(proc)
             return procs
 
+    def run_transient(self, unit_name: str, arguments: list[str]):
+        """Run a command using systemd-run."""
+        if not arguments:
+            raise ValueError("no arguments given")
+        shell_with_combined_output(
+            f"systemd-run -u {unit_name} " + " ".join(arguments), check=True)
+
 
 class Restart:
     def __init__(self):
