@@ -3470,6 +3470,7 @@ class AdsbIm:
             for container in self._d.tag_for_name.values()
             if self._d.is_enabled(container)
             or container in ["ultrafeeder", "shipfeeder"]]
+        available_tags = gitlab.gitlab_repo().get_tags()
         return render_template(
             "overview.html",
             aggregators=self.agg_structure,
@@ -3484,6 +3485,7 @@ class AdsbIm:
             version=version,
             containers=containers,
             sdrs=self._sdrdevices.sdrs,
+            tags=available_tags,
         )
 
     @check_restart_lock

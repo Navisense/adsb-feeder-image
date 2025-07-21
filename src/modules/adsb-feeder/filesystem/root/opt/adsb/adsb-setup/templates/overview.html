@@ -133,14 +133,15 @@
   </div>
 </div>
 <div class="col-12 mb-4">
-  <h5>
-    Porttracker Feeder <small class="ml-1">running {{ env_value_by_tag("base_version") |replace('(beta)', '')|replace('(stable)', '') }}</small>
-  </h5>
-  <div class="mb-4">
-    Latest version: <span id="latest_tag"></span> - <span id="version_update"></span>
-    <br />
-    <span id="advice" class="small">&nbsp;</span>
-  </div>
+  {% with current_version = env_value_by_tag("base_version") %}
+    Running Porttracker Feeder version <strong>{{ current_version }}</strong>
+    {% if current_version == tags[0] %}
+      (this is the latest stable version)
+    {% else %}
+      (latest stable version is <strong>{{ tags[0] }}</strong>, see
+      <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
+    {% endif %}
+  {% endwith %}
 </div>
 <div class="col-12">
   <ul>
