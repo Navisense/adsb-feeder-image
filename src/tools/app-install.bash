@@ -82,9 +82,12 @@ if [[ "${missing_packages}" != "" ]] ; then
         echo "Please install the missing packages before re-running this script:"
         echo "${cmd}"
         exit 1
-    elif ! ${cmd} > /dev/null ; then
-        echo "Error installing packages using ${cmd}".
-        exit 1
+    else
+        echo "Installing packages ${missing_packages}."
+        if ! ${cmd} > /dev/null ; then
+            echo "Error installing packages using ${cmd}".
+            exit 1
+        fi
     fi
 fi
 
