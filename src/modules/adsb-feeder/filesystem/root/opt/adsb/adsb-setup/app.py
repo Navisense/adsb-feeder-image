@@ -61,7 +61,7 @@ from utils.config import (
     write_values_to_config_json,
     write_values_to_env_file,
 )
-from utils.data import Data
+import utils.data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
 import utils.gitlab as gitlab
@@ -94,9 +94,6 @@ from utils.util import (
     verbose,
 )
 from utils.wifi import make_wifi
-
-ADSB_DIR = pathlib.Path("/opt/adsb")
-CONFIG_DIR = pathlib.Path("/etc/adsb")
 
 logger = None
 
@@ -244,7 +241,7 @@ class HotspotApp:
     you can set wifi credentials. Has a catch-all route, since the hotspot
     intercepts (almost) all requests.
     """
-    def __init__(self, data: Data, on_wifi_credentials):
+    def __init__(self, data: utils.data.Data, on_wifi_credentials):
         self._d = data
         self._on_wifi_credentials = on_wifi_credentials
         self.ssids = []
@@ -322,7 +319,7 @@ class HotspotApp:
 class AdsbIm:
     PLANES_SEEN_PER_DAY_PATH = CONFIG_DIR / "planes_seen_per_day.json.gz"
 
-    def __init__(self, data: Data, hotspot_app):
+    def __init__(self, data: utils.data.Data, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
         self._d = data
@@ -862,13 +859,13 @@ class AdsbIm:
         return b64encode(compress(pickle.dumps(image))).decode("utf-8")
 
     def check_secure_image(self):
-        return self._d.secure_image_path.exists()
+        return utils.data.SECURE_IMAGE_FILE.exists()
 
     def set_secure_image(self):
         # set legacy env variable as well for webinterface
         self._d.env_by_tags("secure_image").value = True
         if not self.check_secure_image():
-            self._d.secure_image_path.touch(exist_ok=True)
+            utils.data.SECURE_IMAGE_FILE.touch(exist_ok=True)
             print_err("secure_image has been set")
 
     def update_dns_state(self):
@@ -997,7 +994,7 @@ class AdsbIm:
         return self.create_backup_zip(include_graphs=True, include_heatmap=True)
 
     def create_backup_zip(self, include_graphs=False, include_heatmap=False):
-        adsb_path = self._d.config_path
+        adsb_path = utils.data.CONFIG_DIR
 
         def graphs1090_writeback(uf_path):
             # the rrd file will be updated via move after collectd is done writing it out
@@ -1136,7 +1133,7 @@ class AdsbIm:
                 return redirect(request.url)
             if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
                 filename = secure_filename(file.filename)
-                restore_path = CONFIG_DIR / "restore"
+                restore_path = utils.data.CONFIG_DIR / "restore"
                 # clean up the restore path when saving a fresh zipfile
                 shutil.rmtree(restore_path, ignore_errors=True)
                 restore_path.mkdir(mode=0o644, exist_ok=True)
@@ -1166,7 +1163,7 @@ class AdsbIm:
         # be very careful with the content of this zip file...
         print_err("zip file uploaded, looking at the content")
         filename = request.args["zipfile"]
-        restore_path = CONFIG_DIR / "restore"
+        restore_path = utils.data.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         restored_files: List[str] = []
         with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
@@ -1193,8 +1190,10 @@ class AdsbIm:
                 if len(parts) < 3:
                     continue
                 uf_paths.add(parts[0] + "/" + parts[1] + "/")
-            elif os.path.isfile(CONFIG_DIR / name):
-                if filecmp.cmp(CONFIG_DIR / name, restore_path / name):
+            elif os.path.isfile(utils.data.CONFIG_DIR / name):
+                if filecmp.cmp(
+                    utils.data.CONFIG_DIR / name,
+                    restore_path / name):
                     print_err(f"{name} is unchanged")
                     unchanged.append(name)
                 else:
@@ -1209,8 +1208,9 @@ class AdsbIm:
     def restore_post(self, form):
         # they have selected the files to restore
         print_err("restoring the files the user selected")
-        (CONFIG_DIR / "ultrafeeder").mkdir(mode=0o755, exist_ok=True)
-        restore_path = CONFIG_DIR / "restore"
+        (utils.data.CONFIG_DIR / "ultrafeeder").mkdir(
+            mode=0o755, exist_ok=True)
+        restore_path = utils.data.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         try:
             subprocess.call("/opt/adsb/docker-compose-adsb down -t 20", timeout=40.0, shell=True)
@@ -1219,9 +1219,9 @@ class AdsbIm:
         for name, value in form.items():
             if value == "1":
                 print_err(f"restoring {name}")
-                dest = CONFIG_DIR / name
+                dest = utils.data.CONFIG_DIR / name
                 if dest.is_file():
-                    shutil.move(dest, CONFIG_DIR / (name + ".dist"))
+                    shutil.move(dest, utils.data.CONFIG_DIR / (name + ".dist"))
                 elif dest.is_dir():
                     shutil.rmtree(dest, ignore_errors=True)
 
@@ -1249,7 +1249,7 @@ class AdsbIm:
                         write_values_to_config_json(values, reason="execute_restore from .env")
 
         # clean up the restore path
-        restore_path = CONFIG_DIR / "restore"
+        restore_path = utils.data.CONFIG_DIR / "restore"
         shutil.rmtree(restore_path, ignore_errors=True)
 
         # now that everything has been moved into place we need to read all the values from config.json
@@ -1650,17 +1650,18 @@ class AdsbIm:
         print_err(f"importing graphs and history from {ip}")
         # first make sure that there isn't any old data that needs to be moved
         # out of the way
-        if pathlib.Path(self._d.config_path / "ultrafeeder" / ip).exists():
+        if pathlib.Path(utils.data.CONFIG_DIR / "ultrafeeder" / ip).exists():
             now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
             shutil.move(
-                self._d.config_path / "ultrafeeder" / ip,
-                self._d.config_path / "ultrafeeder" / f"{ip}-{now}",
+                utils.data.CONFIG_DIR / "ultrafeeder" / ip,
+                utils.data.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
             )
 
         url = f"http://{ip}:{port}/backupexecutefull"
         # make tmpfile
-        os.makedirs(self._d.config_path / "ultrafeeder", exist_ok=True)
-        fd, tmpfile = tempfile.mkstemp(dir=self._d.config_path / "ultrafeeder")
+        os.makedirs(utils.data.CONFIG_DIR / "ultrafeeder", exist_ok=True)
+        fd, tmpfile = tempfile.mkstemp(
+            dir=utils.data.CONFIG_DIR / "ultrafeeder")
         os.close(fd)
 
         # stream writing to a file with requests library is a pain so just use curl
@@ -1671,15 +1672,15 @@ class AdsbIm:
             )
 
             with zipfile.ZipFile(tmpfile) as zf:
-                zf.extractall(path=self._d.config_path / "ultrafeeder" / ip)
+                zf.extractall(path=utils.data.CONFIG_DIR / "ultrafeeder" / ip)
             # deal with the duplicate "ultrafeeder in the path"
             shutil.move(
-                self._d.config_path / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
-                self._d.config_path / "ultrafeeder" / ip / "globe_history",
+                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
+                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
             )
             shutil.move(
-                self._d.config_path / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
-                self._d.config_path / "ultrafeeder" / ip / "graphs1090",
+                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
+                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
             )
 
             print_err(f"done importing graphs and history from {ip}")
@@ -1692,10 +1693,12 @@ class AdsbIm:
 
     def setRtlGain(self):
         if self._d.is_enabled("stage2_nano") or self._d.env_by_tags("aggregator_choice").value == "nano":
-            gaindir = CONFIG_DIR / "nanofeeder/globe_history/autogain"
+            gaindir = (
+                utils.data.CONFIG_DIR / "nanofeeder/globe_history/autogain")
             setGainPath = pathlib.Path("/run/adsb-feeder-nanofeeder/readsb/setGain")
         else:
-            gaindir = CONFIG_DIR / "ultrafeeder/globe_history/autogain"
+            gaindir = (
+                utils.data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
             setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
@@ -3130,7 +3133,7 @@ class Manager:
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
-        data = Data()
+        data = utils.data.Data()
         self._hotspot_app = HotspotApp(data, self._on_wifi_credentials)
         self._hotspot = hotspot.make_hotspot(self._on_wifi_test_status)
         self._adsb_im = AdsbIm(data, self._hotspot_app)
@@ -3140,14 +3143,14 @@ class Manager:
         self._ensure_config_exists()
 
     def _ensure_config_exists(self):
-        if not CONFIG_DIR.exists():
-            CONFIG_DIR.mkdir()
+        if not utils.data.CONFIG_DIR.exists():
+            utils.data.CONFIG_DIR.mkdir()
 
-        if not pathlib.Path(CONFIG_DIR / ".env").exists():
-            env_file = ADSB_DIR / ".env"
+        if not utils.data.ENV_FILE.exists():
+            env_file = utils.data.APP_DIR / ".env"
             if not env_file.exists():
-                env_file = ADSB_DIR / "docker.image.versions"
-            shutil.copyfile(env_file, CONFIG_DIR / ".env")
+                env_file = utils.data.APP_DIR / "docker.image.versions"
+            shutil.copyfile(env_file, utils.data.ENV_FILE)
 
 
     def __enter__(self):
@@ -3316,7 +3319,7 @@ class Manager:
 def main():
     if "--update-config" in sys.argv:
         # Just get AdsbIm to do some housekeeping and exit.
-        AdsbIm(Data(), None).update_config()
+        AdsbIm(utils.data.Data(), None).update_config()
         sys.exit(0)
 
     shutdown_event = threading.Event()

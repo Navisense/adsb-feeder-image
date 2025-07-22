@@ -1,10 +1,18 @@
-from pathlib import Path
+import pathlib
 
 from .environment import Env
 from .netconfig import NetConfig
 from .util import is_true, print_err
 from utils.config import read_values_from_env_file
 
+APP_DIR = pathlib.Path("/opt/adsb")
+METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
+CONFIG_DIR = pathlib.Path("/etc/adsb")
+ENV_FILE = CONFIG_DIR / ".env"
+VERSION_FILE = METADATA_DIR / "version.txt"
+PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
+FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
+SECURE_IMAGE_FILE = APP_DIR / "adsb.im.secure_image"
 
 class Data:
     def __new__(cc):
@@ -12,14 +20,6 @@ class Data:
             cc.instance = super(Data, cc).__new__(cc)
         return cc.instance
 
-    data_path = Path("/opt/adsb")
-    config_path = Path("/etc/adsb")
-    env_file_path = config_path / ".env"
-    metadata_path = data_path / "porttracker_feeder_install_metadata"
-    version_file = metadata_path / "version.txt"
-    previous_version_file = metadata_path / "previous_version.txt"
-    friendly_name_file = metadata_path / "friendly_name.txt"
-    secure_image_path = data_path / "adsb.im.secure_image"
     _env_by_tags_dict = dict()
 
     _proxy_routes = [
@@ -661,7 +661,7 @@ class Data:
         "SDRMAP_CONTAINER": "sdrmap",
         "SHIPFEEDER_CONTAINER": "shipfeeder",
     }
-    with open(data_path / "docker.image.versions", "r") as file:
+    with open(APP_DIR / "docker.image.versions", "r") as file:
         for line in file:
             if line.startswith("#"):
                 continue
@@ -788,15 +788,15 @@ class Data:
 
     def read_version(self):
         """Read the version string from the version file."""
-        return self._read_file(self.version_file)
+        return self._read_file(VERSION_FILE)
 
     def _read_previous_version(self):
-        return self._read_file(self.previous_version_file)
+        return self._read_file(PREVIOUS_VERSION_FILE)
 
     def _read_friendly_name(self):
-        return self._read_file(self.friendly_name_file)
+        return self._read_file(FRIENDLY_NAME_FILE)
 
-    def _read_file(self, file: Path) -> str:
+    def _read_file(self, file: pathlib.Path) -> str:
         try:
             with file.open() as f:
                 return f.read().strip()
