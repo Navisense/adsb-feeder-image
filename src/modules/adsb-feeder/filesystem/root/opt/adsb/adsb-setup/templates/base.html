@@ -156,61 +156,47 @@
           crossorigin="anonymous"></script>
   <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
   <script>
-    let verbose = true;
-
     let tasks = [];
-    let timersActive = false;
-    let lastVisChange = 0;
-    function handleVisibilityChange() {
-      if (document.hidden && timersActive) {
-        verbose && console.log(new Date().toLocaleTimeString() + " visibility change: stopping tasks");
-        for (const task of tasks) {
-          clearTimeout(task.timer);
-        }
-        timersActive = false;
-      }
-      if (!document.hidden && !timersActive) {
-        let delay = 0;
-        if (Date.now() - lastVisChange < 20 * 1000) {
-          verbose && console.log(new Date().toLocaleTimeString() + " visibility change: starting tasks with short delay");
-          // delay before we run the tasks in case the tab was only recently put in the background
-          delay = 2 * 1000;
-        } else {
-          verbose && console.log(new Date().toLocaleTimeString() + " visibility change: starting tasks");
-          // extremely short delay before we run the tasks in case the tab will only be in the foreground for a split second
-          delay = 50;
-        }
-        for (const task of tasks) {
-          clearTimeout(task.timer);
-          task.timer = setTimeout(task.func, delay, { visibilityChange: true, })
-        }
-        timersActive = true;
-        lastVisChange = Date.now();
-      }
+    let taskTimeout = undefined;
+
+    function log(message) {
+      console.log(`${new Date().toLocaleTimeString()}: ${message}`);
     }
 
-    // Warn if the browser doesn't support addEventListener or the Page Visibility API
-    if (typeof document.addEventListener === "undefined" || document.hidden === undefined) {
-      console.error("hidden tab handler requires a browser that supports the Page Visibility API.");
-      timersActive = true; // timers will always stay active
-    } else {
-      document.addEventListener("visibilitychange", handleVisibilityChange, false);
+    if (document.addEventListener !== undefined) {
+      // If visibility changes, check if we should execute any tasks, e.g. because they had been paused while the 
+      // document was hidden.
+      document.addEventListener("visibilitychange", maybeExecuteTasks);
     }
 
-    handleVisibilityChange();
+    /**
+      Register a function to be executed regularly.
 
-    function registerTask(task) {
+      The function will be executed with the given interval, unless the window is hidden.
+    */
+    function registerTask(name, interval, func) {
+      let task = {name: name, interval: interval, func: func, nextExecutionTime: Date.now()};
       tasks.push(task);
-      if (timersActive) {
-        task.func();
-      }
+      maybeExecuteTasks();
     }
 
-    function scheduleTask(task, delay) {
-      if (timersActive) {
-        clearTimeout(task.timer);
-        task.timer = setTimeout(task.func, delay);
+    function maybeExecuteTasks() {
+      clearTimeout(taskTimeout);
+      if (document.hidden) {
+        // The page isn't visible, there's no point in executing tasks now.
+        return;
       }
+      const now = Date.now();
+      let nextTaskExecutionTime = Infinity;
+      for (let task of tasks) {
+        if (task.nextExecutionTime < now) {
+          log(`Running task "${task.name}"`);
+          task.func();
+          task.nextExecutionTime = now + task.interval;
+        }
+        nextTaskExecutionTime = Math.min(nextTaskExecutionTime, task.nextExecutionTime);
+      }
+      taskTimeout = setTimeout(maybeExecuteTasks, nextTaskExecutionTime - Date.now());
     }
 
     let feederTarget = 0;
@@ -247,69 +233,85 @@
       $("#stats_current").addClass("d-none");
     }
 
-    let temperatureTask = {};
-    temperatureTask.func = function() {
-      let url = "/api/get_temperatures.json";
-      fetch(url, {
-        method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
-      })
-        .then(response => { return response.json() })
-        .then(data => {
-          update_temp_block(data["cpu"], data["ext"], data["age"]);
-        })
-        .catch((err) => {
-          console.log("requested temperatures and got error: " + err);
-        });
-      scheduleTask(temperatureTask, 15000);
-    }
-
-    function update_temp_block(cpu, ext, age) {
-      if (cpu == null && ext == null) {
-        $("#temperature_block").addClass('d-none');
-        return;
-      }
-      if (isNaN(age - 0)) {
-        age = 1
-      }
-      opacity = Math.min(1, 30 / (1 + age));
-      $("#temperature_block").css('opacity', opacity);
-      $("#temperature_block").removeClass('d-none');
-      if (cpu != null) {
-        $("#cpu").removeClass('d-none');
-        $("#cpu_temp").removeClass('d-none');
-        $("#cpu_temp").text(cpu + "°C");
-        if (cpu < 50) {
-          $("#cpu_temp").css('color', 'green');
-        } else if (cpu < 80) {
-          $("#cpu_temp").css('color', 'orange');
-        } else {
-          $("#cpu_temp").css('color', 'red');
-        }
-      } else {
-        $("#cpu").addClass('d-none');
-        $("#cpu_temp").addClass('d-none');
-      }
-      if (ext != null) {
-        $("#ext").removeClass('d-none');
-        $("#ext_temp").removeClass('d-none');
-        $("#ext_temp").text(ext + "°C");
-        if (ext < -10) {
-          $("#ext_temp").css('color', 'orange');
-        } else if (ext < 40) {
-          $("#ext_temp").css('color', 'green');
-        } else if (ext < 50) {
-          $("#ext_temp").css('color', 'orange');
-        } else {
-          $("#ext_temp").css('color', 'red');
-        }
-      } else {
-        $("#ext").addClass('d-none');
-        $("#ext_temp").addClass('d-none');
-      }
-    }
-
     {% if is_enabled('temperature_block') %}
-    registerTask(temperatureTask);
+      function update_temp_block(cpu, ext, age) {
+        if (cpu == null && ext == null) {
+          $("#temperature_block").addClass('d-none');
+          return;
+        }
+        if (isNaN(age - 0)) {
+          age = 1
+        }
+        opacity = Math.min(1, 30 / (1 + age));
+        $("#temperature_block").css('opacity', opacity);
+        $("#temperature_block").removeClass('d-none');
+        if (cpu != null) {
+          $("#cpu").removeClass('d-none');
+          $("#cpu_temp").removeClass('d-none');
+          $("#cpu_temp").text(cpu + "°C");
+          if (cpu < 50) {
+            $("#cpu_temp").css('color', 'green');
+          } else if (cpu < 80) {
+            $("#cpu_temp").css('color', 'orange');
+          } else {
+            $("#cpu_temp").css('color', 'red');
+          }
+        } else {
+          $("#cpu").addClass('d-none');
+          $("#cpu_temp").addClass('d-none');
+        }
+        if (ext != null) {
+          $("#ext").removeClass('d-none');
+          $("#ext_temp").removeClass('d-none');
+          $("#ext_temp").text(ext + "°C");
+          if (ext < -10) {
+            $("#ext_temp").css('color', 'orange');
+          } else if (ext < 40) {
+            $("#ext_temp").css('color', 'green');
+          } else if (ext < 50) {
+            $("#ext_temp").css('color', 'orange');
+          } else {
+            $("#ext_temp").css('color', 'red');
+          }
+        } else {
+          $("#ext").addClass('d-none');
+          $("#ext_temp").addClass('d-none');
+        }
+      }
+
+      let temperatureTask = {};
+      temperatureTask.func = function() {
+        let url = "/api/get_temperatures.json";
+        fetch(url, {
+          method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+        })
+          .then(response => { return response.json() })
+          .then(data => {
+            update_temp_block(data["cpu"], data["ext"], data["age"]);
+          })
+          .catch((err) => {
+            console.log("requested temperatures and got error: " + err);
+          });
+      }
+
+      registerTask(
+        "Update temperature",
+        15000,
+        function() {
+          let url = "/api/get_temperatures.json";
+          fetch(url, {
+            method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+          })
+            .then(response => { return response.json() })
+            .then(data => {
+              update_temp_block(data["cpu"], data["ext"], data["age"]);
+            })
+            .catch((err) => {
+              console.log("requested temperatures and got error: " + err);
+            }
+          );
+        }
+      );
     {% endif %}
 
     function show_spinner() {
