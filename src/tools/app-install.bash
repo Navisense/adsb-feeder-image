@@ -11,11 +11,13 @@ source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.b
 
 USAGE="
  $0 arguments
-  --ref ref                   # the ref (e.g. branch or tag) to install (default: main)
+  --ref ref                   # the ref (e.g. branch or tag) to install
+                              # (default: latest available stable version)
   --web-port port             # the port for the web interface (default: 1099)
   --enable-mdns               # enable the mDNS server (off by default)
   --expand-rootfs             # enable a service to expand the root file system
-  --auto-install-dependencies # automatically install needed dependencies (off by default)
+  --auto-install-dependencies # automatically install needed dependencies (off
+                              # by default)
 "
 
 ROOT_REQUIRED="
@@ -30,7 +32,7 @@ exit_message() {
 
 [ "$(id -u)" != "0" ] && exit_message "$ROOT_REQUIRED"
 
-REF="main"
+REF=""
 WEB_PORT="1099"
 ENABLE_MDNS="False"
 EXPAND_ROOTFS="False"
@@ -53,6 +55,16 @@ do
     esac
     shift
 done
+
+if [ -z "${REF}" ] ; then
+    REF=$(find_latest_stable_version)
+    if [ -n "${REF}" ] ; then
+        echo "Using latest available stable version ${REF}."
+    else
+        echo "Error finding latest stable version, using main instead."
+        REF="main"
+    fi
+fi
 
 if [[ ! -d "${APP_DIR}" ]] ; then
     if ! mkdir -p "${APP_DIR}" ; then
