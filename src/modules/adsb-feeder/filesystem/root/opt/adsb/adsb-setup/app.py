@@ -57,8 +57,6 @@ from utils.agg_status import AggStatus, ImStatus
 from utils.background import Background
 from utils.config import (
     config_lock,
-    log_consistency_warning,
-    read_values_from_config_json,
     read_values_from_env_file,
     write_values_to_config_json,
     write_values_to_env_file,
@@ -67,7 +65,7 @@ from utils.data import Data
 from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
 import utils.gitlab as gitlab
-from utils.netconfig import UltrafeederConfig
+import utils.netconfig
 from utils.other_aggregators import (
     ADSBHub,
     FlightAware,
@@ -87,7 +85,6 @@ import utils.util
 from utils.util import (
     cleanup_str,
     create_fake_info,
-    generic_get_json,
     is_true,
     make_int,
     mf_get_ip_and_triplet,
@@ -375,8 +372,8 @@ class AdsbIm:
         self.setup_app_ports()
 
         self._sdrdevices = SDRDevices()
-        for i in [0] + self.micro_indices():
-            self._d.ultrafeeder.append(UltrafeederConfig(data=self._d, micro=i))
+        self._ultrafeeder_config = utils.netconfig.UltrafeederConfig(
+            data=self._d)
 
         self.last_dns_check = 0
         self.undervoltage_epoch = 0
@@ -398,7 +395,7 @@ class AdsbIm:
 
         # no one should share a CPU serial with AirNav, so always create fake cpuinfo;
         # also identify if we would use the thermal hack for RB and Ultrafeeder
-        if create_fake_info([0] + self.micro_indices()):
+        if create_fake_info([0]):
             self._d.env_by_tags("rbthermalhack").value = "/sys/class/thermal"
         else:
             self._d.env_by_tags("rbthermalhack").value = ""
@@ -449,32 +446,6 @@ class AdsbIm:
         self.last_cache_agg_status = 0
         self.cache_agg_status_lock = threading.Lock()
         self.last_aggregator_debug_print = None
-        self.microfeeder_setting_tags = (
-            "site_name", "lat", "lon", "alt", "tz", "mf_version", "max_range",
-            "adsblol_uuid", "adsblol_link", "ultrafeeder_uuid", "mlat_privacy", "route_api",
-            "uat978", "heywhatsthat", "heywhatsthat_id",
-            "flightradar--key", "flightradar_uat--key", "flightradar--is_enabled",
-            "planewatch--key", "planewatch--is_enabled",
-            "flightaware--key", "flightaware--is_enabled",
-            "radarbox--key", "radarbox--snkey", "radarbox--is_enabled",
-            "planefinder--key", "planefinder--is_enabled",
-            "adsbhub--key", "adsbhub--is_enabled",
-            "opensky--user", "opensky--key", "opensky--is_enabled",
-            "radarvirtuel--key", "radarvirtuel--is_enabled",
-            "planewatch--key", "planewatch--is_enabled",
-            "1090uk--key", "1090uk--is_enabled",
-            "adsblol--is_enabled",
-            "flyitaly--is_enabled",
-            "adsbx--is_enabled", "adsbxfeederid",
-            "tat--is_enabled",
-            "planespotters--is_enabled",
-            "adsbfi--is_enabled",
-            "avdelphi--is_enabled",
-            "hpradar--is_enabled",
-            "alive--is_enabled",
-            "uat978--is_enabled",
-            "sdrmap--is_enabled", "sdrmap--user", "sdrmap--key",
-        )
         # fmt: on
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
@@ -628,11 +599,6 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.base_info),
         )
         self.app.add_url_rule(
-            "/api/stage2_info",
-            "stage2_info",
-            self._decide_route_hotspot_mode(self.stage2_info),
-        )
-        self.app.add_url_rule(
             "/api/stage2_stats",
             "stage2_stats",
             self._decide_route_hotspot_mode(self.stage2_stats),
@@ -641,16 +607,6 @@ class AdsbIm:
             "/api/stats",
             "stats",
             self._decide_route_hotspot_mode(self.stats),
-        )
-        self.app.add_url_rule(
-            "/api/micro_settings",
-            "micro_settings",
-            self._decide_route_hotspot_mode(self.micro_settings),
-        )
-        self.app.add_url_rule(
-            "/api/check_remote_feeder/<ip>",
-            "check_remote_feeder",
-            self._decide_route_hotspot_mode(self.check_remote_feeder),
         )
         self.app.add_url_rule(
             f"/api/status/<agg>",
@@ -772,13 +728,6 @@ class AdsbIm:
             Background(60, self.every_minute))
         # every_minute stuff is required to initialize some values, run it synchronously
         self.every_minute()
-
-        if self._d.is_enabled("stage2"):
-            # let's make sure we tell the micro feeders every ten minutes that
-            # the stage2 is around, looking at them
-            self._executor.submit(self.stage2_checks)
-            self._background_tasks["stage2_checks"] = (
-                Background(600, self.stage2_checks))
 
         # reset undervoltage indicator
         self._d.env_by_tags("under_voltage").value = False
@@ -935,13 +884,9 @@ class AdsbIm:
     def write_envfile(self):
         write_values_to_env_file(self._d.envs_for_envfile)
 
-    def setup_ultrafeeder_args(self):
-        # set all of the ultrafeeder config data up
-        for i in [0] + self.micro_indices():
-            print_err(f"ultrafeeder_config {i}", level=2)
-            if i >= len(self._d.ultrafeeder):
-                self._d.ultrafeeder.append(UltrafeederConfig(data=self._d, micro=i))
-            self._d.env_by_tags("ultrafeeder_config").list_set(i, self._d.ultrafeeder[i].generate())
+    def _setup_ultrafeeder_args(self):
+        self._d.env_by_tags("ultrafeeder_config").list_set(
+            0, self._ultrafeeder_config.generate())
 
     def setup_app_ports(self):
         if not self._d.is_enabled("app_init_done"):
@@ -1020,11 +965,6 @@ class AdsbIm:
             )
         self._executor.submit(push_mo)
 
-    def stage2_checks(self):
-        for i in self.micro_indices():
-            if self._d.env_by_tags("mf_version").list_get(i) != "not an adsb.im feeder":
-                self.get_base_info(i)
-
     def restarting(self):
         return render_template("restarting.html")
 
@@ -1059,7 +999,7 @@ class AdsbIm:
     def create_backup_zip(self, include_graphs=False, include_heatmap=False):
         adsb_path = self._d.config_path
 
-        def graphs1090_writeback(uf_path, microIndex):
+        def graphs1090_writeback(uf_path):
             # the rrd file will be updated via move after collectd is done writing it out
             # so killing collectd and waiting for the mtime to change is enough
 
@@ -1073,28 +1013,24 @@ class AdsbIm:
                 except:
                     return time.time() - 0  # fallback to long time since last write
 
-            context = f"graphs1090 writeback {microIndex}"
-
             t = timeSinceWrite(rrd_file)
             if t < 120:
-                print_err(f"{context}: not needed, timeSinceWrite: {round(t)}s")
+                self._logger.info(
+                    "graphs1090 writeback: not needed, timeSinceWrite: "
+                    f"{round(t)}s")
                 return
 
-            print_err(f"{context}: requesting")
+            self._logger.info(f"graphs1090 writeback: requesting")
             try:
-                if microIndex == 0:
-                    uf_container = "ultrafeeder"
-                else:
-                    uf_container = f"uf_{microIndex}"
                 subprocess.run(
-                    f"docker exec {uf_container} pkill collectd",
+                    "docker exec ultrafeeder pkill collectd",
                     timeout=10.0,
                     shell=True,
                     check=True,
                 )
             except:
                 self._logger.exception(
-                    f"{context}: docker exec failed - backed up graph data "
+                    f"graphs1090 writeback: docker exec failed - backed up graph data "
                     "might miss up to 6h", flash_message=True)
             else:
                 count = 0
@@ -1104,12 +1040,12 @@ class AdsbIm:
                     count += increment
                     sleep(increment)
                     if timeSinceWrite(rrd_file) < 120:
-                        print_err(f"{context}: success")
+                        print_err(f"graphs1090 writeback: success")
                         return
 
                 self._logger.error(
-                    f"{context}: writeback timed out - backed up graph data "
-                    "might miss up to 6h", flash_message=True)
+                    "graphs1090 writeback: writeback timed out - backed up "
+                    "graph data might miss up to 6h", flash_message=True)
 
         fdOut, fdIn = os.pipe()
         pipeOut = os.fdopen(fdOut, "rb")
@@ -1117,39 +1053,42 @@ class AdsbIm:
 
         def zip2fobj(fobj, include_graphs, include_heatmap):
             try:
-                with fobj as file, zipfile.ZipFile(file, mode="w") as backup_zip:
-                    backup_zip.write(adsb_path / "config.json", arcname="config.json")
+                with fobj as file, zipfile.ZipFile(file,
+                                                   mode="w") as backup_zip:
+                    backup_zip.write(
+                        adsb_path / "config.json", arcname="config.json")
 
-                    for microIndex in [0] + self.micro_indices():
-                        if microIndex == 0:
-                            uf_path = adsb_path / "ultrafeeder"
+                    uf_path = adsb_path / "ultrafeeder"
+                    gh_path = uf_path / "globe_history"
+                    if include_heatmap and gh_path.is_dir():
+                        for subpath in gh_path.iterdir():
+                            pstring = str(subpath)
+                            if subpath.name == "internal_state":
+                                continue
+                            if subpath.name == "tar1090-update":
+                                continue
+
+                            print_err(f"add: {pstring}")
+                            for f in subpath.rglob("*"):
+                                backup_zip.write(
+                                    f, arcname=f.relative_to(adsb_path))
+
+                    # do graphs after heatmap data as this can pause a couple
+                    # seconds in graphs1090_writeback due to buffers, the
+                    # download won't be recognized by the browsers until some
+                    # data is added to the zipfile
+                    if include_graphs:
+                        graphs1090_writeback(uf_path)
+                        graphs_path = (
+                            uf_path / "graphs1090/rrd/localhost.tar.gz")
+                        if graphs_path.exists():
+                            backup_zip.write(
+                                graphs_path,
+                                arcname=graphs_path.relative_to(adsb_path))
                         else:
-                            uf_path = adsb_path / "ultrafeeder" / self._d.env_by_tags("mf_ip").list_get(microIndex)
-
-                        gh_path = uf_path / "globe_history"
-                        if include_heatmap and gh_path.is_dir():
-                            for subpath in gh_path.iterdir():
-                                pstring = str(subpath)
-                                if subpath.name == "internal_state":
-                                    continue
-                                if subpath.name == "tar1090-update":
-                                    continue
-
-                                print_err(f"add: {pstring}")
-                                for f in subpath.rglob("*"):
-                                    backup_zip.write(f, arcname=f.relative_to(adsb_path))
-
-                        # do graphs after heatmap data as this can pause a couple seconds in graphs1090_writeback
-                        # due to buffers, the download won't be recognized by the browsers until some data is added to the zipfile
-                        if include_graphs:
-                            graphs1090_writeback(uf_path, microIndex)
-                            graphs_path = uf_path / "graphs1090/rrd/localhost.tar.gz"
-                            if graphs_path.exists():
-                                backup_zip.write(graphs_path, arcname=graphs_path.relative_to(adsb_path))
-                            else:
-                                self._logger.error(
-                                    "graphs1090 backup failed, file not "
-                                    f"found: {graphs_path}", flash_message=True)
+                            self._logger.error(
+                                "graphs1090 backup failed, file not "
+                                f"found: {graphs_path}", flash_message=True)
 
             except BrokenPipeError:
                 self._logger.exception(
@@ -1359,8 +1298,7 @@ class AdsbIm:
         return True
 
     def at_least_one_aggregator(self) -> bool:
-        # this only checks for a micro feeder or integrated feeder, not for stage2
-        if self._d.ultrafeeder[0].enabled_aggregators:
+        if self._ultrafeeder_config.enabled_aggregators:
             return True
 
         # of course, maybe they picked just one or more proprietary aggregators and that's all they want...
@@ -1408,35 +1346,6 @@ class AdsbIm:
             indent=2,
         )
         return Response(jsonString, mimetype="application/json")
-
-    def stage2_info(self):
-        if not self._d.is_enabled("stage2"):
-            print_err("/api/stage2_info called but stage2 is not enabled")
-            return self.base_info()
-        # for a stage2 we return the base info for each of the micro feeders
-        info_array = []
-        for i in self.micro_indices():
-            uat_capable = False
-            if self._d.env_by_tags("mf_version").list_get(i) != "not an adsb.im feeder":
-                self.get_base_info(i)
-                uat_capable = self._d.env_by_tags("978url").list_get(i) != ""
-
-            info_array.append(
-                {
-                    "mf_ip": self._d.env_by_tags("mf_ip").list_get(i),
-                    "mf_version": self._d.env_by_tags("mf_version").list_get(i),
-                    "lat": self._d.env_by_tags("lat").list_get(i),
-                    "lon": self._d.env_by_tags("lon").list_get(i),
-                    "alt": self._d.env_by_tags("alt").list_get(i),
-                    "uat_capable": uat_capable,
-                    "brofm_capable": (
-                        self._d.list_is_enabled("mf_brofm_capable", idx=i)
-                        or self._d.list_is_enabled("mf_brofm", idx=i)
-                    ),
-                    "brofm_enabled": self._d.list_is_enabled("mf_brofm", idx=i),
-                }
-            )
-        return Response(json.dumps(info_array), mimetype="application/json")
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
@@ -1498,71 +1407,48 @@ class AdsbIm:
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response
 
-    def uf_suffix(self, i):
-        suffix = f"uf_{i}" if i != 0 else "ultrafeeder"
-        if self._d.env_by_tags("aggregator_choice").value == "nano":
-            suffix = "nanofeeder"
-        return suffix
-
     def stats(self):
-        # collect the stats for each microfeeder and ensure that they are all the same
-        # length by padding with zeros (that means the value for days for which we have
-        # no data is 0)
-        plane_stats = []
-        l = 0
-        for i in [0] + self.micro_indices():
-            plane_stats.append([len(self.planes_seen_per_day[i])] + self.plane_stats[i])
-            l = max(l, len(plane_stats[-1]))
-        for i in range(len(plane_stats)):
-            plane_stats[i] = plane_stats[i] + [0] * (l - len(plane_stats[i]))
+        plane_stats = [
+            [len(self.planes_seen_per_day[0])] + self.plane_stats[0]]
         return Response(json.dumps(plane_stats), mimetype="application/json")
 
     def stage2_stats(self):
         ret = []
-        if True:
-            for i in [0] + self.micro_indices():
-                tplanes = len(self.planes_seen_per_day[i])
-                ip = self._d.env_by_tags("mf_ip").list_get(i)
-                ip, triplet = mf_get_ip_and_triplet(ip)
-                suffix = self.uf_suffix(i)
-                try:
-                    with open(f"/run/adsb-feeder-{suffix}/readsb/stats.prom") as f:
-                        uptime = 0
-                        found = 0
-                        for line in f:
-                            if "position_count_total" in line:
-                                pps = int(line.split()[1]) / 60
-                                # show precise position rate if less than 1
-                                pps = round(pps, 1) if pps < 1 else round(pps)
-                                found |= 1
-                            if "readsb_messages_valid" in line:
-                                mps = round(int(line.split()[1]) / 60)
-                                found |= 4
-                            if "readsb_aircraft_with_position" in line:
-                                planes = int(line.split()[1])
-                                found |= 8
-                            if i != 0 and f'readsb_net_connector_status{{host="{ip}"' in line:
-                                uptime = int(line.split()[1])
-                                found |= 2
-                            if i == 0 and "readsb_uptime" in line:
-                                uptime = int(int(line.split()[1]) / 1000)
-                                found |= 2
-                            if found == 15:
-                                break
-                        ret.append(
-                            {
-                                "pps": pps,
-                                "mps": mps,
-                                "uptime": uptime,
-                                "planes": planes,
-                                "tplanes": tplanes,
-                            }
-                        )
-                except FileNotFoundError:
-                    ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
-                except:
-                    print_err(traceback.format_exc())
-                    ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
+        tplanes = len(self.planes_seen_per_day[0])
+        ip = self._d.env_by_tags("mf_ip").list_get(0)
+        ip, triplet = mf_get_ip_and_triplet(ip)
+        try:
+            with open(f"/run/adsb-feeder-ultrafeeder/readsb/stats.prom") as f:
+                uptime = 0
+                found = 0
+                for line in f:
+                    if "position_count_total" in line:
+                        pps = int(line.split()[1]) / 60
+                        # show precise position rate if less than 1
+                        pps = round(pps, 1) if pps < 1 else round(pps)
+                        found |= 1
+                    if "readsb_messages_valid" in line:
+                        mps = round(int(line.split()[1]) / 60)
+                        found |= 2
+                    if "readsb_aircraft_with_position" in line:
+                        planes = int(line.split()[1])
+                        found |= 4
+                    if found == 7:
+                        break
+                ret.append(
+                    {
+                        "pps": pps,
+                        "mps": mps,
+                        "uptime": uptime,
+                        "planes": planes,
+                        "tplanes": tplanes,
+                    }
+                )
+        except FileNotFoundError:
+            ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
+        except:
+            print_err(traceback.format_exc())
+            ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
         return Response(json.dumps(ret), mimetype="application/json")
 
     def stage2_connection(self):
@@ -1588,28 +1474,9 @@ class AdsbIm:
             mimetype="application/json",
         )
 
-    def micro_settings(self):
-        microsettings = {}
-        for e in self._d._env:
-            for t in self.microfeeder_setting_tags:
-                tags = t.split("--")
-                if all(t in e.tags for t in tags):
-                    if type(e._value) == list:
-                        microsettings[t] = e.list_get(0)
-                    else:
-                        microsettings[t] = e._value
-        # fix up the version
-        microsettings["mf_version"] = self._d.env_by_tags("base_version").value
-        # ensure forward/backward compatibility with lng/lon change
-        microsettings["lng"] = microsettings["lon"]
-        response = make_response(json.dumps(microsettings))
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        return response
-
     def generate_agg_structure(self):
         aggregators = copy.deepcopy(self.all_aggregators)
-        n = len(self.micro_indices()) + 1
-        matrix = [0] * n
+        matrix = [0]
         active_aggregators = []
         for idx in range(len(aggregators)):
             agg = aggregators[idx][0]
@@ -1617,19 +1484,15 @@ class AdsbIm:
             template_link = status_link_list[0]
             final_link = template_link
             agg_enabled = False
-            for i in range(n):
-                agg_enabled |= self._d.list_is_enabled(agg, i)
-                matrix[i] |= 1 << idx if self._d.list_is_enabled(agg, i) else 0
-                if template_link.startswith("/"):
-                    final_link = template_link.replace("STG2IDX", "" if i == 0 else f"_{i}")
-                else:
-                    match = re.search("<([^>]*)>", template_link)
-                    if match:
-                        final_link = template_link.replace(match.group(0), self._d.env(match.group(1)).list_get(i))
-                if i == 0:
-                    status_link_list[0] = final_link
-                else:
-                    status_link_list.append(final_link)
+            agg_enabled |= self._d.list_is_enabled(agg, 0)
+            matrix[0] |= 1 << idx if self._d.list_is_enabled(agg, 0) else 0
+            if template_link.startswith("/"):
+                final_link = template_link.replace("STG2IDX", "")
+            else:
+                match = re.search("<([^>]*)>", template_link)
+                if match:
+                    final_link = template_link.replace(match.group(0), self._d.env(match.group(1)).list_get(0))
+            status_link_list[0] = final_link
 
             if agg_enabled:
                 active_aggregators.append(aggregators[idx])
@@ -1655,9 +1518,8 @@ class AdsbIm:
         # they will be requested by the overview page soon
         for entry in self.agg_structure:
             agg = entry[0]
-            for idx in [0] + self.micro_indices():
-                if self._d.list_is_enabled(agg, idx):
-                    self._executor.submit(self.get_agg_status, agg, idx)
+            if self._d.list_is_enabled(agg, 0):
+                self._executor.submit(self.get_agg_status, agg, 0)
 
     def get_agg_status(self, agg, idx):
 
@@ -1695,9 +1557,8 @@ class AdsbIm:
         res = dict()
 
         # collect the data retrieved in the threads, this works due do each agg status object having a lock
-        for idx in [0] + self.micro_indices():
-            if self._d.list_is_enabled(agg, idx):
-                res[idx] = self.get_agg_status(agg, idx)
+        if self._d.list_is_enabled(agg, 0):
+            res[0] = self.get_agg_status(agg, 0)
 
         return json.dumps(res)
 
@@ -1727,13 +1588,12 @@ class AdsbIm:
             m = 0
         return render_template("visualization.html", site=site, m=m)
 
-    def clear_range_outline(self, idx=0):
-        suffix = self.uf_suffix(idx)
-        print_err(f"resetting range outline for {suffix}")
-        setGainPath = pathlib.Path(f"/run/adsb-feeder-{suffix}/readsb/setGain")
+    def clear_range_outline(self):
+        self._logger.info("Resetting range outline for ultrafeeder.")
+        setGainPath = pathlib.Path(f"/run/adsb-feeder-ultrafeeder/readsb/setGain")
 
         self.waitSetGainRace()
-        string2file(path=setGainPath, string=f"resetRangeOutline", verbose=True)
+        string2file(path=setGainPath, string="resetRangeOutline", verbose=True)
 
     def waitSetGainRace(self):
         # readsb checks this the setGain file every 0.2 seconds
@@ -1786,159 +1646,6 @@ class AdsbIm:
             name += "_"
         return name
 
-    def get_base_info(self, n, do_import=False):
-        ip = self._d.env_by_tags("mf_ip").list_get(n)
-        port = self._d.env_by_tags("mf_port").list_get(n)
-        if not port:
-            port = "80"
-        ip, triplet = mf_get_ip_and_triplet(ip)
-
-        print_err(f"getting info from {ip}:{port} with do_import={do_import}", level=8)
-        timeout = 2.0
-        # try:
-        if do_import:
-            micro_settings, status = generic_get_json(f"http://{ip}:{port}/api/micro_settings", timeout=timeout)
-            print_err(f"micro_settings API on {ip}:{port}: {status}, {micro_settings}")
-            if status != 200 or micro_settings == None:
-                # maybe we're running on 1099?
-                port = "1099"
-                micro_settings, status = generic_get_json(f"http://{ip}:{port}/api/micro_settings", timeout=timeout)
-                print_err(f"micro_settings API on {ip}:{port}: {status}, {micro_settings}")
-
-            if status == 200 and micro_settings != None:
-                for key, value in micro_settings.items():
-                    # when getting values from a microfeeder older than v2.1.3
-                    if key == "lng":
-                        key = "lon"
-                    if key not in self.microfeeder_setting_tags:
-                        continue
-                    tags = key.split("--")
-                    e = self._d.env_by_tags(tags)
-                    if e:
-                        e.list_set(n, value)
-        base_info, status = generic_get_json(f"http://{ip}:{port}/api/base_info", timeout=timeout)
-        if (status != 200 or base_info == None) and port == "80":
-            # maybe we're running on 1099?
-            port = "1099"
-            base_info, status = generic_get_json(f"http://{ip}:{port}/api/base_info", timeout=timeout)
-        if status == 200 and base_info != None:
-
-            base_info_string = json.dumps(base_info)
-
-            if self._last_base_info.get(ip) != base_info_string:
-                self._last_base_info[ip] = base_info_string
-                print_err(f"got {base_info} for {ip}")
-
-            if do_import or not self._d.env_by_tags("site_name").list_get(n):
-                # only accept the remote name if this is our initial import
-                # after that the user may have overwritten it
-                self._d.env_by_tags("site_name").list_set(n, self.unique_site_name(base_info["name"], n))
-            self._d.env_by_tags("lat").list_set(n, base_info["lat"])
-            # deal with backwards compatibility
-            lon = base_info.get("lon", None)
-            if lon is None:
-                lon = base_info.get("lng", "")
-            self._d.env_by_tags("lon").list_set(n, lon)
-            self._d.env_by_tags("alt").list_set(n, base_info["alt"])
-            self._d.env_by_tags("tz").list_set(n, base_info["tz"])
-            self._d.env_by_tags("mf_version").list_set(n, base_info["version"])
-            self._d.env_by_tags("mf_port").list_set(n, port)
-
-            aap = base_info.get("airspy_at_port")
-            rap = base_info.get("rtlsdr_at_port")
-            dap = base_info.get("dump978_at_port")
-            airspyurl = ""
-            rtlsdrurl = ""
-            dump978url = ""
-
-            if aap and aap != 0:
-                airspyurl = f"http://{ip}:{aap}"
-            if rap and rap != 0:
-                rtlsdrurl = f"http://{ip}:{rap}"
-            if dap and dap != 0:
-                dump978url = f"http://{ip}:{dap}/skyaware978"
-
-            self._d.env_by_tags("airspyurl").list_set(n, airspyurl)
-            self._d.env_by_tags("rtlsdrurl").list_set(n, rtlsdrurl)
-            self._d.env_by_tags("978url").list_set(n, dump978url)
-
-            self._d.env_by_tags("mf_brofm_capable").list_set(n, bool(base_info.get("brofm_capable")))
-
-            return True
-        #    except:
-        #        pass
-        print_err(f"failed to get base_info from micro feeder {n}")
-        return False
-
-    def check_remote_feeder(self, ip):
-        print_err(f"check_remote_feeder({ip})")
-        ip, triplet = mf_get_ip_and_triplet(ip)
-        json_dict = {}
-        for port in ["80", "1099"]:
-            url = f"http://{ip}:{port}/api/base_info"
-            print_err(f"checking remote feeder {url}")
-            try:
-                response = requests.get(url, timeout=5.0)
-                print_err(f"response code: {response.status_code}")
-                json_dict = response.json()
-                print_err(f"json_dict: {type(json_dict)} {json_dict}")
-            except:
-                print_err(f"failed to check base_info from remote feeder {ip}:{port}")
-            else:
-                if response.status_code == 200:
-                    # yay, this is an adsb.im feeder
-                    # is it new enough to have the setting transfer?
-                    url = f"http://{ip}:{port}/api/micro_settings"
-                    print_err(f"checking remote feeder {url}")
-                    try:
-                        response = requests.get(url, timeout=5.0)
-                    except:
-                        print_err(f"failed to check micro_settings from remote feeder {ip}")
-                        json_dict["micro_settings"] = False
-                    else:
-                        if response.status_code == 200:
-                            # ok, we have a recent adsb.im version
-                            json_dict["micro_settings"] = True
-                        else:
-                            json_dict["micro_settings"] = False
-                    # does it support beast reduce optimized for mlat (brofm)?
-                    json_dict["brofm_capable"] = bool(json_dict.get("brofm_capable"))
-
-                # now return the json_dict which will give the caller all the relevant data
-                # including whether this is a v2 or not
-                return make_response(json.dumps(json_dict), 200)
-
-        # ok, it's not a recent adsb.im version, it could still be a feeder
-        uf = self._d.env_by_tags(["ultrafeeder", "container"]).value
-        cmd = [
-            "docker",
-            "run",
-            "--rm",
-            "--entrypoint",
-            "/usr/local/bin/readsb",
-            f"{uf}",
-            "--net",
-            "--net-connector",
-            f"{triplet}",
-            "--quiet",
-            "--auto-exit=2",
-        ]
-        print_err(f"running: {cmd}")
-        try:
-            response = subprocess.run(
-                cmd,
-                timeout=30.0,
-                capture_output=True,
-            )
-            output = response.stderr.decode("utf-8")
-        except:
-            print_err("failed to use readsb in ultrafeeder container to check on remote feeder status")
-            return make_response(json.dumps({"status": "fail"}), 200)
-        if not re.search("input: Connection established", output):
-            print_err(f"can't connect to beast_output on remote feeder: {output}")
-            return make_response(json.dumps({"status": "fail"}), 200)
-        return make_response(json.dumps({"status": "ok"}), 200)
-
     def import_graphs_and_history_from_remote(self, ip, port):
         print_err(f"importing graphs and history from {ip}")
         # first make sure that there isn't any old data that needs to be moved
@@ -1982,169 +1689,6 @@ class AdsbIm:
                 flash_message=True)
         finally:
             os.remove(tmpfile)
-
-    def setup_new_micro_site(
-        self,
-        key,
-        uat,
-        is_adsbim,
-        brofm,
-        do_import=False,
-        do_restore=False,
-        micro_data={},
-    ):
-        # the key here can be a readsb net connector triplet in the form ip,port,protocol
-        # usually it's just the ip
-        if key in {self._d.env_by_tags("mf_ip").list_get(i) for i in self.micro_indices()}:
-            print_err(f"IP address {key} already listed as a micro site")
-            return (False, f"IP address {key} already listed as a micro site")
-        print_err(f"setting up a new micro site at {key} do_import={do_import} do_restore={do_restore}")
-        n = self._d.env_by_tags("num_micro_sites").value
-
-        # store the IP address so that get_base_info works
-        # and assume port is 80 (get_base_info will fix that if it's wrong)
-        self._d.env_by_tags("mf_ip").list_set(n + 1, key)
-        self._d.env_by_tags("mf_port").list_set(n + 1, "80")
-        self._d.env_by_tags("mf_brofm").list_set(n + 1, brofm)
-
-        if not is_adsbim:
-            # well that's unfortunate
-            # we might get asked to create a UI for this at some point. Not today, though
-            print_err(f"Micro feeder at {key} is not an adsb.im feeder")
-            n += 1
-            self._d.env_by_tags("num_micro_sites").value = n
-            self._d.env_by_tags("site_name").list_set(n, self.unique_site_name(micro_data.get("micro_site_name", "")))
-            self._d.env_by_tags("lat").list_set(n, micro_data.get("micro_lat", ""))
-            self._d.env_by_tags("lon").list_set(n, micro_data.get("micro_lon", ""))
-            self._d.env_by_tags("alt").list_set(n, micro_data.get("micro_alt", ""))
-            self._d.env_by_tags("tz").list_set(n, "UTC")
-            self._d.env_by_tags("mf_version").list_set(n, "not an adsb.im feeder")
-            self._d.env_by_tags(["uat978", "is_enabled"]).list_set(n, uat)
-            # accessing the microfeeder envs will create them
-            for e in self._d.stage2_envs:
-                e.list_get(n)
-            # create fake cpu info for airnav
-            create_fake_info([0] + self.micro_indices())
-            self.plane_stats.append([])
-            self.planes_seen_per_day.append(set())
-            return (True, "")
-
-        # now let's see if we can get the data from the micro feeder
-        if self.get_base_info(n + 1, do_import=do_import):
-            print_err(f"added new micro site {self._d.env_by_tags('site_name').list_get(n + 1)} at {key}")
-            n += 1
-            self._d.env_by_tags("num_micro_sites").value = n
-            if do_restore:
-                port = self._d.env_by_tags("mf_port").list_get(n)
-                print_err(f"attempting to restore graphs and history from {key}:{port}")
-                self.import_graphs_and_history_from_remote(key, port)
-        else:
-            # oh well, remove the IP address
-            self._d.env_by_tags("mf_ip").list_remove()
-            return (False, "unable to get base info from micro feeder")
-
-        self._d.env_by_tags(["uat978", "is_enabled"]).list_set(n, uat)
-        # accessing the microfeeder envs will create them
-        for e in self._d.stage2_envs:
-            e.list_get(n)
-        # create fake cpu info for airnav
-        create_fake_info([0] + self.micro_indices())
-        self.plane_stats.append([])
-        self.planes_seen_per_day.append(set())
-
-        return (True, "")
-
-    def remove_micro_site(self, num):
-        # carefully shift everything down
-        print_err(f"removing micro site {num}")
-
-        # deal with plane stats
-        for i in range(num, self._d.env_by_tags("num_micro_sites").value):
-            self.plane_stats[i] = self.plane_stats[i + 1]
-            self.planes_seen_per_day[i] = self.planes_seen_per_day[i + 1]
-
-        self.plane_stats.pop()
-        self.planes_seen_per_day.pop()
-
-        # deal with env vars
-        log_consistency_warning(False)
-        for e in self._d.stage2_envs:
-            print_err(f"shifting {e.name} down and deleting last element {e._value}")
-            for i in range(num, self._d.env_by_tags("num_micro_sites").value):
-                e.list_set(i, e.list_get(i + 1))
-            while len(e._value) > self._d.env_by_tags("num_micro_sites").value:
-                e.list_remove()
-        self._d.env_by_tags("num_micro_sites").value -= 1
-        log_consistency_warning(True)
-        # now read them in to get a consistency warning if needed
-        read_values_from_config_json(check_integrity=True)
-
-    def edit_micro_site(self, num: int, site_name, ip, uat, brofm, new_idx: int):
-        print_err(
-            f"editing micro site {num} from {self._d.env_by_tags('site_name').list_get(num)} at "
-            + f"{self._d.env_by_tags('mf_ip').list_get(num)} to {site_name} at {ip}"
-            + (f" (new index {new_idx})" if new_idx != num else "")
-        )
-        if new_idx < 0 or new_idx > self._d.env_by_tags("num_micro_sites").value:
-            print_err(f"invalid new index {new_idx}, ignoring")
-            new_idx = num
-        old_ip = self._d.env_by_tags("mf_ip").list_get(num)
-        if old_ip != ip:
-            if any([s in ip for s in ["/", "\\", ":", "*", "?", '"', "<", ">", "|", "..", "$"]]):
-                print_err(f"found suspicious characters in IP address {ip} - let's not use this in a command")
-                return (False, f"found suspicious characters in IP address {ip} - rejected")
-            else:
-                data_dir = CONFIG_DIR / "ultrafeeder"
-                if (data_dir / f"{old_ip}").exists() and (data_dir / f"{old_ip}").is_dir():
-                    # ok, as one would hope, there's an Ultrafeeder directory for the old IP
-                    if (data_dir / f"{ip}").exists():
-                        print_err(f"can't move micro feeder data directory to {data_dir/ip} - it's already in use")
-                        return (
-                            False,
-                            f"can't move micro feeder data directory to {data_dir/ip} - it's already in use",
-                        )
-                    try:
-                        subprocess.run(
-                            f"/opt/adsb/docker-compose-adsb rm --force --stop uf_{num} -t 20",
-                            shell=True,
-                        )
-                    except:
-                        print_err(f"failed to stop micro feeder {num}")
-                        return (False, f"failed to stop micro feeder {num}")
-                    print_err(f"moving micro feeder data directory from {data_dir/old_ip} to {data_dir/ip}")
-                    try:
-                        os.rename(data_dir / f"{old_ip}", data_dir / f"{ip}")
-                    except:
-                        print_err(
-                            f"failed to move micro feeder data directory from {data_dir/old_ip} to {data_dir/ip}"
-                        )
-                        return (
-                            False,
-                            f"failed to move micro feeder data directory from {data_dir/old_ip} to {data_dir/ip}",
-                        )
-                # ok, this seems to have worked, let's update the environment variable IP
-                self._d.env_by_tags("mf_ip").list_set(num, ip)
-
-        if site_name != self._d.env_by_tags("site_name").list_get(num):
-            print_err(f"update site name from {self._d.env_by_tags('site_name').list_get(num)} to {site_name}")
-            self._d.env_by_tags("site_name").list_set(num, self.unique_site_name(site_name))
-        if uat != self._d.env_by_tags("uat978").list_get(num):
-            print_err(f"update uat978 from {self._d.env_by_tags('uat978').list_get(num)} to {uat}")
-            self._d.env_by_tags("uat978").list_set(num, uat)
-            self.setup_or_disable_uat(num)
-
-        self._d.env_by_tags("mf_brofm").list_set(num, brofm)
-
-        # now that all the editing has been done, move things around if needed
-        if new_idx != num:
-            print_err(f"moving micro site {num} to {new_idx}")
-
-            for e in self._d.stage2_envs:
-                e.list_move(num, new_idx)
-            self.plane_stats.insert(new_idx, self.plane_stats.pop(num))
-            self.planes_seen_per_day.insert(new_idx, self.planes_seen_per_day.pop(num))
-
-        return (True, "")
 
     def setRtlGain(self):
         if self._d.is_enabled("stage2_nano") or self._d.env_by_tags("aggregator_choice").value == "nano":
@@ -2228,35 +1772,31 @@ class AdsbIm:
             self._d.env_by_tags("nano_beast_port").value = "30005"
             self._d.env_by_tags("nano_beastreduce_port").value = "30006"
 
-        for sitenum in [0] + self.micro_indices():
-            site_name = self._d.env_by_tags("site_name").list_get(sitenum)
-            sanitized = "".join(c if c.isalnum() or c in "-_." else "_" for c in site_name)
-            self._d.env_by_tags("site_name_sanitized").list_set(sitenum, sanitized)
+        site_name = self._d.env_by_tags("site_name").list_get(0)
+        sanitized = "".join(c if c.isalnum() or c in "-_." else "_" for c in site_name)
+        self._d.env_by_tags("site_name_sanitized").list_set(0, sanitized)
 
-            # fixup altitude mishaps by stripping the value
-            # strip meter units and whitespace for good measure
-            alt = self._d.env_by_tags("alt").list_get(sitenum)
-            alt_m = alt.strip().strip("m").strip()
-            self._d.env_by_tags("alt").list_set(sitenum, alt_m)
+        # fixup altitude mishaps by stripping the value
+        # strip meter units and whitespace for good measure
+        alt = self._d.env_by_tags("alt").list_get(0)
+        alt_m = alt.strip().strip("m").strip()
+        self._d.env_by_tags("alt").list_set(0, alt_m)
 
-            # make sure use_route_api is populated with the default:
-            self._d.env_by_tags("route_api").list_get(sitenum)
+        # make sure use_route_api is populated with the default:
+        self._d.env_by_tags("route_api").list_get(0)
 
-            # make sure the uuids are populated:
-            if not self._d.env_by_tags("adsblol_uuid").list_get(sitenum):
-                self._d.env_by_tags("adsblol_uuid").list_set(sitenum, str(uuid4()))
-            if not self._d.env_by_tags("ultrafeeder_uuid").list_get(sitenum):
-                self._d.env_by_tags("ultrafeeder_uuid").list_set(sitenum, str(uuid4()))
+        # make sure the uuids are populated:
+        if not self._d.env_by_tags("adsblol_uuid").list_get(0):
+            self._d.env_by_tags("adsblol_uuid").list_set(0, str(uuid4()))
+        if not self._d.env_by_tags("ultrafeeder_uuid").list_get(0):
+            self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
 
-            for agg in [submit_key.replace("--submit", "") for submit_key in self._other_aggregators.keys()]:
-                if self._d.env_by_tags([agg, "is_enabled"]).list_get(sitenum):
-                    # disable other aggregators for the combined data of stage2
-                    if sitenum == 0 and self._d.is_enabled("stage2"):
-                        self._d.env_by_tags([agg, "is_enabled"]).list_set(sitenum, False)
-                    # disable other aggregators if their key isn't set
-                    if self._d.env_by_tags([agg, "key"]).list_get(sitenum) == "":
-                        print_err(f"empty key, disabling: agg: {agg}, sitenum: {sitenum}")
-                        self._d.env_by_tags([agg, "is_enabled"]).list_set(sitenum, False)
+        for agg in [submit_key.replace("--submit", "") for submit_key in self._other_aggregators.keys()]:
+            if self._d.env_by_tags([agg, "is_enabled"]).list_get(0):
+                # disable other aggregators if their key isn't set
+                if self._d.env_by_tags([agg, "key"]).list_get(0) == "":
+                    print_err(f"empty key, disabling: agg: {agg}")
+                    self._d.env_by_tags([agg, "is_enabled"]).list_set(0, False)
 
         # explicitely enable mlathub unless disabled
         self._d.env_by_tags(["mlathub_enable"]).value = not self._d.env_by_tags(["mlathub_disable"]).value
@@ -2271,25 +1811,11 @@ class AdsbIm:
                 f"http://HOSTNAME:{self._d.env_by_tags('webport').value}/"
             )
 
-        if self._d.is_enabled("stage2"):
-            # for stage2 tar1090port is used for the webproxy
-            # move the exposed port for the combined ultrafeeder to 8078 to avoid a port conflict
-            self._d.env_by_tags("tar1090portadjusted").value = 8078
-            # similarly, move the exposed port for a local nanofeeder to 8076 to avoid another port conflict
-            self._d.env_by_tags("nanotar1090portadjusted").value = 8076
+        self._d.env_by_tags("tar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
+        self._d.env_by_tags("nanotar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
 
-            # set unlimited range for the stage2 tar1090
-            self._d.env_by_tags("max_range").list_set(0, 0)
-
-            for sitenum in [0] + self.micro_indices():
-                self.setup_or_disable_uat(sitenum)
-
-        else:
-            self._d.env_by_tags("tar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
-            self._d.env_by_tags("nanotar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
-
-            # for regular feeders or micro feeders a max range of 300nm seem reasonable
-            self._d.env_by_tags("max_range").list_set(0, 300)
+        # for regular feeders or micro feeders a max range of 300nm seem reasonable
+        self._d.env_by_tags("max_range").list_set(0, 300)
 
         # fix up airspy installs without proper serial number configuration
         if self._d.is_enabled("airspy"):
@@ -2405,29 +1931,8 @@ class AdsbIm:
             if self.base_is_configured():
                 self._d.env_by_tags("sdrs_locked").value = True
 
-        if self._d.env_by_tags("stage2_nano").value:
-            do978 = bool(self._d.env_by_tags("978serial").value)
-
-            # this code is here and not further up so get_base_info knows
-            # about the various URLs for 978 / airspy / 1090
-            log_consistency_warning(False)
-            self.setup_new_micro_site(
-                "local",
-                uat=do978,
-                is_adsbim=True,
-                brofm=False,
-                do_import=True,
-                do_restore=False,
-            )
-            # adjust 978
-            for i in self.micro_indices():
-                if self._d.env_by_tags("mf_ip").list_get(i) == "local":
-                    self._d.env_by_tags(["uat978", "is_enabled"]).list_set(i, do978)
-            log_consistency_warning(True)
-            read_values_from_config_json(check_integrity=True)
-
         # set all of the ultrafeeder config data up
-        self.setup_ultrafeeder_args()
+        self._setup_ultrafeeder_args()
 
         # finally, check if this has given us enough configuration info to
         # start the containers
@@ -2445,9 +1950,6 @@ class AdsbIm:
                     self._d.env_by_tags("journal_configured").value = True
                 except:
                     pass
-
-        for i in self.micro_indices():
-            create_stage2_yml_files(i, self._d.env_by_tags("mf_ip").list_get(i))
 
         # check if we need the stage2 multiOutline job
         if self._d.is_enabled("stage2"):
@@ -2492,20 +1994,10 @@ class AdsbIm:
         """
         # let's try and figure out where we came from - for reasons I don't understand
         # the regexp didn't capture the site number, so let's do this the hard way
+        site = ""
+        sitenum = 0
         extra_args = ""
         referer = request.headers.get("referer")
-        m_arg = referer.rfind("?m=")
-        if m_arg > 0:
-            arg = make_int(referer[m_arg + 3 :])
-        else:
-            arg = 0
-        if arg in self.micro_indices():
-            sitenum = arg
-            site = self._d.env_by_tags("site_name").list_get(sitenum)
-            extra_args = f"?m={sitenum}"
-        else:
-            site = ""
-            sitenum = 0
         allow_insecure = not self.check_secure_image()
         print_err(f"handling input from {referer} and site # {sitenum} / {site} (allow insecure is {allow_insecure})")
         # in the HTML, every input field needs to have a name that is concatenated by "--"
@@ -2528,75 +2020,6 @@ class AdsbIm:
                     self._d.env_by_tags("sdrplay_license_accepted").value = True
                 if key == "sdrplay_license_reject":
                     self._d.env_by_tags("sdrplay_license_accepted").value = False
-                if key == "add_micro" or key == "add_other" or key.startswith("import_micro"):
-                    # user has clicked Add micro feeder on Stage 2 page
-                    # grab the IP that we know the user has provided
-                    ip = form.get("add_micro_feeder_ip")
-                    uat = form.get("micro_uat")
-                    brofm = is_true(form.get("micro_reduce")) and key != "add_other"
-                    is_adsbim = key != "add_other"
-                    micro_data = {}
-                    if not is_adsbim:
-                        for mk in [
-                            "micro_site_name",
-                            "micro_lat",
-                            "micro_lon",
-                            "micro_alt",
-                        ]:
-                            micro_data[mk] = form.get(mk)
-                    do_import = key.startswith("import_micro")
-                    do_restore = key == "import_micro_full"
-                    log_consistency_warning(False)
-                    status, message = self.setup_new_micro_site(
-                        ip,
-                        uat=is_true(uat),
-                        is_adsbim=is_adsbim,
-                        brofm=brofm,
-                        do_import=do_import,
-                        do_restore=do_restore,
-                        micro_data=micro_data,
-                    )
-                    log_consistency_warning(True)
-                    read_values_from_config_json(check_integrity=True)
-                    if status:
-                        print_err("successfully added new micro site")
-                        self._next_url_from_director = url_for("stage2")
-                    else:
-                        self._logger.error(
-                            f"Failed to add new micro site: {message}",
-                            flash_message=True)
-                        next_url = url_for("stage2")
-                    continue
-                if key.startswith("remove_micro_"):
-                    # user has clicked Remove micro feeder on Stage 2 page
-                    # grab the micro feeder number that we know the user has provided
-                    num = int(key[len("remove_micro_") :])
-                    name = self._d.env_by_tags("site_name").list_get(num)
-                    self.remove_micro_site(num)
-                    flash(f"Removed micro site {name}", "success")
-                    self._next_url_from_director = url_for("stage2")
-                    continue
-                if key.startswith("cancel_edit_micro_"):
-                    # discard changes
-                    flash(f"Cancelled changes", "success")
-                    return redirect(url_for("stage2"))
-                if key.startswith("save_edit_micro_"):
-                    # save changes
-                    num = int(key[len("save_edit_micro_") :])
-                    success, message = self.edit_micro_site(
-                        num,
-                        form.get(f"site_name_{num}"),
-                        form.get(f"mf_ip_{num}"),
-                        form.get(f"mf_uat_{num}"),
-                        form.get(f"mf_brofm_{num}"),
-                        make_int(form.get(f"site_order_{num}")),
-                    )
-                    if success:
-                        self._next_url_from_director = url_for("stage2")
-                    else:
-                        flash(message, "error")
-                        next_url = url_for("stage2")
-                    continue
                 if key == "set_stage2_data":
                     # just grab the new data and go back
                     next_url = url_for("stage2")
@@ -2850,7 +2273,7 @@ class AdsbIm:
                 continue
             # now handle other form input
             if key == "clear_range" and value == "1":
-                self.clear_range_outline(sitenum)
+                self.clear_range_outline()
                 continue
             if key == "resetgain" and value == "1":
                 # tell the ultrafeeder container to restart the autogain processing
@@ -3230,7 +2653,7 @@ class AdsbIm:
         return flask.redirect("/aggregators")
 
     def reset_planes_seen_per_day(self):
-        self.planes_seen_per_day = [set() for i in [0] + self.micro_indices()]
+        self.planes_seen_per_day = [set()]
 
     def load_planes_seen_per_day(self):
         # set limit on how many days of statistics to keep
@@ -3240,7 +2663,7 @@ class AdsbIm:
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
         self.reset_planes_seen_per_day()
         self.plane_stats_day = start_of_day.timestamp()
-        self.plane_stats = [[] for i in [0] + self.micro_indices()]
+        self.plane_stats = [[]]
         try:
             with gzip.open(self.PLANES_SEEN_PER_DAY_PATH, "r") as f:
                 planes = json.load(f)
@@ -3248,13 +2671,11 @@ class AdsbIm:
                 if ts >= start_of_day.timestamp():
                     # ok, this dump is from today
                     planelists = planes.get("planes")
-                    for i in [0] + self.micro_indices():
-                        # json can't store sets, so we use list on disk, but sets in memory
-                        self.planes_seen_per_day[i] = set(planelists[i])
+                    # json can't store sets, so we use list on disk, but sets in memory
+                    self.planes_seen_per_day[0] = set(planelists[0])
 
                 planestats = planes.get("stats")
-                for i in [0] + self.micro_indices():
-                    self.plane_stats[i] = planestats[i]
+                self.plane_stats[0] = planestats[0]
 
                 diff = start_of_day.timestamp() - ts
                 if diff > 0:
@@ -3263,18 +2684,15 @@ class AdsbIm:
                     if days > 0:
                         days -= 1
                         planelists = planes.get("planes")
-                        for i in [0] + self.micro_indices():
-                            self.plane_stats[i].insert(0, len(planelists[i]))
+                        self.plane_stats[0].insert(0, len(planelists[0]))
                     if days > 0:
                         print_err(f"loading planes_seen_per_day: padding with {days} zeroes")
                     while days > 0:
                         days -= 1
-                        for i in [0] + self.micro_indices():
-                            self.plane_stats[i].insert(0, 0)
+                        self.plane_stats[0].insert(0, 0)
 
-                for i in [0] + self.micro_indices():
-                    while len(self.plane_stats[i]) > self.plane_stats_limit:
-                        self.plane_stats[i].pop()
+                while len(self.plane_stats[0]) > self.plane_stats_limit:
+                    self.plane_stats[0].pop()
 
         except:
             print_err(f"error loading planes_seen_per_day:\n{traceback.format_exc()}")
@@ -3285,7 +2703,7 @@ class AdsbIm:
         # called during termination
         try:
             # json can't store sets, so we use list on disk, but sets in memory
-            planelists = [list(self.planes_seen_per_day[i]) for i in [0] + self.micro_indices()]
+            planelists = [list(self.planes_seen_per_day[0])]
             planes = {"timestamp": int(time.time()), "planes": planelists, "stats": self.plane_stats}
             planes_json = json.dumps(planes, indent=2)
 
@@ -3296,9 +2714,9 @@ class AdsbIm:
         except:
             self._logger.exception("Error writing planes_seen_per_day")
 
-    def get_current_planes(self, idx):
+    def get_current_planes(self):
         planes = set()
-        path = "/run/adsb-feeder-" + self.uf_suffix(idx) + "/readsb/aircraft.json"
+        path = "/run/adsb-feeder-ultrafeeder/readsb/aircraft.json"
         try:
             with open(path) as f:
                 aircraftdict = json.load(f)
@@ -3312,15 +2730,13 @@ class AdsbIm:
         # we base this on UTC time so it's comparable across time zones
         now = datetime.now(timezone.utc)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        ultrafeeders = [0] + self.micro_indices()
         if self.plane_stats_day != start_of_day.timestamp():
             self.plane_stats_day = start_of_day.timestamp()
             print_err("planes_seen_per_day: new day!")
             # it's a new day, store and then reset the data
-            for i in ultrafeeders:
-                self.plane_stats[i].insert(0, len(self.planes_seen_per_day[i]))
-                if len(self.plane_stats[i]) > self.plane_stats_limit:
-                    self.plane_stats[i].pop()
+            self.plane_stats[0].insert(0, len(self.planes_seen_per_day[0]))
+            if len(self.plane_stats[0]) > self.plane_stats_limit:
+                self.plane_stats[0].pop()
             self.reset_planes_seen_per_day()
             pv = self._d.previous_version
             self._d.previous_version = "check-in"
@@ -3330,9 +2746,8 @@ class AdsbIm:
             # this function is called once every minute - so this triggers once an hour
             # write the data to disk every hour
             self.write_planes_seen_per_day()
-        for i in ultrafeeders:
-            # using sets it's really easy to keep track of what we've seen
-            self.planes_seen_per_day[i] |= self.get_current_planes(i)
+        # using sets it's really easy to keep track of what we've seen
+        self.planes_seen_per_day[0] |= self.get_current_planes()
 
     def update_net_dev(self):
         try:
@@ -3497,13 +2912,6 @@ class AdsbIm:
         # make sure DNS works
         self.update_dns_state()
         return render_template("setup.html", mem=self._memtotal)
-
-    def micro_indices(self):
-        if self._d.is_enabled("stage2"):
-            # micro proxies start at 1
-            return list(range(1, self._d.env_by_tags("num_micro_sites").value + 1))
-        else:
-            return []
 
     def temperatures(self):
         temperature_json = {}
@@ -3692,35 +3100,6 @@ class AdsbIm:
         # version will then say that the restart is complete.
         self.exiting = True
         return render_template("/restarting.html")
-
-
-def create_stage2_yml_from_template(stage2_yml_name, n, ip, template_file):
-    if n:
-        with open(template_file, "r") as stage2_yml_template:
-            with open(stage2_yml_name, "w") as stage2_yml:
-                stage2_yml.write(stage2_yml_template.read().replace("STAGE2NUM", f"{n}").replace("STAGE2IP", ip))
-    else:
-        print_err(f"could not find micro feedernumber in {stage2_yml_name}")
-
-
-def create_stage2_yml_files(n, ip):
-    if not n:
-        return
-    print_err(f"create_stage2_yml_files(n={n}, ip={ip})")
-    for yml_file, template in [
-        [f"stage2_micro_site_{n}.yml", "stage2.yml"],
-        [f"1090uk_{n}.yml", "1090uk_stage2_template.yml"],
-        [f"ah_{n}.yml", "ah_stage2_template.yml"],
-        [f"fa_{n}.yml", "fa_stage2_template.yml"],
-        [f"fr24_{n}.yml", "fr24_stage2_template.yml"],
-        [f"os_{n}.yml", "os_stage2_template.yml"],
-        [f"pf_{n}.yml", "pf_stage2_template.yml"],
-        [f"pw_{n}.yml", "pw_stage2_template.yml"],
-        [f"rb_{n}.yml", "rb_stage2_template.yml"],
-        [f"rv_{n}.yml", "rv_stage2_template.yml"],
-        [f"sdrmap_{n}.yml", "sdrmap_stage2_template.yml"],
-    ]:
-        create_stage2_yml_from_template(f"/opt/adsb/compose_files/{yml_file}", n, ip, f"/opt/adsb/compose_files/{template}")
 
 
 class Manager:

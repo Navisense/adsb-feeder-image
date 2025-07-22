@@ -21,7 +21,6 @@ class Data:
     friendly_name_file = metadata_path / "friendly_name.txt"
     secure_image_path = data_path / "adsb.im.secure_image"
     _env_by_tags_dict = dict()
-    ultrafeeder = []
 
     _proxy_routes = [
         # endpoint, port, url_path
