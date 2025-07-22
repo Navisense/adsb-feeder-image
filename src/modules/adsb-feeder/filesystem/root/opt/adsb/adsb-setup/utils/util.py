@@ -12,6 +12,7 @@ import sys
 import time
 import subprocess
 import tempfile
+import threading
 
 import flask
 
@@ -343,3 +344,48 @@ class FlashingLogger(logging.getLoggerClass()):
             flash_message = msg
         if flash_message:
             flask.flash(flash_message, category)
+
+
+class RepeatingTask:
+    """Background task that keeps repeating."""
+    def __init__(self, interval, function):
+        self._logger = logging.getLogger(type(self).__name__)
+        self._interval = interval
+        self._function = function
+        self._timer = None
+        self._lock = threading.Lock()
+
+    def start(self, *, execute_now=False):
+        with self._lock:
+            if self._timer:
+                raise ValueError("Already started.")
+            if execute_now:
+                self._run_locked()
+            self._schedule_locked()
+
+    def stop_and_wait(self):
+        with self._lock:
+            if not self._timer:
+                raise ValueError("Not running.")
+            self._timer.cancel()
+            try:
+                self._timer.join()
+            except RuntimeError:
+                # Thread wasn't running, that's fine.
+                pass
+            self._timer = None
+
+    def _run_and_schedule(self):
+        with self._lock:
+            self._run_locked()
+            self._schedule_locked()
+
+    def _run_locked(self):
+        try:
+            self._function()
+        except:
+            self._logger.exception(f"Error executing {self._function}.")
+
+    def _schedule_locked(self):
+        self._timer = threading.Timer(self._interval, self._run_and_schedule)
+        self._timer.start()

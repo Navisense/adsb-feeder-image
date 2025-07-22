@@ -54,7 +54,6 @@ from werkzeug.utils import secure_filename
 
 import hotspot
 from utils.agg_status import AggStatus, ImStatus
-from utils.background import Background
 from utils.config import (
     config_lock,
     read_values_from_env_file,
@@ -721,10 +720,9 @@ class AdsbIm:
         if self._d.is_enabled("use_gpsd"):
             self.get_lat_lon_alt()
 
-        self._background_tasks["every_minute"] = (
-            Background(60, self.every_minute))
-        # every_minute stuff is required to initialize some values, run it synchronously
-        self.every_minute()
+        every_minute_task = utils.util.RepeatingTask(60, self.every_minute)
+        every_minute_task.start(execute_now=True)
+        self._background_tasks["every_minute"] = every_minute_task
 
         # reset undervoltage indicator
         self._d.env_by_tags("under_voltage").value = False
@@ -1957,9 +1955,11 @@ class AdsbIm:
         # check if we need the stage2 multiOutline job
         if self._d.is_enabled("stage2"):
             if "multi_outline" not in self._background_tasks:
-                self.push_multi_outline()
+                push_multi_outline_task = utils.util.RepeatingTask(
+                    60, self.push_multi_outline)
+                push_multi_outline_task.start(execute_now=True)
                 self._background_tasks["multi_outline"] = (
-                    Background(60, self.push_multi_outline))
+                    push_multi_outline_task)
         else:
             self._background_tasks.pop("multi_outline", None)
 
@@ -2364,9 +2364,11 @@ class AdsbIm:
                     next_url = url_for("stage2")
                     self._d.env_by_tags("stage2").value = True
                     if "multi_outline" not in self._background_tasks:
-                        self.push_multi_outline()
+                        push_multi_outline_task = utils.util.RepeatingTask(
+                            60, self.push_multi_outline)
+                        push_multi_outline_task.start(execute_now=True)
                         self._background_tasks["multi_outline"] = (
-                            Background(60, self.push_multi_outline))
+                            push_multi_outline_task)
                     unique_name = self.unique_site_name(form.get("site_name"), 0)
                     self._d.env_by_tags("site_name").list_set(0, unique_name)
                 # if this is a regular feeder and the user is changing to 'individual' selection
