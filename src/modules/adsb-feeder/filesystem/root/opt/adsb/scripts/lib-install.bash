@@ -215,6 +215,6 @@ find_latest_stable_version() {
     curl -s "${REPO_API_BASE_URL}/repository/tags" \
     | jq --raw-output '.[].name' \
     | grep '^v[0-9]\.[0-9]\.[0-9]$' \
-    | sort --reverse \
+    | sort -r \
     | head -n 1
 }
