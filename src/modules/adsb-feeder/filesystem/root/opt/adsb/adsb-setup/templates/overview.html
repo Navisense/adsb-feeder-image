@@ -180,9 +180,9 @@
         integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
         crossorigin="anonymous"></script>
 <script>
-  function createReceptionHistoryChart(len) {
+  function createReceptionHistoryChart() {
     let context = document.getElementById("reception-history-chart");
-    return new Chart(context, {
+    let chart = new Chart(context, {
       type: 'line',
       data: {
         labels: [],
@@ -200,30 +200,15 @@
           legend: {
             onClick: function (e, legendItem) {
               let index = legendItem.datasetIndex;
-              let adding = e.native.shiftKey == false;
-              if (adding && shownIndices.size == 0) {
-                // invert
-                for (let i = 0; i < len; i++) {
-                  if (i != index) {
-                    shownIndices.add(i);
-                  }
-                }
+              if (this.chart.shownIndices.has(index)) {
+                this.chart.shownIndices.delete(index);
               } else {
-                if (shownIndices.has(index)) {
-                  shownIndices.delete(index);
-                } else {
-                  shownIndices.add(index);
-                }
+                this.chart.shownIndices.add(index);
               }
-              if (shownIndices.size == len) shownIndices = new Set();
-              clear = shownIndices.size == 0;
-              let ci = this.chart;
-              for (let i = 0; i < len; i++) {
-                let meta = ci.getDatasetMeta(i);
-                meta.hidden = (clear ? false : (!shownIndices.has(i)));
+              if (this.chart.shownIndices.size == this.chart.data.datasets.length) {
+                this.chart.shownIndices.clear();
               }
-              // We hid a dataset ... rerender the chart
-              ci.update();
+              updateChartWithShownIndices(this.chart);
             },
             labels: {
               boxWidth: 20,
@@ -252,7 +237,21 @@
         }
       }
     });
+    chart.shownIndices = new Set();
+    return chart;
   }
+
+  function updateChartWithShownIndices(chart) {
+    const showAll = chart.shownIndices.size == 0;
+    for (let i = 0; i < chart.data.datasets.length; i++) {
+      let meta = chart.getDatasetMeta(i);
+      meta.hidden = !(showAll || chart.shownIndices.has(i));
+    }
+    chart.update();
+  }
+
+  let receptionHistoryChart = createReceptionHistoryChart();
+
   function updateCurrentStats(stats) {
     let color_class = "text-danger";
     let tooltip = "not receiving any data"
@@ -270,8 +269,6 @@
     $("#mf_stats_0").text(`${stats.planes.current.num} planes at the moment`);
 }
 
-  let shownIndices = new Set();
-  let receptionHistoryChart = createReceptionHistoryChart(4);
   function updateAisStats() {
 
     const aisEndpoint =
@@ -330,7 +327,7 @@
       });
     }
     receptionHistoryChart.data.datasets = datasets;
-    receptionHistoryChart.update();
+    updateChartWithShownIndices(receptionHistoryChart);
   }
   let browser_ip = null;
   let feeder_ip = null;
