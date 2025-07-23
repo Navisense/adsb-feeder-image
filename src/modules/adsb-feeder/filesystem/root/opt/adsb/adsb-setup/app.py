@@ -356,7 +356,7 @@ class AdsbIm:
 
         self._routemanager = RouteManager(self.app)
         self._system = utils.system.System(data=self._d)
-        self._reception_monitor = utils.stats.ReceptionMonitor()
+        self._reception_monitor = utils.stats.ReceptionMonitor(self._d)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
         self.wifi_ssid = ""

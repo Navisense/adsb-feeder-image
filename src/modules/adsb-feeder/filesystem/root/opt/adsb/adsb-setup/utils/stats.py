@@ -8,6 +8,8 @@ import tempfile
 import time
 import typing as t
 
+import requests
+
 import utils.data
 import utils.util
 
@@ -100,10 +102,11 @@ class ReceptionMonitor:
     STATS_FILE = utils.data.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
 
-    def __init__(self):
+    def __init__(self, data: utils.data.Data):
         self._logger = logging.getLogger(type(self).__name__)
         self.stats = None
         self._readsb_scraper = ReadsbScraper()
+        self._ais_catcher_scraper = AisCatcherScraper(data)
         self._scrape_tasks = [
             utils.util.RepeatingTask(self.SCRAPE_INTERVAL, scrape_function)
             for scrape_function in [
@@ -135,18 +138,21 @@ class ReceptionMonitor:
 
     def get_current_stats(self) -> CurrentStats:
         return CurrentStats(
-            ais=CurrentCraftStats(0, 0),
+            ais=self._ais_catcher_scraper.get_current_stats(),
             adsb=self._readsb_scraper.get_current_stats())
 
     def _scrape_readsb(self):
-        try:
-            last_minute_stats = self._readsb_scraper.get_last_minute_stats()
-            self.stats.adsb.history.append(last_minute_stats)
-        except Scraper.NoStats:
-            pass
+        self._scrape(self._readsb_scraper, self.stats.adsb)
 
     def _scrape_ais_catcher(self):
-        pass
+        self._scrape(self._ais_catcher_scraper, self.stats.ais)
+
+    def _scrape(self, scraper: "Scraper", craft_stats: CraftStats):
+        try:
+            last_minute_stats = scraper.get_last_minute_stats()
+            craft_stats.history.append(last_minute_stats)
+        except Scraper.NoStats:
+            pass
 
 
 class Scraper:
@@ -201,11 +207,64 @@ class ReadsbScraper(Scraper):
             num_aircraft = (
                 stats_dict["aircraft_with_pos"]
                 + stats_dict["aircraft_without_pos"])
+        except IOError:
+            num_positions = num_aircraft = 0
         except:
             self._logger.exception("Unexpected statistics file format.")
             num_positions = num_aircraft = 0
         return CurrentCraftStats(
             num_crafts=num_aircraft, position_message_rate=num_positions / 60)
+
+
+class AisCatcherScraper(Scraper):
+    def __init__(self, data: utils.data.Data):
+        super().__init__()
+        self._data = data
+
+    def get_last_minute_stats(self) -> TimeFrameStats:
+        try:
+            stats_dict = self._get_stats_dict()
+            num_positions = stats_dict["last_minute"]["count"]
+            icaos = self._get_last_minute_ship_mmsis()
+        except self.NoStats:
+            raise
+        except IOError as e:
+            raise self.NoStats from e
+        except Exception as e:
+            self._logger.exception("Unexpected statistics file format.")
+            raise self.NoStats from e
+        return TimeFrameStats(
+            type="minute", end_ts=time.time(), craft_ids=set(icaos),
+            num_positions=num_positions)
+
+    def _get_stats_dict(self) -> int:
+        url = self._make_url("api/stat.json")
+        return requests.get(url, timeout=1).json()
+
+    def _make_url(self, path):
+        port = self._data.env_by_tags("aiscatcherport").value
+        if not port:
+            raise self.NoStats
+        return f"http://localhost:{port}/{path}"
+
+    def _get_last_minute_ship_mmsis(self) -> set[str]:
+        url = self._make_url("api/ships_array.json")
+        ships_array = requests.get(url, timeout=1).json()
+        # Each ship is a plain array, with the first index being the MMSI.
+        return {s[0] for s in ships_array["values"]}
+
+    def get_current_stats(self) -> CurrentCraftStats:
+        try:
+            stats_dict = self._get_stats_dict()
+            num_positions = stats_dict["last_minute"]["count"]
+            num_ships = stats_dict["last_minute"]["vessels"]
+        except IOError:
+            num_positions = num_ships = 0
+        except:
+            self._logger.exception("Unexpected statistics file format.")
+            num_positions = num_ships = 0
+        return CurrentCraftStats(
+            num_crafts=num_ships, position_message_rate=num_positions / 60)
 
 
 class IterableAsListJSONEncoder(json.JSONEncoder):
