@@ -84,6 +84,18 @@ class Stats:
             raise ValueError("Unexpected format.") from e
 
 
+@dc.dataclass
+class CurrentCraftStats:
+    num_crafts: int
+    position_message_rate: float
+
+
+@dc.dataclass
+class CurrentStats:
+    ships: CurrentCraftStats
+    planes: CurrentCraftStats
+
+
 class ReceptionMonitor:
     STATS_FILE = utils.data.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
@@ -121,6 +133,11 @@ class ReceptionMonitor:
         except:
             self._logger.exception("Error storing stats.")
 
+    def get_current_stats(self) -> CurrentStats:
+        return CurrentStats(
+            ships=CurrentCraftStats(0, 0),
+            planes=self._readsb_scraper.get_current_stats())
+
     def _scrape_readsb(self):
         try:
             last_minute_stats = self._readsb_scraper.get_last_minute_stats()
@@ -142,6 +159,9 @@ class Scraper:
     def get_last_minute_stats(self) -> TimeFrameStats:
         raise NotImplementedError
 
+    def get_current_stats(self) -> CurrentCraftStats:
+        raise NotImplementedError
+
 
 class ReadsbScraper(Scraper):
     STATS_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/stats.json")
@@ -150,7 +170,8 @@ class ReadsbScraper(Scraper):
 
     def get_last_minute_stats(self) -> TimeFrameStats:
         try:
-            num_positions = self._get_last_minute_num_positions()
+            stats_dict = self._read_stats_dict()
+            num_positions = stats_dict["last1min"]["position_count_total"]
             icaos = self._get_last_minute_aircraft_icaos()
         except IOError as e:
             raise self.NoStats from e
@@ -161,10 +182,9 @@ class ReadsbScraper(Scraper):
             type="minute", end_ts=time.time(), craft_ids=set(icaos),
             num_positions=num_positions)
 
-    def _get_last_minute_num_positions(self) -> int:
+    def _read_stats_dict(self) -> int:
         with self.STATS_PATH.open() as f:
-            stats_dict = json.load(f)
-            return stats_dict["last1min"]["position_count_total"]
+            return json.load(f)
 
     def _get_last_minute_aircraft_icaos(self) -> set[str]:
         with self.AIRCRAFT_PATH.open() as f:
@@ -173,6 +193,19 @@ class ReadsbScraper(Scraper):
                 aircraft["hex"]
                 for aircraft in aircraft_dict["aircraft"]
                 if not aircraft["hex"].startswith("~")}
+
+    def get_current_stats(self) -> CurrentCraftStats:
+        try:
+            stats_dict = self._read_stats_dict()
+            num_positions = stats_dict["last1min"]["position_count_total"]
+            num_aircraft = (
+                stats_dict["aircraft_with_pos"]
+                + stats_dict["aircraft_without_pos"])
+        except:
+            self._logger.exception("Unexpected statistics file format.")
+            num_positions = num_aircraft = 0
+        return CurrentCraftStats(
+            num_crafts=num_aircraft, position_message_rate=num_positions / 60)
 
 
 class IterableAsListJSONEncoder(json.JSONEncoder):
