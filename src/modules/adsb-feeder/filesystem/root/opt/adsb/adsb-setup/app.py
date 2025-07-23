@@ -1405,13 +1405,13 @@ class AdsbIm:
     def stats(self):
         current_stats = self._reception_monitor.get_current_stats()
         stats = self._reception_monitor.stats
-        ship_stats = {
-            "current": self._make_current_stats(current_stats.ships),
-            "history": self._make_history_stats(stats.ships.history)}
-        plane_stats = {
-            "current": self._make_current_stats(current_stats.planes),
-            "history": self._make_history_stats(stats.planes.history)}
-        return {"ships": ship_stats, "planes": plane_stats}
+        ais_stats = {
+            "current": self._make_current_stats(current_stats.ais),
+            "history": self._make_history_stats(stats.ais.history)}
+        adsb_stats = {
+            "current": self._make_current_stats(current_stats.adsb),
+            "history": self._make_history_stats(stats.adsb.history)}
+        return {"ais": ais_stats, "adsb": adsb_stats}
 
     def _make_current_stats(
             self, current_stats: utils.stats.CurrentCraftStats):

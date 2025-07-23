@@ -33,7 +33,7 @@
     upgrading to a larger storage device.
   </div>
   <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
-  <div id="plane-stats" class="col-12 mb-3">
+  <div id="adsb-stats" class="col-12 mb-3">
     Position / Message rate: 
     <span id="mf_status_0"></span> — <span id="mf_stats_0"></span>
 </div>
@@ -255,18 +255,18 @@
   function updateCurrentStats(stats) {
     let color_class = "text-danger";
     let tooltip = "not receiving any data"
-    if (stats.planes.current["pps"] > 0) {
+    if (stats.adsb.current["pps"] > 0) {
       color_class = "text-success";
       tooltip = "receiving data (plane total since midnight UTC)"
-    } else if (true || stats.planes.current["uptime"] > 60) {
+    } else if (true || stats.adsb.current["uptime"] > 60) {
       color_class = "text-warning";
       tooltip = "receiving unusually little data"
     }
-    $("#plane-stats").removeClass("text-danger text-success text-warning");
-    $("#plane-stats").addClass(color_class);
-    $("#plane-stats").attr('title', tooltip);
-    $("#mf_status_0").text(`${stats.planes.current.pps} positions per second`);
-    $("#mf_stats_0").text(`${stats.planes.current.num} planes at the moment`);
+    $("#adsb-stats").removeClass("text-danger text-success text-warning");
+    $("#adsb-stats").addClass(color_class);
+    $("#adsb-stats").attr('title', tooltip);
+    $("#mf_status_0").text(`${stats.adsb.current.pps} positions per second`);
+    $("#mf_stats_0").text(`${stats.adsb.current.num} planes at the moment`);
 }
 
   function updateAisStats() {
@@ -307,14 +307,14 @@
     }
     let datasets = [];
     let colorIdx = 0;
-    for (const [craftName, craftStats] of [["ships", stats.ships], ["planes", stats.planes]]) {
+    for (const [type, craftName, craftStats] of [["AIS", "ships", stats.ais], ["ADS-B", "planes", stats.adsb]]) {
       let posRateData = [], numData = [];
       for (const historyItem of craftStats.history) {
         posRateData.push({x: historyItem.ts, y: historyItem.pps});
         numData.push({x: historyItem.ts, y: historyItem.num});
       }
       datasets.push({
-        label: `${craftName} pos/s`,
+        label: `${type} pos/s`,
         data: posRateData,
         borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
         yAxisID: 'y',

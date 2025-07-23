@@ -71,15 +71,15 @@ class CraftStats:
 
 @dc.dataclass
 class Stats:
-    ships: CraftStats = dc.field(default_factory=CraftStats)
-    planes: CraftStats = dc.field(default_factory=CraftStats)
+    ais: CraftStats = dc.field(default_factory=CraftStats)
+    adsb: CraftStats = dc.field(default_factory=CraftStats)
 
     @staticmethod
     def from_dict(d):
         try:
-            ships = CraftStats.from_dict(d["ships"])
-            planes = CraftStats.from_dict(d["planes"])
-            return Stats(ships=ships, planes=planes)
+            ais = CraftStats.from_dict(d["ais"])
+            adsb = CraftStats.from_dict(d["adsb"])
+            return Stats(ais=ais, adsb=adsb)
         except Exception as e:
             raise ValueError("Unexpected format.") from e
 
@@ -92,8 +92,8 @@ class CurrentCraftStats:
 
 @dc.dataclass
 class CurrentStats:
-    ships: CurrentCraftStats
-    planes: CurrentCraftStats
+    ais: CurrentCraftStats
+    adsb: CurrentCraftStats
 
 
 class ReceptionMonitor:
@@ -135,13 +135,13 @@ class ReceptionMonitor:
 
     def get_current_stats(self) -> CurrentStats:
         return CurrentStats(
-            ships=CurrentCraftStats(0, 0),
-            planes=self._readsb_scraper.get_current_stats())
+            ais=CurrentCraftStats(0, 0),
+            adsb=self._readsb_scraper.get_current_stats())
 
     def _scrape_readsb(self):
         try:
             last_minute_stats = self._readsb_scraper.get_last_minute_stats()
-            self.stats.planes.history.append(last_minute_stats)
+            self.stats.adsb.history.append(last_minute_stats)
         except Scraper.NoStats:
             pass
 
