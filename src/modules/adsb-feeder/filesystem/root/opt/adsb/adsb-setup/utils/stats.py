@@ -58,15 +58,28 @@ class TimeFrameStats:
 
 @dc.dataclass
 class CraftStats:
-    ships: list[TimeFrameStats] = dc.field(default_factory=list)
-    planes: list[TimeFrameStats] = dc.field(default_factory=list)
+    history: list[TimeFrameStats] = dc.field(default_factory=list)
 
     @staticmethod
     def from_dict(d):
         try:
-            ships = [TimeFrameStats.from_dict(s) for s in d["ships"]]
-            planes = [TimeFrameStats.from_dict(s) for s in d["planes"]]
-            return CraftStats(ships=ships, planes=planes)
+            return CraftStats(
+                history=[TimeFrameStats.from_dict(s) for s in d["history"]])
+        except Exception as e:
+            raise ValueError("Unexpected format.") from e
+
+
+@dc.dataclass
+class Stats:
+    ships: CraftStats = dc.field(default_factory=CraftStats)
+    planes: CraftStats = dc.field(default_factory=CraftStats)
+
+    @staticmethod
+    def from_dict(d):
+        try:
+            ships = CraftStats.from_dict(d["ships"])
+            planes = CraftStats.from_dict(d["planes"])
+            return Stats(ships=ships, planes=planes)
         except Exception as e:
             raise ValueError("Unexpected format.") from e
 
@@ -88,11 +101,11 @@ class ReceptionMonitor:
         try:
             with gzip.open(self.STATS_FILE, "rt") as f:
                 stats_dict = json.load(f)
-            self.stats = CraftStats.from_dict(stats_dict)
+            self.stats = Stats.from_dict(stats_dict)
         except:
             self._logger.exception(
                 "Error loading stored stats, starting fresh.")
-            self.stats = CraftStats()
+            self.stats = Stats()
         for task in self._scrape_tasks:
             task.start()
 
@@ -111,7 +124,7 @@ class ReceptionMonitor:
     def _scrape_readsb(self):
         try:
             last_minute_stats = self._readsb_scraper.get_last_minute_stats()
-            self.stats.planes.append(last_minute_stats)
+            self.stats.planes.history.append(last_minute_stats)
         except Scraper.NoStats:
             pass
 
