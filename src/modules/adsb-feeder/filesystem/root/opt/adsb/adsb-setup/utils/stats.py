@@ -25,14 +25,14 @@ class TimeFrameStats:
         if self.type == "hour":
             return self.end_ts - 1800
         assert self.type == "minute"
-        return self.num_positions - 30
+        return self.end_ts - 30
 
     @property
     def start_ts(self) -> float:
         if self.type == "hour":
             return self.end_ts - 3600
         assert self.type == "minute"
-        return self.num_positions - 60
+        return self.end_ts - 60
 
     @property
     def position_message_rate(self) -> float:
