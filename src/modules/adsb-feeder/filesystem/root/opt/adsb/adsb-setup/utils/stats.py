@@ -1,10 +1,14 @@
 import dataclasses as dc
+import gzip
 import json
 import logging
 import pathlib
+import shutil
+import tempfile
 import time
 import typing as t
 
+import utils.data
 import utils.util
 
 
@@ -18,6 +22,16 @@ class TimeFrameStats:
     def __post_init__(self):
         if self.type not in ["hour", "minute"]:
             raise ValueError("Type must be hour or minute.")
+
+    @staticmethod
+    def from_dict(d):
+        try:
+            return TimeFrameStats(
+                type=d["type"], end_ts=d["end_ts"],
+                craft_ids=set(d["craft_ids"]),
+                num_positions=d["num_positions"])
+        except Exception as e:
+            raise ValueError("Unexpected format.") from e
 
     @property
     def ts(self) -> float:
@@ -44,20 +58,26 @@ class TimeFrameStats:
 
 @dc.dataclass
 class CraftStats:
-    history: list[TimeFrameStats] = dc.field(default_factory=list)
+    ships: list[TimeFrameStats] = dc.field(default_factory=list)
+    planes: list[TimeFrameStats] = dc.field(default_factory=list)
 
-
-@dc.dataclass
-class CraftsStats:
-    ships: CraftStats = dc.field(default_factory=CraftStats)
-    planes: CraftStats = dc.field(default_factory=CraftStats)
+    @staticmethod
+    def from_dict(d):
+        try:
+            ships = [TimeFrameStats.from_dict(s) for s in d["ships"]]
+            planes = [TimeFrameStats.from_dict(s) for s in d["planes"]]
+            return CraftStats(ships=ships, planes=planes)
+        except Exception as e:
+            raise ValueError("Unexpected format.") from e
 
 
 class ReceptionMonitor:
+    STATS_FILE = utils.data.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
 
     def __init__(self):
-        self._stats = CraftsStats()
+        self._logger = logging.getLogger(type(self).__name__)
+        self.stats = None
         self._readsb_scraper = ReadsbScraper()
         self._scrape_tasks = [
             utils.util.RepeatingTask(self.SCRAPE_INTERVAL, scrape_function)
@@ -65,17 +85,33 @@ class ReceptionMonitor:
                 self._scrape_readsb, self._scrape_ais_catcher]]
 
     def start(self):
+        try:
+            with gzip.open(self.STATS_FILE, "rt") as f:
+                stats_dict = json.load(f)
+            self.stats = CraftStats.from_dict(stats_dict)
+        except:
+            self._logger.exception(
+                "Error loading stored stats, starting fresh.")
+            self.stats = CraftStats()
         for task in self._scrape_tasks:
             task.start()
 
     def stop(self):
         for task in self._scrape_tasks:
             task.stop_and_wait()
+        try:
+            stats_json = json.dumps(
+                dc.asdict(self.stats), cls=IterableAsListJSONEncoder)
+            with tempfile.NamedTemporaryFile("wb", delete=False) as tmp_file:
+                tmp_file.write(gzip.compress(stats_json.encode()))
+            shutil.move(tmp_file.name, self.STATS_FILE)
+        except:
+            self._logger.exception("Error storing stats.")
 
     def _scrape_readsb(self):
-        history = self._stats.planes.history
         try:
-            history.append(self._readsb_scraper.get_last_minute_stats())
+            last_minute_stats = self._readsb_scraper.get_last_minute_stats()
+            self.stats.planes.append(last_minute_stats)
         except Scraper.NoStats:
             pass
 
@@ -125,3 +161,11 @@ class ReadsbScraper(Scraper):
                 for aircraft in aircraft_dict["aircraft"]
                 if not aircraft["hex"].startswith("~")}
 
+
+class IterableAsListJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        try:
+            iterable = iter(o)
+            return list(iterable)
+        except TypeError:
+            return super().default(o)
