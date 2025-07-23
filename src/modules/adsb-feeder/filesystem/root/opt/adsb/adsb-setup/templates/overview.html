@@ -33,10 +33,9 @@
     upgrading to a larger storage device.
   </div>
   <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
-  <div class="col-12 mb-3">
-    Position / Message rate: <a href="/stats_0/">
+  <div id="plane-stats" class="col-12 mb-3">
+    Position / Message rate: 
     <span id="mf_status_0"></span> — <span id="mf_stats_0"></span>
-  </a>
 </div>
 <div class="col-12 mb-3">
   AIS Message rate:
@@ -182,6 +181,23 @@
         integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
         crossorigin="anonymous"></script>
 <script>
+  function updateCurrentStats(stats) {
+    let color_class = "text-danger";
+    let tooltip = "not receiving any data"
+    if (stats.planes.current["pps"] > 0) {
+      color_class = "text-success";
+      tooltip = "receiving data (plane total since midnight UTC)"
+    } else if (true || stats.planes.current["uptime"] > 60) {
+      color_class = "text-warning";
+      tooltip = "receiving unusually little data"
+    }
+    $("#plane-stats").removeClass("text-danger text-success text-warning");
+    $("#plane-stats").addClass(color_class);
+    $("#plane-stats").attr('title', tooltip);
+    $("#mf_status_0").text(`${stats.planes.current.pps} positions per second`);
+    $("#mf_stats_0").text(`${stats.planes.current.num} planes at the moment`);
+}
+
   let context = document.getElementById("plane-history-chart");
   let shownIndices = new Set();
   let chartGlobal = undefined;
@@ -440,40 +456,19 @@ function updateAisStats() {
   }
 
   registerTask(
-    "Update short reception stats",
+    "Update reception stats",
     15000,
     function() {
-      let url = "/api/stage2_stats";
-      fetch(url, {
-        method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
-      })
-        .then(response => { return response.json() })
-        .then(data => {
-          data.forEach((d, i) => {
-            let color_class = "text-danger";
-            let tooltip = "not receiving any data"
-            if (d["pps"] > 0) {
-              color_class = "text-success";
-              tooltip = "receiving data (plane total since midnight UTC)"
-            } else if (d["uptime"] > 60) {
-              color_class = "text-warning";
-              tooltip = "receiving unusually little data"
-            }
-            $("#mf_status_" + i).removeClass("text-danger text-success text-warning");
-            $("#mf_status_" + i).addClass(color_class);
-            $("#mf_status_" + i).attr('title', tooltip);
-            $("#mf_status_" + i).text(d["pps"] + " pos / " + d["mps"] + " msg per sec");
-            $("#mf_stats_" + i).removeClass("text-danger text-success text-warning");
-            $("#mf_stats_" + i).addClass(color_class);
-            $("#mf_stats_" + i).text(d["planes"] + " planes / " + d["tplanes"] + " today");
-          })
-        }
-      );
+      fetch("/api/stats", {signal: AbortSignal.timeout(2000)})
+      .then(response => response.json())
+      .then(stats => {
+        updateCurrentStats(stats);
+      });
     }
   );
 
   registerTask(
-    "Update reception chart and IP info",
+    "Update IP info and aggregator status",
     30000,
     function() {
       $("#last_status_update").html(new Date().toLocaleTimeString());
@@ -496,8 +491,6 @@ function updateAisStats() {
           get_status("{{ agg }}");
         {% endif %}
       {% endfor %}
-      getStatsData()
-      updateAisStats();
     }
   );
 </script>

@@ -1,11 +1,9 @@
 import concurrent.futures
 import copy
 import filecmp
-import gzip
 import json
 import logging
 import logging.config
-import math
 import os
 import os.path
 import pathlib
@@ -30,7 +28,7 @@ from uuid import uuid4
 import sys
 import zipfile
 from base64 import b64encode
-from datetime import datetime, timezone
+from datetime import datetime
 from os import urandom
 from time import sleep
 from typing import Dict, List
@@ -317,8 +315,6 @@ class HotspotApp:
 
 
 class AdsbIm:
-    PLANES_SEEN_PER_DAY_PATH = CONFIG_DIR / "planes_seen_per_day.json.gz"
-
     def __init__(self, data: utils.data.Data, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
@@ -654,8 +650,6 @@ class AdsbIm:
         self.update_meminfo()
         self.update_journal_state()
 
-        self.load_planes_seen_per_day()
-
         # now all the envs are loaded and reconciled with the data on file - which means we should
         # actually write out the potentially updated values (e.g. when plain values were converted
         # to lists)
@@ -758,7 +752,6 @@ class AdsbIm:
         self.exiting = True
         self._reception_monitor.stop()
         self._dmesg_monitor.stop()
-        self.write_planes_seen_per_day()
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
@@ -1410,9 +1403,26 @@ class AdsbIm:
         return response
 
     def stats(self):
-        plane_stats = [
-            [len(self.planes_seen_per_day[0])] + self.plane_stats[0]]
-        return Response(json.dumps(plane_stats), mimetype="application/json")
+        current_stats = self._reception_monitor.get_current_stats()
+        stats = self._reception_monitor.stats
+        ship_stats = {
+            "current": self._make_current_stats(current_stats.ships),
+            "history": self._make_history_stats(stats.ships.history)}
+        plane_stats = {
+            "current": self._make_current_stats(current_stats.planes),
+            "history": self._make_history_stats(stats.planes.history)}
+        return {"ships": ship_stats, "planes": plane_stats}
+
+    def _make_current_stats(
+            self, current_stats: utils.stats.CurrentCraftStats):
+        return {
+            "num": current_stats.num_crafts,
+            "pps": current_stats.position_message_rate}
+
+    def _make_history_stats(self, history: list[utils.stats.TimeFrameStats]):
+        return [{
+            "ts": s.ts, "num": len(s.craft_ids),
+            "pps": s.position_message_rate} for s in history]
 
     def stage2_stats(self):
         ret = []
@@ -2661,103 +2671,6 @@ class AdsbIm:
         print_err("director redirecting to aggregators: to be configured")
         return flask.redirect("/aggregators")
 
-    def reset_planes_seen_per_day(self):
-        self.planes_seen_per_day = [set()]
-
-    def load_planes_seen_per_day(self):
-        # set limit on how many days of statistics to keep
-        self.plane_stats_limit = 14
-        # we base this on UTC time so it's comparable across time zones
-        now = datetime.now(timezone.utc)
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        self.reset_planes_seen_per_day()
-        self.plane_stats_day = start_of_day.timestamp()
-        self.plane_stats = [[]]
-        try:
-            with gzip.open(self.PLANES_SEEN_PER_DAY_PATH, "r") as f:
-                planes = json.load(f)
-                ts = planes.get("timestamp", 0)
-                if ts >= start_of_day.timestamp():
-                    # ok, this dump is from today
-                    planelists = planes.get("planes")
-                    # json can't store sets, so we use list on disk, but sets in memory
-                    self.planes_seen_per_day[0] = set(planelists[0])
-
-                planestats = planes.get("stats")
-                self.plane_stats[0] = planestats[0]
-
-                diff = start_of_day.timestamp() - ts
-                if diff > 0:
-                    print_err(f"loading planes_seen_per_day: file not from this utc day")
-                    days = math.ceil(diff / (24 * 60 * 60))
-                    if days > 0:
-                        days -= 1
-                        planelists = planes.get("planes")
-                        self.plane_stats[0].insert(0, len(planelists[0]))
-                    if days > 0:
-                        print_err(f"loading planes_seen_per_day: padding with {days} zeroes")
-                    while days > 0:
-                        days -= 1
-                        self.plane_stats[0].insert(0, 0)
-
-                while len(self.plane_stats[0]) > self.plane_stats_limit:
-                    self.plane_stats[0].pop()
-
-        except:
-            print_err(f"error loading planes_seen_per_day:\n{traceback.format_exc()}")
-            pass
-
-    def write_planes_seen_per_day(self):
-        # we want to make absolutely sure we don't throw any errors here as this is
-        # called during termination
-        try:
-            # json can't store sets, so we use list on disk, but sets in memory
-            planelists = [list(self.planes_seen_per_day[0])]
-            planes = {"timestamp": int(time.time()), "planes": planelists, "stats": self.plane_stats}
-            planes_json = json.dumps(planes, indent=2)
-
-            with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-                tmp_file.write(gzip.compress(planes_json.encode()))
-            shutil.move(tmp_file.name, self.PLANES_SEEN_PER_DAY_PATH)
-            self._logger.info("Wrote planes_seen_per_day.")
-        except:
-            self._logger.exception("Error writing planes_seen_per_day")
-
-    def get_current_planes(self):
-        planes = set()
-        path = "/run/adsb-feeder-ultrafeeder/readsb/aircraft.json"
-        try:
-            with open(path) as f:
-                aircraftdict = json.load(f)
-                aircraft = aircraftdict.get("aircraft", [])
-                planes = set([plane["hex"] for plane in aircraft if not plane["hex"].startswith("~")])
-        except:
-            pass
-        return planes
-
-    def track_planes_seen_per_day(self):
-        # we base this on UTC time so it's comparable across time zones
-        now = datetime.now(timezone.utc)
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if self.plane_stats_day != start_of_day.timestamp():
-            self.plane_stats_day = start_of_day.timestamp()
-            print_err("planes_seen_per_day: new day!")
-            # it's a new day, store and then reset the data
-            self.plane_stats[0].insert(0, len(self.planes_seen_per_day[0]))
-            if len(self.plane_stats[0]) > self.plane_stats_limit:
-                self.plane_stats[0].pop()
-            self.reset_planes_seen_per_day()
-            pv = self._d.previous_version
-            self._d.previous_version = "check-in"
-            self._im_status.check(True)
-            self._d.previous_version = pv
-        if now.minute == 0:
-            # this function is called once every minute - so this triggers once an hour
-            # write the data to disk every hour
-            self.write_planes_seen_per_day()
-        # using sets it's really easy to keep track of what we've seen
-        self.planes_seen_per_day[0] |= self.get_current_planes()
-
     def update_net_dev(self):
         try:
             result = subprocess.run(
@@ -2790,10 +2703,6 @@ class AdsbIm:
             self.wifi_ssid = ""
 
     def every_minute(self):
-        # track the number of planes seen per day - that's a fun statistic to have and
-        # readsb makes it a bit annoying to get that
-        self.track_planes_seen_per_day()
-
         # make sure DNS works, every 5 minutes is sufficient
         if time.time() - self.last_dns_check > 300:
             self.update_dns_state()
