@@ -198,7 +198,6 @@
             }
           },
           legend: {
-            display: (len > 1),
             onClick: function (e, legendItem) {
               let index = legendItem.datasetIndex;
               let adding = e.native.shiftKey == false;
@@ -235,7 +234,21 @@
         },
         scales: {
           x: {type: "linear"},
-          y: {beginAtZero: true}
+          y: {
+            type: "linear",
+            display: true,
+            position: "left",
+            beginAtZero: true,
+          },
+          y1: {
+            type: "linear",
+            display: true,
+            position: "right",
+            beginAtZero: true,
+            grid: {
+              drawOnChartArea: false, // Only show grid lines for one axis.
+            },
+          },
         }
       }
     });
@@ -296,15 +309,26 @@
       distinct_colors = light_distinct_colors;
     }
     let datasets = [];
-    let data = [];
-    for (const historyItem of stats.planes.history) {
-      data.push({x: historyItem.ts, y: historyItem.num});
+    let colorIdx = 0;
+    for (const [craftName, craftStats] of [["ships", stats.ships], ["planes", stats.planes]]) {
+      let posRateData = [], numData = [];
+      for (const historyItem of craftStats.history) {
+        posRateData.push({x: historyItem.ts, y: historyItem.pps});
+        numData.push({x: historyItem.ts, y: historyItem.num});
+      }
+      datasets.push({
+        label: `${craftName} pos/s`,
+        data: posRateData,
+        borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
+        yAxisID: 'y',
+      });
+      datasets.push({
+        label: `number of ${craftName}`,
+        data: numData,
+        borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
+        yAxisID: 'y1',
+      });
     }
-    datasets.push({
-      label: "Planes",
-      data: data,
-      borderColor: distinct_colors[0 % distinct_colors.length]
-    });
     receptionHistoryChart.data.datasets = datasets;
     receptionHistoryChart.update();
   }
