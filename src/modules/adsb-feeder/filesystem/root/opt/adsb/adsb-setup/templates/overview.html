@@ -33,16 +33,8 @@
     upgrading to a larger storage device.
   </div>
   <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
-  <div id="adsb-stats" class="col-12 mb-3">
-    Position / Message rate: 
-    <span id="mf_status_0"></span> — <span id="mf_stats_0"></span>
-</div>
-<div class="col-12 mb-3">
-  AIS Message rate:
-  <span id="ais_msg_rate" class="fw-bold">--</span>
-  — Vessels (last min):
-  <span id="ais_vessel_count" class="fw-bold">--</span>
-</div>
+  <div id="ais-stats" class="col-12 mb-3">AIS: No information  </div>
+  <div id="adsb-stats" class="col-12 mb-3">ADS-B: No information</div>
 <div id="chart-wrapper"
      class="col-md-10 col-12"
      style="position: relative;
@@ -253,37 +245,24 @@
   let receptionHistoryChart = createReceptionHistoryChart();
 
   function updateCurrentStats(stats) {
-    let color_class = "text-danger";
-    let tooltip = "not receiving any data"
-    if (stats.adsb.current["pps"] > 0) {
-      color_class = "text-success";
-      tooltip = "receiving data (plane total since midnight UTC)"
-    } else if (true || stats.adsb.current["uptime"] > 60) {
-      color_class = "text-warning";
-      tooltip = "receiving unusually little data"
+    updateCurrentCraftStats("AIS", "ships", stats.ais, $(`#ais-stats`));
+    updateCurrentCraftStats("ADS-B", "planes", stats.adsb, $(`#adsb-stats`));
+  }
+
+  function updateCurrentCraftStats(type, craftName, craftStats, element) {
+    element.removeClass("text-danger text-success text-warning");
+    if (!craftStats.enabled) {
+      element.addClass("text-warning");
+      element.html(`${type} reception is disabled.`);
+    } else if (craftStats.current["pps"] == 0) {
+      element.addClass("text-danger");
+      element.html(`${type} reception is enabled, but no data is arriving.`);
+    } else {
+      element.addClass("text-success");
+      element.html(
+        `${type}: ${craftStats.current.pps} positions per second — `
+        + `${craftStats.current.num} ${craftName} visible`);
     }
-    $("#adsb-stats").removeClass("text-danger text-success text-warning");
-    $("#adsb-stats").addClass(color_class);
-    $("#adsb-stats").attr('title', tooltip);
-    $("#mf_status_0").text(`${stats.adsb.current.pps} positions per second`);
-    $("#mf_stats_0").text(`${stats.adsb.current.num} planes at the moment`);
-}
-
-  function updateAisStats() {
-
-    const aisEndpoint =
-      `${window.location.protocol}//${window.location.hostname}:{{ env_value_by_tag('aiscatcherport') }}/api/stat.json`;
-
-    fetch(aisEndpoint, { signal: AbortSignal.timeout(15000) })
-      .then(r => r.json())
-      .then(d => {
-        const msgRate = (d.msg_rate ?? 0).toFixed(1) + " msg/s";
-        const vessels = d.last_minute?.vessels ?? d.vessel_count ?? 0;
-
-        document.getElementById("ais_msg_rate").textContent = msgRate;
-        document.getElementById("ais_vessel_count").textContent = vessels;
-      })
-      .catch(err => console.error("AIS stats fetch failed:", err));
   }
 
   function updateStatsHistory(stats) {
