@@ -79,6 +79,7 @@ from utils.other_aggregators import (
     Porttracker,
 )
 from utils.sdr import SDRDevices
+import utils.stats
 import utils.system
 import utils.util
 from utils.util import (
@@ -359,6 +360,7 @@ class AdsbIm:
 
         self._routemanager = RouteManager(self.app)
         self._system = utils.system.System(data=self._d)
+        self._reception_monitor = utils.stats.ReceptionMonitor()
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
         self.wifi_ssid = ""
@@ -728,6 +730,7 @@ class AdsbIm:
         self._d.env_by_tags("under_voltage").value = False
 
         self._dmesg_monitor.start()
+        self._reception_monitor.start()
 
         self._server = werkzeug.serving.make_server(
             host="0.0.0.0", port=int(self._d.env_by_tags("webport").value),
@@ -753,6 +756,7 @@ class AdsbIm:
             raise RuntimeError("not started")
         assert self._server_thread is not None
         self.exiting = True
+        self._reception_monitor.stop()
         self._dmesg_monitor.stop()
         self.write_planes_seen_per_day()
         for task in self._background_tasks.values():
