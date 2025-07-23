@@ -1405,13 +1405,19 @@ class AdsbIm:
     def stats(self):
         current_stats = self._reception_monitor.get_current_stats()
         stats = self._reception_monitor.stats
-        ais_stats = {
+        ais_enabled = bool(self._d.env_by_tags("aisserial").value)
+        adsb_enabled = bool(
+            self._d.env_by_tags("1090serial").value
+            or self._d.env_by_tags("978serial").value)
+        ais = {
+            "enabled": ais_enabled,
             "current": self._make_current_stats(current_stats.ais),
             "history": self._make_history_stats(stats.ais.history)}
-        adsb_stats = {
+        adsb = {
+            "enabled": adsb_enabled,
             "current": self._make_current_stats(current_stats.adsb),
             "history": self._make_history_stats(stats.adsb.history)}
-        return {"ais": ais_stats, "adsb": adsb_stats}
+        return {"ais": ais, "adsb": adsb}
 
     def _make_current_stats(
             self, current_stats: utils.stats.CurrentCraftStats):
