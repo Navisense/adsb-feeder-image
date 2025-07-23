@@ -43,13 +43,12 @@
   — Vessels (last min):
   <span id="ais_vessel_count" class="fw-bold">--</span>
 </div>
-<div class="col-xl-5 col-lg-6 col-md-8 col-sm-10 col-12">
-  <div style="position: relative;
-              width: 100%;
-              height: 100%"
-       id="chart-wrapper">
-    <canvas id="plane-history-chart"></canvas>
-  </div>
+<div id="chart-wrapper"
+     class="col-md-10 col-12"
+     style="position: relative;
+            width: 100%;
+            height: 100%">
+  <canvas id="reception-history-chart"></canvas>
 </div>
 <div class="col-12 {% if (aggregators | length) == 0 %}d-none{% endif %}">
   <h4>You are feeding</h4>
@@ -181,6 +180,66 @@
         integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
         crossorigin="anonymous"></script>
 <script>
+  function createReceptionHistoryChart(len) {
+    let context = document.getElementById("reception-history-chart");
+    return new Chart(context, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: []
+      },
+      options: {
+        plugins: {
+          title: {
+            display: true,
+            text: "Reception statistics",
+            font: {
+              size: 18,
+            }
+          },
+          legend: {
+            display: (len > 1),
+            onClick: function (e, legendItem) {
+              let index = legendItem.datasetIndex;
+              let adding = e.native.shiftKey == false;
+              if (adding && shownIndices.size == 0) {
+                // invert
+                for (let i = 0; i < len; i++) {
+                  if (i != index) {
+                    shownIndices.add(i);
+                  }
+                }
+              } else {
+                if (shownIndices.has(index)) {
+                  shownIndices.delete(index);
+                } else {
+                  shownIndices.add(index);
+                }
+              }
+              if (shownIndices.size == len) shownIndices = new Set();
+              clear = shownIndices.size == 0;
+              let ci = this.chart;
+              for (let i = 0; i < len; i++) {
+                let meta = ci.getDatasetMeta(i);
+                meta.hidden = (clear ? false : (!shownIndices.has(i)));
+              }
+              // We hid a dataset ... rerender the chart
+              ci.update();
+            },
+            labels: {
+              boxWidth: 20,
+              useBorderRadius: true,
+              borderRadius: 2
+            }
+          }
+        },
+        scales: {
+          x: {type: "linear"},
+          y: {beginAtZero: true}
+        }
+      }
+    });
+  }
   function updateCurrentStats(stats) {
     let color_class = "text-danger";
     let tooltip = "not receiving any data"
@@ -198,196 +257,56 @@
     $("#mf_stats_0").text(`${stats.planes.current.num} planes at the moment`);
 }
 
-  let context = document.getElementById("plane-history-chart");
   let shownIndices = new Set();
-  let chartGlobal = undefined;
-function updateAisStats() {
+  let receptionHistoryChart = createReceptionHistoryChart(4);
+  function updateAisStats() {
 
-  const aisEndpoint =
-    `${window.location.protocol}//${window.location.hostname}:{{ env_value_by_tag('aiscatcherport') }}/api/stat.json`;
+    const aisEndpoint =
+      `${window.location.protocol}//${window.location.hostname}:{{ env_value_by_tag('aiscatcherport') }}/api/stat.json`;
 
-  fetch(aisEndpoint, { signal: AbortSignal.timeout(15000) })
-    .then(r => r.json())
-    .then(d => {
-      const msgRate = (d.msg_rate ?? 0).toFixed(1) + " msg/s";
-      const vessels = d.last_minute?.vessels ?? d.vessel_count ?? 0;
+    fetch(aisEndpoint, { signal: AbortSignal.timeout(15000) })
+      .then(r => r.json())
+      .then(d => {
+        const msgRate = (d.msg_rate ?? 0).toFixed(1) + " msg/s";
+        const vessels = d.last_minute?.vessels ?? d.vessel_count ?? 0;
 
-      document.getElementById("ais_msg_rate").textContent = msgRate;
-      document.getElementById("ais_vessel_count").textContent = vessels;
-    })
-    .catch(err => console.error("AIS stats fetch failed:", err));
-}
+        document.getElementById("ais_msg_rate").textContent = msgRate;
+        document.getElementById("ais_vessel_count").textContent = vessels;
+      })
+      .catch(err => console.error("AIS stats fetch failed:", err));
+  }
 
-
-  function getStatsData() {
-    function elaborateUpdateChart(chart, datasets, labels) {
-      // get the length of chart.data.labels
-      let days = chart.data.labels.length;
-      let newdays = labels.length;
-      let mfs = chart.data.datasets.length;
-      let newmfs = datasets.length;
-      // first deal with fewer days in the data (that's weird, really)
-      while (chart.data.labels.length > newdays) {
-        for (let j = 0; j < mfs; j++) chart.data.datasets[j].data.pop();
-        if (chart.data.labels.pop() == undefined) {
-          break;
-        }
-      }
-      days = chart.data.labels.length;
-      // now update the days that already exist
-      for (let i = 0; i < days; i++) {
-        if (chart.data.labels[i] != labels[i]) {
-          // this looks better if you pop and push
-          while (chart.data.labels.length > i) {
-            if (chart.data.labels.pop() == undefined) {
-              break;
-            }
-          }
-          for (let k = i; k < days; k++) chart.data.labels.push(labels[k]);
-        }
-        for (let j = 0; j < mfs; j++) {
-          if (chart.data.datasets[j].data[i] != datasets[j].data[i]) {
-            for (let k = i; k < days; k++) chart.data.datasets[j].data[k] = datasets[j].data[k];
-          }
-        }
-      }
-      // next, add any new days
-      for (let i = days; i < newdays; i++) {
-        chart.data.labels.push(labels[i]);
-        for (let j = 0; j < mfs; j++) chart.data.datasets[j].data.push(datasets[j].data[i]);
-      }
-      // finally, add new feeders
-      for (let i = mfs; i < newmfs; i++) {
-        chart.data.datasets.push(datasets[i]);
-      }
-      // by now, the data should be identical
-      chart.update();
+  function updateStatsHistory(stats) {
+    let light_distinct_colors = [
+      "#61c8ff", "#f57200", "#025dfb", "#01d723", "#7300b3", "#a6e927", "#9055ff", "#d8c200",
+      "#0039af", "#01db78", "#ff64f8", "#00560b", "#d60098", "#ade587", "#557bff", "#ffaf4c",
+      "#6b91ff", "#9d1500", "#3ca4ff", "#574200", "#005296", "#ca0061", "#017960", "#ff8bc4",
+      "#1a1a00", "#8ae3ec", "#50003d", "#e4d3b6", "#0f0021", "#ffbbca", "#4f1700", "#008b94"
+    ];
+    let dark_distinct_colors = [
+      "#a94500", "#e1ffe9", "#960089", "#00633e", "#ffce63", "#015d92", "#ff76d4", "#e96200",
+      "#ff96ae", "#a7d5ff", "#fdff90", "#bb61ff", "#4c5800", "#283e95", "#bd00e0", "#4fa900",
+      "#f8a9ff", "#9dff2f", "#007380", "#4b4539", "#a1003c", "#ffe5cb", "#c00028", "#90af00",
+      "#6cf7ff", "#0285fc", "#956900", "#ff1bd4", "#ff8f16", "#ff683c", "#890159", "#00d36d"
+    ];
+    let distinct_colors = [];
+    if (document.documentElement.dataset.mdbTheme == "dark") {
+      distinct_colors = dark_distinct_colors;
+    } else {
+      distinct_colors = light_distinct_colors;
     }
-
-    function createChart(todayString, ar, len) {
-      chart = new Chart(context, {
-        type: 'line',
-        data: {
-          labels: [],
-          datasets: []
-        },
-        options: {
-          plugins: {
-            title: {
-              display: true,
-              text: `Statistics ending ${todayString} (UTC)`,
-              font: {
-                size: 18,
-              }
-            },
-            legend: {
-              display: (len > 1),
-              onClick: function (e, legendItem) {
-                let index = legendItem.datasetIndex;
-                let adding = e.native.shiftKey == false;
-                if (adding && shownIndices.size == 0) {
-                  // invert
-                  for (let i = 0; i < len; i++) {
-                    if (i != index) {
-                      shownIndices.add(i);
-                    }
-                  }
-                } else {
-                  if (shownIndices.has(index)) {
-                    shownIndices.delete(index);
-                  } else {
-                    shownIndices.add(index);
-                  }
-                }
-                if (shownIndices.size == len) shownIndices = new Set();
-                clear = shownIndices.size == 0;
-                let ci = this.chart;
-                for (let i = 0; i < len; i++) {
-                  let meta = ci.getDatasetMeta(i);
-                  meta.hidden = (clear ? false : (!shownIndices.has(i)));
-                }
-                // We hid a dataset ... rerender the chart
-                ci.update();
-              },
-              labels: {
-                boxWidth: 20,
-                useBorderRadius: true,
-                borderRadius: 2
-              }
-            }
-          },
-          aspectRatio: ar,
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          }
-        }
-      });
-      return chart;
+    let datasets = [];
+    let data = [];
+    for (const historyItem of stats.planes.history) {
+      data.push({x: historyItem.ts, y: historyItem.num});
     }
-    fetch("/api/stats", { signal: AbortSignal.timeout(15000) })
-          .then(response => response.json())
-          .then(planesHistory => {
-            // now let's format the data the way Chart.js wants it
-            let len = planesHistory.length;
-            let datasets = [];
-            let labels = [];
-            let feeders = [];
-            let light_distinct_colors = [
-              "#61c8ff", "#f57200", "#025dfb", "#01d723", "#7300b3", "#a6e927", "#9055ff", "#d8c200",
-              "#0039af", "#01db78", "#ff64f8", "#00560b", "#d60098", "#ade587", "#557bff", "#ffaf4c",
-              "#6b91ff", "#9d1500", "#3ca4ff", "#574200", "#005296", "#ca0061", "#017960", "#ff8bc4",
-              "#1a1a00", "#8ae3ec", "#50003d", "#e4d3b6", "#0f0021", "#ffbbca", "#4f1700", "#008b94"
-            ];
-            let dark_distinct_colors = [
-              "#a94500", "#e1ffe9", "#960089", "#00633e", "#ffce63", "#015d92", "#ff76d4", "#e96200",
-              "#ff96ae", "#a7d5ff", "#fdff90", "#bb61ff", "#4c5800", "#283e95", "#bd00e0", "#4fa900",
-              "#f8a9ff", "#9dff2f", "#007380", "#4b4539", "#a1003c", "#ffe5cb", "#c00028", "#90af00",
-              "#6cf7ff", "#0285fc", "#956900", "#ff1bd4", "#ff8f16", "#ff683c", "#890159", "#00d36d"
-            ];
-            let distinct_colors = [];
-            if (document.documentElement.dataset.mdbTheme == "dark") {
-              distinct_colors = dark_distinct_colors;
-            } else {
-              distinct_colors = light_distinct_colors;
-            }
-            // determine the length of the longest array in planesHistory and use that as the number of days for the chart
-            let days = 0;
-            for (let i = 0; i < len; i++) {
-              days = Math.max(planesHistory[i].length, days);
-            }
-            let today = new Date();
-            let month = today.toLocaleString("en-us", { month: "long", timeZone: "UTC" });
-            let day = today.getUTCDate();
-            todayString = `${month} ${day}`;
-            for (let i = days-1; i >= 0; i--) {
-              let date = new Date();
-              date.setDate(date.getDate() - i);
-              let day = date.getUTCDate();
-              labels.push(day);
-            }
-            // now collect the feeder names - need to do this in jinja, not JS
-            feeders[0] = "{{ list_value_by_tag('site_name', 0) }}";
-            // now build the datasets
-            for (let i = 0; i < len; i++) {
-              datasets.push({
-                label: feeders[i],
-                data: planesHistory[i].reverse(),
-                borderColor: distinct_colors[i % distinct_colors.length]
-              });
-            }
-            if (chartGlobal === undefined) {
-              let ar = 2;
-              if (len < 4) ar = 2;
-              else if (len < 6) ar = 1.7;
-              else if (len < 9) ar = 1.4;
-              else if (len < 12) ar = 1.1;
-              else ar = 0.9;
-              chartGlobal = createChart(todayString, ar, len);
-            }
-            elaborateUpdateChart(chartGlobal, datasets, labels);
-          });
+    datasets.push({
+      label: "Planes",
+      data: data,
+      borderColor: distinct_colors[0 % distinct_colors.length]
+    });
+    receptionHistoryChart.data.datasets = datasets;
+    receptionHistoryChart.update();
   }
   let browser_ip = null;
   let feeder_ip = null;
@@ -463,6 +382,7 @@ function updateAisStats() {
       .then(response => response.json())
       .then(stats => {
         updateCurrentStats(stats);
+        updateStatsHistory(stats);
       });
     }
   );
