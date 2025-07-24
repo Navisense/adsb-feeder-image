@@ -1,5 +1,6 @@
 import dataclasses as dc
 import gzip
+import itertools as it
 import json
 import logging
 import pathlib
@@ -156,6 +157,7 @@ class ReceptionMonitor:
         except Scraper.NoStats:
             pass
         self._expire_old_history(history)
+        self._aggregate_history(history)
 
     def _expire_old_history(self, history: list[TimeFrameStats]):
         min_ts = time.time() - self.MAX_HISTORY_AGE
@@ -164,6 +166,49 @@ class ReceptionMonitor:
                 history.pop(0)
         except IndexError:
             pass
+
+    def _aggregate_history(self, history: list[TimeFrameStats]):
+        """
+        Aggregate minute-by-minute stats into hours.
+
+        Go through the history and aggregate any contiguous sequences of stats
+        of type minute that span at least an hour into hourly stats.
+        """
+        while True:
+            try:
+                start_idx, start_stats = next(
+                    (i, s) for i, s in enumerate(history) if s.type != "hour")
+            except StopIteration:
+                # All hourly stats, nothing to do.
+                return
+            one_hour_later = start_stats.start_ts + 3600
+            enumerated_end_stats = enumerate(
+                it.pairwise(history[start_idx:]), start=1)
+            for num_stats, (prev, curr) in enumerated_end_stats:
+                if curr.end_ts >= one_hour_later:
+                    # The current candidate is at least an hour later...
+                    if curr.end_ts <= one_hour_later + 300:
+                        # ... and ends at roughly the correct time.
+                        end_stats = curr
+                        end_ts = end_stats.end_ts
+                    else:
+                        # ... but ends way too late. Only aggregate to the
+                        # previous candidate, and set an artificial end_ts.
+                        end_stats = prev
+                        end_ts = start_stats.start_ts + 3600
+                    break
+            else:
+                # No stats after the start were at least an hour later.
+                return
+            craft_ids = set()
+            num_positions = 0
+            for stats in history[start_idx:start_idx + num_stats]:
+                craft_ids |= stats.craft_ids
+                num_positions += stats.num_positions
+            hourly_stats = TimeFrameStats(
+                type="hour", end_ts=end_ts, craft_ids=craft_ids,
+                num_positions=num_positions)
+            history[start_idx:start_idx + num_stats] = [hourly_stats]
 
 
 class Scraper:
