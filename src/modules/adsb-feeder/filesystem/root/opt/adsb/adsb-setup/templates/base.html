@@ -42,36 +42,36 @@
     <div class="container-fluid">
       <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('director') }}">Porttracker Feeder</a>
       {# Live map buttons in the nav bar. These will be hidden for small screens. #}
-      {% if is_reception_enabled('ais') %}
-        <span>
-          <a class="livemap-button btn btn-primary mx-0 mx-sm-1"
-             href="{{ url_for('/ais-catcher/') }}">
+      <div id="livemap-buttons">
+        <div class="btn-group"
+             {% if not is_reception_enabled('ais') %}title="AIS reception is disabled"{% endif %}>
+          <button type="button"
+                  class="btn btn-primary"
+                  {% if not is_reception_enabled('ais') %}disabled{% endif %}
+                  onclick="document.location='{{ url_for('/ais-catcher/') }}'">
             Live Map (AIS)
-          </a>
-        </span>
-      {% else %}
-        <span title="AIS reception is disabled">
-          <a class="livemap-button btn btn-primary mx-0 mx-sm-1 disabled"
-             aria-disabled="true">
-            Live Map (AIS)
-          </a>
-        </span>
-      {% endif %}
-      {% if is_reception_enabled('adsb') %}
-        <span>
-          <a class="livemap-button btn btn-primary mx-0 mx-sm-1"
-             href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
+          </button>
+        </div>
+        <div class="btn-group"
+             {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
+          <button type="button"
+                  class="btn btn-primary"
+                  {% if not is_reception_enabled('adsb') %}disabled{% endif %}
+                  onclick="document.location='{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}'">
             Live Map (ADS-B)
-          </a>
-        </span>
-      {% else %}
-        <span title="ADS-B reception is disabled">
-          <a class="livemap-button btn btn-primary mx-0 mx-sm-1 disabled"
-             aria-disabled="true">
-            Live Map (ADS-B)
-          </a>
-        </span>
-      {% endif %}
+          </button>
+          <button type="button"
+                  class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                  {% if not is_reception_enabled('adsb') %}disabled{% endif %}
+                  data-mdb-toggle="dropdown"
+                  aria-expanded="false"></button>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">Heatmap</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">Tracks</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">Replay</a></li>
+          </ul>
+        </div>
+      </div>
       {% if is_enabled('temperature_block') %}
         <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
           <span id="cpu" class="d-none"
@@ -85,51 +85,61 @@
         </div>
       {% endif %}
       <div class="mx-auto"><!-- filler element --></div>
-      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
-              aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbar"
+              aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
         <svg viewBox="-5 0 10 8" width="1.5em">
           <line y2="8" stroke="#000" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
         </svg>
       </button>
-      <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbarNav">
+      <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbar">
         <ul class="navbar-nav ms-1 mb-2 mb-lg-0">
-          {% if is_enabled('stage2') %}
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFeederSelection" role="button"
-               data-mdb-toggle="dropdown" aria-expanded="false">Target: </a>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdownFeederSelection" style="width: 18em">
-              <div class="row mx-2 g-1">
-                <div class="col-12 my-1 text-secondary">Select the target for maps/sharing</div>
-                <div class="col-6 my-1">
-                  <button type="submit" class="btn-sm btn-outline-secondary btn-rounded btn-block"
-                          onclick="stage2_feeder_target_submit(0);return false;">Combined</button>
-                </div>
-                {% for i in range(env_value_by_tag('num_micro_sites')) %}
-                <div class="col-3 my-1">
-                  <button type="submit" class="btn-sm btn-outline-secondary btn-rounded btn-block"
-                          onclick="stage2_feeder_target_submit({{ i + 1 }});return false;"><span width="2em">{{ i + 1 }}</span></button>
-                </div>
-                {% endfor %}
-              </div>
-            </ul>
-          </li>
-          {% endif %}
-          <!-- Maps -->
-          <li class="nav-item dropdown {% if not is_enabled('base_config') %}d-none{% endif %}">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMaps" role="button"
-               data-mdb-toggle="dropdown" aria-expanded="false">Maps</a>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdownMaps">
-              <li><a id="live_traffic" class="dropdown-item" href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Traffic</a>
-              </li>
-              <li><a id="ais_catcher" class="dropdown-item" href="/ais-catcher">AIS-catcher</a></li>
-              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
-              <li><a id="heatmap" class="dropdown-item" href="/map/?heatmap">Heatmap</a></li>
+          {# Dropdown menu with maps. This will only be shown on small screens, to replace the big live map buttons. #}
+          <li id="navbar-maps-dropdown" class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle"
+               href="#"
+               id="navbar-dropdown-maps"
+               role="button"
+               data-mdb-toggle="dropdown"
+               aria-expanded="false">
+              Maps
+            </a>
+            <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-maps">
+              {% if is_reception_enabled('ais') %}
+                <li><a class="dropdown-item" href="{{ url_for('/ais-catcher/') }}">AIS Live Map</a></li>
+              {% else %}
+                <li title="AIS reception is disabled">
+                  <a class="dropdown-item disabled"
+                     href="{{ url_for('/ais-catcher/') }}">
+                    AIS Live Map
+                  </a>
+                </li>
               {% endif %}
-              <li><a id="tracks" class="dropdown-item" href="/map/?pTracks">Tracks</a></li>
-              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
-              <li><a id="replay" class="dropdown-item" href="/map/?replay">Replay</a></li>
+              {% if is_reception_enabled('adsb') %}
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
+                    ADS-B Live Map
+                  </a>
+                </li>
+                <li><a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a></li>
+              {% else %}
+                <li title="ADS-B reception is disabled">
+                  <a class="dropdown-item disabled"
+                     href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
+                    ADS-B Live Map
+                  </a>
+                </li>
+                <li title="ADS-B reception is disabled">
+                  <a class="dropdown-item disabled" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
+                </li>
+                <li title="ADS-B reception is disabled">
+                  <a class="dropdown-item disabled" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
+                </li>
+                <li title="ADS-B reception is disabled">
+                  <a class="dropdown-item disabled" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
+                </li>
               {% endif %}
-              <li><a id="options" class="dropdown-item" href="/visualization">Options</a></li>
             </ul>
           </li>
           <!-- Data Sharing -->
@@ -145,22 +155,23 @@
           {% endif %}
           <!-- Setup -->
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownSetup" role="button"
+            <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-setup" role="button"
                data-mdb-toggle="dropdown" aria-expanded="false">Setup</a>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdownSetup">
+            <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-setup">
               <li><a class="dropdown-item" href="/setup">{% if is_enabled('stage2') %}Stage
                   2{% else %}Basic{% endif %}</a></li>
               <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
                    href="/sdr_setup">SDR</a></li>
               <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
                    href="/expert">Expert</a></li>
+              <li><a id="options" class="dropdown-item" href="/visualization">Map options</a></li>
             </ul>
           </li>
           <!-- System -->
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownLogs" role="button"
+            <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-logs" role="button"
                data-mdb-toggle="dropdown" aria-expanded="false">System</a>
-            <ul class="dropdown-menu" aria-labelledby="navbarDropdownLogs">
+            <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-logs">
               <li><a class="dropdown-item" href="/logs/">Logs</a></li>
               <li><a class="dropdown-item" href="/info">Support Info</a></li>
               <li><a class="dropdown-item" href="/support">Share Diagnostics</a></li>
