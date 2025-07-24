@@ -50,7 +50,7 @@ find_missing_packages() {
     local missing=""
 
     if which python3 &> /dev/null ; then
-        python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 9" &> /dev/null && missing+="${PKG_NAME_PYTHON3} "
+        python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 10" &> /dev/null && missing+="${PKG_NAME_PYTHON3} "
         python3 -c "import requests" &>/dev/null || missing+="${PKG_NAME_PYTHON3_REQUESTS} "
         python3 -c "import flask" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
         python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
