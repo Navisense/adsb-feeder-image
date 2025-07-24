@@ -211,15 +211,17 @@
         },
         scales: {
           x: {type: "linear"},
-          y: {
+          pps: {
+            title: {text: "pos/s", display: true},
             type: "linear",
-            display: true,
+            display: "auto",
             position: "left",
             beginAtZero: true,
           },
-          y1: {
+          num: {
+            title: {text: "number of ships/planes", display: true},
             type: "linear",
-            display: true,
+            display: "auto",
             position: "right",
             beginAtZero: true,
             grid: {
@@ -234,12 +236,14 @@
   }
 
   function updateChartWithShownIndices(chart) {
+    // Extend the x axis to the current time.
+    chart.options.scales.x.suggestedMax = Date.now() / 1000;
     const showAll = chart.shownIndices.size == 0;
     for (let i = 0; i < chart.data.datasets.length; i++) {
       let meta = chart.getDatasetMeta(i);
       meta.hidden = !(showAll || chart.shownIndices.has(i));
     }
-    chart.update();
+    chart.update("none");
   }
 
   let receptionHistoryChart = createReceptionHistoryChart();
@@ -300,13 +304,13 @@
         label: `${type} pos/s`,
         data: posRateData,
         borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
-        yAxisID: 'y',
+        yAxisID: 'pps',
       });
       datasets.push({
         label: `number of ${craftName}`,
         data: numData,
         borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
-        yAxisID: 'y1',
+        yAxisID: 'num',
       });
     }
     receptionHistoryChart.data.datasets = datasets;
