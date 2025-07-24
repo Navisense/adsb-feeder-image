@@ -168,8 +168,14 @@
     </li>
   </ul>
 </div>
-<script src="/static/js/chart.js"
+<script src="{{ url_for('static', filename='js/chart.js') }}"
         integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
+        crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/moment.min.js') }}"
+        integrity="sha256-Wz7vWK+PBRpzNQ+1MMzRgm5qIeqECmDVqbgay204I6A="
+        crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/chartjs-adapter-moment.js') }}"
+        integrity="sha256-p6tY88yPX1/I2nC4PfLYbXO21Y6CV+3eOsWtOdkHt3Y="
         crossorigin="anonymous"></script>
 <script>
   function createReceptionHistoryChart() {
@@ -210,7 +216,23 @@
           }
         },
         scales: {
-          x: {type: "linear"},
+          x: {
+            type: "time",
+            time: {
+              tooltipFormat: "YYYY-MM-DD hh:mm:ss",
+              minUnit: "second",
+              displayFormats: {
+                second: "hh:mm:ss",
+                minute: "hh:mm:ss",
+                hour: "YYYY-MM-DD hh:mm:ss",
+                day: "YYYY-MM-DD",
+                week: "YYYY-MM-DD",
+                month: "YYYY-MM-DD",
+                quarter: "YYYY-MM-DD",
+                year: "YYYY",
+              },
+            }
+          },
           pps: {
             title: {text: "pos/s", display: true},
             type: "linear",
@@ -237,7 +259,7 @@
 
   function updateChartWithShownIndices(chart) {
     // Extend the x axis to the current time.
-    chart.options.scales.x.suggestedMax = Date.now() / 1000;
+    chart.options.scales.x.suggestedMax = moment();
     const showAll = chart.shownIndices.size == 0;
     for (let i = 0; i < chart.data.datasets.length; i++) {
       let meta = chart.getDatasetMeta(i);
@@ -297,8 +319,9 @@
     for (const [type, craftName, craftStats] of [["AIS", "ships", stats.ais], ["ADS-B", "planes", stats.adsb]]) {
       let posRateData = [], numData = [];
       for (const historyItem of craftStats.history) {
-        posRateData.push({x: historyItem.ts, y: historyItem.pps});
-        numData.push({x: historyItem.ts, y: historyItem.num});
+        const time = moment.unix(historyItem.ts);
+        posRateData.push({x: time, y: historyItem.pps});
+        numData.push({x: time, y: historyItem.num});
       }
       datasets.push({
         label: `${type} pos/s`,
