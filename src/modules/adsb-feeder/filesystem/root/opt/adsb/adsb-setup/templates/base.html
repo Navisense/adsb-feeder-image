@@ -142,17 +142,6 @@
               {% endif %}
             </ul>
           </li>
-          <!-- Data Sharing -->
-          {% if not is_enabled('stage2') %}
-          <li class="nav-item"><a
-               class="nav-link {% if not is_enabled('base_config') or env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}"
-               href="/aggregators">Data Sharing</a>
-          </li>
-          {% else %}
-          <li id="data_sharing_current" class="nav-item">
-            <a class="nav-link" href="#" id="data_sharing_current_link">Data Sharing</a>
-          </li>
-          {% endif %}
           <!-- Setup -->
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-setup" role="button"
@@ -162,6 +151,7 @@
                   2{% else %}Basic{% endif %}</a></li>
               <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
                    href="/sdr_setup">SDR</a></li>
+              <li><a class="dropdown-item" href="{{ url_for('aggregators') }}">Data Sharing</a></li>
               <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
                    href="/expert">Expert</a></li>
               <li><a id="options" class="dropdown-item" href="/visualization">Map options</a></li>
