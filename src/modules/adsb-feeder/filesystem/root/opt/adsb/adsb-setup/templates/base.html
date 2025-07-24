@@ -1,46 +1,50 @@
 {# Base template with common skeleton for all pages. #}
 <!DOCTYPE html>
-{% if env_value_by_tag("css_theme") == 'light' %}
-<html lang="en" data-mdb-theme="light">
-{% elif env_value_by_tag("css_theme") == 'dark' %}
-<html lang="en" data-mdb-theme="dark">
-{% else %}
-<html lang="en" data-mdb-theme="auto">
-{% endif %}
-
-<head>
-  <!-- Required meta tags -->
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-  <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See {{ url_for('static', filename='fonts/LICENSE.txt') }} -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css') }}" />
-  <!-- MDB -->
-  <link rel="stylesheet" id="css-theme" href="{{ url_for('static', filename='css/mdb.min.css') }}" />
-  {% if not ((env_value_by_tag("css_theme") == 'light') or (env_value_by_tag("css_theme") == 'dark')) %}
-  <script>
-    ; (function () {
-      const htmlElement = document.querySelector("html")
-      if (htmlElement.getAttribute("data-mdb-theme") === 'auto') {
-        function updateTheme() {
-          document.querySelector("html").setAttribute("data-mdb-theme",
-            window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-        }
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateTheme)
-        updateTheme()
-      }
-    })()
-  </script>
-  {% endif %}
-  <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}" />
-  <!-- Spinner -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
-  <title>
-    {{ list_value_by_tag("site_name", 0) }}{%- if list_value_by_tag("site_name", 0) != "" -%}: {% endif %}
-    {% block title required -%}{%- endblock title %}
+{% set css_theme = env_value_by_tag("css_theme") %}
+<html lang="en"
+      data-mdb-theme="{{ css_theme if css_theme in ['light', 'dark'] else 'auto' }}">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!-- Google Fonts Roboto. Copyright 2011 Google Inc. All Rights Reserved. See /static/fonts/LICENSE.txt -->
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/fonts.css') }}" />
+    <!-- MDB -->
+    <link rel="stylesheet"
+          id="css-theme"
+          href="{{ url_for('static', filename='css/mdb.min.css') }}" />
+    {% if css_theme not in ['light', 'dark'] %}
+      <script>
+        ; (function () {
+          const htmlElement = document.querySelector("html");
+          if (htmlElement.getAttribute("data-mdb-theme") === "auto") {
+            function updateTheme() {
+              document.querySelector("html").setAttribute(
+                "data-mdb-theme",
+                window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+            }
+            window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", updateTheme);
+            updateTheme();
+          }
+        })()
+      </script>
+    {% endif %}
+    <link rel="shortcut icon"
+          href="{{ url_for('static', filename='favicon.ico') }}" />
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}" />
+    <title>
+      {{ list_value_by_tag('site_name', 0) }}{%- if list_value_by_tag("site_name", 0) != "" -%}:
+    {% endif %}
+    {% block title required -%}
+    {%- endblock title %}
   </title>
   <nav class="navbar fixed-top bg-body navbar-expand-md">
     <div class="container-fluid">
-      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('director') }}">Porttracker Feeder</a>
+      <a class="navbar-brand ms-0 me-1 me-sm-3"
+         href="{{ url_for('director') }}">Porttracker Feeder</a>
       {# Live map buttons in the nav bar. These will be hidden for small screens. #}
       <div id="livemap-buttons">
         <div class="btn-group"
@@ -48,16 +52,14 @@
           <button type="button"
                   class="btn btn-primary"
                   {% if not is_reception_enabled('ais') %}disabled{% endif %}
-                  onclick="document.location='{{ url_for('/ais-catcher/') }}'">
-            Live Map (AIS)
-          </button>
+                  onclick="document.location='{{ url_for("/ais-catcher/") }}'">Live Map (AIS)</button>
         </div>
         <div class="btn-group"
              {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
           <button type="button"
                   class="btn btn-primary"
                   {% if not is_reception_enabled('adsb') %}disabled{% endif %}
-                  onclick="document.location='{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}'">
+                  onclick="document.location='{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}'">
             Live Map (ADS-B)
           </button>
           <button type="button"
@@ -66,123 +68,190 @@
                   data-mdb-toggle="dropdown"
                   aria-expanded="false"></button>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">Heatmap</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">Tracks</a></li>
-            <li><a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">Replay</a></li>
+            <li>
+              <a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">Heatmap</a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">Tracks</a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">Replay</a>
+            </li>
           </ul>
         </div>
       </div>
       {% if is_enabled('temperature_block') %}
-        <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
-          <span id="cpu" class="d-none"
-                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">CPU</span>
-          <span id="ext" class=" d-none"
-                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">EXT</span>
-          <span id="cpu_temp" class=" d-none"
-                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
-          <span id="ext_temp" class="d-none"
-                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
+        <div id="temperature_block"
+             style="width: 4em;
+                    height:auto"
+             class="d-none d-sm-block">
+          <span id="cpu"
+                class="d-none"
+                style="float:left;
+                       width:45%;
+                       height:1em;
+                       font-size:0.6em;
+                       margin-left: 1px">CPU</span>
+          <span id="ext"
+                class=" d-none"
+                style="float:left;
+                       width:45%;
+                       height:1em;
+                       font-size:0.6em;
+                       margin-left: 1px">EXT</span>
+          <span id="cpu_temp"
+                class=" d-none"
+                style="float:left;
+                       width:45%;
+                       height:1em;
+                       font-size:0.6em;
+                       margin-left: 1px"></span>
+          <span id="ext_temp"
+                class="d-none"
+                style="float:left;
+                       width:45%;
+                       height:1em;
+                       font-size:0.6em;
+                       margin-left: 1px"></span>
         </div>
       {% endif %}
-      <div class="mx-auto"><!-- filler element --></div>
-      <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbar"
-              aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="mx-auto">
+        <!-- filler element -->
+      </div>
+      <button class="navbar-toggler"
+              type="button"
+              data-mdb-toggle="collapse"
+              data-mdb-target="#navbar"
+              aria-controls="navbar"
+              aria-expanded="false"
+              aria-label="Toggle navigation">
         <svg viewBox="-5 0 10 8" width="1.5em">
           <line y2="8" stroke="#000" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
         </svg>
       </button>
       <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbar">
         <ul class="navbar-nav ms-1 mb-2 mb-lg-0">
-          {# Dropdown menu with maps. This will only be shown on small screens, to replace the big live map buttons. #}
+          {# Maps dropdown menu. This will only be shown on small screens, to replace the big live map buttons. #}
           <li id="navbar-maps-dropdown" class="nav-item dropdown">
             <a class="nav-link dropdown-toggle"
                href="#"
                id="navbar-dropdown-maps"
                role="button"
                data-mdb-toggle="dropdown"
-               aria-expanded="false">
-              Maps
-            </a>
+               aria-expanded="false">Maps</a>
             <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-maps">
               {% if is_reception_enabled('ais') %}
-                <li><a class="dropdown-item" href="{{ url_for('/ais-catcher/') }}">AIS Live Map</a></li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for("/ais-catcher/") }}">AIS Live Map</a>
+                </li>
               {% else %}
                 <li title="AIS reception is disabled">
-                  <a class="dropdown-item disabled"
-                     href="{{ url_for('/ais-catcher/') }}">
-                    AIS Live Map
-                  </a>
+                  <a class="dropdown-item disabled" href="{{ url_for("/ais-catcher/") }}">AIS Live Map</a>
                 </li>
               {% endif %}
               {% if is_reception_enabled('adsb') %}
                 <li>
-                  <a class="dropdown-item" href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
-                    ADS-B Live Map
-                  </a>
+                  <a class="dropdown-item"
+                     href="{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}">ADS-B Live Map</a>
                 </li>
-                <li><a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a></li>
-                <li><a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a></li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
+                </li>
               {% else %}
                 <li title="ADS-B reception is disabled">
                   <a class="dropdown-item disabled"
-                     href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
-                    ADS-B Live Map
-                  </a>
+                     href="{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}">ADS-B Live Map</a>
                 </li>
                 <li title="ADS-B reception is disabled">
-                  <a class="dropdown-item disabled" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
+                  <a class="dropdown-item disabled"
+                     href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
                 </li>
                 <li title="ADS-B reception is disabled">
-                  <a class="dropdown-item disabled" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
+                  <a class="dropdown-item disabled"
+                     href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
                 </li>
                 <li title="ADS-B reception is disabled">
-                  <a class="dropdown-item disabled" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
+                  <a class="dropdown-item disabled"
+                     href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
                 </li>
               {% endif %}
             </ul>
           </li>
-          <!-- Setup -->
+          {# Setup dropdown menu. #}
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-setup" role="button"
-               data-mdb-toggle="dropdown" aria-expanded="false">Setup</a>
+            <a class="nav-link dropdown-toggle"
+               href="#"
+               id="navbar-dropdown-setup"
+               role="button"
+               data-mdb-toggle="dropdown"
+               aria-expanded="false">Setup</a>
             <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-setup">
-              <li><a class="dropdown-item" href="/setup">{% if is_enabled('stage2') %}Stage
-                  2{% else %}Basic{% endif %}</a></li>
-              <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
-                   href="/sdr_setup">SDR</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('aggregators') }}">Data Sharing</a></li>
-              <li><a class="dropdown-item {% if not is_enabled('base_config') %}d-none{% endif %}"
-                   href="/expert">Expert</a></li>
-              <li><a id="options" class="dropdown-item" href="/visualization">Map options</a></li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('setup') }}">Basic</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('sdr_setup') }}">SDR</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('aggregators') }}">Data Sharing</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('expert') }}">Expert</a>
+              </li>
+              <li>
+                <a id="options"
+                   class="dropdown-item"
+                   href="{{ url_for('visualization') }}">Map options</a>
+              </li>
             </ul>
           </li>
-          <!-- System -->
+          {# System dropdown menu. #}
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="navbar-dropdown-logs" role="button"
-               data-mdb-toggle="dropdown" aria-expanded="false">System</a>
+            <a class="nav-link dropdown-toggle"
+               href="#"
+               id="navbar-dropdown-logs"
+               role="button"
+               data-mdb-toggle="dropdown"
+               aria-expanded="false">System</a>
             <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-logs">
-              <li><a class="dropdown-item" href="/logs/">Logs</a></li>
-              <li><a class="dropdown-item" href="/info">Support Info</a></li>
-              <li><a class="dropdown-item" href="/support">Share Diagnostics</a></li>
-              <li><a class="dropdown-item" href="/systemmgmt">Management</a></li>
-              <li><a class="dropdown-item" href="/backup">Backup</a></li>
-              <li><a class="dropdown-item" href="/restore">Restore</a></li>
-              {% if env_value_by_tag("aggregator_choice") != 'nano' %}
-              <li><a class="dropdown-item" href="/stats/">{%if is_enabled('stage2')%}Combined {%endif%}Stats</a></li>
-              {% if is_enabled('stage2') %}
-              <li><a id="stats_current" class="dropdown-item" href="/stats_1/">Current Stats</a></li>
-              {% endif %}
-              {% endif %}
+              <li>
+                <a class="dropdown-item" href="{{ url_for('/logs/') }}">Logs</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('info') }}">Support Info</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('support') }}">Share Diagnostics</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('systemmgmt') }}">Management</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('backup') }}">Backup</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('restore') }}">Restore</a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('/stats/') }}">Stats</a>
+              </li>
             </ul>
           </li>
         </ul>
       </div>
     </div>
   </nav>
-  <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+  <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
           crossorigin="anonymous"></script>
-  <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
   <script>
     let tasks = [];
     let taskTimeout = undefined;
@@ -225,40 +294,6 @@
         nextTaskExecutionTime = Math.min(nextTaskExecutionTime, task.nextExecutionTime);
       }
       taskTimeout = setTimeout(maybeExecuteTasks, nextTaskExecutionTime - Date.now());
-    }
-
-    let feederTarget = 0;
-    let parameters = location.search.substring(1).split('&');
-    for (let i = 0; i < parameters.length; i++) {
-      if (parameters[i].startsWith("m=")) {
-        feederTarget = parameters[i].split("=")[1];
-      }
-    }
-    {% if is_enabled('stage2') %}
-    console.log(`feederTarget: ${feederTarget}`);
-    {% endif %}
-    let siteNames = [];
-    {% for site in env_value_by_tag('site_name') %}
-    siteNames.push('{{site}}');
-    {% endfor %}
-    siteName = feederTarget == 0 ? siteName = "Combined": siteNames[feederTarget];
-    $("#navbarDropdownFeederSelection").text(`Target: ${siteName}`);
-    if (feederTarget > 0) {
-      let tag = "";
-      for (tag of ["live_traffic", "heatmap", "tracks", "replay"]) {
-        let oldhref = $("#" + tag).attr("href");
-        let newhref = oldhref.replace("/map/", "/map_" + feederTarget + "/");
-        $("#" + tag).attr("href", newhref);
-      }
-      $("#options").attr("href", "/visualization?m=" + feederTarget);
-      $("#data_sharing_current_link").attr("href", "/aggregators?m=" + feederTarget);
-      $("#data_sharing_current").removeClass("d-none");
-      $("#stats_current").removeClass("d-none");
-      $("#stats_current").attr("href", "/stats_" + feederTarget + "/");
-      $("#stats_current").text(`${siteName} Stats`);
-    } else {
-      $("#data_sharing_current").addClass("d-none");
-      $("#stats_current").addClass("d-none");
     }
 
     {% if is_enabled('temperature_block') %}
@@ -347,19 +382,11 @@
       document.getElementById("overlay").style.display = "block";
       console.log('show_spinner');
     }
+
     function hide_spinner() {
       document.getElementById("loader").style.display = "none";
       document.getElementById("overlay").style.display = "none";
       console.log('hide_spinner');
-    }
-    function stage2_feeder_target_submit(newTarget) {
-      if (newTarget == '*' || newTarget == '0' || newTarget =='' || newTarget == undefined) {
-        queryString = "";
-      } else {
-        queryString = "?m=" + newTarget;
-      }
-      location.replace(location.href.split('?')[0] + queryString);
-      return false;
     }
 
     $(document).find('form').each((key, value) => {
@@ -389,7 +416,6 @@
     });
   </script>
 </head>
-
 <body>
   <div id="loader" style="display: none"></div>
   <div id="overlay" style="display: none">
@@ -402,7 +428,8 @@
   <div class="container pt-5 my-3">
     <h1 class="mt-3 text-center text-danger">{{ self.title() }}</h1>
     {% block base_content %}
-      {% block content required %}{% endblock content %}
+      {% block content required %}
+      {% endblock content %}
     {% endblock base_content %}
     <footer class="text-start text-muted bg-body">
       <section class="d-flex justify-content-between border-bottom small">
@@ -420,5 +447,4 @@
     </footer>
   </div>
 </body>
-
 </html>
