@@ -257,7 +257,7 @@
     } else if (craftStats.current.pps > 0) {
       element.addClass("text-success");
       element.html(
-        `${type}: ${craftStats.current.pps} positions per second — `
+        `${type}: ${craftStats.current.pps.toFixed(1)} positions per second — `
         + `${craftStats.current.num} ${craftName} visible`);
     } else if (craftStats.uptime < 60) {
       element.addClass("text-warning");
