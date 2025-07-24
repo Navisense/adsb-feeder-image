@@ -102,6 +102,7 @@ class CurrentStats:
 class ReceptionMonitor:
     STATS_FILE = utils.data.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
+    MAX_HISTORY_AGE = 14 * 24 * 3600
 
     def __init__(self, data: utils.data.Data):
         self._logger = logging.getLogger(type(self).__name__)
@@ -143,16 +144,25 @@ class ReceptionMonitor:
             adsb=self._readsb_scraper.get_current_stats())
 
     def _scrape_readsb(self):
-        self._scrape(self._readsb_scraper, self.stats.adsb)
+        self._scrape(self._readsb_scraper, self.stats.adsb.history)
 
     def _scrape_ais_catcher(self):
-        self._scrape(self._ais_catcher_scraper, self.stats.ais)
+        self._scrape(self._ais_catcher_scraper, self.stats.ais.history)
 
-    def _scrape(self, scraper: "Scraper", craft_stats: CraftStats):
+    def _scrape(self, scraper: "Scraper", history: list[TimeFrameStats]):
         try:
             last_minute_stats = scraper.get_last_minute_stats()
-            craft_stats.history.append(last_minute_stats)
+            history.append(last_minute_stats)
         except Scraper.NoStats:
+            pass
+        self._expire_old_history(history)
+
+    def _expire_old_history(self, history: list[TimeFrameStats]):
+        min_ts = time.time() - self.MAX_HISTORY_AGE
+        try:
+            while history[0].end_ts < min_ts:
+                history.pop(0)
+        except IndexError:
             pass
 
 
