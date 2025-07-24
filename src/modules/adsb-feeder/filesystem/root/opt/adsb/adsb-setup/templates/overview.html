@@ -254,14 +254,18 @@
     if (!craftStats.enabled) {
       element.addClass("text-warning");
       element.html(`${type} reception is disabled.`);
-    } else if (craftStats.current["pps"] == 0) {
-      element.addClass("text-danger");
-      element.html(`${type} reception is enabled, but no data is arriving.`);
-    } else {
+    } else if (craftStats.current.pps > 0) {
       element.addClass("text-success");
       element.html(
         `${type}: ${craftStats.current.pps} positions per second — `
         + `${craftStats.current.num} ${craftName} visible`);
+    } else if (craftStats.uptime < 60) {
+      element.addClass("text-warning");
+      element.html(
+        `${type} reception has just been enabled, and we've not seen data arriving yet (let's wait a bit...)`);
+    } else {
+      element.addClass("text-danger");
+      element.html(`${type} reception is enabled, but no data is arriving.`);
     }
   }
 

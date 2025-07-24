@@ -1409,26 +1409,25 @@ class AdsbIm:
         adsb_enabled = bool(
             self._d.env_by_tags("1090serial").value
             or self._d.env_by_tags("978serial").value)
-        ais = {
-            "enabled": ais_enabled,
-            "current": self._make_current_stats(current_stats.ais),
-            "history": self._make_history_stats(stats.ais.history)}
-        adsb = {
-            "enabled": adsb_enabled,
-            "current": self._make_current_stats(current_stats.adsb),
-            "history": self._make_history_stats(stats.adsb.history)}
+        ais = self._make_stats(
+            ais_enabled, current_stats.ais, stats.ais.history)
+        adsb = self._make_stats(
+            adsb_enabled, current_stats.adsb, stats.adsb.history)
         return {"ais": ais, "adsb": adsb}
 
-    def _make_current_stats(
-            self, current_stats: utils.stats.CurrentCraftStats):
+    def _make_stats(
+            self, enabled: bool, current_stats: utils.stats.CurrentCraftStats,
+            history: list[utils.stats.TimeFrameStats]):
         return {
-            "num": current_stats.num_crafts,
-            "pps": current_stats.position_message_rate}
-
-    def _make_history_stats(self, history: list[utils.stats.TimeFrameStats]):
-        return [{
-            "ts": s.ts, "num": len(s.craft_ids),
-            "pps": s.position_message_rate} for s in history]
+            "enabled": enabled,
+            "uptime": current_stats.uptime if enabled else None,
+            "current": {
+                "num": current_stats.num_crafts,
+                "pps": current_stats.position_message_rate},
+            "history": [{
+                "ts": s.ts,
+                "num": len(s.craft_ids),
+                "pps": s.position_message_rate,} for s in history],}
 
     def stage2_stats(self):
         ret = []

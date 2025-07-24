@@ -88,6 +88,7 @@ class Stats:
 
 @dc.dataclass
 class CurrentCraftStats:
+    uptime: float
     num_crafts: int
     position_message_rate: float
 
@@ -201,19 +202,23 @@ class ReadsbScraper(Scraper):
                 if not aircraft["hex"].startswith("~")}
 
     def get_current_stats(self) -> CurrentCraftStats:
+        uptime = None
+        num_positions = num_aircraft = 0
         try:
             stats_dict = self._read_stats_dict()
             num_positions = stats_dict["last1min"]["position_count_total"]
             num_aircraft = (
                 stats_dict["aircraft_with_pos"]
                 + stats_dict["aircraft_without_pos"])
+            uptime = time.time() - stats_dict["total"]["start"]
         except IOError:
-            num_positions = num_aircraft = 0
+            # Probably not running, gracefully send empty stats.
+            pass
         except:
             self._logger.exception("Unexpected statistics file format.")
-            num_positions = num_aircraft = 0
         return CurrentCraftStats(
-            num_crafts=num_aircraft, position_message_rate=num_positions / 60)
+            uptime=uptime, num_crafts=num_aircraft,
+            position_message_rate=num_positions / 60)
 
 
 class AisCatcherScraper(Scraper):
@@ -254,17 +259,21 @@ class AisCatcherScraper(Scraper):
         return {s[0] for s in ships_array["values"]}
 
     def get_current_stats(self) -> CurrentCraftStats:
+        uptime = None
+        num_positions = num_ships = 0
         try:
             stats_dict = self._get_stats_dict()
             num_positions = stats_dict["last_minute"]["count"]
             num_ships = stats_dict["last_minute"]["vessels"]
+            uptime = float(stats_dict["run_time"] or 0)
         except IOError:
-            num_positions = num_ships = 0
+            # Probably not running, gracefully send empty stats.
+            pass
         except:
             self._logger.exception("Unexpected statistics file format.")
-            num_positions = num_ships = 0
         return CurrentCraftStats(
-            num_crafts=num_ships, position_message_rate=num_positions / 60)
+            uptime=uptime, num_crafts=num_ships,
+            position_message_rate=num_positions / 60)
 
 
 class IterableAsListJSONEncoder(json.JSONEncoder):
