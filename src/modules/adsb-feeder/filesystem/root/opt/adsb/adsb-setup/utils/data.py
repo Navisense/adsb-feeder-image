@@ -396,11 +396,6 @@ class Data:
             tags=["secure_image", "is_enabled", "norestore"],
         ),
         Env(
-            "AF_APP_INIT_DONE",
-            default=False,
-            tags=["app_init_done", "is_enabled", "norestore"],
-        ),
-        Env(
             "AF_IS_FLIGHTRADAR24_ENABLED",
             default=[False],
             tags=["other_aggregator", "is_enabled", "flightradar"],

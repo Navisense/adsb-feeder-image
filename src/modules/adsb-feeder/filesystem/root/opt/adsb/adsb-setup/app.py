@@ -361,10 +361,6 @@ class AdsbIm:
         self.wifi = None
         self.wifi_ssid = ""
 
-        # v1.3.4 ended up not installing the correct port definitions - if that's
-        # the case, then insert them into the settings
-        self.setup_app_ports()
-
         self._sdrdevices = SDRDevices()
         self._ultrafeeder_config = utils.netconfig.UltrafeederConfig(
             data=self._d)
@@ -849,22 +845,6 @@ class AdsbIm:
     def _setup_ultrafeeder_args(self):
         self._d.env_by_tags("ultrafeeder_config").list_set(
             0, self._ultrafeeder_config.generate())
-
-    def setup_app_ports(self):
-        if not self._d.is_enabled("app_init_done"):
-            # ok, we don't have them explicitly set, so let's set them up
-            # with the app defaults
-            for tag, default in [
-                ("webport", 1099),
-                ("tar1090port", 1090),
-                ("uatport", 1091),
-                ("piamapport", 1092),
-                ("piastatport", 1093),
-                ("dazzleport", 1094),
-                ("dazzleport", 1094),]:
-                if self._d.env_by_tags(tag).value is None:
-                    # TODO and this is completely wrong anyway+++++++++
-                    self._d.env_by_tags("app_init_done").value = default
 
     def set_hostname_and_enable_mdns(self, site_name: str):
         self._current_site_name = site_name
