@@ -352,6 +352,7 @@ class AdsbIm:
                 "list_value_by_tags": lambda tag, idx: list_value_by_tags(tag, idx),
                 "env_values": self._d.env_values,
                 "url_for": url_for_with_empty_parameters,
+                "is_reception_enabled": self.is_reception_enabled,
             }
 
         self._routemanager = RouteManager(self.app)
@@ -671,6 +672,16 @@ class AdsbIm:
         if not self._current_site_name:
             return ""
         return only_alphanum_dash(self._current_site_name)
+
+    def is_reception_enabled(self, reception_type):
+        if reception_type == "ais":
+            return bool(self._d.env_by_tags("aisserial").value)
+        elif reception_type == "adsb":
+            return bool(
+                self._d.env_by_tags("1090serial").value
+                or self._d.env_by_tags("978serial").value)
+        else:
+            raise ValueError(f"Unknown reception type {reception_type}.")
 
     def start(self):
         if self._server:
@@ -1322,14 +1333,12 @@ class AdsbIm:
     def stats(self):
         current_stats = self._reception_monitor.get_current_stats()
         stats = self._reception_monitor.stats
-        ais_enabled = bool(self._d.env_by_tags("aisserial").value)
-        adsb_enabled = bool(
-            self._d.env_by_tags("1090serial").value
-            or self._d.env_by_tags("978serial").value)
         ais = self._make_stats(
-            ais_enabled, current_stats.ais, stats.ais.history)
+            self.is_reception_enabled("ais"), current_stats.ais,
+            stats.ais.history)
         adsb = self._make_stats(
-            adsb_enabled, current_stats.adsb, stats.adsb.history)
+            self.is_reception_enabled("adsb"), current_stats.adsb,
+            stats.adsb.history)
         return {"ais": ais, "adsb": adsb}
 
     def _make_stats(

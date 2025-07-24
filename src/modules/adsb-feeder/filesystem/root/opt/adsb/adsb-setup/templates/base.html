@@ -38,25 +38,52 @@
     {{ list_value_by_tag("site_name", 0) }}{%- if list_value_by_tag("site_name", 0) != "" -%}: {% endif %}
     {% block title required -%}{%- endblock title %}
   </title>
-  <nav class="navbar fixed-top bg-body {% if is_enabled('stage2') %} navbar-expand-lg {% else %} navbar-expand-md {% endif %}">
+  <nav class="navbar fixed-top bg-body navbar-expand-md">
     <div class="container-fluid">
-      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for("director") }}">Porttracker Feeder</a>
-      <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
-        id="livemap-adsb-navbar-button"
-        href="/map/{{ env_value_by_tag('tar1090_query_params') }}">Live Map (ADS-B)</a>
-      <a class="btn btn-primary mx-0 mx-sm-1 {% if not is_enabled('base_config') %}d-none{% endif %}"
-        id="livemap-ais-navbar-button"
-        href="/ais-catcher">Live Map (AIS)</a>
-      <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
-        <span id="cpu" class="d-none"
-              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">CPU</span>
-        <span id="ext" class=" d-none"
-              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">EXT</span>
-        <span id="cpu_temp" class=" d-none"
-              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
-        <span id="ext_temp" class="d-none"
-              style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
-      </div>
+      <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('director') }}">Porttracker Feeder</a>
+      {# Live map buttons in the nav bar. These will be hidden for small screens. #}
+      {% if is_reception_enabled('ais') %}
+        <span>
+          <a class="livemap-button btn btn-primary mx-0 mx-sm-1"
+             href="{{ url_for('/ais-catcher/') }}">
+            Live Map (AIS)
+          </a>
+        </span>
+      {% else %}
+        <span title="AIS reception is disabled">
+          <a class="livemap-button btn btn-primary mx-0 mx-sm-1 disabled"
+             aria-disabled="true">
+            Live Map (AIS)
+          </a>
+        </span>
+      {% endif %}
+      {% if is_reception_enabled('adsb') %}
+        <span>
+          <a class="livemap-button btn btn-primary mx-0 mx-sm-1"
+             href="{{ url_for('/map/' + env_value_by_tag('tar1090_query_params')) }}">
+            Live Map (ADS-B)
+          </a>
+        </span>
+      {% else %}
+        <span title="ADS-B reception is disabled">
+          <a class="livemap-button btn btn-primary mx-0 mx-sm-1 disabled"
+             aria-disabled="true">
+            Live Map (ADS-B)
+          </a>
+        </span>
+      {% endif %}
+      {% if is_enabled('temperature_block') %}
+        <div id="temperature_block" style="width: 4em; height:auto;" class="d-none d-sm-block">
+          <span id="cpu" class="d-none"
+                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">CPU</span>
+          <span id="ext" class=" d-none"
+                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;">EXT</span>
+          <span id="cpu_temp" class=" d-none"
+                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
+          <span id="ext_temp" class="d-none"
+                style="float:left;width:45%;height:1em;font-size:0.6em;margin-left: 1px;"></span>
+        </div>
+      {% endif %}
       <div class="mx-auto"><!-- filler element --></div>
       <button class="navbar-toggler" type="button" data-mdb-toggle="collapse" data-mdb-target="#navbarNav"
               aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">

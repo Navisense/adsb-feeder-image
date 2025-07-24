@@ -104,11 +104,7 @@ font-size: 50%;
   z-index: -1;
 }
 
-/* hide some navbar buttons for very small screens */
-@media (max-width: 360px) {
-    #kofi-navbar-button { display: none; }
-}
-@media (max-width: 322px) {
-    #livemap-adsb-navbar-button { display: none; }
-    #livemap-ais-navbar-button { display: none; }
+@media (max-width: 700px) {
+    /* On small screens, hide the big livemap buttons in the navbar. */
+    .livemap-button { display: none; }
 }
