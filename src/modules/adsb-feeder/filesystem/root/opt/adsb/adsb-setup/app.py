@@ -380,10 +380,6 @@ class AdsbIm:
         self._agg_status_instances = dict()
         self._im_status = ImStatus(self._d)
         self._next_url_from_director = ""
-        self._last_stage2_contact = ""
-        self._last_stage2_contact_time = 0
-
-        self._last_base_info = dict()
 
         self.lastSetGainWrite = 0
 
@@ -468,11 +464,6 @@ class AdsbIm:
             "/stream-log",
             "stream_log",
             self._decide_route_hotspot_mode(self.stream_log),
-        )
-        self.app.add_url_rule(
-            "/running",
-            "running",
-            self._decide_route_hotspot_mode(self.running),
         )
         self.app.add_url_rule(
             "/backup",
@@ -566,12 +557,6 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/update",
-            "update",
-            self._decide_route_hotspot_mode(self.update),
-            methods=["POST"],
-        )
-        self.app.add_url_rule(
             "/sdplay_license",
             "sdrplay_license",
             self._decide_route_hotspot_mode(self.sdrplay_license),
@@ -588,29 +573,14 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.sdr_info),
         )
         self.app.add_url_rule(
-            "/api/base_info",
-            "base_info",
-            self._decide_route_hotspot_mode(self.base_info),
-        )
-        self.app.add_url_rule(
-            "/api/stage2_stats",
-            "stage2_stats",
-            self._decide_route_hotspot_mode(self.stage2_stats),
-        )
-        self.app.add_url_rule(
             "/api/stats",
             "stats",
             self._decide_route_hotspot_mode(self.stats),
         )
         self.app.add_url_rule(
-            f"/api/status/<agg>",
+            "/api/status/<agg>",
             "beast",
             self._decide_route_hotspot_mode(self.agg_status),
-        )
-        self.app.add_url_rule(
-            "/api/stage2_connection",
-            "stage2_connection",
-            self._decide_route_hotspot_mode(self.stage2_connection),
         )
         self.app.add_url_rule(
             "/api/get_temperatures.json",
@@ -618,18 +588,18 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.temperatures),
         )
         self.app.add_url_rule(
-            f"/feeder-update",
+            "/feeder-update",
             "feeder-update",
             self._decide_route_hotspot_mode(self.feeder_update),
             methods=["POST"],
         )
         self.app.add_url_rule(
-            f"/get-logs",
+            "/get-logs",
             "get-logs",
             self._decide_route_hotspot_mode(self.get_logs),
         )
         self.app.add_url_rule(
-            f"/view-logs",
+            "/view-logs",
             "view-logs",
             self._decide_route_hotspot_mode(self.view_logs),
         )
@@ -972,9 +942,6 @@ class AdsbIm:
 
         self._system._restart.wait_restart_done(timeout=0.9)
         return self._system._restart.state
-
-    def running(self):
-        return "OK"
 
     def backup(self):
         return render_template("/backup.html")
@@ -1367,41 +1334,6 @@ class AdsbIm:
                     self._d.env_by_tags("alt").list_set(0, alt)
         return lat, lon, alt
 
-    def base_info(self):
-        listener = request.remote_addr
-        tm = int(time.time())
-        print_err(f"access to base_info from {listener}", level=8)
-        self._last_stage2_contact = listener
-        self._last_stage2_contact_time = tm
-        lat, lon, alt = self.get_lat_lon_alt()
-        rtlsdr_at_port = 0
-        if self._d.env_by_tags("readsb_device_type").value == "rtlsdr":
-            if self._d.is_enabled("stage2_nano"):
-                rtlsdr_at_port = self._d.env_by_tags("nanotar1090portadjusted").value
-            else:
-                rtlsdr_at_port = self._d.env_by_tags("tar1090port").value
-        response = make_response(
-            json.dumps(
-                {
-                    "name": self._d.env_by_tags("site_name").list_get(0),
-                    "lat": lat,
-                    "lng": lon,  # include both spellings for backwards compatibility
-                    "lon": lon,
-                    "alt": alt,
-                    "tz": self._d.env_by_tags("tz").list_get(0),
-                    "version": self._d.env_by_tags("base_version").value,
-                    "airspy_at_port": (self._d.env_by_tags("airspyport").value if self._d.is_enabled("airspy") else 0),
-                    "rtlsdr_at_port": rtlsdr_at_port,
-                    "dump978_at_port": (
-                        self._d.env_by_tags("uatport").value if self._d.list_is_enabled(["uat978"], 0) else 0
-                    ),
-                    "brofm_capable": (self._d.env_by_tags("aggregator_choice").value in ["micro", "nano"]),
-                }
-            )
-        )
-        response.headers.add("Access-Control-Allow-Origin", "*")
-        return response
-
     def stats(self):
         current_stats = self._reception_monitor.get_current_stats()
         stats = self._reception_monitor.stats
@@ -1428,68 +1360,6 @@ class AdsbIm:
                 "ts": s.ts,
                 "num": len(s.craft_ids),
                 "pps": s.position_message_rate,} for s in history],}
-
-    def stage2_stats(self):
-        ret = []
-        tplanes = len(self.planes_seen_per_day[0])
-        ip = self._d.env_by_tags("mf_ip").list_get(0)
-        ip, triplet = mf_get_ip_and_triplet(ip)
-        try:
-            with open(f"/run/adsb-feeder-ultrafeeder/readsb/stats.prom") as f:
-                uptime = 0
-                found = 0
-                for line in f:
-                    if "position_count_total" in line:
-                        pps = int(line.split()[1]) / 60
-                        # show precise position rate if less than 1
-                        pps = round(pps, 1) if pps < 1 else round(pps)
-                        found |= 1
-                    if "readsb_messages_valid" in line:
-                        mps = round(int(line.split()[1]) / 60)
-                        found |= 2
-                    if "readsb_aircraft_with_position" in line:
-                        planes = int(line.split()[1])
-                        found |= 4
-                    if found == 7:
-                        break
-                ret.append(
-                    {
-                        "pps": pps,
-                        "mps": mps,
-                        "uptime": uptime,
-                        "planes": planes,
-                        "tplanes": tplanes,
-                    }
-                )
-        except FileNotFoundError:
-            ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
-        except:
-            print_err(traceback.format_exc())
-            ret.append({"pps": 0, "mps": 0, "uptime": 0, "planes": 0, "tplanes": tplanes})
-        return Response(json.dumps(ret), mimetype="application/json")
-
-    def stage2_connection(self):
-        if not self._d.env_by_tags("aggregator_choice").value in ["micro", "nano"] or self._last_stage2_contact == "":
-            return Response(json.dumps({"stage2_connected": "never"}), mimetype="application/json")
-        now = int(time.time())
-        last = self._last_stage2_contact_time
-        since = now - last
-        hrs, min = divmod(since // 60, 60)
-        if hrs > 0:
-            time_since = "more than an hour"
-        elif min > 15:
-            time_since = f"{min} minutes"
-        else:
-            time_since = "recent"
-        return Response(
-            json.dumps(
-                {
-                    "stage2_connected": time_since,
-                    "address": self._last_stage2_contact,
-                }
-            ),
-            mimetype="application/json",
-        )
 
     def generate_agg_structure(self):
         aggregators = copy.deepcopy(self.all_aggregators)
