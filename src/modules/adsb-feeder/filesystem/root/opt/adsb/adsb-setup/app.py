@@ -715,6 +715,7 @@ class AdsbIm:
         if not self._server:
             raise RuntimeError("not started")
         assert self._server_thread is not None
+        self._logger.info("Shutting down.")
         self.exiting = True
         self._reception_monitor.stop()
         self._dmesg_monitor.stop()
@@ -722,7 +723,11 @@ class AdsbIm:
             task.stop_and_wait()
         self._executor.shutdown()
         self._server.shutdown()
-        self._server_thread.join()
+        self._server_thread.join(timeout=10)
+        if self._server_thread.is_alive():
+            self._logger.warning(
+                "Server thread failed to finish within timeout. Trying to "
+                "continue.")
         self._server.server_close()
         self._server = self._server_thread = None
 
@@ -3095,7 +3100,7 @@ def main():
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
-        logger.info(f"Received signal {sig}, shutting down.")
+        logger.info(f"Received signal {sig}, setting shutdown event.")
         shutdown_event.set()
         signal.signal(sig, signal.SIG_DFL)  # Restore default handler
 
