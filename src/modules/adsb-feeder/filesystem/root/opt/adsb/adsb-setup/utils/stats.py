@@ -101,6 +101,17 @@ class CurrentStats:
 
 
 class ReceptionMonitor:
+    """
+    A monitor keeping track of message reception.
+
+    Scrapes the statistics of AIS-catcher and readsb regularly to maintain
+    statistics on the position message rate and which ships or planes are
+    visible. Statistics are written minute-by-minute initially, and later
+    aggregated into hourly statistics. They are deleted after a while.
+
+    Also provides a method to get the current message rate and number of
+    ships/planes.
+    """
     STATS_FILE = utils.data.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
     MAX_HISTORY_AGE = 14 * 24 * 3600
