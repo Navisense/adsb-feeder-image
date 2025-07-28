@@ -437,7 +437,7 @@
           compareIps();
         });
       {% for agg, name, m, s, table in aggregators %}
-        {% if list_is_enabled(agg, 0) and matrix[0] > 0 %}
+        {% if list_is_enabled(agg, 0) %}
           reset_status("{{ agg }}", 0);
           get_status("{{ agg }}");
         {% endif %}

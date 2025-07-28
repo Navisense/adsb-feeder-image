@@ -426,7 +426,6 @@ class AdsbIm:
             ["sdrmap", "sdrmap", "https://sdrmap.org/", [""], 1],
             ["porttracker", "Porttracker", "https://porttracker.co/", [""], 1],
         ]
-        self.agg_matrix = None
         self.agg_structure = None
         self.last_cache_agg_status = 0
         self.cache_agg_status_lock = threading.Lock()
@@ -1343,7 +1342,6 @@ class AdsbIm:
 
     def generate_agg_structure(self):
         aggregators = copy.deepcopy(self.all_aggregators)
-        matrix = [0]
         active_aggregators = []
         for idx in range(len(aggregators)):
             agg = aggregators[idx][0]
@@ -1352,7 +1350,6 @@ class AdsbIm:
             final_link = template_link
             agg_enabled = False
             agg_enabled |= self._d.list_is_enabled(agg, 0)
-            matrix[0] |= 1 << idx if self._d.list_is_enabled(agg, 0) else 0
             if template_link.startswith("/"):
                 final_link = template_link.replace("STG2IDX", "")
             else:
@@ -1369,7 +1366,6 @@ class AdsbIm:
             self.last_aggregator_debug_print = agg_debug_print
             print_err(agg_debug_print)
 
-        self.agg_matrix = matrix
         self.agg_structure = active_aggregators
 
     def cache_agg_status(self):
@@ -2658,7 +2654,6 @@ class AdsbIm:
             local_address=local_address,
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,
-            matrix=self.agg_matrix,
             compose_up_failed=compose_up_failed,
             board=board,
             base=base,
