@@ -555,34 +555,3 @@ class AggStatus:
 
     def __repr__(self):
         return f"Aggregator({self._agg} last_check: {str(self._last_check)}, beast: {self._beast} mlat: {self._mlat})"
-
-
-class ImStatus:
-    def __init__(self, data: Data):
-        self._d = data
-        self._lock = threading.Lock()
-        self._next_check = 0
-        self._cached = None
-
-    def check(self, check=False):
-        with self._lock:
-            if not self._cached or time.time() > self._next_check or check:
-                json_url = f"https://adsb.im/api/status"
-                self._cached, status = generic_get_json(json_url, self._d.env_by_tags("pack").value)
-                if status == 200:
-                    # good result, no need to update this sooner than in a minute
-                    self._next_check = time.time() + 60
-                    if self._d.previous_version:
-                        self._d.previous_version = ""
-                        pathlib.Path("/opt/adsb/porttracker_feeder_install_metadata/previous_version.txt").unlink(missing_ok=True)
-                else:
-                    # check again no earlier than 10 seconds from now
-                    self._next_check = time.time() + 10
-                    print_err(f"adsb.im returned {status}")
-                    self._cached = {
-                        "latest_tag": "unknown",
-                        "latest_commit": "",
-                        "advice": "there was an error obtaining the latest version information",
-                    }
-
-            return self._cached

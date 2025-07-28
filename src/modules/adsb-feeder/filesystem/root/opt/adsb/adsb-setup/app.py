@@ -51,7 +51,7 @@ import werkzeug.serving
 from werkzeug.utils import secure_filename
 
 import hotspot
-from utils.agg_status import AggStatus, ImStatus
+from utils.agg_status import AggStatus
 from utils.config import (
     config_lock,
     read_values_from_env_file,
@@ -375,7 +375,6 @@ class AdsbIm:
 
         self._current_site_name = None
         self._agg_status_instances = dict()
-        self._im_status = ImStatus(self._d)
         self._next_url_from_director = ""
 
         self.lastSetGainWrite = 0
@@ -390,7 +389,6 @@ class AdsbIm:
         # Ensure secure_image is set the new way if before the update it was set only as env variable
         if self._d.is_enabled("secure_image"):
             self.set_secure_image()
-        self._d.env_by_tags("pack")._value_call = self.pack_im
         self._other_aggregators = {
             "adsbhub--submit": ADSBHub(self._system),
             "flightaware--submit": FlightAware(self._system),
@@ -822,18 +820,6 @@ class AdsbIm:
             if line.startswith("Storage=volatile"):
                 self._persistent_journal = False
                 break
-
-    def pack_im(self) -> str:
-        image = {
-            "in": self._d.env_by_tags("image_name").value,
-            "bn": self._d.env_by_tags("board_name").value,
-            "bv": self._d.env_by_tags("base_version").value,
-            "pv": self._d.previous_version,
-            "cv": self.agg_matrix,
-        }
-        if self._d.env_by_tags("initial_version").value == "":
-            self._d.env_by_tags("initial_version").value == self._d.env_by_tags("base_version").value
-        return b64encode(compress(pickle.dumps(image))).decode("utf-8")
 
     def check_secure_image(self):
         return utils.data.SECURE_IMAGE_FILE.exists()
@@ -1429,10 +1415,6 @@ class AdsbIm:
         return res
 
     def agg_status(self, agg):
-        # print_err(f'agg_status(agg={agg})')
-        if agg == "im":
-            return json.dumps(self._im_status.check())
-
         self.cache_agg_status()
 
         res = dict()
@@ -2618,10 +2600,6 @@ class AdsbIm:
 
         # now let's check for disk space
         self._d.env_by_tags("low_disk").value = shutil.disk_usage("/").free < 1024 * 1024 * 1024
-
-        if self._d.previous_version:
-            print_err(f"sending previous version: {self._d.previous_version}")
-            self._im_status.check()
 
     @check_restart_lock
     def overview(self):
