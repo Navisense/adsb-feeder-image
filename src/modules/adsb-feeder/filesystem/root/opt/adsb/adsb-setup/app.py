@@ -1,5 +1,4 @@
 import concurrent.futures
-import copy
 import filecmp
 import json
 import logging
@@ -7,7 +6,6 @@ import logging.config
 import os
 import os.path
 import pathlib
-import pickle
 import platform
 import queue
 import re
@@ -23,23 +21,19 @@ import tempfile
 import threading
 import time
 import tempfile
-import traceback
 from uuid import uuid4
 import sys
 import zipfile
-from base64 import b64encode
 from datetime import datetime
 from os import urandom
 from time import sleep
 from typing import Dict, List
-from zlib import compress
 from copy import deepcopy
 
 import flask
 from flask import (
     Flask,
     flash,
-    make_response,
     redirect,
     render_template,
     request,
@@ -51,7 +45,7 @@ import werkzeug.serving
 from werkzeug.utils import secure_filename
 
 import hotspot
-from utils.agg_status import AggStatus
+import utils.agg_status
 from utils.config import (
     config_lock,
     read_values_from_env_file,
@@ -85,7 +79,6 @@ from utils.util import (
     create_fake_info,
     is_true,
     make_int,
-    mf_get_ip_and_triplet,
     print_err,
     run_shell_captured,
     string2file,
@@ -374,7 +367,6 @@ class AdsbIm:
             on_undervoltage=self._set_undervoltage)
 
         self._current_site_name = None
-        self._agg_status_instances = dict()
         self._next_url_from_director = ""
 
         self.lastSetGainWrite = 0
@@ -402,35 +394,6 @@ class AdsbIm:
             "sdrmap--submit": Sdrmap(self._system),
             "porttracker": Porttracker(self._system),
         }
-        # fmt: off
-        self.all_aggregators = [
-            # tag, name, map link, status link, table number
-            ["adsblol", "adsb.lol", "https://adsb.lol/", ["https://api.adsb.lol/0/me"], 0],
-            ["flyitaly", "Fly Italy ADSB", "https://mappa.flyitalyadsb.com/", ["https://my.flyitalyadsb.com/am_i_feeding"], 0],
-            ["avdelphi", "AVDelphi", "https://www.avdelphi.com/coverage.html", [""], 0],
-            ["planespotters", "Planespotters", "https://radar.planespotters.net/", ["https://www.planespotters.net/feed/status"], 0],
-            ["tat", "TheAirTraffic", "https://globe.theairtraffic.com/", ["https://theairtraffic.com/feed/myip/"], 0],
-            ["adsbfi", "adsb.fi", "https://globe.adsb.fi/", ["https://api.adsb.fi/v1/myip"], 0],
-            ["adsbx", "ADSBExchange", "https://globe.adsbexchange.com/", ["https://www.adsbexchange.com/myip/"], 0],
-            ["hpradar", "HPRadar", "https://skylink.hpradar.com/", [""], 0],
-            ["alive", "airplanes.live", "https://globe.airplanes.live/", ["https://airplanes.live/myfeed/"], 0],
-            ["flightradar", "flightradar24", "https://www.flightradar24.com/", ["/fr24STG2IDX/"], 1],
-            ["planewatch", "Plane.watch", "https:/plane.watch/desktop.html", [""], 1],
-            ["flightaware", "FlightAware", "https://www.flightaware.com/live/map", ["/fa-statusSTG2IDX/"], 1],
-            ["radarbox", "AirNav Radar", "https://www.airnavradar.com/coverage-map", ["https://www.airnavradar.com/stations/<FEEDER_RADARBOX_SN>"], 1],
-            ["planefinder", "PlaneFinder", "https://planefinder.net/", ["/planefinder-statSTG2IDX/"], 1],
-            ["adsbhub", "ADSBHub", "https://www.adsbhub.org/coverage.php", [""], 1],
-            ["opensky", "OpenSky", "https://opensky-network.org/network/explorer", ["https://opensky-network.org/receiver-profile?s=<FEEDER_OPENSKY_SERIAL>"], 1],
-            ["radarvirtuel", "RadarVirtuel", "https://www.radarvirtuel.com/", [""], 1],
-            ["1090uk", "1090MHz UK", "https://1090mhz.uk", ["https://www.1090mhz.uk/mystatus.php?key=<FEEDER_1090UK_API_KEY>"], 1],
-            ["sdrmap", "sdrmap", "https://sdrmap.org/", [""], 1],
-            ["porttracker", "Porttracker", "https://porttracker.co/", [""], 1],
-        ]
-        self.agg_structure = None
-        self.last_cache_agg_status = 0
-        self.cache_agg_status_lock = threading.Lock()
-        self.last_aggregator_debug_print = None
-        # fmt: on
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
         self.app.add_url_rule(
@@ -572,8 +535,8 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.stats),
         )
         self.app.add_url_rule(
-            "/api/status/<agg>",
-            "beast",
+            "/api/status/<agg_key>",
+            "agg_status",
             self._decide_route_hotspot_mode(self.agg_status),
         )
         self.app.add_url_rule(
@@ -1340,86 +1303,31 @@ class AdsbIm:
                 "num": len(s.craft_ids),
                 "pps": s.position_message_rate,} for s in history],}
 
-    def generate_agg_structure(self):
-        aggregators = copy.deepcopy(self.all_aggregators)
-        active_aggregators = []
-        for idx in range(len(aggregators)):
-            agg = aggregators[idx][0]
-            status_link_list = aggregators[idx][3]
-            template_link = status_link_list[0]
-            final_link = template_link
-            agg_enabled = False
-            agg_enabled |= self._d.list_is_enabled(agg, 0)
-            if template_link.startswith("/"):
-                final_link = template_link.replace("STG2IDX", "")
-            else:
-                match = re.search("<([^>]*)>", template_link)
-                if match:
-                    final_link = template_link.replace(match.group(0), self._d.env(match.group(1)).list_get(0))
-            status_link_list[0] = final_link
+    def agg_status(self, agg_key):
+        agg_statuses = utils.agg_status.statuses(self._d, self._system)
+        try:
+            agg_status = agg_statuses[agg_key]
+        except KeyError:
+            flask.abort(404)
+        if not agg_status.enabled:
+            return {}
+        return self._make_aggregator_status(agg_status)
 
-            if agg_enabled:
-                active_aggregators.append(aggregators[idx])
-
-        agg_debug_print = f"final aggregator structure: {active_aggregators}"
-        if agg_debug_print != self.last_aggregator_debug_print:
-            self.last_aggregator_debug_print = agg_debug_print
-            print_err(agg_debug_print)
-
-        self.agg_structure = active_aggregators
-
-    def cache_agg_status(self):
-        with self.cache_agg_status_lock:
-            now = time.time()
-            if now < self.last_cache_agg_status + 5:
-                return
-            self.last_cache_agg_status = now
-
-        # print_err("caching agg status")
-
-        # launch all the status checks there are in separate threads
-        # they will be requested by the overview page soon
-        for entry in self.agg_structure:
-            agg = entry[0]
-            if self._d.list_is_enabled(agg, 0):
-                self._executor.submit(self.get_agg_status, agg, 0)
-
-    def get_agg_status(self, agg, idx):
-
-        status = self._agg_status_instances.get(f"{agg}-{idx}")
-        if status is None:
-            status = self._agg_status_instances[f"{agg}-{idx}"] = AggStatus(
-                agg,
-                idx,
-                self._d,
-                f"http://127.0.0.1:{self._d.env_by_tags('webport').value}",
-                self._system,
-            )
-
+    def _make_aggregator_status(
+            self, agg_status: utils.agg_status.AggregatorStatus):
         res = {
-            "beast": status.beast,
-            "mlat": status.mlat,
-        }
-
-        if agg == "adsbx":
-            res["adsbxfeederid"] = self._d.env_by_tags("adsbxfeederid").list_get(idx)
-        elif agg == "adsblol":
-            res["adsblollink"] = (self._d.env_by_tags("adsblol_link").list_get(idx),)
-        elif agg == "alive":
-            res["alivemaplink"] = (self._d.env_by_tags("alivemaplink").list_get(idx),)
-
+            "data": agg_status.data_status,
+            "mlat": agg_status.mlat_status,}
+        if agg_status.agg_key == "adsbx":
+            res["adsbxfeederid"] = (
+                self._d.env_by_tags("adsbxfeederid").list_get(0))
+        elif agg_status.agg_key == "adsblol":
+            res["adsblollink"] = (
+                self._d.env_by_tags("adsblol_link").list_get(0))
+        elif agg_status.agg_key == "alive":
+            res["alivemaplink"] = (
+                self._d.env_by_tags("alivemaplink").list_get(0))
         return res
-
-    def agg_status(self, agg):
-        self.cache_agg_status()
-
-        res = dict()
-
-        # collect the data retrieved in the threads, this works due do each agg status object having a lock
-        if self._d.list_is_enabled(agg, 0):
-            res[0] = self.get_agg_status(agg, 0)
-
-        return json.dumps(res)
 
     @check_restart_lock
     def sdr_setup(self):
@@ -1823,8 +1731,6 @@ class AdsbIm:
                     push_multi_outline_task)
         else:
             self._background_tasks.pop("multi_outline", None)
-
-        self.generate_agg_structure()
 
     def set_docker_concurrent(self, value):
         self._d.env_by_tags("docker_concurrent").value = value
@@ -2599,10 +2505,15 @@ class AdsbIm:
 
     @check_restart_lock
     def overview(self):
+        agg_statuses = utils.agg_status.statuses(self._d, self._system)
+        enabled_aggregators = [a for a in agg_statuses.values() if a.enabled]
+        for agg_status in enabled_aggregators:
+            agg_status.refresh_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
-            print_err("removing pre-installed ssh-keys, overwriting root password")
+            print_err(
+                "removing pre-installed ssh-keys, overwriting root password")
             authkeys = "/root/.ssh/authorized_keys"
             shutil.copyfile(authkeys, authkeys + ".bak")
             with open("/root/.ssh/adsb.im.installkey", "r") as installkey_file:
@@ -2636,8 +2547,6 @@ class AdsbIm:
         # refresh docker ps cache so the aggregator status is nicely up to date
         self._executor.submit(self._system.refreshDockerPs)
 
-        self.cache_agg_status()
-
         board = self._d.env_by_tags("board_name").value
         base = self._d.env_by_tags("image_name").value
         version = self._d.env_by_tags("base_version").value
@@ -2649,8 +2558,7 @@ class AdsbIm:
         available_tags = gitlab.gitlab_repo().get_tags()
         return render_template(
             "overview.html",
-            aggregators=self.agg_structure,
-            agg_tables=list({entry[4] for entry in self.agg_structure}),
+            aggregators=enabled_aggregators,
             local_address=local_address,
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,

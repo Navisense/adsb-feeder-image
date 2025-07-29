@@ -1,557 +1,656 @@
+import abc
+import enum
 import json
+import logging
+import pathlib
 import re
 import subprocess
-import requests
 import threading
-import traceback
 import time
-import pathlib
-import os
-from datetime import datetime, timedelta
-from enum import Enum
-from .util import generic_get_json, print_err, make_int, run_shell_captured, get_plain_url
-from .data import Data
+from typing import Optional
 
-T = Enum("T", ["Disconnected", "Unknown", "Good", "Bad", "Warning", "Disabled", "Starting", "ContainerDown"])
-status_symbol = {
-    T.Disconnected: "\u2612",
-    T.Unknown: ".",
-    T.Good: "+",
-    T.Bad: "\u2639",
-    T.Warning: "\u26a0",
-    T.Disabled: " ",
-    T.Starting: "\u27f3",
-    T.ContainerDown: "\u2608",
-}
-ultrafeeder_aggs = [
-    "adsblol",
-    "flyitaly",
-    "avdelphi",
-    "planespotters",
-    "tat",
-    "adsbfi",
-    "adsbx",
-    "hpradar",
-    "alive",
-]
+import utils.data
+import utils.system
+import utils.util
 
 
-class AggStatus:
-    def __init__(self, agg: str, idx, data: Data, url: str, system):
-        self.lock = threading.Lock()
-        self._agg = agg
-        self._idx = make_int(idx)
-        self._last_check = datetime.fromtimestamp(0.0)
-        self._beast = T.Unknown
-        self._mlat = T.Unknown
+class Status(enum.Enum):
+    UNKNOWN = enum.auto()
+    DISCONNECTED = enum.auto()
+    DISABLED = enum.auto()
+    CONTAINER_DOWN = enum.auto()
+    STARTING = enum.auto()
+    BAD = enum.auto()
+    WARNING = enum.auto()
+    GOOD = enum.auto()
+
+
+_status_symbol = {
+    Status.UNKNOWN: ".",
+    Status.DISCONNECTED: "\u2612",
+    Status.DISABLED: " ",
+    Status.CONTAINER_DOWN: "\u2608",
+    Status.STARTING: "\u27f3",
+    Status.BAD: "\u2639",
+    Status.WARNING: "\u26a0",
+    Status.GOOD: "+",}
+
+_status_dict = None
+
+
+def statuses(data: utils.data.Data,
+             system: utils.system.System) -> dict[str, "AggregatorStatus"]:
+    global _status_dict
+    if _status_dict is None:
+        _status_dict = {}
+        statuses = [
+            AdsbLolAggregatorStatus(data, system),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="flyitaly", name="Fly Italy ADSB",
+                map_url="https://mappa.flyitalyadsb.com/",
+                status_url="https://my.flyitalyadsb.com/am_i_feeding"),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="avdelphi", name="AVDelphi",
+                map_url="https://www.avdelphi.com/coverage.html",
+                status_url=None),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="planespotters", name="Planespotters",
+                map_url="https://radar.planespotters.net/",
+                status_url="https://www.planespotters.net/feed/status"),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="tat", name="TheAirTraffic",
+                map_url="https://globe.theairtraffic.com/",
+                status_url="https://theairtraffic.com/feed/myip/"),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="adsbfi", name="adsb.fi",
+                map_url="https://globe.adsb.fi/",
+                status_url="https://api.adsb.fi/v1/myip"),
+            AdsbxAggregatorStatus(data, system),
+            UltrafeederAggregatorStatus(
+                data, system, agg_key="hpradar", name="HPRadar",
+                map_url="https://skylink.hpradar.com/", status_url=None),
+            AirplanesLiveAggregatorStatus(data, system),
+            FlightRadar24AggregatorStatus(data, system),
+            PlaneWatchAggregatorStatus(data, system),
+            FlightAwareAggregatorStatus(data, system),
+            AirnavRadarAggregatorStatus(data, system),
+            PlaneFinderAggregatorStatus(data, system),
+            AdsbHubAggregatorStatus(data, system),
+            OpenSkyAggregatorStatus(data, system),
+            RadarVirtuelAggregatorStatus(data, system),
+            TenNinetyUkAggregatorStatus(data, system),
+            SdrMapAggregatorStatus(data, system),
+            PorttrackerAggregatorStatus(data, system),]
+        for status in statuses:
+            assert status.agg_key not in _status_dict
+            _status_dict[status.agg_key] = status
+    return _status_dict
+
+
+class AggregatorStatus(abc.ABC):
+    def __init__(
+            self, data: utils.data.Data, system: utils.system.System, *,
+            agg_key: str, name: str, map_url: Optional[str],
+            status_url: Optional[str]):
+        self._logger = logging.getLogger(type(self).__name__)
         self._d = data
-        self._url = url
         self._system = system
+        self._agg_key = agg_key
+        self._name = name
+        self._map_url = map_url
+        self._status_url = status_url
+        self._last_check = 0
+        self._data_status = self._mlat_status = Status.UNKNOWN
+        self._check_lock = threading.Lock()
+
+    def __repr__(self):
+        return (
+            f"{type(self).__name__}(last_check: {str(self._last_check)}, "
+            f"data: {self._data_status} mlat: {self._mlat_status})")
 
     @property
-    def beast(self) -> str:
-        if self.check():
-            return status_symbol.get(self._beast, ".")
-        return "."
+    def agg_key(self) -> str:
+        return self._agg_key
 
     @property
-    def mlat(self) -> str:
-        if self.check():
-            return status_symbol.get(self._mlat, ".")
-        return "."
+    def name(self) -> str:
+        return self._name
 
-    def get_json(self, json_url):
-        return generic_get_json(json_url, None)
+    @property
+    def enabled(self) -> bool:
+        return self._d.list_is_enabled(self.agg_key, 0)
 
-    def uf_path(self):
-        uf_dir = "/run/adsb-feeder-"
-        uf_dir += f"uf_{self._idx}" if self._idx != 0 else "ultrafeeder"
-        return uf_dir
+    @property
+    def map_url(self) -> Optional[str]:
+        return self._map_url
 
-    def get_mlat_status(self, path=None):
-        if not path:
-            mconf = None
-            netconfig = self._d.netconfigs.get(self._agg)
-            if not netconfig:
-                print_err(
-                    f"ERROR: get_mlat_status called on {self._agg} not found in netconfigs: {self._d.netconfigs}"
+    @property
+    def status_url(self) -> Optional[str]:
+        return self._status_url
+
+    @property
+    def data_status(self) -> str:
+        data_status, _, success = self._check()
+        if success:
+            return _status_symbol[data_status]
+        return _status_symbol[Status.UNKNOWN]
+
+    @property
+    def mlat_status(self) -> str:
+        _, mlat_status, success = self._check()
+        if success:
+            return _status_symbol[mlat_status]
+        return _status_symbol[Status.UNKNOWN]
+
+    @property
+    @abc.abstractmethod
+    def _container_name(self) -> str:
+        raise NotImplementedError
+
+    def refresh_cache(self):
+        """
+        Refresh the cached data.
+
+        Fetches data in case it was outdated. This is not necessary to get the
+        correct result, it will just make requests faster until the data times
+        out again.
+        """
+        self._check()
+
+    def _check(self) -> tuple[Optional[Status], Optional[Status], bool]:
+        with self._check_lock:
+            if time.time() - self._last_check < 10:
+                return self._data_status, self._mlat_status, True
+
+            container_status = self._system.getContainerStatus(
+                self._container_name)
+            if container_status in ["down", "restarting"]:
+                self._last_check = time.time()
+                return (
+                    Status.CONTAINER_DOWN
+                    if container_status == "down" else Status.STARTING,
+                    Status.DISABLED,
+                    True,
                 )
-                return
-            mconf = netconfig.mlat_config
-            # example mlat_config: "mlat,dati.flyitalyadsb.com,30100,39002",
-            if not mconf:
-                self._mlat = T.Disabled
-                return
-            filename = f"{mconf.split(',')[1]}:{mconf.split(',')[2]}.json"
-            path = f"{self.uf_path()}/mlat-client/{filename}"
-        try:
-            mlat_json = json.load(open(path, "r"))
-            percent_good = mlat_json.get("good_sync_percentage_last_hour", 0)
-            percent_bad = mlat_json.get("bad_sync_percentage_last_hour", 0)
-            peer_count = mlat_json.get("peer_count", 0)
-            now = mlat_json.get("now")
-        except:
-            self._mlat = T.Disconnected
-            return
-        if time.time() - now > 60:
-            # that's more than a minute old... probably not connected
-            self._mlat = T.Disconnected
-        elif percent_good > 10 and percent_bad <= 5:
-            self._mlat = T.Good
-        elif percent_bad > 15:
-            self._mlat = T.Bad
-        else:
-            self._mlat = T.Warning
 
-        return
+            data_status, mlat_status = self._check_impl()
+            # If mlat isn't enabled, ignore status check results.
+            if not self._d.list_is_enabled("mlat_enable", 0):
+                mlat_status = Status.DISABLED
 
-    def get_beast_status(self):
-        bconf = None
-        netconfig = self._d.netconfigs.get(self._agg)
-        if not netconfig:
-            print_err(f"ERROR: get_mlat_status called on {self._agg} not found in netconfigs: {self._d.netconfigs}")
-            return
-        bconf = netconfig.adsb_config
-        # example adsb_config: "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
+            # if check_impl has updated last_check the status is available
+            if time.time() - self._last_check < 10:
+                self._data_status = data_status
+                self._mlat_status = mlat_status
+                return self._data_status, self._mlat_status, True
+
+            return None, None, False
+
+    @abc.abstractmethod
+    def _check_impl(self) -> tuple[Status, Status]:
+        """
+        Check status.
+
+        Returns a tuple of data_status, mlat_status. Implementations must set
+        _last_check to the current time on success.
+        """
+        raise NotImplementedError
+
+
+class UltrafeederAggregatorStatus(AggregatorStatus):
+    """Status for all ultrafeeder aggregators."""
+    ULTRAFEEDER_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder")
+
+    def __init__(
+            self, data: utils.data.Data, system: utils.system.System, *,
+            agg_key: str, name: str, map_url: Optional[str],
+            status_url: Optional[str]):
+        super().__init__(
+            data, system, agg_key=agg_key, name=name, map_url=map_url,
+            status_url=status_url)
+        self._netconfig = self._d.netconfigs.get(self.agg_key)
+        if not self._netconfig:
+            raise ValueError
+
+    @property
+    def _container_name(self) -> str:
+        return "ultrafeeder"
+
+    def _check_impl(self) -> tuple[Status, Status]:
+        data_status = self._get_data_status()
+        mlat_status = self._get_mlat_status()
+        self._maybe_set_extra_info_to_settings()
+        self._last_check = time.time()
+        return data_status, mlat_status
+
+    def _get_data_status(self) -> Status:
+        bconf = self._netconfig.adsb_config
+        # example adsb_config:
+        # "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
         if not bconf:
-            print_err(f"ERROR: get_beast_status no netconfig for {self._agg}")
-            return
+            self._logger.error(
+                f"No adsb_config in netconfig for {self.agg_key}.")
+            return self._data_status
         pattern = (
-            f"readsb_net_connector_status{{host=\"{bconf.split(',')[1]}\",port=\"{bconf.split(',')[2]}\"}} (\\d+)"
-        )
-        filename = f"{self.uf_path()}/readsb/stats.prom"
+            'readsb_net_connector_status{{host="{host}",port="{port}"}} (\\d+)'
+            .format(host=bconf.split(',')[1], port=bconf.split(',')[2]))
+        stats_file = self.ULTRAFEEDER_PATH / "readsb" / "stats.prom"
         try:
-            readsb_status = open(filename, "r").read()
+            with stats_file.open() as f:
+                readsb_status = f.read()
         except:
-            self._beast = T.Disconnected
-            return
+            return Status.DISCONNECTED
         match = re.search(pattern, readsb_status)
         if match:
             status = int(match.group(1))
-            # this status is the time in seconds the connection has been established
+            # this status is the time in seconds the connection has been
+            # established
             if status <= 0:
-                self._beast = T.Disconnected
+                return Status.DISCONNECTED
             elif status > 20:
-                self._beast = T.Good
+                return Status.GOOD
             else:
-                self._beast = T.Warning
+                return Status.WARNING
+        self._logger.error(f"No match checking data status for {pattern}.")
+        return self._data_status
 
-            # if self._beast != T.Good:
-            #    print_err(f"beast check {self._agg :{' '}<{20}}: {self._beast} status: {status}")
+    def _get_mlat_status(self) -> Status:
+        mconf = self._netconfig.mlat_config
+        if not mconf:
+            return Status.DISABLED
+        # example mlat_config: "mlat,dati.flyitalyadsb.com,30100,39002",
+        filename = f"{mconf.split(',')[1]}:{mconf.split(',')[2]}.json"
+        path = self.ULTRAFEEDER_PATH / "mlat-client" / filename
+        try:
+            with path.open() as f:
+                mlat_json = json.load(f)
+            percent_good = mlat_json.get("good_sync_percentage_last_hour", 0)
+            percent_bad = mlat_json.get("bad_sync_percentage_last_hour", 0)
+            now = mlat_json.get("now")
+        except:
+            return Status.DISCONNECTED
+        if time.time() - now > 60:
+            # that's more than a minute old... probably not connected
+            return Status.DISCONNECTED
+        elif percent_good > 10 and percent_bad <= 5:
+            return Status.GOOD
+        elif percent_bad > 15:
+            return Status.BAD
         else:
-            print_err(f"ERROR: no match checking beast for {pattern}")
+            return Status.WARNING
 
-        return
+    def _maybe_set_extra_info_to_settings(self):
+        pass
 
-    def check(self):
-        with self.lock:
-            if datetime.now() - self._last_check < timedelta(seconds=10.0):
-                return True
 
-            self.check_impl()
+class AirplanesLiveAggregatorStatus(UltrafeederAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="alive", name="airplanes.live",
+            map_url="https://globe.airplanes.live/",
+            status_url="https://airplanes.live/myfeed/")
 
-            # if check_impl has updated last_check the status is available
-            if datetime.now() - self._last_check < timedelta(seconds=10.0):
-                return True
-
-            return False
-
-    def check_impl(self):
-        # print_err(f"agg_status check_impl for {self._agg}-{self._idx}")
-        if self._agg in ultrafeeder_aggs:
-            container_name = "ultrafeeder" if self._idx == 0 else f"uf_{self._idx}"
-        else:
-            container_for_agg = {
-                "radarbox": "rbfeeder",
-                "planefinder": "pfclient",
-                "flightaware": "piaware",
-                "radarvirtuel": "radarvirtuel",
-                "1090uk": "radar1090uk",
-                "flightradar": "fr24feed",
-                "opensky": "opensky",
-                "adsbhub": "adsbhub",
-                "planewatch": "planewatch",
-                "sdrmap": "sdrmap",
-            }
-            container_name = container_for_agg.get(self._agg)
-            if self._idx != 0:
-                container_name += f"_{self._idx}"
-
-        if container_name:
-            container_status = self._system.getContainerStatus(container_name)
-            if container_status == "down":
-                self._beast = T.ContainerDown
-                self._mlat = T.Disabled
-                self._last_check = datetime.now()
-                return
-            if container_status == "starting":
-                self._beast = T.Starting
-                self._mlat = T.Disabled
-                self._last_check = datetime.now()
-                return
-
-        # for the Ultrafeeder based aggregators, let's not bother with talking to their API
-        # that's of course bogus as hell - simply remove all the code for thsoe aggregators
-        # below - but for now I'm not sure I want to do this because I'm not sure it's the
-        # right thing to do
-        if self._agg in ultrafeeder_aggs:
-            self.get_mlat_status()
-            self.get_beast_status()
-            self._last_check = datetime.now()
-            self.get_maplink()
+    def _maybe_set_extra_info_to_settings(self):
+        if self._d.env_by_tags("alivemaplink").list_get(0):
             return
+        json_url = "https://api.airplanes.live/feed-status"
+        a_dict, status = utils.util.generic_get_json(json_url)
+        if a_dict and status == 200:
+            map_link = a_dict.get("map_link")
+            # seems to currently only have one map link per IP, we save it
+            # per microsite nonetheless in case this changes in the future
+            if map_link:
+                self._d.env_by_tags("alivemaplink").list_set(0, map_link)
 
-        if self._agg == "adsblol":
-            uuid = self._d.env_by_tags("adsblol_uuid").list_get(self._idx)
-            name = self._d.env_by_tags("site_name").list_get(self._idx)
-            json_url = "https://api.adsb.lol/0/me"
-            response_dict, status = self.get_json(json_url)
-            if response_dict and status == 200:
-                lolclients = response_dict.get("clients")
-                if lolclients:
-                    lolbeast = lolclients.get("beast")
-                    lolmlat = lolclients.get("mlat")
-                    self._beast = T.Disconnected
-                    if isinstance(lolbeast, list):
-                        for entry in lolbeast:
-                            if entry.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14]:
-                                self._beast = T.Good
-                                self._d.env_by_tags("adsblol_link").list_set(self._idx, entry.get("adsblol_my_url"))
-                                break
-                    self._mlat = (
-                        T.Good
-                        if isinstance(lolmlat, list)
-                        and any(b.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14] for b in lolmlat)
-                        else T.Disconnected
-                    )
-                    self._last_check = datetime.now()
-                else:
-                    print_err(f"adsblol returned status {status}")
-        elif self._agg == "flyitaly":
-            # get the data from json
-            json_url = "https://my.flyitalyadsb.com/am_i_feeding"
-            response_dict, status = self.get_json(json_url)
-            if response_dict and status == 200:
-                feeding = response_dict["feeding"]
-                if feeding:
-                    self._beast = T.Good if feeding.get("beast") else T.Disconnected
-                    self._mlat = T.Good if feeding.get("mlat") else T.Disconnected
-                    self._last_check = datetime.now()
-            else:
-                print_err(f"flyitaly returned {status}")
-        elif self._agg == "adsbfi":
-            # get the data from json
-            # get beast from https://api.adsb.fi/v1/feeder?id=uuid
-            # and get mlat from myip with name match
-            uuid = self._d.env_by_tags("ultrafeeder_uuid").list_get(self._idx)
-            name = self._d.env_by_tags("site_name").list_get(self._idx)
-            json_uuid_url = f"https://api.adsb.fi/v1/feeder?id={uuid}"
 
-            adsbfi_dict, status = self.get_json(json_uuid_url)
-            if adsbfi_dict and status == 200:
-                beast_array = adsbfi_dict.get("beast", [])
-                self._beast = (
-                    T.Good if len(beast_array) > 0 and beast_array[0].get("receiverId") == uuid else T.Disconnected
+class AdsbLolAggregatorStatus(UltrafeederAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="adsblol", name="adsb.lol",
+            map_url="https://adsb.lol/",
+            status_url="https://api.adsb.lol/0/me")
+
+    def _maybe_set_extra_info_to_settings(self):
+        if self._d.env_by_tags("adsblol_link").list_get(0):
+            return
+        uuid = self._d.env_by_tags("adsblol_uuid").list_get(0)
+        json_url = "https://api.adsb.lol/0/me"
+        response_dict, status = utils.util.generic_get_json(json_url)
+        if response_dict and status == 200:
+            try:
+                for entry in response_dict.get("clients").get("beast"):
+                    if entry.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14]:
+                        self._d.env_by_tags("adsblol_link").list_set(
+                            0, entry.get("adsblol_my_url"))
+            except:
+                self._logger.exception("Error getting map link from adsb.lol.")
+
+
+class AdsbxAggregatorStatus(UltrafeederAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="adsbx", name="ADSBExchange",
+            map_url="https://globe.adsbexchange.com/",
+            status_url="https://www.adsbexchange.com/myip/")
+
+    def _maybe_set_extra_info_to_settings(self):
+        feeder_id = self._d.env_by_tags("adsbxfeederid").list_get(0)
+        if feeder_id and len(feeder_id) == 12:
+            return
+        # get the adsbexchange feeder id for the anywhere map / status
+        # things
+        self._logger.info("Don't have the adsbX Feeder ID yet, getting it.")
+        container_name = "ultrafeeder"
+        try:
+            result = subprocess.run(
+                f"docker logs {container_name} "
+                "| grep 'www.adsbexchange.com/api/feeders' | tail -1",
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+            output = result.stdout
+        except:
+            self._logger.exception("Error trying to look at the adsbx logs.")
+            return
+        match = re.search(
+            r"www.adsbexchange.com/api/feeders/\?feed=([^&\s]*)",
+            output,
+        )
+        if match:
+            adsbx_id = match.group(1)
+            self._d.env_by_tags("adsbxfeederid").list_set(0, adsbx_id)
+        else:
+            self._logger.error(
+                f"Unable to find adsbx ID in container logs: {output}")
+
+
+class NoInfoAggregatorStatus(AggregatorStatus):
+    """Aggregator status where we can't get information."""
+    def _check_impl(self) -> tuple[Status, Status]:
+        self._last_check = time.time()
+        return Status.UNKNOWN, Status.DISABLED
+
+
+class PlaneFinderAggregatorStatus(NoInfoAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="planefinder", name="PlaneFinder",
+            map_url="https://planefinder.net/",
+            status_url="/planefinder-stat/")
+
+    @property
+    def _container_name(self):
+        return "pfclient"
+
+
+class AdsbHubAggregatorStatus(NoInfoAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="adsbhub", name="ADSBHub",
+            map_url="https://www.adsbhub.org/coverage.php", status_url=None)
+
+    @property
+    def _container_name(self):
+        return "adsbhub"
+
+
+class OpenSkyAggregatorStatus(NoInfoAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="opensky", name="OpenSky",
+            map_url="https://opensky-network.org/network/explorer",
+            status_url=None)
+
+    @property
+    def _container_name(self):
+        return "opensky"
+
+
+class RadarVirtuelAggregatorStatus(NoInfoAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="radarvirtuel", name="RadarVirtuel",
+            map_url="https://www.radarvirtuel.com/", status_url=None)
+
+    @property
+    def _container_name(self):
+        return "radarvirtuel"
+
+
+class PorttrackerAggregatorStatus(NoInfoAggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="porttracker", name="Porttracker",
+            map_url="https://porttracker.co/",
+            status_url="https://www.porttracker.co/app/profile")
+
+    @property
+    def _container_name(self):
+        return "shipfeeder"
+
+
+class AirnavRadarAggregatorStatus(AggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="radarbox", name="AirNav Radar",
+            map_url="https://www.airnavradar.com/coverage-map",
+            status_url=None)
+
+    @property
+    def status_url(self) -> Optional[str]:
+        feeder_id = self._d.env("FEEDER_RADARBOX_SN").list_get(0)
+        return f"https://www.airnavradar.com/stations/{feeder_id}"
+
+    @property
+    def _container_name(self):
+        return "rbfeeder"
+
+    def _check_impl(self) -> tuple[Status, Status]:
+        rbkey = self._d.env_by_tags(["radarbox", "key"]).list_get(0)
+        # reset station number if the key has changed
+        if rbkey != self._d.env_by_tags(["radarbox", "snkey"]).list_get(0):
+            station_serial = self._d.env_by_tags(["radarbox",
+                                                  "sn"]).list_set(0, "")
+
+        station_serial = self._d.env_by_tags(["radarbox", "sn"]).list_get(0)
+        if not station_serial:
+            try:
+                result = subprocess.run(
+                    "docker logs rbfeeder "
+                    "| grep 'station serial number' | tail -1",
+                    shell=True,
+                    capture_output=True,
+                    text=True,
                 )
-                mlat_array = adsbfi_dict.get("mlat", [])
-                self._mlat = (
-                    T.Good if len(mlat_array) > 0 and mlat_array[0].get("receiverId") == uuid else T.Disconnected
-                )
-                self._last_check = datetime.now()
-            else:
-                print_err(f"adsbfi v1/feeder returned {status}")
-        elif self._agg == "flightaware":
-            suffix = "" if self._idx == 0 else f"_{self._idx}"
-            json_url = f"{self._url}/fa-status.json{suffix}/"
-            fa_dict, status = self.get_json(json_url)
-            if fa_dict and status == 200:
-                # print_err(f"fa status.json returned {fa_dict}")
-                self._beast = (
-                    T.Good
-                    if fa_dict.get("adept") and fa_dict.get("adept").get("status") == "green"
-                    else T.Disconnected
-                )
+            except:
+                self._logger.exception(
+                    "Error trying to look at the rbfeeder logs.")
+                return Status.UNKNOWN, Status.UNKNOWN
+            serial_text = result.stdout.strip()
+            match = re.search(
+                r"This is your station serial number: ([A-Z0-9]+)",
+                serial_text)
+            if match:
+                station_serial = match.group(1)
+                self._d.env_by_tags(["radarbox",
+                                     "sn"]).list_set(0, station_serial)
+                self._d.env_by_tags(["radarbox", "snkey"]).list_set(0, rbkey)
+        if not station_serial:
+            return Status.UNKNOWN, Status.UNKNOWN
+        html_url = f"https://www.radarbox.com/stations/{station_serial}"
+        rb_page, _ = utils.util.get_plain_url(html_url)
+        match = re.search(r"window.init\((.*)\)", rb_page) if rb_page else None
+        if not match:
+            return Status.UNKNOWN, Status.UNKNOWN
+        rb_json = match.group(1)
+        rb_dict = json.loads(rb_json)
+        station = rb_dict.get("station")
+        if not station:
+            return Status.UNKNOWN, Status.UNKNOWN
+        self._last_check = time.time()
+        online = station.get("online")
+        mlat_online = station.get("mlat_online")
+        data_status = Status.GOOD if online else Status.DISCONNECTED
+        mlat_status = Status.GOOD if mlat_online else Status.DISCONNECTED
+        return data_status, mlat_status
 
-                self._mlat = T.Disconnected
-                if fa_dict.get("mlat"):
-                    if fa_dict.get("mlat").get("status") == "green":
-                        self._mlat = T.Good
-                    elif fa_dict.get("mlat").get("status") == "amber":
-                        message = fa_dict.get("mlat").get("message").lower()
-                        if "unstable" in message:
-                            self._mlat = T.Bad
-                        elif "initializing" in message:
-                            self._mlat = T.Unknown
-                        elif "no clock sync" in message:
-                            self._mlat = T.Warning
-                        else:
-                            self._mlat = T.Unknown
-                    else:
-                        self._mlat = T.Disconnected
 
-                self._last_check = datetime.now()
-            else:
-                print_err(f"flightaware at {json_url} returned {status}")
-        elif self._agg == "flightradar":
-            self._mlat = T.Disabled
-            suffix = "" if self._idx == 0 else f"_{self._idx}"
-            json_url = f"{self._url}/fr24-monitor.json{suffix}/"
-            fr_dict, status = self.get_json(json_url)
-            if fr_dict and status == 200:
-                # print_err(f"fr monitor.json returned {fr_dict}")
-                self._beast = T.Good if fr_dict.get("feed_status") == "connected" else T.Disconnected
-                self._last_check = datetime.now()
-            else:
-                print_err(f"flightradar at {json_url} returned {status}")
-        elif self._agg == "radarbox":
+class FlightAwareAggregatorStatus(AggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="flightaware", name="FlightAware",
+            map_url="https://www.flightaware.com/live/map",
+            status_url="/fa-status/")
 
-            rbkey = self._d.env_by_tags(["radarbox", "key"]).list_get(self._idx)
-            # reset station number if the key has changed
-            if rbkey != self._d.env_by_tags(["radarbox", "snkey"]).list_get(self._idx):
-                station_serial = self._d.env_by_tags(["radarbox", "sn"]).list_set(self._idx, "")
+    @property
+    def _container_name(self):
+        return "piaware"
 
-            station_serial = self._d.env_by_tags(["radarbox", "sn"]).list_get(self._idx)
-            if not station_serial:
-                # dang, I hate this part
-                suffix = "" if self._idx == 0 else f"_{self._idx}"
-                try:
-                    result = subprocess.run(
-                        f"docker logs rbfeeder{suffix} | grep 'station serial number' | tail -1",
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                except:
-                    print_err("got exception trying to look at the rbfeeder logs")
-                    return
-                serial_text = result.stdout.strip()
-                match = re.search(r"This is your station serial number: ([A-Z0-9]+)", serial_text)
-                if match:
-                    station_serial = match.group(1)
-                    self._d.env_by_tags(["radarbox", "sn"]).list_set(self._idx, station_serial)
-                    self._d.env_by_tags(["radarbox", "snkey"]).list_set(self._idx, rbkey)
-            if station_serial:
-                html_url = f"https://www.radarbox.com/stations/{station_serial}"
-                rb_page, status = get_plain_url(html_url)
-                match = re.search(r"window.init\((.*)\)", rb_page) if rb_page else None
-                if match:
-                    rb_json = match.group(1)
-                    rb_dict = json.loads(rb_json)
-                    station = rb_dict.get("station")
-                    if station:
-                        online = station.get("online")
-                        mlat_online = station.get("mlat_online")
-                        self._beast = T.Good if online else T.Disconnected
-                        self._mlat = T.Good if mlat_online else T.Disconnected
-                        self._last_check = datetime.now()
-        elif self._agg == "1090uk":
-            self._beast = T.Unknown
-            self._mlat = T.Disabled
-            if False:
-                key = self._d.env_by_tags(["1090uk", "key"]).list_get(self._idx)
-                json_url = f"https://www.1090mhz.uk/mystatus.php?key={key}"
-                tn_dict, status = self.get_json(json_url)
-                if tn_dict and status == 200:
-                    online = tn_dict.get("online", False)
-                    self._beast = T.Good if online else T.Disconnected
+    def _check_impl(self) -> tuple[Status, Status]:
+        host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
+        json_url = f"{host}/fa-status.json/"
+        fa_dict, status = utils.util.generic_get_json(json_url)
+        if not fa_dict or status != 200:
+            self._logger.warning(
+                f"Flightaware at {json_url} returned {status}.")
+            return Status.UNKNOWN, Status.UNKNOWN
+        if fa_dict.get("adept") and fa_dict.get("adept").get(
+                "status") == "green":
+            data_status = Status.GOOD
+        else:
+            data_status = Status.DISCONNECTED
+
+        if fa_dict.get("mlat"):
+            if fa_dict.get("mlat").get("status") == "green":
+                mlat_status = Status.GOOD
+            elif fa_dict.get("mlat").get("status") == "amber":
+                message = fa_dict.get("mlat").get("message").lower()
+                if "unstable" in message:
+                    mlat_status = Status.BAD
+                elif "initializing" in message:
+                    mlat_status = Status.UNKNOWN
+                elif "no clock sync" in message:
+                    mlat_status = Status.WARNING
                 else:
-                    self._beast = T.Unknown
-
-            self._last_check = datetime.now()
-
-        elif self._agg == "planefinder":
-            self._beast = T.Unknown
-            self._mlat = T.Disabled
-            self._last_check = datetime.now()
-        elif self._agg == "adsbhub":
-            self._beast = T.Unknown
-            self._mlat = T.Disabled
-            self._last_check = datetime.now()
-        elif self._agg == "opensky":
-            self._beast = T.Unknown
-            self._mlat = T.Disabled
-            self._last_check = datetime.now()
-        elif self._agg == "radarvirtuel":
-            self._beast = T.Unknown
-            self._mlat = T.Unknown
-            self._last_check = datetime.now()
-        elif self._agg == "alive":
-            json_url = "https://api.airplanes.live/feed-status"
-            a_dict, status = self.get_json(json_url)
-            if a_dict and status == 200:
-                uuid = self._d.env_by_tags("ultrafeeder_uuid").list_get(self._idx)
-                beast_clients = a_dict.get("beast_clients")
-                # print_err(f"alife returned {beast_clients}", level=8)
-                if beast_clients:
-                    self._beast = T.Good if any(bc.get("uuid") == uuid for bc in beast_clients) else T.Disconnected
-                mlat_clients = a_dict.get("mlat_clients")
-                # print_err(f"alife returned {mlat_clients}")
-                if mlat_clients:
-                    self._mlat = (
-                        T.Good
-                        if any(
-                            (isinstance(mc.get("uuid"), list) and mc.get("uuid")[0] == uuid)
-                            or (isinstance(mc.get("uuid"), str) and mc.get("uuid") == uuid)
-                            for mc in mlat_clients
-                        )
-                        else T.Disconnected
-                    )
-                map_link = a_dict.get("map_link")
-                # seems to currently only have one map link per IP, we save it
-                # per microsite nonetheless in case this changes in the future
-                if map_link:
-                    self._d.env_by_tags("alivemaplink").list_set(self._idx, map_link)
-                self._last_check = datetime.now()
+                    mlat_status = Status.UNKNOWN
             else:
-                print_err(f"airplanes.live returned {status}")
-        elif self._agg == "adsbx":
-            feeder_id = self._d.env_by_tags("adsbxfeederid").list_get(self._idx)
-            if not feeder_id or len(feeder_id) != 12:
-                # get the adsbexchange feeder id for the anywhere map / status things
-                print_err(f"don't have the adsbX Feeder ID for {self._idx}, yet")
-                container_name = "ultrafeeder" if self._idx == 0 else f"uf_{self._idx}"
-                try:
-                    result = subprocess.run(
-                        f"docker logs {container_name} | grep 'www.adsbexchange.com/api/feeders' | tail -1",
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    output = result.stdout
-                except:
-                    print_err("got exception trying to look at the adsbx logs")
-                    return
-                match = re.search(
-                    r"www.adsbexchange.com/api/feeders/\?feed=([^&\s]*)",
-                    output,
-                )
-                if match:
-                    adsbx_id = match.group(1)
-                    self._d.env_by_tags("adsbxfeederid").list_set(self._idx, adsbx_id)
-                else:
-                    print_err(f"ran: docker logs {container_name} | grep 'www.adsbexchange.com/api/feeders' | tail -1")
-                    print_err(f"failed to find adsbx ID in response {output}")
+                mlat_status = Status.DISCONNECTED
+        self._last_check = time.time()
+        return data_status, mlat_status
 
-            self._last_check = datetime.now()
 
-        elif self._agg == "tat":
-            # get the data from the status text site
-            text_url = "https://theairtraffic.com/iapi/feeder_status"
-            tat_text, status = get_plain_url(text_url)
-            if text_url and status == 200:
-                if re.search(r" No ADS-B feed", tat_text):
-                    self._beast = T.Disconnected
-                elif re.search(r"  ADS-B feed", tat_text):
-                    self._beast = T.Good
-                else:
-                    print_err(f"can't parse beast part of tat response")
-                    return
-                if re.search(r" No MLAT feed", tat_text):
-                    self._mlat = T.Disconnected
-                elif re.search(r"  MLAT feed", tat_text):
-                    self._mlat = T.Good
-                else:
-                    print_err(f"can't parse mlat part of tat response")
-                    self._mlat = T.Unknown
-                    # but since we got someting we could parse for beast above, let's keep going
+class TenNinetyUkAggregatorStatus(AggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="1090uk", name="1090MHz UK",
+            map_url="https://1090mhz.uk", status_url=None)
 
-                self._last_check = datetime.now()
+    @property
+    def status_url(self) -> Optional[str]:
+        api_key = self._d.env("FEEDER_1090UK_API_KEY").list_get(0)
+        return f"https://www.1090mhz.uk/mystatus.php?key={api_key}"
+
+    @property
+    def _container_name(self):
+        return "radar1090uk"
+
+    def _check_impl(self) -> tuple[Status, Status]:
+        self._last_check = time.time()
+        return Status.UNKNOWN, Status.DISABLED
+        # TODO This unreachable code was in here from upstream. Not sure why
+        # it's been disabled, but I'm leaving it here in case it becomes
+        # useful.
+        if False:
+            key = self._d.env_by_tags(["1090uk", "key"]).list_get(0)
+            json_url = f"https://www.1090mhz.uk/mystatus.php?key={key}"
+            tn_dict, status = utils.util.generic_get_json(json_url)
+            if tn_dict and status == 200:
+                online = tn_dict.get("online", False)
+                data_status = Status.GOOD if online else Status.DISCONNECTED
             else:
-                print_err(f"tat returned {status}")
-        elif self._agg == "planespotters":
-            uf_uuid = self._d.env_by_tags("ultrafeeder_uuid").list_get(self._idx)
-            html_url = f"https://www.planespotters.net/feed/status/{uf_uuid}"
-            ps_text, status = get_plain_url(html_url)
-            if ps_text and status == 200:
-                self._beast = T.Disconnected if re.search("Feeder client not connected", ps_text) else T.Good
-                self._last_check = datetime.now()
-            else:
-                print_err(f"planespotters returned {status}")
-        elif self._agg == "planewatch":
-            # they sometimes call it key, sometimes uuid
-            pw_uuid = self._d.env_by_tags(["planewatch", "key"]).list_get(self._idx)
-            if not pw_uuid:
-                return
-            json_url = f"https://atc.plane.watch/api/v1/feeders/{pw_uuid}/status.json"
-            pw_dict, status = self.get_json(json_url)
-            if pw_dict and status == 200:
-                status = pw_dict.get("status")
-                if not status:
-                    print_err(f"can't parse planewatch status {pw_dict}")
-                    return
-                adsb = status.get("adsb")
-                mlat = status.get("mlat")
-                if not adsb or not mlat:
-                    print_err(f"can't parse planewatch status {pw_dict}")
-                    return
-                self._beast = T.Good if adsb.get("connected") else T.Disconnected
-                self._mlat = T.Good if mlat.get("connected") else T.Disconnected
-                self._last_check = datetime.now()
-            else:
-                print_err(f"planewatch returned {status}")
-        elif self._agg == "sdrmap":
-            self._last_check = datetime.now()
-            if os.path.exists(f"/run/sdrmap_{self._idx}/feed_ok"):
-                self._beast = T.Good
-            else:
-                self._beast = T.Disconnected
-            # self.get_mlat_status(path=f"/run/sdrmap_{self._idx}/mlat-client-stats.json")
-            self._mlat = T.Unknown
+                data_status = Status.UNKNOWN
+            return data_status, Status.DISABLED
 
-        # if mlat isn't enabled ignore status check results
-        if not self._d.list_is_enabled("mlat_enable", self._idx):
-            self._mlat = T.Disabled
 
-    def get_maplink(self):
-        if self._agg == "alive" and not self._d.env_by_tags("alivemaplink").list_get(self._idx):
-            json_url = "https://api.airplanes.live/feed-status"
-            a_dict, status = self.get_json(json_url)
-            if a_dict and status == 200:
-                map_link = a_dict.get("map_link")
-                # seems to currently only have one map link per IP, we save it
-                # per microsite nonetheless in case this changes in the future
-                if map_link:
-                    self._d.env_by_tags("alivemaplink").list_set(self._idx, map_link)
+class FlightRadar24AggregatorStatus(AggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="flightradar", name="flightradar24",
+            map_url="https://www.flightradar24.com/", status_url="/fr24/")
 
-        if self._agg == "adsblol" and not self._d.env_by_tags("adsblol_link").list_get(self._idx):
-            uuid = self._d.env_by_tags("adsblol_uuid").list_get(self._idx)
-            json_url = "https://api.adsb.lol/0/me"
-            response_dict, status = self.get_json(json_url)
-            if response_dict and status == 200:
-                try:
-                    for entry in response_dict.get("clients").get("beast"):
-                        if entry.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14]:
-                            self._d.env_by_tags("adsblol_link").list_set(self._idx, entry.get("adsblol_my_url"))
-                except:
-                    print_err(traceback.format_exc())
+    @property
+    def _container_name(self):
+        return "fr24feed"
 
-        if self._agg == "adsbx":
-            feeder_id = self._d.env_by_tags("adsbxfeederid").list_get(self._idx)
-            if not feeder_id or len(feeder_id) != 12:
-                # get the adsbexchange feeder id for the anywhere map / status things
-                print_err(f"don't have the adsbX Feeder ID for {self._idx}, yet")
-                container_name = "ultrafeeder" if self._idx == 0 else f"uf_{self._idx}"
-                try:
-                    result = subprocess.run(
-                        f"docker logs {container_name} | grep 'www.adsbexchange.com/api/feeders' | tail -1",
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                    output = result.stdout
-                except:
-                    print_err("got exception trying to look at the adsbx logs")
-                    return
-                match = re.search(
-                    r"www.adsbexchange.com/api/feeders/\?feed=([^&\s]*)",
-                    output,
-                )
-                if match:
-                    adsbx_id = match.group(1)
-                    self._d.env_by_tags("adsbxfeederid").list_set(self._idx, adsbx_id)
-                else:
-                    print_err(f"ran: docker logs {container_name} | grep 'www.adsbexchange.com/api/feeders' | tail -1")
-                    print_err(f"failed to find adsbx ID in response {output}")
+    def _check_impl(self) -> tuple[Status, Status]:
+        host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
+        json_url = f"{host}/fr24-monitor.json/"
+        fr_dict, status = utils.util.generic_get_json(json_url)
+        if not fr_dict or status != 200:
+            self._logger.warning(
+                f"Flightradar at {json_url} returned {status}.")
+            return Status.UNKNOWN, Status.DISABLED
+        if fr_dict.get("feed_status") == "connected":
+            data_status = Status.GOOD
+        else:
+            data_status = Status.DISCONNECTED
+        self._last_check = time.time()
+        return data_status, Status.DISABLED
 
-    def __repr__(self):
-        return f"Aggregator({self._agg} last_check: {str(self._last_check)}, beast: {self._beast} mlat: {self._mlat})"
+
+class PlaneWatchAggregatorStatus(AggregatorStatus):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="planewatch", name="Plane.watch",
+            map_url="https:/plane.watch/desktop.html", status_url=None)
+
+    @property
+    def _container_name(self):
+        return "planewatch"
+
+    def _check_impl(self) -> tuple[Status, Status]:
+        # they sometimes call it key, sometimes uuid
+        pw_uuid = self._d.env_by_tags(["planewatch", "key"]).list_get(0)
+        if not pw_uuid:
+            return Status.UNKNOWN, Status.UNKNOWN
+        json_url = (
+            f"https://atc.plane.watch/api/v1/feeders/{pw_uuid}/status.json")
+        pw_dict, status = utils.util.generic_get_json(json_url)
+        if not pw_dict or status != 200:
+            self._logger.warning(f"Planewatch returned {status}.")
+            return Status.UNKNOWN, Status.UNKNOWN
+        status = pw_dict.get("status")
+        adsb = status.get("adsb")
+        mlat = status.get("mlat")
+        if not status or not adsb or not mlat:
+            self._logger.warning(
+                f"Unable to parse planewatch status {pw_dict}.")
+            return Status.UNKNOWN, Status.UNKNOWN
+        data_status = Status.GOOD if adsb.get(
+            "connected") else Status.DISCONNECTED
+        mlat_status = Status.GOOD if mlat.get(
+            "connected") else Status.DISCONNECTED
+        self._last_check = time.time()
+        return data_status, mlat_status
+
+
+class SdrMapAggregatorStatus(AggregatorStatus):
+    FEED_OK_FILE = pathlib.Path("/run/sdrmap/feed_ok")
+
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="sdrmap", name="sdrmap",
+            map_url="https://sdrmap.org/", status_url=None)
+
+    @property
+    def _container_name(self):
+        return "sdrmap"
+
+    def _check_impl(self) -> tuple[Status, Status]:
+        self._last_check = time.time()
+        if self.FEED_OK_FILE.exists():
+            data_status = Status.GOOD
+        else:
+            data_status = Status.DISCONNECTED
+        return data_status, Status.UNKNOWN
