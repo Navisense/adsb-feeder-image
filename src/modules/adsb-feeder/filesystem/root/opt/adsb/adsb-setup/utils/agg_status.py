@@ -88,6 +88,11 @@ def statuses(data: utils.data.Data,
 
 
 class AggregatorStatus(abc.ABC):
+    MAX_CACHE_AGE = 10
+
+    class CheckError(Exception):
+        pass
+
     def __init__(
             self, data: utils.data.Data, system: utils.system.System, *,
             agg_key: str, name: str, map_url: Optional[str],
@@ -130,24 +135,20 @@ class AggregatorStatus(abc.ABC):
 
     @property
     def data_status(self) -> str:
-        data_status, _, success = self._check()
-        if success:
-            return _status_symbol[data_status]
-        return _status_symbol[Status.UNKNOWN]
+        self.refresh_cache()
+        return _status_symbol[self._data_status]
 
     @property
     def mlat_status(self) -> str:
-        _, mlat_status, success = self._check()
-        if success:
-            return _status_symbol[mlat_status]
-        return _status_symbol[Status.UNKNOWN]
+        self.refresh_cache()
+        return _status_symbol[self._mlat_status]
 
     @property
     @abc.abstractmethod
     def _container_name(self) -> str:
         raise NotImplementedError
 
-    def refresh_cache(self):
+    def refresh_cache(self) -> None:
         """
         Refresh the cached data.
 
@@ -155,44 +156,39 @@ class AggregatorStatus(abc.ABC):
         correct result, it will just make requests faster until the data times
         out again.
         """
-        self._check()
+        if time.time() - self._last_check < self.MAX_CACHE_AGE:
+            return
+        try:
+            with self._check_lock:
+                data_status, mlat_status = self._get_statuses_locked()
+        except:
+            self._logger.exception("Error checking status.")
+            data_status, mlat_status = Status.UNKNOWN, Status.UNKNOWN
+        self._data_status = data_status
+        self._mlat_status = mlat_status
+        self._last_check = time.time()
 
-    def _check(self) -> tuple[Optional[Status], Optional[Status], bool]:
-        with self._check_lock:
-            if time.time() - self._last_check < 10:
-                return self._data_status, self._mlat_status, True
+    def _get_statuses_locked(self) -> None:
+        container_status = self._system.getContainerStatus(
+            self._container_name)
+        if container_status == "down":
+            return Status.CONTAINER_DOWN, Status.DISABLED
+        elif container_status == "restarting":
+            return Status.STARTING, Status.DISABLED
 
-            container_status = self._system.getContainerStatus(
-                self._container_name)
-            if container_status in ["down", "restarting"]:
-                self._last_check = time.time()
-                return (
-                    Status.CONTAINER_DOWN
-                    if container_status == "down" else Status.STARTING,
-                    Status.DISABLED,
-                    True,
-                )
-
-            data_status, mlat_status = self._check_impl()
-            # If mlat isn't enabled, ignore status check results.
-            if not self._d.list_is_enabled("mlat_enable", 0):
-                mlat_status = Status.DISABLED
-
-            # if check_impl has updated last_check the status is available
-            if time.time() - self._last_check < 10:
-                self._data_status = data_status
-                self._mlat_status = mlat_status
-                return self._data_status, self._mlat_status, True
-
-            return None, None, False
+        data_status, mlat_status = self._check_aggregator_statuses()
+        # If mlat isn't enabled, ignore status check results.
+        if not self._d.list_is_enabled("mlat_enable", 0):
+            mlat_status = Status.DISABLED
+        return data_status, mlat_status
 
     @abc.abstractmethod
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         """
         Check status.
 
-        Returns a tuple of data_status, mlat_status. Implementations must set
-        _last_check to the current time on success.
+        Returns a tuple of data_status, mlat_status. May raise CheckError or
+        other exceptions to indicate that the check couldn't be performed.
         """
         raise NotImplementedError
 
@@ -216,11 +212,10 @@ class UltrafeederAggregatorStatus(AggregatorStatus):
     def _container_name(self) -> str:
         return "ultrafeeder"
 
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         data_status = self._get_data_status()
         mlat_status = self._get_mlat_status()
         self._maybe_set_extra_info_to_settings()
-        self._last_check = time.time()
         return data_status, mlat_status
 
     def _get_data_status(self) -> Status:
@@ -367,8 +362,7 @@ class AdsbxAggregatorStatus(UltrafeederAggregatorStatus):
 
 class NoInfoAggregatorStatus(AggregatorStatus):
     """Aggregator status where we can't get information."""
-    def _check_impl(self) -> tuple[Status, Status]:
-        self._last_check = time.time()
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         return Status.UNKNOWN, Status.DISABLED
 
 
@@ -446,7 +440,7 @@ class AirnavRadarAggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "rbfeeder"
 
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         rbkey = self._d.env_by_tags(["radarbox", "key"]).list_get(0)
         # reset station number if the key has changed
         if rbkey != self._d.env_by_tags(["radarbox", "snkey"]).list_get(0):
@@ -463,10 +457,9 @@ class AirnavRadarAggregatorStatus(AggregatorStatus):
                     capture_output=True,
                     text=True,
                 )
-            except:
-                self._logger.exception(
-                    "Error trying to look at the rbfeeder logs.")
-                return Status.UNKNOWN, Status.UNKNOWN
+            except Exception as e:
+                raise self.CheckError(
+                    "Error trying to look at the rbfeeder logs.") from e
             serial_text = result.stdout.strip()
             match = re.search(
                 r"This is your station serial number: ([A-Z0-9]+)",
@@ -477,18 +470,20 @@ class AirnavRadarAggregatorStatus(AggregatorStatus):
                                      "sn"]).list_set(0, station_serial)
                 self._d.env_by_tags(["radarbox", "snkey"]).list_set(0, rbkey)
         if not station_serial:
-            return Status.UNKNOWN, Status.UNKNOWN
+            raise self.CheckError(
+                "Unable to parse station serial from rbfeeder logs.")
         html_url = f"https://www.radarbox.com/stations/{station_serial}"
         rb_page, _ = utils.util.get_plain_url(html_url)
         match = re.search(r"window.init\((.*)\)", rb_page) if rb_page else None
         if not match:
-            return Status.UNKNOWN, Status.UNKNOWN
+            raise self.CheckError(
+                "Unable to find station info in radarbox response.")
         rb_json = match.group(1)
         rb_dict = json.loads(rb_json)
         station = rb_dict.get("station")
         if not station:
-            return Status.UNKNOWN, Status.UNKNOWN
-        self._last_check = time.time()
+            raise self.CheckError(
+                "Unable to find station in radarbox response.")
         online = station.get("online")
         mlat_online = station.get("mlat_online")
         data_status = Status.GOOD if online else Status.DISCONNECTED
@@ -507,14 +502,13 @@ class FlightAwareAggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "piaware"
 
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
         json_url = f"{host}/fa-status.json/"
         fa_dict, status = utils.util.generic_get_json(json_url)
         if not fa_dict or status != 200:
-            self._logger.warning(
+            raise self.CheckError(
                 f"Flightaware at {json_url} returned {status}.")
-            return Status.UNKNOWN, Status.UNKNOWN
         if fa_dict.get("adept") and fa_dict.get("adept").get(
                 "status") == "green":
             data_status = Status.GOOD
@@ -536,7 +530,6 @@ class FlightAwareAggregatorStatus(AggregatorStatus):
                     mlat_status = Status.UNKNOWN
             else:
                 mlat_status = Status.DISCONNECTED
-        self._last_check = time.time()
         return data_status, mlat_status
 
 
@@ -555,8 +548,7 @@ class TenNinetyUkAggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "radar1090uk"
 
-    def _check_impl(self) -> tuple[Status, Status]:
-        self._last_check = time.time()
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         return Status.UNKNOWN, Status.DISABLED
         # TODO This unreachable code was in here from upstream. Not sure why
         # it's been disabled, but I'm leaving it here in case it becomes
@@ -583,19 +575,17 @@ class FlightRadar24AggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "fr24feed"
 
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
         json_url = f"{host}/fr24-monitor.json/"
         fr_dict, status = utils.util.generic_get_json(json_url)
         if not fr_dict or status != 200:
-            self._logger.warning(
+            raise self.CheckError(
                 f"Flightradar at {json_url} returned {status}.")
-            return Status.UNKNOWN, Status.DISABLED
         if fr_dict.get("feed_status") == "connected":
             data_status = Status.GOOD
         else:
             data_status = Status.DISCONNECTED
-        self._last_check = time.time()
         return data_status, Status.DISABLED
 
 
@@ -609,29 +599,26 @@ class PlaneWatchAggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "planewatch"
 
-    def _check_impl(self) -> tuple[Status, Status]:
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         # they sometimes call it key, sometimes uuid
         pw_uuid = self._d.env_by_tags(["planewatch", "key"]).list_get(0)
         if not pw_uuid:
-            return Status.UNKNOWN, Status.UNKNOWN
+            raise self.CheckError("Now Planewatch UUID set.")
         json_url = (
             f"https://atc.plane.watch/api/v1/feeders/{pw_uuid}/status.json")
         pw_dict, status = utils.util.generic_get_json(json_url)
         if not pw_dict or status != 200:
-            self._logger.warning(f"Planewatch returned {status}.")
-            return Status.UNKNOWN, Status.UNKNOWN
+            raise self.CheckError(f"Planewatch returned {status}.")
         status = pw_dict.get("status")
         adsb = status.get("adsb")
         mlat = status.get("mlat")
         if not status or not adsb or not mlat:
-            self._logger.warning(
+            raise self.CheckError(
                 f"Unable to parse planewatch status {pw_dict}.")
-            return Status.UNKNOWN, Status.UNKNOWN
         data_status = Status.GOOD if adsb.get(
             "connected") else Status.DISCONNECTED
         mlat_status = Status.GOOD if mlat.get(
             "connected") else Status.DISCONNECTED
-        self._last_check = time.time()
         return data_status, mlat_status
 
 
@@ -647,8 +634,7 @@ class SdrMapAggregatorStatus(AggregatorStatus):
     def _container_name(self):
         return "sdrmap"
 
-    def _check_impl(self) -> tuple[Status, Status]:
-        self._last_check = time.time()
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         if self.FEED_OK_FILE.exists():
             data_status = Status.GOOD
         else:
