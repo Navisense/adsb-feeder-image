@@ -382,16 +382,16 @@ class AdsbIm:
         if self._d.is_enabled("secure_image"):
             self.set_secure_image()
         self._other_aggregators = {
-            "adsbhub--submit": ADSBHub(self._system),
-            "flightaware--submit": FlightAware(self._system),
-            "flightradar--submit": FlightRadar24(self._system),
-            "opensky--submit": OpenSky(self._system),
-            "planefinder--submit": PlaneFinder(self._system),
-            "planewatch--submit": PlaneWatch(self._system),
-            "radarbox--submit": RadarBox(self._system),
-            "radarvirtuel--submit": RadarVirtuel(self._system),
-            "1090uk--submit": Uk1090(self._system),
-            "sdrmap--submit": Sdrmap(self._system),
+            "adsbhub": ADSBHub(self._system),
+            "flightaware": FlightAware(self._system),
+            "flightradar": FlightRadar24(self._system),
+            "opensky": OpenSky(self._system),
+            "planefinder": PlaneFinder(self._system),
+            "planewatch": PlaneWatch(self._system),
+            "radarbox": RadarBox(self._system),
+            "radarvirtuel": RadarVirtuel(self._system),
+            "1090uk": Uk1090(self._system),
+            "sdrmap": Sdrmap(self._system),
             "porttracker": Porttracker(self._system),
         }
 
@@ -1204,17 +1204,9 @@ class AdsbIm:
         return True
 
     def at_least_one_aggregator(self) -> bool:
-        if self._ultrafeeder_config.enabled_aggregators:
-            return True
-
-        # of course, maybe they picked just one or more proprietary aggregators and that's all they want...
-        for submit_key in self._other_aggregators.keys():
-            key = submit_key.replace("--submit", "")
-            if self._d.list_is_enabled(key, idx=0):
-                print_err(f"no semi-anonymous aggregator, but enabled {key}")
-                return True
-
-        return False
+        return any(
+            agg.enabled
+            for agg in utils.aggregators.all(self._d, self._system).values())
 
     def ip_info(self):
         ip, status = self._system.check_ip()
@@ -1314,7 +1306,7 @@ class AdsbIm:
         return self._make_aggregator_status(aggregator)
 
     def _make_aggregator_status(
-            self, aggregator: utils.aggregators.AggregatorStatus):
+            self, aggregator: utils.aggregators.Aggregator):
         res = {
             "data": aggregator.data_status,
             "mlat": aggregator.mlat_status,}
@@ -1561,12 +1553,12 @@ class AdsbIm:
         if not self._d.env_by_tags("ultrafeeder_uuid").list_get(0):
             self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
 
-        for agg in [submit_key.replace("--submit", "") for submit_key in self._other_aggregators.keys()]:
-            if self._d.env_by_tags([agg, "is_enabled"]).list_get(0):
-                # disable other aggregators if their key isn't set
-                if self._d.env_by_tags([agg, "key"]).list_get(0) == "":
-                    print_err(f"empty key, disabling: agg: {agg}")
-                    self._d.env_by_tags([agg, "is_enabled"]).list_set(0, False)
+        for agg in utils.aggregators.all(self._d, self._system).values():
+            if (agg.enabled and agg.needs_key and self._d.env_by_tags([
+                    agg.agg_key, "key"]).list_get(0) == ""):
+                self._logger.warning(f"Empty key, disabling {agg}.")
+                self._d.env_by_tags([agg.agg_key,
+                                     "is_enabled"]).list_set(0, False)
 
         # explicitely enable mlathub unless disabled
         self._d.env_by_tags(["mlathub_enable"]).value = not self._d.env_by_tags(["mlathub_disable"]).value
@@ -1757,7 +1749,7 @@ class AdsbIm:
                 print_err(f"failed to reload docker config: {output}")
 
     @check_restart_lock
-    def update(self):
+    def update(self, *, needs_docker_restart=False):
         description = """
             This is the one endpoint that handles all the updates coming in from the UI.
             It walks through the form data and figures out what to do about the information provided.
@@ -2002,45 +1994,6 @@ class AdsbIm:
                     self._system._restart.bg_run(func=connect_wifi)
                     self._next_url_from_director = url_for("systemmgmt")
                     # FIXME: let user know
-                if key in self._other_aggregators:
-                    l_sitenum = 0
-                    if value.startswith("stay-"):
-                        l_sitenum = make_int(value[5:])
-                        l_site = self._d.env_by_tags("site_name").list_get(l_sitenum)
-                        if not l_site:
-                            print_err(f"can't find a site for sitenum {l_sitenum}")
-                            l_sitenum = 0
-                        else:
-                            print_err(f"found other aggregator {key} for site {l_site} sitenum {l_sitenum}")
-                    is_successful = False
-                    base = key.replace("--submit", "")
-                    aggregator_arguments = [form.get(f"{base}--key", None)]
-                    if base == "flightradar":
-                        uat_arg = form.get(f"{base}_uat--key", None)
-                        aggregator_arguments[0] += f"::{uat_arg}"
-                    if base == "opensky":
-                        user = form.get(f"{base}--user", None)
-                        aggregator_arguments[0] += f"::{user}"
-                    if base == "sdrmap":
-                        user = form.get(f"{base}--user", None)
-                        aggregator_arguments[0] += f"::{user}"
-                    aggregator_object = self._other_aggregators[key]
-                    print_err(f"got aggregator object {aggregator_object} -- activating for sitenum {l_sitenum}")
-                    try:
-                        is_successful = aggregator_object._activate(*aggregator_arguments, l_sitenum)
-                    except Exception as e:
-                        print_err(f"error activating {key}: {e}")
-                    if not is_successful:
-                        self._logger.error(
-                            f"did not successfully enable {base}",
-                            flash_message=True)
-
-                    # immediately start the containers in case the user doesn't click "apply settings" after requesting a key
-                    seen_go = True
-                    # go back to the page we were on after applying settings
-                    self._next_url_from_director = request.url
-
-                continue
             # now handle other form input
             if key == "clear_range" and value == "1":
                 self.clear_range_outline()
@@ -2182,6 +2135,13 @@ class AdsbIm:
         # write all this out to the .env file so that a docker-compose run will find it
         self.write_envfile()
 
+        if needs_docker_restart or seen_go:
+            # Restart (i.e. up) the compose files if we're changing the page
+            # via a "go" type submit button, or we've been explicitly told that
+            # it's needed.
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+
         # if the button simply updated some field, stay on the same page
         if not seen_go:
             print_err("no go button, so stay on the same page", level=2)
@@ -2194,8 +2154,6 @@ class AdsbIm:
             print_err("base config is completed", level=2)
             if self._d.is_enabled("sdrplay") and not self._d.is_enabled("sdrplay_license_accepted"):
                 return redirect(url_for("sdrplay_license"))
-
-            self._system._restart.bg_run(cmdline="/opt/adsb/docker-compose-start", silent=False)
             return render_template("/restarting.html", extra_args=extra_args)
         print_err("base config not completed", level=2)
         return redirect(url_for("director"))
@@ -2283,8 +2241,8 @@ class AdsbIm:
     @check_restart_lock
     def aggregators(self):
         if request.method == "POST":
-            self._parse_porttracker_form_data()
-            return self.update()
+            self._update_aggregators()
+            return self.update(needs_docker_restart=True)
 
         def uf_enabled(tag, m=0):
             # stack_info(f"tags are {type(tag)} {tag}")
@@ -2332,6 +2290,56 @@ class AdsbIm:
             m=str(m),
             piastatport=str(m * 1000 + make_int(self._d.env_by_tags("piastatport").value)),
         )
+
+    def _update_aggregators(self):
+        if "flightradar-request-key" in request.form:
+            adsb_sharing_key = request.form["flightradar-key"] or None
+            uat_sharing_key = request.form["flightradar-uat-key"] or None
+            aggregator = self._other_aggregators["flightradar"]
+            self._logger.info(f"Activating {aggregator}.")
+            try:
+                is_successful = aggregator._activate(
+                    adsb_sharing_key, uat_sharing_key)
+                if not is_successful:
+                    self._logger.error(
+                        "Failed to enable Flightradar.", flash_message=True)
+            except:
+                self._logger.exception(f"Error activating {aggregator}.")
+        if "flightaware-request-key" in request.form:
+            feeder_id = request.form["flightaware-key"] or None
+            aggregator = self._other_aggregators["flightaware"]
+            self._logger.info(f"Activating {aggregator}.")
+            try:
+                is_successful = aggregator._activate(feeder_id)
+                if not is_successful:
+                    self._logger.error(
+                        "Failed to enable Flightaware.", flash_message=True)
+            except:
+                self._logger.exception(f"Error activating {aggregator}.")
+        if "radarbox-request-key" in request.form:
+            feeder_id = request.form["radarbox-key"] or None
+            aggregator = self._other_aggregators["radarbox"]
+            self._logger.info(f"Activating {aggregator}.")
+            try:
+                is_successful = aggregator._activate(feeder_id)
+                if not is_successful:
+                    self._logger.error(
+                        "Failed to enable AirNav Radar.", flash_message=True)
+            except:
+                self._logger.exception(f"Error activating {aggregator}.")
+        if "opensky-request-key" in request.form:
+            user = request.form["opensky-user"] or None
+            serial = request.form["opensky-key"] or None
+            aggregator = self._other_aggregators["opensky"]
+            self._logger.info(f"Activating {aggregator}.")
+            try:
+                is_successful = aggregator._activate(user, serial)
+                if not is_successful:
+                    self._logger.error(
+                        "Failed to enable OpenSky.", flash_message=True)
+            except:
+                self._logger.exception(f"Error activating {aggregator}.")
+        self._parse_porttracker_form_data()
 
     def _parse_porttracker_form_data(self):
         site_num = request.form["site_num"]

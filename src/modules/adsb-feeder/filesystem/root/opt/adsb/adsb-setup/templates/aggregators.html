@@ -122,7 +122,7 @@
     <label class="mx-1 w-auto" for="flightradar--is_enabled">
       <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
       <div class="form-group" id="FR_FIELDS">
-        <label for="flightradar--key">
+        <label for="flightradar-key">
           {% if not list_is_enabled('uat978',m) %}
           Enter your FR24 sharing key (or enter your email address and click the button to request a sharing key)
           {% else %}
@@ -133,15 +133,16 @@
           associated with that email address. In that case you will need to email FR24 support and request that they
           manually add another key for you (or simply use a different email address).
         </label>
-        <input type="text" id="flightradar--key" name="flightradar--key" class="form-control w-75"
+        <input type="text" id="flightradar-key" name="flightradar-key" class="form-control w-75"
                placeholder="existing flightradar24 ADS-B sharing key or email address"
                value="{{ list_value_by_tags(["flightradar", "key"], m) }}" />
         <input {% if not list_is_enabled('uat978',m) %}style="display: none;" {% endif %} type="text"
-               id="flightradar_uat--key" name="flightradar_uat--key" class="form-control w-75"
+               id="flightradar-uat-key" name="flightradar-uat-key" class="form-control w-75"
                placeholder="existing flightradar24 UAT sharing key or email address"
                value="{{ list_value_by_tags(["flightradar_uat", "key"], m) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="flightradar--submit" value="{{stay}}">Request
-          key</button>
+        <button type="submit" class="btn btn-primary mt-1" name="flightradar-request-key" value="{{ stay }}">
+          Request key
+        </button>
       </div>
     </label>
   </div>
@@ -169,7 +170,7 @@
     <label class="mx-1 w-auto" for="FA">
       <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
       <div class="form-group" id="FA_FIELDS">
-        <label for="flightaware--key">
+        <label for="flightaware-key">
           You need a FlightAware / Piaware feeder ID. If you already have one, please enter it below. Otherwise, leave
           the field empty and click on the button and we will try to get one for you. Once this process completes and
           the feeder ID has been filled in, open the local
@@ -180,9 +181,9 @@
           var link = document.getElementById('piaware');
           link.setAttribute('href', window.location.protocol + "//" + window.location.hostname + ":" + {{ piastatport }});
         </script>
-        <input type="text" id="flighaware--key" name="flightaware--key" class="form-control w-75"
+        <input type="text" id="flightaware-key" name="flightaware-key" class="form-control w-75"
                placeholder="Piaware key" value="{{ list_value_by_tags(["flightaware", "key"], m) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="flightaware--submit" value="{{stay}}">Request
+        <button type="submit" class="btn btn-primary mt-1" name="flightaware-request-key" value="{{ stay }}">Request
           key</button>
       </div>
     </label>
@@ -194,16 +195,16 @@
       <a href="https://www.airnavradar.com/terms-of-use" data-mdb-toggle="tooltip"
          title="please note that this site is missing a clear data/privacy policy">AirNav Radar</a>
       <div class="form-group" id="RB_FIELDS">
-        <label for="radarbox--key">
+        <label for="radarbox-key">
           You need a AirNav Radar (formerly RadarBox) sharing key. If you already have one, please enter it below. Otherwise,
           leave the field empty and click on the button and we will try to get one for you. Please log into the
           <a href="https://www.radarbox.com/sharing-data/claim">AirNav Radar website</a> once this process has completed
           in order to claim the key for your account.
         </label>
-        <input type="text" id="radarbox--key" name="radarbox--key" class="form-control w-75"
+        <input type="text" id="radarbox-key" name="radarbox-key" class="form-control w-75"
                {{ env_values["RB"] | replace('checked', 'required') }} placeholder="AirNav Radar sharing key"
                value="{{ list_value_by_tags(["radarbox", "key"], m) }}">
-        <button type="submit" class="btn btn-primary mt-1" name="radarbox--submit" value="{{stay}}">Request key</button>
+        <button type="submit" class="btn btn-primary mt-1" name="radarbox-request-key" value="{{ stay }}">Request key</button>
       </div>
     </label>
   </div>
@@ -249,18 +250,18 @@
       <a href="https://opensky-network.org/about/privacy-policy">OpenSky Network</a>
       <!-- this one needs automation set up with a docker container again -- and it needs two fields -->
       <div class="form-group" id="OS_FIELDS">
-        <label for="opensky--key">
+        <label for="opensky-key">
           You need an OpenSky username and serial number. If you already have these, please enter them below.
           Otherwise, please go to the <a href="https://opensky-network.org/">OpenSky website</a>
           and register (button should be in the top right corner). Once you have an OpenSky username, enter it below
           and click Request Key; we will get a serial for you.
         </label>
-        <input type="text" id="opensky--user" name="opensky--user" class="form-control w-75"
+        <input type="text" id="opensky-user" name="opensky-user" class="form-control w-75"
                {{ others_enabled("opensky", m) | replace("checked", "required" ) }} placeholder=" OpenSky username"
                value="{{ list_value_by_tags(["opensky", "user"], m) }}">
-        <input type="text" id="opensky--key" name="opensky--key" class="form-control w-75"
+        <input type="text" id="opensky-key" name="opensky-key" class="form-control w-75"
                placeholder="OpenSky serial number" value="{{ list_value_by_tags(["opensky", "key"], m) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="opensky--submit" value="{{stay}}">Request key</button>
+        <button type="submit" class="btn btn-primary mt-1" name="opensky-request-key" value="{{ stay }}">Request key</button>
       </div>
     </label>
   </div>
@@ -384,13 +385,13 @@
   }
 
   const aggregatorConfigs = [
-    ["flightradar--is_enabled", "FR_FIELDS", ["#flightradar--key"]],
+    ["flightradar--is_enabled", "FR_FIELDS", ["#flightradar-key"]],
     ["planewatch--is_enabled", "PW_FIELDS", ["#planewatch--key"]],
     ["flightaware--is_enabled", "FA_FIELDS", []],
     ["radarbox--is_enabled", "RB_FIELDS", []],
     ["planefinder--is_enabled", "PF_FIELDS", ["#planefinder--key"]],
     ["adsbhub--is_enabled", "AH_FIELDS", ["#adsbhub--key"]],
-    ["opensky--is_enabled", "OS_FIELDS", ["#opensky--user"]],
+    ["opensky--is_enabled", "OS_FIELDS", ["#opensky-user"]],
     ["radarvirtuel--is_enabled", "RV_FIELDS", ["#radarvirtuel--key"]],
     ["1090uk--is_enabled", "TNUK_FIELDS", ["#1090uk--key"]],
     ["sdrmap--is_enabled", "SM_FIELDS", ["#sdrmap--user", "#sdrmap--key"]],

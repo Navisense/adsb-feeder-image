@@ -40,7 +40,7 @@ _status_dict = None
 
 
 def all(data: utils.data.Data,
-             system: utils.system.System) -> dict[str, "AggregatorStatus"]:
+        system: utils.system.System) -> dict[str, "Aggregator"]:
     """
     Get all aggregators.
 
@@ -50,50 +50,50 @@ def all(data: utils.data.Data,
     if _status_dict is None:
         _status_dict = {}
         statuses = [
-            AdsbLolAggregatorStatus(data, system),
-            UltrafeederAggregatorStatus(
+            AdsbLolAggregator(data, system),
+            UltrafeederAggregator(
                 data, system, agg_key="flyitaly", name="Fly Italy ADSB",
                 map_url="https://mappa.flyitalyadsb.com/",
                 status_url="https://my.flyitalyadsb.com/am_i_feeding"),
-            UltrafeederAggregatorStatus(
+            UltrafeederAggregator(
                 data, system, agg_key="avdelphi", name="AVDelphi",
                 map_url="https://www.avdelphi.com/coverage.html",
                 status_url=None),
-            UltrafeederAggregatorStatus(
+            UltrafeederAggregator(
                 data, system, agg_key="planespotters", name="Planespotters",
                 map_url="https://radar.planespotters.net/",
                 status_url="https://www.planespotters.net/feed/status"),
-            UltrafeederAggregatorStatus(
+            UltrafeederAggregator(
                 data, system, agg_key="tat", name="TheAirTraffic",
                 map_url="https://globe.theairtraffic.com/",
                 status_url="https://theairtraffic.com/feed/myip/"),
-            UltrafeederAggregatorStatus(
+            UltrafeederAggregator(
                 data, system, agg_key="adsbfi", name="adsb.fi",
                 map_url="https://globe.adsb.fi/",
                 status_url="https://api.adsb.fi/v1/myip"),
-            AdsbxAggregatorStatus(data, system),
-            UltrafeederAggregatorStatus(
+            AdsbxAggregator(data, system),
+            UltrafeederAggregator(
                 data, system, agg_key="hpradar", name="HPRadar",
                 map_url="https://skylink.hpradar.com/", status_url=None),
-            AirplanesLiveAggregatorStatus(data, system),
-            FlightRadar24AggregatorStatus(data, system),
-            PlaneWatchAggregatorStatus(data, system),
-            FlightAwareAggregatorStatus(data, system),
-            AirnavRadarAggregatorStatus(data, system),
-            PlaneFinderAggregatorStatus(data, system),
-            AdsbHubAggregatorStatus(data, system),
-            OpenSkyAggregatorStatus(data, system),
-            RadarVirtuelAggregatorStatus(data, system),
-            TenNinetyUkAggregatorStatus(data, system),
-            SdrMapAggregatorStatus(data, system),
-            PorttrackerAggregatorStatus(data, system),]
+            AirplanesLiveAggregator(data, system),
+            FlightRadar24Aggregator(data, system),
+            PlaneWatchAggregator(data, system),
+            FlightAwareAggregator(data, system),
+            AirnavRadarAggregator(data, system),
+            PlaneFinderAggregator(data, system),
+            AdsbHubAggregator(data, system),
+            OpenSkyAggregator(data, system),
+            RadarVirtuelAggregator(data, system),
+            TenNinetyUkAggregator(data, system),
+            SdrMapAggregator(data, system),
+            PorttrackerAggregator(data, system),]
         for status in statuses:
             assert status.agg_key not in _status_dict
             _status_dict[status.agg_key] = status
     return _status_dict
 
 
-class AggregatorStatus(abc.ABC):
+class Aggregator(abc.ABC):
     MAX_CACHE_AGE = 10
 
     class CheckError(Exception):
@@ -140,6 +140,11 @@ class AggregatorStatus(abc.ABC):
         return self._status_url
 
     @property
+    def needs_key(self) -> bool:
+        """Whether the aggregator needs a key in order to work."""
+        return True
+
+    @property
     def data_status(self) -> str:
         self.refresh_cache()
         return _status_symbol[self._data_status]
@@ -155,13 +160,7 @@ class AggregatorStatus(abc.ABC):
         raise NotImplementedError
 
     def refresh_cache(self) -> None:
-        """
-        Refresh the cached data.
-
-        Fetches data in case it was outdated. This is not necessary to get the
-        correct result, it will just make requests faster until the data times
-        out again.
-        """
+        """Refresh cached status data."""
         if time.time() - self._last_check < self.MAX_CACHE_AGE:
             return
         try:
@@ -199,8 +198,8 @@ class AggregatorStatus(abc.ABC):
         raise NotImplementedError
 
 
-class UltrafeederAggregatorStatus(AggregatorStatus):
-    """Status for all ultrafeeder aggregators."""
+class UltrafeederAggregator(Aggregator):
+    """Simple, ultrafeeder-based aggregator."""
     ULTRAFEEDER_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder")
 
     def __init__(
@@ -217,6 +216,10 @@ class UltrafeederAggregatorStatus(AggregatorStatus):
     @property
     def _container_name(self) -> str:
         return "ultrafeeder"
+
+    @property
+    def needs_key(self) -> bool:
+        return False
 
     def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         data_status = self._get_data_status()
@@ -284,7 +287,7 @@ class UltrafeederAggregatorStatus(AggregatorStatus):
         pass
 
 
-class AirplanesLiveAggregatorStatus(UltrafeederAggregatorStatus):
+class AirplanesLiveAggregator(UltrafeederAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="alive", name="airplanes.live",
@@ -304,7 +307,7 @@ class AirplanesLiveAggregatorStatus(UltrafeederAggregatorStatus):
                 self._d.env_by_tags("alivemaplink").list_set(0, map_link)
 
 
-class AdsbLolAggregatorStatus(UltrafeederAggregatorStatus):
+class AdsbLolAggregator(UltrafeederAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="adsblol", name="adsb.lol",
@@ -327,7 +330,7 @@ class AdsbLolAggregatorStatus(UltrafeederAggregatorStatus):
                 self._logger.exception("Error getting map link from adsb.lol.")
 
 
-class AdsbxAggregatorStatus(UltrafeederAggregatorStatus):
+class AdsbxAggregator(UltrafeederAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="adsbx", name="ADSBExchange",
@@ -366,13 +369,13 @@ class AdsbxAggregatorStatus(UltrafeederAggregatorStatus):
                 f"Unable to find adsbx ID in container logs: {output}")
 
 
-class NoInfoAggregatorStatus(AggregatorStatus):
-    """Aggregator status where we can't get information."""
+class NoStatusInfoAggregator(Aggregator):
+    """Aggregator without status information."""
     def _check_aggregator_statuses(self) -> tuple[Status, Status]:
         return Status.UNKNOWN, Status.DISABLED
 
 
-class PlaneFinderAggregatorStatus(NoInfoAggregatorStatus):
+class PlaneFinderAggregator(NoStatusInfoAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="planefinder", name="PlaneFinder",
@@ -384,7 +387,7 @@ class PlaneFinderAggregatorStatus(NoInfoAggregatorStatus):
         return "pfclient"
 
 
-class AdsbHubAggregatorStatus(NoInfoAggregatorStatus):
+class AdsbHubAggregator(NoStatusInfoAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="adsbhub", name="ADSBHub",
@@ -395,7 +398,7 @@ class AdsbHubAggregatorStatus(NoInfoAggregatorStatus):
         return "adsbhub"
 
 
-class OpenSkyAggregatorStatus(NoInfoAggregatorStatus):
+class OpenSkyAggregator(NoStatusInfoAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="opensky", name="OpenSky",
@@ -407,7 +410,7 @@ class OpenSkyAggregatorStatus(NoInfoAggregatorStatus):
         return "opensky"
 
 
-class RadarVirtuelAggregatorStatus(NoInfoAggregatorStatus):
+class RadarVirtuelAggregator(NoStatusInfoAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="radarvirtuel", name="RadarVirtuel",
@@ -418,7 +421,7 @@ class RadarVirtuelAggregatorStatus(NoInfoAggregatorStatus):
         return "radarvirtuel"
 
 
-class PorttrackerAggregatorStatus(AggregatorStatus):
+class PorttrackerAggregator(Aggregator):
     STATS_URL_TEMPLATE = (
         "https://porttracker-api.porttracker.co/api/v1/sharing/stations/"
         "{station_id}/stats/basic")
@@ -459,7 +462,7 @@ class PorttrackerAggregatorStatus(AggregatorStatus):
         return data_status, Status.DISABLED
 
 
-class AirnavRadarAggregatorStatus(AggregatorStatus):
+class AirnavRadarAggregator(Aggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="radarbox", name="AirNav Radar",
@@ -526,7 +529,7 @@ class AirnavRadarAggregatorStatus(AggregatorStatus):
         return data_status, mlat_status
 
 
-class FlightAwareAggregatorStatus(AggregatorStatus):
+class FlightAwareAggregator(Aggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="flightaware", name="FlightAware",
@@ -568,7 +571,7 @@ class FlightAwareAggregatorStatus(AggregatorStatus):
         return data_status, mlat_status
 
 
-class TenNinetyUkAggregatorStatus(AggregatorStatus):
+class TenNinetyUkAggregator(Aggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="1090uk", name="1090MHz UK",
@@ -600,7 +603,7 @@ class TenNinetyUkAggregatorStatus(AggregatorStatus):
             return data_status, Status.DISABLED
 
 
-class FlightRadar24AggregatorStatus(AggregatorStatus):
+class FlightRadar24Aggregator(Aggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="flightradar", name="flightradar24",
@@ -624,7 +627,7 @@ class FlightRadar24AggregatorStatus(AggregatorStatus):
         return data_status, Status.DISABLED
 
 
-class PlaneWatchAggregatorStatus(AggregatorStatus):
+class PlaneWatchAggregator(Aggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="planewatch", name="Plane.watch",
@@ -657,7 +660,7 @@ class PlaneWatchAggregatorStatus(AggregatorStatus):
         return data_status, mlat_status
 
 
-class SdrMapAggregatorStatus(AggregatorStatus):
+class SdrMapAggregator(Aggregator):
     FEED_OK_FILE = pathlib.Path("/run/sdrmap/feed_ok")
 
     def __init__(self, data: utils.data.Data, system: utils.system.System):

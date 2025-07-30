@@ -1,6 +1,7 @@
 import logging
 import re
 import subprocess
+from typing import Optional
 
 from .system import System
 from .util import is_email, make_int
@@ -255,17 +256,10 @@ class FlightRadar24(Aggregator):
             f"Found uat sharing key {uat_key} in the container output")
         return uat_key
 
-    def _activate(self, user_input: str, idx=0):
-        if not user_input:
+    def _activate(self, adsb_sharing_key: str, uat_sharing_key: Optional[str], idx=0):
+        if not adsb_sharing_key:
             return False
-        input_values = user_input.count("::")
-        if input_values > 1:
-            return False
-        elif input_values == 1:
-            adsb_sharing_key, uat_sharing_key = user_input.split("::")
-        else:
-            adsb_sharing_key = user_input
-            uat_sharing_key = None
+        uat_sharing_key = uat_sharing_key or ""
         if not adsb_sharing_key and not uat_sharing_key:
             return False
         self._idx = make_int(idx)  # this way the properties work correctly
@@ -341,12 +335,9 @@ class FlightAware(Aggregator):
             "response")
         return None
 
-    def _activate(self, user_input: str, idx=0):
+    def _activate(self, feeder_id: Optional[str], idx=0):
         self._idx = make_int(idx)
-        if re.match("[0-9a-zA-Z]+", user_input):
-            # that might be a valid key
-            feeder_id = user_input
-        else:
+        if not feeder_id:
             feeder_id = self._request_fa_feeder_id()
             self._logger.info(f"got back feeder_id |{feeder_id}|")
         if not feeder_id:
@@ -396,13 +387,9 @@ class RadarBox(Aggregator):
 
         return sharing_key_match.group(1)
 
-    def _activate(self, user_input: str, idx=0):
+    def _activate(self, sharing_key: Optional[str], idx=0):
         self._idx = make_int(idx)
-        if re.match("[0-9a-zA-Z]+", user_input):
-            # that might be a valid key
-            sharing_key = user_input
-        else:
-            # try to get a key
+        if not sharing_key:
             sharing_key = self._request_rb_sharing_key(idx)
         if not sharing_key:
             return False
@@ -445,10 +432,8 @@ class OpenSky(Aggregator):
 
         return serial_match.group(1)
 
-    def _activate(self, user_input: str, idx=0):
+    def _activate(self, user: str, serial: Optional[str], idx=0):
         self._idx = make_int(idx)
-        serial, user = user_input.split("::")
-        self._logger.info(f"passed in {user_input} seeing user |{user}| and serial |{serial}|")
         if not user:
             self._logger.error(f"missing user name for OpenSky")
             return False
