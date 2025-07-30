@@ -2293,60 +2293,58 @@ class AdsbIm:
 
     def _update_aggregators(self):
         if "flightradar-request-key" in request.form:
+            enabled = utils.util.parse_post_bool(
+                request.form.get("flightradar-is-enabled"))
             adsb_sharing_key = request.form["flightradar-key"] or None
             uat_sharing_key = request.form["flightradar-uat-key"] or None
             aggregator = self._other_aggregators["flightradar"]
-            self._logger.info(f"Activating {aggregator}.")
+            self._logger.info(f"Configuring {aggregator}.")
             try:
-                is_successful = aggregator._activate(
-                    adsb_sharing_key, uat_sharing_key)
-                if not is_successful:
-                    self._logger.error(
-                        "Failed to enable Flightradar.", flash_message=True)
+                aggregator.configure(
+                    enabled, adsb_sharing_key, uat_sharing_key)
             except:
-                self._logger.exception(f"Error activating {aggregator}.")
+                self._logger.exception(
+                    "Failed to configure Flightradar.", flash_message=True)
         if "flightaware-request-key" in request.form:
+            enabled = utils.util.parse_post_bool(
+                request.form.get("flightaware-is-enabled"))
             feeder_id = request.form["flightaware-key"] or None
             aggregator = self._other_aggregators["flightaware"]
-            self._logger.info(f"Activating {aggregator}.")
+            self._logger.info(f"Configuring {aggregator}.")
             try:
-                is_successful = aggregator._activate(feeder_id)
-                if not is_successful:
-                    self._logger.error(
-                        "Failed to enable Flightaware.", flash_message=True)
+                aggregator.configure(enabled, feeder_id)
             except:
-                self._logger.exception(f"Error activating {aggregator}.")
+                self._logger.exception(
+                    "Failed to configure Flightaware.", flash_message=True)
         if "radarbox-request-key" in request.form:
+            enabled = utils.util.parse_post_bool(
+                request.form.get("radarbox-is-enabled"))
             feeder_id = request.form["radarbox-key"] or None
             aggregator = self._other_aggregators["radarbox"]
-            self._logger.info(f"Activating {aggregator}.")
+            self._logger.info(f"Configuring {aggregator}.")
             try:
-                is_successful = aggregator._activate(feeder_id)
-                if not is_successful:
-                    self._logger.error(
-                        "Failed to enable AirNav Radar.", flash_message=True)
+                aggregator.configure(enabled, feeder_id)
             except:
-                self._logger.exception(f"Error activating {aggregator}.")
+                self._logger.exception(
+                    "Failed to configure AirNav Radar.", flash_message=True)
         if "opensky-request-key" in request.form:
+            enabled = utils.util.parse_post_bool(
+                request.form.get("opensky-is-enabled"))
             user = request.form["opensky-user"] or None
             serial = request.form["opensky-key"] or None
             aggregator = self._other_aggregators["opensky"]
-            self._logger.info(f"Activating {aggregator}.")
+            self._logger.info(f"Configuring {aggregator}.")
             try:
-                is_successful = aggregator._activate(user, serial)
-                if not is_successful:
-                    self._logger.error(
-                        "Failed to enable OpenSky.", flash_message=True)
+                aggregator.configure(enabled, user, serial)
             except:
-                self._logger.exception(f"Error activating {aggregator}.")
+                self._logger.exception(
+                    "Failed to configure OpenSky.", flash_message=True)
         self._parse_porttracker_form_data()
 
     def _parse_porttracker_form_data(self):
-        porttracker = self._other_aggregators["porttracker"]
-        if request.form["porttracker-is-enabled"] == "0":
-            porttracker._deactivate()
-            print_err(f"Deactivated {porttracker}.")
-            return
+        aggregator = self._other_aggregators["porttracker"]
+        enabled = utils.util.parse_post_bool(
+            request.form.get("porttracker-is-enabled"))
         try:
             station_id = request.form["porttracker-station-id"]
             data_sharing_key = request.form["porttracker-data-sharing-key"]
@@ -2358,17 +2356,17 @@ class AdsbIm:
             mqtt_topic = request.form["porttracker-mqtt-topic"]
         except KeyError as e:
             self._logger.exception(
-                f"Can't activate Porttracker: missing key {e}.",
+                f"Can't configure Porttracker: missing key {e}.",
                 flash_message=True)
             return
+        self._logger.info(f"Configuring {aggregator}.")
         try:
-            porttracker._activate(
-                station_id, data_sharing_key, mqtt_protocol, mqtt_host,
-                mqtt_port, mqtt_username, mqtt_password, mqtt_topic)
-            print_err(f"Activated {porttracker}.")
+            aggregator.configure(
+                enabled, station_id, data_sharing_key, mqtt_protocol,
+                mqtt_host, mqtt_port, mqtt_username, mqtt_password, mqtt_topic)
         except:
             self._logger.exception(
-                "Error activating Porttracker.", flash_message=True)
+                "Failed to configure Porttracker.", flash_message=True)
 
     @check_restart_lock
     def director(self):
