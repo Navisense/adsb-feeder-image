@@ -125,7 +125,7 @@ class ADSBHub(Aggregator):
     def __init__(self, system: System):
         super().__init__(
             name="ADSBHub",
-            tags=["adsb_hub"],
+            tags=["adsbhub"],
             system=system,
         )
 
