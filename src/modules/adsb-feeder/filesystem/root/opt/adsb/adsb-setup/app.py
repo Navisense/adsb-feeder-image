@@ -2342,10 +2342,9 @@ class AdsbIm:
         self._parse_porttracker_form_data()
 
     def _parse_porttracker_form_data(self):
-        site_num = request.form["site_num"]
         porttracker = self._other_aggregators["porttracker"]
         if request.form["porttracker-is-enabled"] == "0":
-            porttracker._deactivate(site_num)
+            porttracker._deactivate()
             print_err(f"Deactivated {porttracker}.")
             return
         try:
@@ -2365,8 +2364,8 @@ class AdsbIm:
         try:
             porttracker._activate(
                 station_id, data_sharing_key, mqtt_protocol, mqtt_host,
-                mqtt_port, mqtt_username, mqtt_password, mqtt_topic, site_num)
-            print_err(f"Activated {porttracker} for site_num {site_num}.")
+                mqtt_port, mqtt_username, mqtt_password, mqtt_topic)
+            print_err(f"Activated {porttracker}.")
         except:
             self._logger.exception(
                 "Error activating Porttracker.", flash_message=True)

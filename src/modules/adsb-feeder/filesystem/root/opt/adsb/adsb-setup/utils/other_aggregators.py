@@ -4,22 +4,16 @@ import subprocess
 from typing import Optional
 
 from .system import System
-from .util import is_email, make_int
+from .util import is_email
 
 
 class Aggregator:
-    def __init__(
-        self,
-        name: str,
-        system: System,
-        tags: list = None,
-    ):
+    def __init__(self, name: str, system: System, tags: list = None):
+        self._logger = logging.getLogger(type(self).__name__)
         self._name = name
         self._tags = tags
         self._system = system
         self._d = system._d
-        self._idx = 0
-        self._logger = logging.getLogger(type(self).__name__)
 
     @property
     def name(self):
@@ -39,15 +33,15 @@ class Aggregator:
 
     @property
     def lat(self):
-        return self._d.env_by_tags("lat").list_get(self._idx)
+        return self._d.env_by_tags("lat").list_get(0)
 
     @property
     def lon(self):
-        return self._d.env_by_tags("lon").list_get(self._idx)
+        return self._d.env_by_tags("lon").list_get(0)
 
     @property
     def alt(self):
-        return self._d.env_by_tags("alt").list_get(self._idx)
+        return self._d.env_by_tags("alt").list_get(0)
 
     @property
     def alt_ft(self):
@@ -58,10 +52,10 @@ class Aggregator:
         return self._d.env_by_tags(self.tags + ["container"]).value
 
     @property
-    def is_enabled(self, idx=0):
-        return self._d.env_by_tags(self._enabled_tags).list_get(self._idx)
+    def is_enabled(self):
+        return self._d.env_by_tags(self._enabled_tags).list_get(0)
 
-    def _activate(self, user_input: str, idx: 0):
+    def _activate(self, user_input: str):
         raise NotImplementedError
 
     def _deactivate(self):
@@ -119,11 +113,11 @@ class Aggregator:
         return output
 
     # the default case is straight forward. Remember the key and enable the aggregator
-    def _simple_activate(self, user_input: str, idx=0):
+    def _simple_activate(self, user_input: str):
         if not user_input:
             return False
-        self._d.env_by_tags(self._key_tags).list_set(idx, user_input)
-        self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
+        self._d.env_by_tags(self._key_tags).list_set(0, user_input)
+        self._d.env_by_tags(self._enabled_tags).list_set(0, True)
         return True
 
 
@@ -135,8 +129,8 @@ class ADSBHub(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        return self._simple_activate(user_input, idx)
+    def _activate(self, user_input: str):
+        return self._simple_activate(user_input)
 
 
 class FlightRadar24(Aggregator):
@@ -176,7 +170,8 @@ class FlightRadar24(Aggregator):
             f'-e FR24_EMAIL="{email}" {self.container} '
             f'-c "apt update && apt install -y expect && $(cat handsoff_signup_expect.sh)"'
         )
-        open("/opt/adsb/handsoff_signup.sh", "w").write(f"#!/bin/bash\n{adsb_signup_command}")
+        open("/opt/adsb/handsoff_signup.sh",
+             "w").write(f"#!/bin/bash\n{adsb_signup_command}")
         try:
             output = subprocess.run(
                 "bash /opt/adsb/handsoff_signup.sh",
@@ -197,7 +192,8 @@ class FlightRadar24(Aggregator):
                 flash_message="FR24 signup script timed out.")
             return None
 
-        sharing_key_match = re.search("Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
+        sharing_key_match = re.search(
+            "Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
         if not sharing_key_match:
             self._logger.error(
                 "Couldn't find a sharing key in the container output: "
@@ -223,7 +219,8 @@ class FlightRadar24(Aggregator):
             f'-e FR24_EMAIL="{email}" {self.container} '
             f'-c "apt update && apt install -y expect && $(cat handsoff_signup_expect_uat.sh)"'
         )
-        open("/opt/adsb/handsoff_signup_uat.sh", "w").write(f"#!/bin/bash\n{uat_signup_command}")
+        open("/opt/adsb/handsoff_signup_uat.sh",
+             "w").write(f"#!/bin/bash\n{uat_signup_command}")
         try:
             output = subprocess.run(
                 "bash /opt/adsb/handsoff_signup_uat.sh",
@@ -243,7 +240,8 @@ class FlightRadar24(Aggregator):
                 "timeout running the FR24 UAT signup script, output: "
                 f"{output}", flash_message="FR24 UAT signup script timed out.")
             return None
-        sharing_key_match = re.search("Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
+        sharing_key_match = re.search(
+            "Your sharing key \\(([a-zA-Z0-9]*)\\) has been", output)
         if not sharing_key_match:
             self._logger.error(
                 "couldn't find a UAT sharing key in the container output: "
@@ -256,15 +254,14 @@ class FlightRadar24(Aggregator):
             f"Found uat sharing key {uat_key} in the container output")
         return uat_key
 
-    def _activate(self, adsb_sharing_key: str, uat_sharing_key: Optional[str], idx=0):
+    def _activate(self, adsb_sharing_key: str, uat_sharing_key: Optional[str]):
         if not adsb_sharing_key:
             return False
         uat_sharing_key = uat_sharing_key or ""
         if not adsb_sharing_key and not uat_sharing_key:
             return False
-        self._idx = make_int(idx)  # this way the properties work correctly
         self._logger.info(
-            f"FR_activate adsb |{adsb_sharing_key}| uat |{uat_sharing_key}| idx |{idx}|")
+            f"FR_activate adsb |{adsb_sharing_key}| uat |{uat_sharing_key}|")
 
         if is_email(adsb_sharing_key):
             # that's an email address, so we are looking to get a sharing key
@@ -276,7 +273,8 @@ class FlightRadar24(Aggregator):
 
         if is_email(uat_sharing_key):
             # that's an email address, so we are looking to get a sharing key
-            uat_sharing_key = self._request_fr24_uat_sharing_key(uat_sharing_key)
+            uat_sharing_key = self._request_fr24_uat_sharing_key(
+                uat_sharing_key)
             self._logger.info(f"got back uat_sharing_key |{uat_sharing_key}|")
         if uat_sharing_key and not re.match("[0-9a-zA-Z]+", uat_sharing_key):
             uat_sharing_key = None
@@ -285,15 +283,17 @@ class FlightRadar24(Aggregator):
 
         # overwrite email in config so that the container is not started with the email as sharing key if failed
         # otherwise just set sharing key as appropriate
-        self._d.env_by_tags(["flightradar", "key"]).list_set(idx, adsb_sharing_key or "")
-        self._d.env_by_tags(["flightradar_uat", "key"]).list_set(idx, uat_sharing_key or "")
+        self._d.env_by_tags(["flightradar",
+                             "key"]).list_set(0, adsb_sharing_key or "")
+        self._d.env_by_tags(["flightradar_uat",
+                             "key"]).list_set(0, uat_sharing_key or "")
 
         if adsb_sharing_key or uat_sharing_key:
             # we have at least one sharing key, let's just enable the container
-            self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
+            self._d.env_by_tags(self._enabled_tags).list_set(0, True)
             return True
         else:
-            self._d.env_by_tags(self._enabled_tags).list_set(idx, False)
+            self._d.env_by_tags(self._enabled_tags).list_set(0, False)
             return False
 
 
@@ -305,8 +305,8 @@ class PlaneWatch(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        return self._simple_activate(user_input, idx)
+    def _activate(self, user_input: str):
+        return self._simple_activate(user_input)
 
 
 class FlightAware(Aggregator):
@@ -335,16 +335,15 @@ class FlightAware(Aggregator):
             "response")
         return None
 
-    def _activate(self, feeder_id: Optional[str], idx=0):
-        self._idx = make_int(idx)
+    def _activate(self, feeder_id: Optional[str]):
         if not feeder_id:
             feeder_id = self._request_fa_feeder_id()
             self._logger.info(f"got back feeder_id |{feeder_id}|")
         if not feeder_id:
             return False
 
-        self._d.env_by_tags(self._key_tags).list_set(idx, feeder_id)
-        self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
+        self._d.env_by_tags(self._key_tags).list_set(0, feeder_id)
+        self._d.env_by_tags(self._enabled_tags).list_set(0, True)
         return True
 
 
@@ -356,7 +355,7 @@ class RadarBox(Aggregator):
             system=system,
         )
 
-    def _request_rb_sharing_key(self, idx):
+    def _request_rb_sharing_key(self):
         docker_image = self._d.env_by_tags(["radarbox", "container"]).value
 
         if not self._download_docker_container(docker_image):
@@ -365,16 +364,14 @@ class RadarBox(Aggregator):
                 flash_message=True)
             return None
 
-        suffix = f"_{idx}" if idx else ""
         # make sure we correctly enable the hacks
-        extra_env = f"-v /opt/adsb/rb/cpuinfo{suffix}:/proc/cpuinfo "
+        extra_env = f"-v /opt/adsb/rb/cpuinfo:/proc/cpuinfo "
         if self._d.env_by_tags("rbthermalhack").value != "":
             extra_env += "-v /opt/adsb/rb:/sys/class/thermal:ro "
 
         cmdline = (
             f"--rm -i --network config_default -e BEASTHOST=ultrafeeder -e LAT={self.lat} "
-            f"-e LONG={self.lon} -e ALT={self.alt} {extra_env} {docker_image}"
-        )
+            f"-e LONG={self.lon} -e ALT={self.alt} {extra_env} {docker_image}")
         output = self._docker_run_with_timeout(cmdline, 45.0)
         sharing_key_match = re.search("Your new key is ([a-zA-Z0-9]*)", output)
         if not sharing_key_match:
@@ -387,15 +384,14 @@ class RadarBox(Aggregator):
 
         return sharing_key_match.group(1)
 
-    def _activate(self, sharing_key: Optional[str], idx=0):
-        self._idx = make_int(idx)
+    def _activate(self, sharing_key: Optional[str]):
         if not sharing_key:
-            sharing_key = self._request_rb_sharing_key(idx)
+            sharing_key = self._request_rb_sharing_key()
         if not sharing_key:
             return False
 
-        self._d.env_by_tags(self._key_tags).list_set(idx, sharing_key)
-        self._d.env_by_tags(self._enabled_tags).list_set(idx, True)
+        self._d.env_by_tags(self._key_tags).list_set(0, sharing_key)
+        self._d.env_by_tags(self._enabled_tags).list_set(0, True)
         return True
 
 
@@ -421,7 +417,8 @@ class OpenSky(Aggregator):
             f"-e LONG={self.lon} -e ALT={self.alt} -e OPENSKY_USERNAME={user} {docker_image}"
         )
         output = self._docker_run_with_timeout(cmdline, 60.0)
-        serial_match = re.search("Got a new serial number: ([-a-zA-Z0-9]*)", output)
+        serial_match = re.search(
+            "Got a new serial number: ([-a-zA-Z0-9]*)", output)
         if not serial_match:
             self._logger.error(
                 "couldn't find a serial number in the container output: "
@@ -432,8 +429,7 @@ class OpenSky(Aggregator):
 
         return serial_match.group(1)
 
-    def _activate(self, user: str, serial: Optional[str], idx=0):
-        self._idx = make_int(idx)
+    def _activate(self, user: str, serial: Optional[str]):
         if not user:
             self._logger.error(f"missing user name for OpenSky")
             return False
@@ -443,9 +439,9 @@ class OpenSky(Aggregator):
             if not serial:
                 self._logger.error("failed to get OpenSky serial")
                 return False
-        self._d.env_by_tags(self.tags + ["user"]).list_set(idx, user)
-        self._d.env_by_tags(self.tags + ["key"]).list_set(idx, serial)
-        self._d.env_by_tags(self.tags + ["is_enabled"]).list_set(idx, True)
+        self._d.env_by_tags(self.tags + ["user"]).list_set(0, user)
+        self._d.env_by_tags(self.tags + ["key"]).list_set(0, serial)
+        self._d.env_by_tags(self.tags + ["is_enabled"]).list_set(0, True)
         return True
 
 
@@ -457,8 +453,8 @@ class RadarVirtuel(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        return self._simple_activate(user_input, idx)
+    def _activate(self, user_input: str):
+        return self._simple_activate(user_input)
 
 
 class PlaneFinder(Aggregator):
@@ -469,8 +465,8 @@ class PlaneFinder(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        return self._simple_activate(user_input, idx)
+    def _activate(self, user_input: str):
+        return self._simple_activate(user_input)
 
 
 class Uk1090(Aggregator):
@@ -481,8 +477,8 @@ class Uk1090(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        return self._simple_activate(user_input, idx)
+    def _activate(self, user_input: str):
+        return self._simple_activate(user_input)
 
 
 class Sdrmap(Aggregator):
@@ -493,20 +489,20 @@ class Sdrmap(Aggregator):
             system=system,
         )
 
-    def _activate(self, user_input: str, idx=0):
-        self._idx = make_int(idx)
+    def _activate(self, user_input: str):
         password, user = user_input.split("::")
         self._logger.error(
-            f"passed in {user_input} seeing user |{user}| and password |{password}|")
+            f"passed in {user_input} seeing user |{user}| and password |{password}|"
+        )
         if not user:
             self._logger.error(f"missing user name for sdrmap")
             return False
         if not password:
             self._logger.error(f"missing password for sdrmap")
             return False
-        self._d.env_by_tags(self.tags + ["user"]).list_set(idx, user)
-        self._d.env_by_tags(self.tags + ["key"]).list_set(idx, password)
-        self._d.env_by_tags(self.tags + ["is_enabled"]).list_set(idx, True)
+        self._d.env_by_tags(self.tags + ["user"]).list_set(0, user)
+        self._d.env_by_tags(self.tags + ["key"]).list_set(0, password)
+        self._d.env_by_tags(self.tags + ["is_enabled"]).list_set(0, True)
         return True
 
 
@@ -525,27 +521,24 @@ class Porttracker(Aggregator):
     def _activate(
             self, station_id: int, data_sharing_key: str, mqtt_protocol: str,
             mqtt_host: str, mqtt_port: str, mqtt_username: str,
-            mqtt_password: str, mqtt_topic: str, site_num=0):
+            mqtt_password: str, mqtt_topic: str):
         mqtt_url = "{}://{}:{}@{}:{}".format(
             mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
         client_id = f"{mqtt_username}-{station_id}"
-        self._d.env_by_tags(self.tags + ["station_id"]).list_set(
-            site_num, station_id)
+        self._d.env_by_tags(self.tags + ["station_id"]).list_set(0, station_id)
         self._d.env_by_tags(self.tags + ["data_sharing_key"]).list_set(
-            site_num, data_sharing_key)
-        self._d.env_by_tags(self.tags + ["mqtt_url"]).list_set(
-            site_num, mqtt_url)
+            0, data_sharing_key)
+        self._d.env_by_tags(self.tags + ["mqtt_url"]).list_set(0, mqtt_url)
         self._d.env_by_tags(self.tags + ["mqtt_client_id"]).list_set(
-            site_num, client_id)
-        self._d.env_by_tags(self.tags + ["mqtt_qos"]).list_set(site_num, "0")
-        self._d.env_by_tags(self.tags + ["mqtt_topic"]).list_set(
-            site_num, mqtt_topic)
+            0, client_id)
+        self._d.env_by_tags(self.tags + ["mqtt_qos"]).list_set(0, "0")
+        self._d.env_by_tags(self.tags + ["mqtt_topic"]).list_set(0, mqtt_topic)
         self._d.env_by_tags(self.tags + ["mqtt_msgformat"]).list_set(
-            site_num, "JSON_NMEA")
-        self._d.env_by_tags(self._enabled_tags).list_set(site_num, True)
+            0, "JSON_NMEA")
+        self._d.env_by_tags(self._enabled_tags).list_set(0, True)
         self._station_id = station_id
         return True
 
-    def _deactivate(self, site_num=0):
-        self._d.env_by_tags(self._enabled_tags).list_set(site_num, False)
+    def _deactivate(self):
+        self._d.env_by_tags(self._enabled_tags).list_set(0, False)
         return True
