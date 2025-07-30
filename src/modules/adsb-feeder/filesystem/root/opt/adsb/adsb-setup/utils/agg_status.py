@@ -4,6 +4,7 @@ import json
 import logging
 import pathlib
 import re
+import requests
 import subprocess
 import threading
 import time
@@ -412,7 +413,11 @@ class RadarVirtuelAggregatorStatus(NoInfoAggregatorStatus):
         return "radarvirtuel"
 
 
-class PorttrackerAggregatorStatus(NoInfoAggregatorStatus):
+class PorttrackerAggregatorStatus(AggregatorStatus):
+    STATS_URL_TEMPLATE = (
+        "https://porttracker-api.porttracker.co/api/v1/sharing/stations/"
+        "{station_id}/stats/basic")
+
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="porttracker", name="Porttracker",
@@ -422,6 +427,31 @@ class PorttrackerAggregatorStatus(NoInfoAggregatorStatus):
     @property
     def _container_name(self):
         return "shipfeeder"
+
+    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+        data_sharing_key_env = self._d.env_by_tags([
+            "porttracker", "data_sharing_key"])
+        station_id_env = self._d.env_by_tags(["porttracker", "station_id"])
+        if not data_sharing_key_env or not station_id_env:
+            raise self.CheckError(
+                "Data sharing key or station ID configuration not found.")
+        data_sharing_key = data_sharing_key_env.value[0]
+        station_id = station_id_env.value[0]
+        if not data_sharing_key or not station_id:
+            raise self.CheckError(
+                "Data sharing key or station ID not configured.")
+        response = requests.get(
+            url=self.STATS_URL_TEMPLATE.format(station_id=station_id),
+            headers={"X-Data-Sharing-Key": data_sharing_key}, timeout=5)
+        response.raise_for_status()
+        resp_dict = response.json()
+        if resp_dict["ais"]["past5m"] >= 100:
+            data_status = Status.GOOD
+        elif resp_dict["ais"]["past5m"] > 0:
+            data_status = Status.WARNING
+        else:
+            data_status = Status.BAD
+        return data_status, Status.DISABLED
 
 
 class AirnavRadarAggregatorStatus(AggregatorStatus):
