@@ -39,8 +39,13 @@ _status_symbol = {
 _status_dict = None
 
 
-def statuses(data: utils.data.Data,
+def all(data: utils.data.Data,
              system: utils.system.System) -> dict[str, "AggregatorStatus"]:
+    """
+    Get all aggregators.
+
+    Returns a dict mapping each aggregator's key to its instance.
+    """
     global _status_dict
     if _status_dict is None:
         _status_dict = {}

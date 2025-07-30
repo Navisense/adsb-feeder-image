@@ -45,7 +45,7 @@ import werkzeug.serving
 from werkzeug.utils import secure_filename
 
 import hotspot
-import utils.agg_status
+import utils.aggregators
 from utils.config import (
     config_lock,
     read_values_from_env_file,
@@ -1304,27 +1304,27 @@ class AdsbIm:
                 "pps": s.position_message_rate,} for s in history],}
 
     def agg_status(self, agg_key):
-        agg_statuses = utils.agg_status.statuses(self._d, self._system)
+        aggregators = utils.aggregators.all(self._d, self._system)
         try:
-            agg_status = agg_statuses[agg_key]
+            aggregator = aggregators[agg_key]
         except KeyError:
             flask.abort(404)
-        if not agg_status.enabled:
+        if not aggregator.enabled:
             return {}
-        return self._make_aggregator_status(agg_status)
+        return self._make_aggregator_status(aggregator)
 
     def _make_aggregator_status(
-            self, agg_status: utils.agg_status.AggregatorStatus):
+            self, aggregator: utils.aggregators.AggregatorStatus):
         res = {
-            "data": agg_status.data_status,
-            "mlat": agg_status.mlat_status,}
-        if agg_status.agg_key == "adsbx":
+            "data": aggregator.data_status,
+            "mlat": aggregator.mlat_status,}
+        if aggregator.agg_key == "adsbx":
             res["adsbxfeederid"] = (
                 self._d.env_by_tags("adsbxfeederid").list_get(0))
-        elif agg_status.agg_key == "adsblol":
+        elif aggregator.agg_key == "adsblol":
             res["adsblollink"] = (
                 self._d.env_by_tags("adsblol_link").list_get(0))
-        elif agg_status.agg_key == "alive":
+        elif aggregator.agg_key == "alive":
             res["alivemaplink"] = (
                 self._d.env_by_tags("alivemaplink").list_get(0))
         return res
@@ -2505,10 +2505,10 @@ class AdsbIm:
 
     @check_restart_lock
     def overview(self):
-        agg_statuses = utils.agg_status.statuses(self._d, self._system)
-        enabled_aggregators = [a for a in agg_statuses.values() if a.enabled]
-        for agg_status in enabled_aggregators:
-            agg_status.refresh_cache()
+        aggregators = utils.aggregators.all(self._d, self._system)
+        enabled_aggregators = [a for a in aggregators.values() if a.enabled]
+        for aggregator in enabled_aggregators:
+            aggregator.refresh_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
