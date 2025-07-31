@@ -53,7 +53,7 @@
                      class="form-check-input me-1"
                      name="adsblol-is-enabled"
                      id="adsblol-is-enabled"
-                     {% if aggregators['adsblol'].enabled %}checked{% endif %} />
+                     {% if aggregators['adsblol'].enabled('adsb') %}checked{% endif %} />
               <label for="adsblol-is-enabled">
                 <a href="https://adsb.lol/privacy-license/">adsb.lol</a>
               </label>
@@ -63,7 +63,7 @@
                      class="form-check-input me-1"
                      name="flyitaly-is-enabled"
                      id="flyitaly-is-enabled"
-                     {% if aggregators['flyitaly'].enabled %}checked{% endif %} />
+                     {% if aggregators['flyitaly'].enabled('adsb') %}checked{% endif %} />
               <label for="flyitaly-is-enabled">
                 <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>
               </label>
@@ -73,7 +73,7 @@
                      class="form-check-input me-1"
                      name="avdelphi-is-enabled"
                      id="avdelphi-is-enabled"
-                     {% if aggregators['avdelphi'].enabled %}checked{% endif %} />
+                     {% if aggregators['avdelphi'].enabled('adsb') %}checked{% endif %} />
               <label for="avdelphi-is-enabled">
                 <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>
               </label>
@@ -83,7 +83,7 @@
                      class="form-check-input me-1"
                      name="planespotters-is-enabled"
                      id="planespotters-is-enabled"
-                     {% if aggregators['planespotters'].enabled %}checked{% endif %} />
+                     {% if aggregators['planespotters'].enabled('adsb') %}checked{% endif %} />
               <label for="planespotters-is-enabled">
                 <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>
               </label>
@@ -95,7 +95,7 @@
                      title="please note that this site is missing a clear data/privacy policy"
                      name="tat-is-enabled"
                      id="tat-is-enabled"
-                     {% if aggregators['tat'].enabled %}checked{% endif %} />
+                     {% if aggregators['tat'].enabled('adsb') %}checked{% endif %} />
               <label for="tat-is-enabled">
                 <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>
               </label>
@@ -105,7 +105,7 @@
                      class="form-check-input me-1"
                      name="adsbfi-is-enabled"
                      id="adsbfi-is-enabled"
-                     {% if aggregators['adsbfi'].enabled %}checked{% endif %} />
+                     {% if aggregators['adsbfi'].enabled('adsb') %}checked{% endif %} />
               <label for="adsbfi-is-enabled">
                 <a href="https://adsb.fi/privacy">adsb.fi</a>
               </label>
@@ -117,7 +117,7 @@
                      title="please note that this site is missing a clear data/privacy policy"
                      name="hpradar-is-enabled"
                      id="hpradar-is-enabled"
-                     {% if aggregators['hpradar'].enabled %}checked{% endif %} />
+                     {% if aggregators['hpradar'].enabled('adsb') %}checked{% endif %} />
               <label for="hpradar-is-enabled">
                 <a href="https://skylink.hpradar.com/"
                    data-mdb-toggle="tooltip"
@@ -129,7 +129,7 @@
                      class="form-check-input me-1"
                      name="alive-is-enabled"
                      id="alive-is-enabled"
-                     {% if aggregators['alive'].enabled %}checked{% endif %} />
+                     {% if aggregators['alive'].enabled('adsb') %}checked{% endif %} />
               <label for="alive-is-enabled">
                 <a href="https://airplanes.live/privacy">airplanes.live</a>
               </label>
@@ -139,15 +139,15 @@
                      class="form-check-input me-1"
                      name="adsbx-is-enabled"
                      id="adsbx-is-enabled"
-                     {% if aggregators['adsbx'].enabled %}checked{% endif %} />
+                     {% if aggregators['adsbx'].enabled('adsb') %}checked{% endif %} />
               <label for="adsbx-is-enabled">
                 <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
               </label>
             </div>
-            {% if aggregators['adsblol'].enabled or any_non_adsblol_uf_aggregators %}
+            {% if aggregators['adsblol'].enabled('adsb') or any_non_adsblol_uf_aggregators %}
               <div class="col-12 small fw-light text-muted text-end">
                 <div class="small fw-light text-muted text-end collapse" id="show-uuids">
-                  {% if aggregators['adsblol'].enabled %}adsb.lol UUID: {{ list_value_by_tags(["adsblol_uuid"]) }}{% endif %}
+                  {% if aggregators['adsblol'].enabled('adsb') %}adsb.lol UUID: {{ list_value_by_tags(["adsblol_uuid"]) }}{% endif %}
                   <br>
                   {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ list_value_by_tags(["ultrafeeder_uuid"]) }}{% endif %}
                 </div>
@@ -165,7 +165,7 @@
                      class="form-check-input me-1"
                      name="flightradar-is-enabled"
                      id="flightradar-is-enabled"
-                     {% if aggregators['flightradar'].enabled %}checked{% endif %} />
+                     {% if aggregators['flightradar'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="flightradar-is-enabled">
                 <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
                 <div class="form-group" id="flightradar-setup">
@@ -207,7 +207,7 @@
                      class="form-check-input me-1"
                      name="planewatch-is-enabled"
                      id="planewatch-is-enabled"
-                     {% if aggregators['planewatch'].enabled %}checked{% endif %} />
+                     {% if aggregators['planewatch'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="planewatch-is-enabled">
                 <a href="https://plane.watch"
                    data-mdb-toggle="tooltip"
@@ -232,7 +232,7 @@
                      class="form-check-input me-1"
                      name="flightaware-is-enabled"
                      id="flightaware-is-enabled"
-                     {% if aggregators['flightaware'].enabled %}checked{% endif %} />
+                     {% if aggregators['flightaware'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="FA">
                 <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
                 <div class="form-group" id="flightaware-setup">
@@ -270,7 +270,7 @@
                      class="form-check-input me-1"
                      name="radarbox-is-enabled"
                      id="radarbox-is-enabled"
-                     {% if aggregators['radarbox'].enabled %}checked{% endif %} />
+                     {% if aggregators['radarbox'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="radarbox-is-enabled">
                 <a href="https://www.airnavradar.com/terms-of-use"
                    data-mdb-toggle="tooltip"
@@ -300,7 +300,7 @@
                      class="form-check-input me-1"
                      name="planefinder-is-enabled"
                      id="planefinder-is-enabled"
-                     {% if aggregators['planefinder'].enabled %}checked{% endif %} />
+                     {% if aggregators['planefinder'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="planefinder-is-enabled">
                 <a href="https://planefinder.net/legal/privacy-information-notice">PlaneFinder</a>
                 <div class="form-group" id="planefinder-setup">
@@ -324,7 +324,7 @@
                      class="form-check-input me-1"
                      name="adsbhub-is-enabled"
                      id="adsbhub-is-enabled"
-                     {% if aggregators['adsbhub'].enabled %}checked{% endif %} />
+                     {% if aggregators['adsbhub'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="adsbhub-is-enabled">
                 <a href="https://www.adsbhub.org/privacy-policy.php">ADSBHub</a>
                 <div class="form-group" id="adsbhub-setup">
@@ -348,7 +348,7 @@
                      class="form-check-input me-1"
                      name="opensky-is-enabled"
                      id="opensky-is-enabled"
-                     {% if aggregators['opensky'].enabled %}checked{% endif %} />
+                     {% if aggregators['opensky'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="opensky-is-enabled">
                 <a href="https://opensky-network.org/about/privacy-policy">OpenSky Network</a>
                 <!-- this one needs automation set up with a docker container again -- and it needs two fields -->
@@ -383,7 +383,7 @@
                      class="form-check-input me-1"
                      name="radarvirtuel-is-enabled"
                      id="radarvirtuel-is-enabled"
-                     {% if aggregators['radarvirtuel'].enabled %}checked{% endif %} />
+                     {% if aggregators['radarvirtuel'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="radarvirtuel-is-enabled">
                 <a href="https://www.radarvirtuel.com/"
                    data-mdb-toggle="tooltip"
@@ -409,7 +409,7 @@
                      class="form-check-input me-1"
                      name="1090uk-is-enabled"
                      id="1090uk-is-enabled"
-                     {% if aggregators['1090uk'].enabled %}checked{% endif %} />
+                     {% if aggregators['1090uk'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="1090uk-is-enabled">
                 <a href="https://1090mhz.uk/legal.html#privacy">1090MHz UK</a>
                 <div class="form-group" id="1090uk-setup">
@@ -432,7 +432,7 @@
                      class="form-check-input me-1"
                      name="sdrmap-is-enabled"
                      id="sdrmap-is-enabled"
-                     {% if aggregators['sdrmap'].enabled %}checked{% endif %} />
+                     {% if aggregators['sdrmap'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="sdrmap-is-enabled">
                 <a href="https://sdrmap.org/">sdrmap</a>
                 <div class="form-group" id="sdrmap-setup">
@@ -477,7 +477,7 @@
                      class="form-check-input me-1"
                      name="porttracker-is-enabled"
                      id="porttracker-is-enabled"
-                     {% if aggregators['porttracker'].enabled %}checked{% endif %} />
+                     {% if aggregators['porttracker'].enabled('ais') %}checked{% endif %} />
               <label for="porttracker-is-enabled">
                 <a href="https://porttracker.co/">Porttracker</a>
               </label>

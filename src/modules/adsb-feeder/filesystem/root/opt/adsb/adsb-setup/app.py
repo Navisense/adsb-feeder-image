@@ -1168,7 +1168,7 @@ class AdsbIm:
         return True
 
     def at_least_one_aggregator(self) -> bool:
-        return any(agg.enabled for agg in self._all_aggregators().values())
+        return any(agg.enabled() for agg in self._all_aggregators().values())
 
     def ip_info(self):
         ip, status = self._system.check_ip()
@@ -1262,7 +1262,7 @@ class AdsbIm:
             aggregator = self._all_aggregators()[agg_key]
         except KeyError:
             flask.abort(404)
-        if not aggregator.enabled:
+        if not aggregator.enabled():
             return {}
         return self._make_aggregator_status(aggregator)
 
@@ -1475,7 +1475,7 @@ class AdsbIm:
             self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
 
         for agg in self._all_aggregators().values():
-            if (agg.enabled and agg.needs_key and self._d.env_by_tags([
+            if (agg.enabled() and agg.needs_key and self._d.env_by_tags([
                     agg.agg_key, "key"]).list_get(0) == ""):
                 self._logger.warning(f"Empty key, disabling {agg}.")
                 self._d.env_by_tags([agg.agg_key,
@@ -2105,7 +2105,7 @@ class AdsbIm:
             return self.update(needs_docker_restart=True)
 
         any_non_adsblol_uf_aggregators = any(
-            agg.enabled
+            agg.enabled()
             for agg in self._all_aggregators().values()
             if isinstance(agg, utils.aggregators.UltrafeederAggregator)
             and not isinstance(agg, utils.aggregators.AdsbLolAggregator))
@@ -2329,7 +2329,7 @@ class AdsbIm:
     @check_restart_lock
     def overview(self):
         enabled_aggregators = [
-            a for a in self._all_aggregators().values() if a.enabled]
+            a for a in self._all_aggregators().values() if a.enabled()]
         for aggregator in enabled_aggregators:
             aggregator.refresh_status_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
@@ -2381,7 +2381,7 @@ class AdsbIm:
         available_tags = gitlab.gitlab_repo().get_tags()
         return render_template(
             "overview.html",
-            aggregators=enabled_aggregators,
+            enabled_aggregators=enabled_aggregators,
             local_address=local_address,
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,

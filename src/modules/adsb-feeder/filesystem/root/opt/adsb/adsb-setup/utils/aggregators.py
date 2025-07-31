@@ -27,9 +27,9 @@ class Status(enum.StrEnum):
     GOOD = "good"
 
 
-class MessageType(enum.Enum):
-    AIS = enum.auto()
-    ADSB = enum.auto()
+class MessageType(enum.StrEnum):
+    AIS = "ais"
+    ADSB = "adsb"
 
 
 class AisStatus(t.TypedDict):
@@ -143,10 +143,6 @@ class Aggregator(abc.ABC):
         return self._name
 
     @property
-    def enabled(self) -> bool:
-        return self._d.list_is_enabled(self.agg_key, 0)
-
-    @property
     def map_url(self) -> Optional[str]:
         return self._map_url
 
@@ -174,6 +170,17 @@ class Aggregator(abc.ABC):
     @abc.abstractmethod
     def _container_name(self) -> str:
         raise NotImplementedError
+
+    def enabled(self, *message_types: MessageType) -> bool:
+        """"
+        Whether the aggregator is enabled for the given message types.
+
+        If no message types are given, returns whether the aggregator is
+        enabled for any message types.
+        """
+        if not all(t in self.capable_message_types for t in message_types):
+            return False
+        return self._d.list_is_enabled(self.agg_key, 0)
 
     def configure(self, enabled: bool, *args) -> None:
         self._d.env_by_tags([self.agg_key, "is_enabled"]).list_set(0, enabled)

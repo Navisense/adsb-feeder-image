@@ -42,7 +42,7 @@
             height: 100%">
   <canvas id="reception-history-chart"></canvas>
 </div>
-<div class="col-12 {% if (aggregators | length) == 0 %}d-none{% endif %}">
+<div class="col-12 {% if (enabled_aggregators | length) == 0 %}d-none{% endif %}">
   <h4>You are feeding</h4>
   <div class="row small">
     <div class="col-12 col-md-6" style="overflow-x: auto">
@@ -55,7 +55,7 @@
           <td class="text-center" colspan="1">Status</td>
         </thead>
         <tbody>
-          {% for agg in aggregators %}
+          {% for agg in enabled_aggregators %}
             <tr>
               <td style="position: -webkit-sticky; position: sticky; left: 0px;">
                 {% if agg.map_url %}
@@ -65,9 +65,7 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-enabled" width="3em">
-                  {% if agg.enabled %}✓{% endif %}
-                </span>
+                <span id="{{ agg.agg_key }}-enabled" width="3em">✓</span>
               </td>
               <td class="text-center">
                 <span id="{{ agg.agg_key }}-data-status" width="3em"></span>
@@ -76,7 +74,7 @@
                 <span id="{{ agg.agg_key }}-mlat-status" width="3em"></span>
               </td>
               <td class="text-center">
-                {% if agg.enabled and agg.status_url %}
+                {% if agg.status_url %}
                   <a href="{{ agg.status_url }}">🔗</a>
                 {% endif %}
               </td>
@@ -116,7 +114,7 @@
 </div>
 <div class="col-12 mb-4">
   <div class="small">
-    {% if (aggregators | length) == 0 %}
+    {% if (enabled_aggregators | length) == 0 %}
       No aggregators configured. Add aggregators:
     {% else %}
       Add or remove aggregators:
@@ -414,10 +412,8 @@
     "Update aggregator status",
     60000,
     function() {
-      {% for agg in aggregators %}
-        {% if agg.enabled %}
-          refreshAggregatorStatus("{{ agg.agg_key }}");
-        {% endif %}
+      {% for agg in enabled_aggregators %}
+        refreshAggregatorStatus("{{ agg.agg_key }}");
       {% endfor %}
       $("#last-aggregator-status-update").html(new Date().toLocaleTimeString());
     }
