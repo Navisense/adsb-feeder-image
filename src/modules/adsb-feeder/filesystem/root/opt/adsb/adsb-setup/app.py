@@ -1736,8 +1736,6 @@ class AdsbIm:
         referer = request.headers.get("referer")
         allow_insecure = not self.check_secure_image()
         print_err(f"handling input from {referer} and site # {sitenum} / {site} (allow insecure is {allow_insecure})")
-        # in the HTML, every input field needs to have a name that is concatenated by "--"
-        # and that matches the tags of one Env
         form: Dict = request.form
         seen_go = False
         next_url = None
@@ -2013,32 +2011,41 @@ class AdsbIm:
                 continue
             if key == "enable-prometheus-metrics":
                 self._ensure_prometheus_metrics_state(is_true(value))
-            e = self._d.env_by_tags(key.split("--"))
-            if e:
+                continue
+            if key == "tz":
+                self.set_tz(value)
+                continue
+            # Form data can directly set config variables if the key, when
+            # split by the string "--" is a subset of the config variable's
+            # tags (this includes the case where the key is equal to one of the
+            # tags). At the time of this writing, the only cases where
+            # splitting by "--" is done is for <something>--is_enabled, to
+            # enable certain features directly from a template. Other uses
+            # exist, but there the key is exactly one of the tags.
+            tags = key.split("--")
+            env = self._d.env_by_tags(tags)
+            if env:
                 if allow_insecure and key == "zerotierid":
                     try:
-                        subprocess.call("/usr/bin/systemctl unmask zerotier-one", shell=True)
-                        subprocess.call("/usr/bin/systemctl enable --now zerotier-one", shell=True)
-                        sleep(5.0)  # this gives the service enough time to get ready
-                        subprocess.call(
-                            ["/usr/sbin/zerotier-cli", "join", f"{value}"],
-                        )
+                        utils.system.systemctl().run(
+                            ["unmask", "enable --now"], ["zerotier-one"])
+                        # Wait for the service to get ready...
+                        sleep(5.0)
+                        subprocess.call([
+                            "/usr/sbin/zerotier-cli", "join", f"{value}"])
                     except:
                         self._logger.exception(
-                            "Exception trying to set up zerorier - giving up",
+                            "Exception trying to set up zerotier - giving up",
                             flash_message=True)
-                if key in {"lat", "lon"}:
+                elif key in {"lat", "lon"}:
                     # remove letters, spaces, degree symbols
                     value = str(float(re.sub("[a-zA-Z° ]", "", value)))
-                if key == "tz":
-                    self.set_tz(value)
-                    continue
-                if key == "uatgain":
-                    if value == "" or value == "auto":
-                        value = "autogain"
-                if key == "gain":
-                    if value == "":
-                        value = "auto"
+                elif key == "uatgain" and value in ["", "auto"]:
+                    value = "autogain"
+                elif key == "gain" and value == "":
+                    value = "auto"
+                elif key == "site_name":
+                    value = self.unique_site_name(value, 0)
                 # deal with the micro feeder and stage2 initial setup
                 if key == "aggregator_choice" and value in ["micro", "nano"]:
                     self._d.env_by_tags("aggregators_chosen").value = True
@@ -2050,10 +2057,14 @@ class AdsbIm:
                     if value == "nano":
                         # make sure we don't log to disk at all
                         try:
-                            subprocess.call("bash /opt/adsb/scripts/journal-set-volatile.sh", shell=True, timeout=5)
+                            subprocess.call(
+                                "bash /opt/adsb/scripts/journal-set-volatile.sh",
+                                shell=True, timeout=5)
                             print_err("switched to volatile journal")
                         except:
-                            print_err("exception trying to switch to volatile journal - ignoring")
+                            print_err(
+                                "exception trying to switch to volatile journal - ignoring"
+                            )
                 if key == "aggregator_choice" and value == "stage2":
                     next_url = url_for("stage2")
                     self._d.env_by_tags("stage2").value = True
@@ -2063,44 +2074,40 @@ class AdsbIm:
                         push_multi_outline_task.start(execute_now=True)
                         self._background_tasks["multi_outline"] = (
                             push_multi_outline_task)
-                    unique_name = self.unique_site_name(form.get("site_name"), 0)
+                    unique_name = self.unique_site_name(
+                        form.get("site_name"), 0)
                     self._d.env_by_tags("site_name").list_set(0, unique_name)
-                # if this is a regular feeder and the user is changing to 'individual' selection
-                # (either in initial setup or when coming back to that setting later), show them
-                # the aggregator selection page next
-                if (
-                    key == "aggregator_choice"
-                    and not self._d.is_enabled("stage2")
-                    and value == "individual"
-                    and self._d.env_by_tags("aggregator_choice").value != "individual"
-                ):
+                # if this is a regular feeder and the user is changing to
+                # 'individual' selection (either in initial setup or when
+                # coming back to that setting later), show them the aggregator
+                # selection page next
+                if (key == "aggregator_choice"
+                        and not self._d.is_enabled("stage2")
+                        and value == "individual"
+                        and self._d.env_by_tags("aggregator_choice").value
+                        != "individual"):
                     # show the aggregator selection
                     next_url = url_for("aggregators")
-                # finally, painfully ensure that we remove explicitly asigned SDRs from other asignments
-                # this relies on the web page to ensure that each SDR is only asigned on purpose
-                # the key in quesiton will be explicitely set and does not need clearing
-                # empty string means no SDRs assigned to that purpose
+                # If this is an assignment of an SDR device to a purpose (i.e.
+                # ais, 1090 etc.), make sure that device is only assigned once
+                # by clearing all of its other assignments.
                 purposes = self._sdrdevices.purposes()
                 if key in purposes and value != "":
-                    for clear_key in purposes:
-                        if clear_key != key and value == self._d.env_by_tags(clear_key).value:
-                            print_err(f"clearing: {str(clear_key)} old value: {value}")
-                            self._d.env_by_tags(clear_key).value = ""
-                # when dealing with micro feeder aggregators, we need to keep the site number
-                # in mind
-                tags = key.split("--")
-                if sitenum > 0 and "is_enabled" in tags:
-                    print_err(f"setting up stage2 micro site number {sitenum}: {key}")
-                    self._d.env_by_tags("aggregators_chosen").value = True
-                    self._d.env_by_tags(tags).list_set(sitenum, is_true(value))
+                    for other_purpose in purposes:
+                        if key == other_purpose or value != self._d.env_by_tags(
+                                other_purpose).value:
+                            continue
+                        self._logger.info(
+                            f"Device {value} was just assigned to purpose "
+                            f"{key}, but still had a previous assignment to "
+                            f"{other_purpose}. Clearing the old one so it "
+                            "only has one purpose.")
+                        self._d.env_by_tags(other_purpose).value = ""
+                if type(env._value) == list:
+                    env.list_set(0, value)
                 else:
-                    if type(e._value) == list:
-                        e.list_set(sitenum, value)
-                    else:
-                        e.value = value
-                if key == "site_name":
-                    unique_name = self.unique_site_name(value, sitenum)
-                    self._d.env_by_tags("site_name").list_set(sitenum, unique_name)
+                    env.value = value
+
         # done handling the input data
         # what implied settings do we have (and could we simplify them?)
 
