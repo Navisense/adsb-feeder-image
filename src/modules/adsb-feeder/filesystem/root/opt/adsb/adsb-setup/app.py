@@ -329,8 +329,7 @@ class AdsbIm:
                 "env_value_by_tag": lambda tag: get_value([tag]),  # single tag
                 "env_value_by_tags": lambda tags: get_value(tags),  # list of tags
                 "list_value_by_tag": lambda tag, idx: list_value_by_tags([tag], idx),
-                "list_value_by_tags": lambda tag, idx: list_value_by_tags(tag, idx),
-                "env_values": self._d.env_values,
+                "list_value_by_tags": lambda tags: list_value_by_tags(tags, 0),
                 "url_for": url_for_with_empty_parameters,
                 "is_reception_enabled": self.is_reception_enabled,
             }
@@ -2219,51 +2218,17 @@ class AdsbIm:
             self._configure_aggregators(request.form)
             return self.update(needs_docker_restart=True)
 
-        def uf_enabled(tag, m=0):
-            # stack_info(f"tags are {type(tag)} {tag}")
-            if type(tag) == str:
-                tag = [tag]
-            if type(tag) != list:
-                print_err(f"PROBLEM::: tag is {type(tag)}")
-            return "checked" if self._d.list_is_enabled(["ultrafeeder"] + tag, idx=m) else ""
-
-        def others_enabled(tag, m=0):
-            # stack_info(f"tags are {type(tag)} {tag}")
-            if type(tag) == str:
-                tag = [tag]
-            if type(tag) != list:
-                print_err(f"PROBLEM::: tag is {type(tag)}")
-            return "checked" if self._d.list_is_enabled(["other_aggregator"] + tag, idx=m) else ""
-
-        # is this a stage2 site and you are looking at an individual micro feeder,
-        # or is this a regular feeder? If we have a query argument m that is a non-negative
-        # number, then yes it is
-        if self._d.is_enabled("stage2"):
-            print_err("setting up aggregators on a stage 2 system")
-            try:
-                m = int(request.args.get("m"))
-            except:
-                m = 0
-            if m == 0:  # do not set up aggregators for the aggregated feed
-                if self._d.env_by_tags("num_micro_sites").value == "0":
-                    # things aren't set up yet, bail out to the stage 2 setup
-                    return redirect(url_for("stage2"))
-                else:
-                    # data sharing for the combined data is impossible,
-                    # redirect instead of showing the data sharing page
-                    return redirect(url_for("director"))
-            site = self._d.env_by_tags("site_name").list_get(m)
-            print_err(f"setting up aggregators for site {site} (m={m})")
-        else:
-            site = ""
-            m = 0
+        any_non_adsblol_uf_aggregators = any(
+            agg.enabled
+            for agg in utils.aggregators.all_aggregators(
+                self._d, self._system).values()
+            if isinstance(agg, utils.aggregators.UltrafeederAggregator)
+            and not isinstance(agg, utils.aggregators.AdsbLolAggregator))
         return render_template(
             "aggregators.html",
-            uf_enabled=uf_enabled,
-            others_enabled=others_enabled,
-            site=site,
-            m=str(m),
-            piastatport=str(m * 1000 + make_int(self._d.env_by_tags("piastatport").value)),
+            aggregators=utils.aggregators.all_aggregators(
+                self._d, self._system),
+            any_non_adsblol_uf_aggregators=any_non_adsblol_uf_aggregators,
         )
 
     def _configure_aggregators(self, form: dict[str, str]):
