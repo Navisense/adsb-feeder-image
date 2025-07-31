@@ -149,7 +149,7 @@
                 <div class="small fw-light text-muted text-end collapse" id="show-uuids">
                   {% if aggregators['adsblol'].enabled %}adsb.lol UUID: {{ list_value_by_tags(["adsblol_uuid"]) }}{% endif %}
                   <br>
-                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ list_value_by_tag(["ultrafeeder_uuid"]) }}{% endif %}
+                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ list_value_by_tags(["ultrafeeder_uuid"]) }}{% endif %}
                 </div>
                 <button class="btn btn-secondary small"
                         type="button"
