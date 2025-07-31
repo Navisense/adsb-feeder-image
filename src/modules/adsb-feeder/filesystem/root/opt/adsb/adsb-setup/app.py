@@ -57,19 +57,6 @@ from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
 import utils.gitlab as gitlab
 import utils.netconfig
-from utils.other_aggregators import (
-    ADSBHub,
-    FlightAware,
-    FlightRadar24,
-    OpenSky,
-    PlaneFinder,
-    PlaneWatch,
-    RadarBox,
-    RadarVirtuel,
-    Uk1090,
-    Sdrmap,
-    Porttracker,
-)
 from utils.sdr import SDRDevices
 import utils.stats
 import utils.system
@@ -381,19 +368,6 @@ class AdsbIm:
         # Ensure secure_image is set the new way if before the update it was set only as env variable
         if self._d.is_enabled("secure_image"):
             self.set_secure_image()
-        self._other_aggregators = {
-            "adsbhub": ADSBHub(self._system),
-            "flightaware": FlightAware(self._system),
-            "flightradar": FlightRadar24(self._system),
-            "opensky": OpenSky(self._system),
-            "planefinder": PlaneFinder(self._system),
-            "planewatch": PlaneWatch(self._system),
-            "radarbox": RadarBox(self._system),
-            "radarvirtuel": RadarVirtuel(self._system),
-            "1090uk": Uk1090(self._system),
-            "sdrmap": Sdrmap(self._system),
-            "porttracker": Porttracker(self._system),
-        }
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
         self.app.add_url_rule(
@@ -1204,9 +1178,9 @@ class AdsbIm:
         return True
 
     def at_least_one_aggregator(self) -> bool:
-        return any(
-            agg.enabled
-            for agg in utils.aggregators.all(self._d, self._system).values())
+        aggregators = utils.aggregators.all_aggregators(self._d,
+                                                        self._system).values()
+        return any(agg.enabled for agg in aggregators)
 
     def ip_info(self):
         ip, status = self._system.check_ip()
@@ -1296,7 +1270,7 @@ class AdsbIm:
                 "pps": s.position_message_rate,} for s in history],}
 
     def agg_status(self, agg_key):
-        aggregators = utils.aggregators.all(self._d, self._system)
+        aggregators = utils.aggregators.all_aggregators(self._d, self._system)
         try:
             aggregator = aggregators[agg_key]
         except KeyError:
@@ -1553,7 +1527,8 @@ class AdsbIm:
         if not self._d.env_by_tags("ultrafeeder_uuid").list_get(0):
             self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
 
-        for agg in utils.aggregators.all(self._d, self._system).values():
+        for agg in utils.aggregators.all_aggregators(self._d,
+                                                     self._system).values():
             if (agg.enabled and agg.needs_key and self._d.env_by_tags([
                     agg.agg_key, "key"]).list_get(0) == ""):
                 self._logger.warning(f"Empty key, disabling {agg}.")
@@ -2241,7 +2216,7 @@ class AdsbIm:
     @check_restart_lock
     def aggregators(self):
         if request.method == "POST":
-            self._update_aggregators()
+            self._configure_aggregators(request.form)
             return self.update(needs_docker_restart=True)
 
         def uf_enabled(tag, m=0):
@@ -2291,82 +2266,77 @@ class AdsbIm:
             piastatport=str(m * 1000 + make_int(self._d.env_by_tags("piastatport").value)),
         )
 
-    def _update_aggregators(self):
-        if "flightradar-request-key" in request.form:
-            enabled = utils.util.parse_post_bool(
-                request.form.get("flightradar-is-enabled"))
-            adsb_sharing_key = request.form["flightradar-key"] or None
-            uat_sharing_key = request.form["flightradar-uat-key"] or None
-            aggregator = self._other_aggregators["flightradar"]
+    def _configure_aggregators(self, form: dict[str, str]):
+        for agg_key in ["flightradar", "flightaware", "radarbox", "opensky"]:
+            if f"{agg_key}-request-key" in form:
+                # These aggregators have their own submit buttons to
+                # automatically request keys etc. They used to have special
+                # handling, but now we just configure all aggregators as usual
+                # (including making these special requests if necessary).
+                self._logger.info(
+                    f"Aggregator form submitted from {agg_key} button.")
+        for aggregator in utils.aggregators.all_aggregators(
+                self._d, self._system).values():
+            configure_kwargs = self._make_configure_kwargs(
+                aggregator.agg_key, form)
             self._logger.info(f"Configuring {aggregator}.")
             try:
-                aggregator.configure(
-                    enabled, adsb_sharing_key, uat_sharing_key)
-            except:
+                aggregator.configure(**configure_kwargs)
+            except Exception as e:
+                message = f"Failed to configure {aggregator.name}."
+                if isinstance(e, utils.aggregators.ConfigureError):
+                    message = f"Failed to configure {aggregator.name}: {e}."
+                self._logger.error(message, flash_message=True)
                 self._logger.exception(
-                    "Failed to configure Flightradar.", flash_message=True)
-        if "flightaware-request-key" in request.form:
-            enabled = utils.util.parse_post_bool(
-                request.form.get("flightaware-is-enabled"))
-            feeder_id = request.form["flightaware-key"] or None
-            aggregator = self._other_aggregators["flightaware"]
-            self._logger.info(f"Configuring {aggregator}.")
-            try:
-                aggregator.configure(enabled, feeder_id)
-            except:
-                self._logger.exception(
-                    "Failed to configure Flightaware.", flash_message=True)
-        if "radarbox-request-key" in request.form:
-            enabled = utils.util.parse_post_bool(
-                request.form.get("radarbox-is-enabled"))
-            feeder_id = request.form["radarbox-key"] or None
-            aggregator = self._other_aggregators["radarbox"]
-            self._logger.info(f"Configuring {aggregator}.")
-            try:
-                aggregator.configure(enabled, feeder_id)
-            except:
-                self._logger.exception(
-                    "Failed to configure AirNav Radar.", flash_message=True)
-        if "opensky-request-key" in request.form:
-            enabled = utils.util.parse_post_bool(
-                request.form.get("opensky-is-enabled"))
-            user = request.form["opensky-user"] or None
-            serial = request.form["opensky-key"] or None
-            aggregator = self._other_aggregators["opensky"]
-            self._logger.info(f"Configuring {aggregator}.")
-            try:
-                aggregator.configure(enabled, user, serial)
-            except:
-                self._logger.exception(
-                    "Failed to configure OpenSky.", flash_message=True)
-        self._parse_porttracker_form_data()
+                    f"{message} (kwargs: {configure_kwargs})")
 
-    def _parse_porttracker_form_data(self):
-        aggregator = self._other_aggregators["porttracker"]
-        enabled = utils.util.parse_post_bool(
-            request.form.get("porttracker-is-enabled"))
-        try:
-            station_id = request.form["porttracker-station-id"]
-            data_sharing_key = request.form["porttracker-data-sharing-key"]
-            mqtt_protocol = request.form["porttracker-mqtt-protocol"]
-            mqtt_host = request.form["porttracker-mqtt-host"]
-            mqtt_port = request.form["porttracker-mqtt-port"]
-            mqtt_username = request.form["porttracker-mqtt-username"]
-            mqtt_password = request.form["porttracker-mqtt-password"]
-            mqtt_topic = request.form["porttracker-mqtt-topic"]
-        except KeyError as e:
-            self._logger.exception(
-                f"Can't configure Porttracker: missing key {e}.",
-                flash_message=True)
-            return
-        self._logger.info(f"Configuring {aggregator}.")
-        try:
-            aggregator.configure(
-                enabled, station_id, data_sharing_key, mqtt_protocol,
-                mqtt_host, mqtt_port, mqtt_username, mqtt_password, mqtt_topic)
-        except:
-            self._logger.exception(
-                "Failed to configure Porttracker.", flash_message=True)
+    def _make_configure_kwargs(self, agg_key: str,
+                               form: dict[str, str]) -> dict[str, str | bool]:
+        """Parse aggregator POST form data for aggregator configuration."""
+        # All aggregators need the enabled arg, which is always called
+        # {agg_key}-is-enabled.
+        kwargs = {
+            "enabled": utils.util.parse_post_bool(
+                form.get(f"{agg_key}-is-enabled"))}
+        if agg_key in ["planewatch", "planefinder", "adsbhub", "radarvirtuel",
+                       "1090uk"]:
+            # These are the simple cases of account-based aggregators which
+            # only require a key. This must be present in the form as
+            # {agg_key}-key.
+            kwargs["key"] = request.form.get(f"{agg_key}-key", "")
+        elif agg_key == "flightradar":
+            kwargs["adsb_sharing_key_or_email"] = (
+                request.form.get("flightradar-key-or-email") or None)
+            kwargs["uat_sharing_key_or_email"] = (
+                request.form.get("flightradar-uat-key-or-email") or None)
+        elif agg_key == "flightaware":
+            kwargs["feeder_id"] = (
+                request.form.get("flightaware-feeder-id") or None)
+        elif agg_key == "radarbox":
+            kwargs["sharing_key"] = (
+                request.form.get("radarbox-sharing-key") or None)
+        elif agg_key == "opensky":
+            kwargs["user"] = request.form.get("opensky-user", "")
+            kwargs["serial"] = request.form.get("opensky-serial") or None
+        elif agg_key == "sdrmap":
+            kwargs["user"] = request.form.get("sdrmap-user", "")
+            kwargs["password"] = request.form.get("sdrmap-password", "")
+        elif agg_key == "porttracker":
+            kwargs["station_id"] = (
+                request.form.get("porttracker-station-id", ""))
+            kwargs["data_sharing_key"] = (
+                request.form.get("porttracker-data-sharing-key", ""))
+            kwargs["mqtt_protocol"] = (
+                request.form.get("porttracker-mqtt-protocol", ""))
+            kwargs["mqtt_host"] = request.form.get("porttracker-mqtt-host", "")
+            kwargs["mqtt_port"] = request.form.get("porttracker-mqtt-port", "")
+            kwargs["mqtt_username"] = (
+                request.form.get("porttracker-mqtt-username", ""))
+            kwargs["mqtt_password"] = (
+                request.form.get("porttracker-mqtt-password", ""))
+            kwargs["mqtt_topic"] = (
+                request.form.get("porttracker-mqtt-topic", ""))
+        return kwargs
 
     @check_restart_lock
     def director(self):
@@ -2510,10 +2480,10 @@ class AdsbIm:
 
     @check_restart_lock
     def overview(self):
-        aggregators = utils.aggregators.all(self._d, self._system)
+        aggregators = utils.aggregators.all_aggregators(self._d, self._system)
         enabled_aggregators = [a for a in aggregators.values() if a.enabled]
         for aggregator in enabled_aggregators:
-            aggregator.refresh_cache()
+            aggregator.refresh_status_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):

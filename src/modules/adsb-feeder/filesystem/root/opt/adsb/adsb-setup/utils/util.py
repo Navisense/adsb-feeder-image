@@ -13,6 +13,7 @@ import time
 import subprocess
 import tempfile
 import threading
+from typing import Optional
 
 import flask
 
@@ -69,6 +70,11 @@ def is_true(value):
     if type(value) == str:
         return value.lower() in ["true", "on", "1"]
     return bool(value)
+
+
+def parse_post_bool(value: Optional[str]) -> bool:
+    """Parse a POST form checkbox as a bool."""
+    return bool(value and value.lower() not in ["false", "off", "0"])
 
 
 def make_int(value):

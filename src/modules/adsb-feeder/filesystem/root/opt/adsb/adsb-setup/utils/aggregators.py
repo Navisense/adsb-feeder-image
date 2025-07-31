@@ -48,8 +48,8 @@ class StatusCheckError(Exception):
 _aggregator_dict = None
 
 
-def all(data: utils.data.Data,
-        system: utils.system.System) -> dict[str, "Aggregator"]:
+def all_aggregators(data: utils.data.Data,
+                    system: utils.system.System) -> dict[str, "Aggregator"]:
     """
     Get all aggregators.
 
@@ -152,12 +152,12 @@ class Aggregator(abc.ABC):
 
     @property
     def data_status(self) -> str:
-        self.refresh_cache()
+        self.refresh_status_cache()
         return _status_symbol[self._data_status]
 
     @property
     def mlat_status(self) -> str:
-        self.refresh_cache()
+        self.refresh_status_cache()
         return _status_symbol[self._mlat_status]
 
     @property
@@ -166,10 +166,10 @@ class Aggregator(abc.ABC):
         raise NotImplementedError
 
     def configure(self, enabled: bool, *args) -> None:
-        self._d.env_by_tags([self.agg_key, "enabled"]).list_set(0, enabled)
+        self._d.env_by_tags([self.agg_key, "is_enabled"]).list_set(0, enabled)
         self._logger.info("Enabled." if enabled else "Disabled.")
 
-    def refresh_cache(self) -> None:
+    def refresh_status_cache(self) -> None:
         """Refresh cached status data."""
         if time.time() - self._last_check < self.MAX_CACHE_AGE:
             return
@@ -499,7 +499,7 @@ class OpenSkyAggregator(AccountBasedAggregator):
     def configure(
             self, enabled: bool, user: str, serial: Optional[str]) -> None:
         if not enabled:
-            super().configure(enabled, serial)
+            return super().configure(enabled, serial)
         if not user:
             raise ConfigureError("missing user name")
         if not serial:
@@ -568,11 +568,11 @@ class PorttrackerAggregator(AccountBasedAggregator):
         return f"Porttracker aggregator for station ID {self._station_id}"
 
     def configure(
-            self, enabled: bool, station_id: int, data_sharing_key: str,
+            self, enabled: bool, station_id: str, data_sharing_key: str,
             mqtt_protocol: str, mqtt_host: str, mqtt_port: str,
             mqtt_username: str, mqtt_password: str, mqtt_topic: str) -> None:
         if not enabled:
-            super().configure(enabled, data_sharing_key)
+            return super().configure(enabled, data_sharing_key)
         if not all([station_id, data_sharing_key, mqtt_protocol, mqtt_host,
                     mqtt_port, mqtt_username, mqtt_password, mqtt_topic]):
             raise ConfigureError("Missing setting.")
@@ -835,7 +835,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             self, enabled: bool, adsb_sharing_key_or_email: str,
             uat_sharing_key_or_email: Optional[str]) -> None:
         if not enabled:
-            super().configure(enabled, adsb_sharing_key_or_email)
+            return super().configure(enabled, adsb_sharing_key_or_email)
         if not adsb_sharing_key_or_email:
             raise ConfigureError("No sharing key or email provided.")
         uat_sharing_key_or_email = uat_sharing_key_or_email or ""
@@ -1053,7 +1053,7 @@ class SdrMapAggregator(AccountBasedAggregator):
 
     def configure(self, enabled: bool, user: str, password: str) -> None:
         if not enabled:
-            super().configure(enabled, password)
+            return super().configure(enabled, password)
         if not user:
             raise ConfigureError("missing user")
         if not password:
