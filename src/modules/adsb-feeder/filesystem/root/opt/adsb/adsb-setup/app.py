@@ -837,16 +837,6 @@ class AdsbIm:
 
         return True
 
-    def push_multi_outline(self) -> None:
-        if not self._d.is_enabled("stage2"):
-            return
-
-        def push_mo():
-            subprocess.run(
-                ["bash", "/opt/adsb/push_multioutline.sh", f"{self._d.env_by_tags('num_micro_sites').value}"]
-            )
-        self._executor.submit(push_mo)
-
     def restarting(self):
         return render_template("restarting.html")
 
@@ -982,8 +972,6 @@ class AdsbIm:
         )
 
         site_name = self._d.env_by_tags("site_name_sanitized").list_get(0)
-        if self._d.is_enabled("stage2"):
-            site_name = f"stage2-{site_name}"
         now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
         download_name = f"adsb-feeder-config-{site_name}-{now}.backup"
         try:
@@ -1303,22 +1291,7 @@ class AdsbIm:
     def visualization(self):
         if request.method == "POST":
             return self.update()
-
-        # is this a stage2 site and you are looking at an individual micro feeder,
-        # or is this a regular feeder?
-        # m=0 indicates we are looking at an integrated/micro feeder or at the stage 2 local aggregator
-        # m>0 indicates we are looking at a micro-proxy
-        if self._d.is_enabled("stage2"):
-            if request.args.get("m"):
-                m = make_int(request.args.get("m"))
-            else:
-                m = 0
-            site = self._d.env_by_tags("site_name").list_get(m)
-            print_err("setting up visualization on a stage 2 system for site {site} (m={m})")
-        else:
-            site = ""
-            m = 0
-        return render_template("visualization.html", site=site, m=m)
+        return render_template("visualization.html", site="", m=0)
 
     def clear_range_outline(self):
         self._logger.info("Resetting range outline for ultrafeeder.")
@@ -1424,14 +1397,9 @@ class AdsbIm:
             os.remove(tmpfile)
 
     def setRtlGain(self):
-        if self._d.is_enabled("stage2_nano") or self._d.env_by_tags("aggregator_choice").value == "nano":
-            gaindir = (
-                utils.data.CONFIG_DIR / "nanofeeder/globe_history/autogain")
-            setGainPath = pathlib.Path("/run/adsb-feeder-nanofeeder/readsb/setGain")
-        else:
-            gaindir = (
-                utils.data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
-            setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
+        gaindir = (
+            utils.data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
+        setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
         except:
@@ -1473,12 +1441,8 @@ class AdsbIm:
             self._d.env_by_tags("978piaware").list_set(sitenum, "")
 
     def handle_implied_settings(self):
-        if self._d.env_by_tags("aggregator_choice").value in ["micro", "nano"]:
-            ac_db = False
-            self._d.env_by_tags(["mlathub_disable"]).value = True
-        else:
-            ac_db = True
-            self._d.env_by_tags(["mlathub_disable"]).value = False
+        ac_db = True
+        self._d.env_by_tags(["mlathub_disable"]).value = False
 
         if self._memtotal < 900000:
             ac_db = False
@@ -1489,23 +1453,9 @@ class AdsbIm:
         # make sure the avahi alias service runs on an adsb.im image
         self.set_hostname_and_enable_mdns(self._d.env_by_tags("site_name").list_get(0))
 
-        stage2_nano = False
-
-        if self._d.is_enabled("stage2") and (
-            self._d.env_by_tags("1090serial").value or self._d.env_by_tags("978serial").value
-            or self._d.env_by_tags("aisserial").value
-        ):
-            # this is special - the user has declared this a stage2 feeder, yet
-            # appears to be setting up an SDR - let's force this to be treated as
-            # nanofeeder
-
-            self._d.env_by_tags("stage2_nano").value = True
-            self._d.env_by_tags("nano_beast_port").value = "30035"
-            self._d.env_by_tags("nano_beastreduce_port").value = "30036"
-        else:
-            self._d.env_by_tags("stage2_nano").value = False
-            self._d.env_by_tags("nano_beast_port").value = "30005"
-            self._d.env_by_tags("nano_beastreduce_port").value = "30006"
+        self._d.env_by_tags("stage2_nano").value = False
+        self._d.env_by_tags("nano_beast_port").value = "30005"
+        self._d.env_by_tags("nano_beastreduce_port").value = "30006"
 
         site_name = self._d.env_by_tags("site_name").list_get(0)
         sanitized = "".join(c if c.isalnum() or c in "-_." else "_" for c in site_name)
@@ -1536,10 +1486,7 @@ class AdsbIm:
         # explicitely enable mlathub unless disabled
         self._d.env_by_tags(["mlathub_enable"]).value = not self._d.env_by_tags(["mlathub_disable"]).value
 
-        if self._d.env_by_tags("aggregator_choice").value in ["micro", "nano"]:
-            self._d.env_by_tags("beast-reduce-optimize-for-mlat").value = True
-        else:
-            self._d.env_by_tags("beast-reduce-optimize-for-mlat").value = False
+        self._d.env_by_tags("beast-reduce-optimize-for-mlat").value = False
 
         if self._d.env_by_tags("tar1090_image_config_link").value != "":
             self._d.env_by_tags("tar1090_image_config_link").value = (
@@ -1560,11 +1507,9 @@ class AdsbIm:
                 if len(airspy_serials) == 1:
                     self._d.env_by_tags("1090serial").value = airspy_serials[0]
 
-        # make all the smart choices for plugged in SDRs - unless we are a stage2 that hasn't explicitly requested SDR support
+        # make all the smart choices for plugged in SDRs
         # only run this for initial setup or when the SDR setup is requested via the interface
-        if (not self._d.is_enabled("stage2") or self._d.is_enabled("stage2_nano")) and not self._d.env_by_tags(
-            "sdrs_locked"
-        ).value:
+        if not self._d.env_by_tags("sdrs_locked").value:
             # first grab the SDRs plugged in and check if we have one identified for UAT
             self._sdrdevices._ensure_populated()
             env978 = self._d.env_by_tags("978serial")
@@ -1671,7 +1616,7 @@ class AdsbIm:
 
         # finally, check if this has given us enough configuration info to
         # start the containers
-        if self.base_is_configured() or self._d.is_enabled("stage2"):
+        if self.base_is_configured():
             self._d.env_by_tags(["base_config", "is_enabled"]).value = True
             if self.at_least_one_aggregator():
                 self._d.env_by_tags("aggregators_chosen").value = True
@@ -1685,17 +1630,6 @@ class AdsbIm:
                     self._d.env_by_tags("journal_configured").value = True
                 except:
                     pass
-
-        # check if we need the stage2 multiOutline job
-        if self._d.is_enabled("stage2"):
-            if "multi_outline" not in self._background_tasks:
-                push_multi_outline_task = utils.util.RepeatingTask(
-                    60, self.push_multi_outline)
-                push_multi_outline_task.start(execute_now=True)
-                self._background_tasks["multi_outline"] = (
-                    push_multi_outline_task)
-        else:
-            self._background_tasks.pop("multi_outline", None)
 
     def set_docker_concurrent(self, value):
         self._d.env_by_tags("docker_concurrent").value = value
@@ -1753,20 +1687,6 @@ class AdsbIm:
                     self._d.env_by_tags("sdrplay_license_accepted").value = True
                 if key == "sdrplay_license_reject":
                     self._d.env_by_tags("sdrplay_license_accepted").value = False
-                if key == "set_stage2_data":
-                    # just grab the new data and go back
-                    next_url = url_for("stage2")
-                if key == "turn_off_stage2":
-                    # let's just switch back
-                    self._d.env_by_tags("stage2").value = False
-                    try:
-                        task = self._background_tasks.pop("multi_outline")
-                        task.cancel()
-                    except KeyError:
-                        pass
-                    self._d.env_by_tags("aggregators_chosen").value = False
-                    self._d.env_by_tags("aggregator_choice").value = ""
-
                 if key == "aggregators":
                     # user has clicked Submit on Aggregator page
                     self._d.env_by_tags("aggregators_chosen").value = True
@@ -1971,10 +1891,7 @@ class AdsbIm:
                 continue
             if key == "resetgain" and value == "1":
                 # tell the ultrafeeder container to restart the autogain processing
-                if self._d.is_enabled("stage2_nano"):
-                    cmdline = "docker exec nanofeeder /usr/local/bin/autogain1090 reset"
-                else:
-                    cmdline = "docker exec ultrafeeder /usr/local/bin/autogain1090 reset"
+                cmdline = "docker exec ultrafeeder /usr/local/bin/autogain1090 reset"
                 try:
                     subprocess.run(cmdline, timeout=5.0, shell=True)
                 except:
@@ -2045,47 +1962,12 @@ class AdsbIm:
                     value = "auto"
                 elif key == "site_name":
                     value = self.unique_site_name(value, 0)
-                # deal with the micro feeder and stage2 initial setup
-                if key == "aggregator_choice" and value in ["micro", "nano"]:
-                    self._d.env_by_tags("aggregators_chosen").value = True
-                    # disable all the aggregators in micro mode
-                    for ev in self._d._env:
-                        if "is_enabled" in ev.tags:
-                            if "other_aggregator" in ev.tags or "ultrafeeder" in ev.tags:
-                                ev.list_set(0, False)
-                    if value == "nano":
-                        # make sure we don't log to disk at all
-                        try:
-                            subprocess.call(
-                                "bash /opt/adsb/scripts/journal-set-volatile.sh",
-                                shell=True, timeout=5)
-                            print_err("switched to volatile journal")
-                        except:
-                            print_err(
-                                "exception trying to switch to volatile journal - ignoring"
-                            )
-                if key == "aggregator_choice" and value == "stage2":
-                    next_url = url_for("stage2")
-                    self._d.env_by_tags("stage2").value = True
-                    if "multi_outline" not in self._background_tasks:
-                        push_multi_outline_task = utils.util.RepeatingTask(
-                            60, self.push_multi_outline)
-                        push_multi_outline_task.start(execute_now=True)
-                        self._background_tasks["multi_outline"] = (
-                            push_multi_outline_task)
-                    unique_name = self.unique_site_name(
-                        form.get("site_name"), 0)
-                    self._d.env_by_tags("site_name").list_set(0, unique_name)
-                # if this is a regular feeder and the user is changing to
-                # 'individual' selection (either in initial setup or when
-                # coming back to that setting later), show them the aggregator
-                # selection page next
-                if (key == "aggregator_choice"
-                        and not self._d.is_enabled("stage2")
-                        and value == "individual"
+                # If user is changing to 'individual' selection (either in
+                # initial setup or when coming back to that setting later),
+                # show them the aggregator selection page next.
+                if (key == "aggregator_choice" and value == "individual"
                         and self._d.env_by_tags("aggregator_choice").value
                         != "individual"):
-                    # show the aggregator selection
                     next_url = url_for("aggregators")
                 # If this is an assignment of an SDR device to a purpose (i.e.
                 # ais, 1090 etc.), make sure that device is only assigned once
@@ -2516,9 +2398,7 @@ class AdsbIm:
 
     @check_restart_lock
     def setup(self):
-        if request.method == "POST" and (
-            request.form.get("submit") == "go" or request.form.get("set_stage2_data") == "go"
-        ):
+        if request.method == "POST" and request.form.get("submit") == "go":
             return self.update()
         # make sure DNS works
         self.update_dns_state()
