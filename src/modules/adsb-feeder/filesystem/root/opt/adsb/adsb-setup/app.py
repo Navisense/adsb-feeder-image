@@ -616,6 +616,9 @@ class AdsbIm:
         else:
             raise ValueError(f"Unknown reception type {reception_type}.")
 
+    def _all_aggregators(self) -> dict[str, utils.aggregators.Aggregator]:
+        return utils.aggregators.all_aggregators(self._d, self._system)
+
     def start(self):
         if self._server:
             raise RuntimeError("already started")
@@ -1177,9 +1180,7 @@ class AdsbIm:
         return True
 
     def at_least_one_aggregator(self) -> bool:
-        aggregators = utils.aggregators.all_aggregators(self._d,
-                                                        self._system).values()
-        return any(agg.enabled for agg in aggregators)
+        return any(agg.enabled for agg in self._all_aggregators().values())
 
     def ip_info(self):
         ip, status = self._system.check_ip()
@@ -1269,9 +1270,8 @@ class AdsbIm:
                 "pps": s.position_message_rate,} for s in history],}
 
     def agg_status(self, agg_key):
-        aggregators = utils.aggregators.all_aggregators(self._d, self._system)
         try:
-            aggregator = aggregators[agg_key]
+            aggregator = self._all_aggregators()[agg_key]
         except KeyError:
             flask.abort(404)
         if not aggregator.enabled:
@@ -1526,8 +1526,7 @@ class AdsbIm:
         if not self._d.env_by_tags("ultrafeeder_uuid").list_get(0):
             self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
 
-        for agg in utils.aggregators.all_aggregators(self._d,
-                                                     self._system).values():
+        for agg in self._all_aggregators().values():
             if (agg.enabled and agg.needs_key and self._d.env_by_tags([
                     agg.agg_key, "key"]).list_get(0) == ""):
                 self._logger.warning(f"Empty key, disabling {agg}.")
@@ -2227,14 +2226,12 @@ class AdsbIm:
 
         any_non_adsblol_uf_aggregators = any(
             agg.enabled
-            for agg in utils.aggregators.all_aggregators(
-                self._d, self._system).values()
+            for agg in self._all_aggregators().values()
             if isinstance(agg, utils.aggregators.UltrafeederAggregator)
             and not isinstance(agg, utils.aggregators.AdsbLolAggregator))
         return render_template(
             "aggregators.html",
-            aggregators=utils.aggregators.all_aggregators(
-                self._d, self._system),
+            aggregators=self._all_aggregators(),
             any_non_adsblol_uf_aggregators=any_non_adsblol_uf_aggregators,
         )
 
@@ -2247,8 +2244,7 @@ class AdsbIm:
                 # (including making these special requests if necessary).
                 self._logger.info(
                     f"Aggregator form submitted from {agg_key} button.")
-        for aggregator in utils.aggregators.all_aggregators(
-                self._d, self._system).values():
+        for aggregator in self._all_aggregators().values():
             configure_kwargs = self._make_configure_kwargs(
                 aggregator.agg_key, form)
             self._logger.info(f"Configuring {aggregator}.")
@@ -2452,8 +2448,8 @@ class AdsbIm:
 
     @check_restart_lock
     def overview(self):
-        aggregators = utils.aggregators.all_aggregators(self._d, self._system)
-        enabled_aggregators = [a for a in aggregators.values() if a.enabled]
+        enabled_aggregators = [
+            a for a in self._all_aggregators().values() if a.enabled]
         for aggregator in enabled_aggregators:
             aggregator.refresh_status_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
