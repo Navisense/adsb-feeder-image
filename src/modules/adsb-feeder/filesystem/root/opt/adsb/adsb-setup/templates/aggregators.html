@@ -1,373 +1,526 @@
 {% extends "base-regular.html" %}
 {% set active_page = "aggregators" %}
-{% block title %}Setup Data Sharing{% endblock title %}
+{% block title %}
+  Setup Data Sharing
+{% endblock title %}
 {% block content %}
-<form class="row gy-2 gx-3 mx-1 mx-lg-3 mx-xl-5 align-items-center" method="post"
-      onsubmit="show_spinner(); return true;">
-  <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="aggregators"
-          value="go">apply settings - take me to the website</button>
-<div class="accordion">
-  <div class="accordion-item">
-    <h2 class="accordion-header" id="aggregators-heading-adsb">
-      <button class="accordion-button" type="button" data-mdb-toggle="collapse"
-        data-mdb-target="#aggregators-collapse-adsb" aria-expanded="true" aria-controls="aggregators-collapse-adsb">
-        ADS-B
-      </button>
-    </h2>
-    <div id="aggregators-collapse-adsb" class="accordion-collapse collapse" aria-labelledby="aggregators-heading-adsb">
-      <div class="accordion-body">
-  <div class="col-12 form-check {% if env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}">
-    <input class="form-check-input me-1" type="checkbox" name="mlat_privacy--is_enabled" id="mlat_privacy--is_enabled"
-           {% if is_enabled('mlat_privacy') %}checked{% endif %} />
-    <label for="mlat_privacy--is_enabled">
-      Enable privacy flag (ON = your site won't be visible at all on <a
-         href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">public
-        aggregator maps</a> -- OFF = your site will be visible at an approximate location.)
-    </label>
-  </div>
-  <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="mlat_enable--is_enabled" id="mlat_enable--is_enabled"
-           {% if is_enabled('mlat_enable') %}checked{% endif %} />
-    <label for="mlat_enable--is_enabled">
-      Enable MLAT (for selected aggregators supporting MLAT)
-    </label>
-  </div>
-
-  <div class="col-12 h5 mt-3">Select the account-less ADS-B aggregators you want to feed:</div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="adsblol-is-enabled"
-           id="adsblol-is-enabled" {% if aggregators['adsblol'].enabled %}checked{% endif %} />
-    <label for="adsblol-is-enabled">
-      <a href="https://adsb.lol/privacy-license/">adsb.lol</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="flyitaly-is-enabled"
-           id="flyitaly-is-enabled" {% if aggregators['flyitaly'].enabled %}checked{% endif %} />
-    <label for="flyitaly-is-enabled">
-      <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="avdelphi-is-enabled"
-           id="avdelphi-is-enabled" {% if aggregators['avdelphi'].enabled %}checked{% endif %} />
-    <label for="avdelphi-is-enabled">
-      <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="planespotters-is-enabled"
-           id="planespotters-is-enabled" {% if aggregators['planespotters'].enabled %}checked{% endif %} />
-    <label for="planespotters-is-enabled">
-      <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" data-mdb-toggle="tooltip"
-           title="please note that this site is missing a clear data/privacy policy" name="tat-is-enabled"
-           id="tat-is-enabled" {% if aggregators['tat'].enabled %}checked{% endif %} />
-    <label for="tat-is-enabled">
-      <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="adsbfi-is-enabled" id="adsbfi-is-enabled"
-           {% if aggregators['adsbfi'].enabled %}checked{% endif %} />
-    <label for="adsbfi-is-enabled">
-      <a href="https://adsb.fi/privacy">adsb.fi</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" data-mdb-toggle="tooltip"
-           title="please note that this site is missing a clear data/privacy policy"
-           name="hpradar-is-enabled" id="hpradar-is-enabled" {% if aggregators['hpradar'].enabled %}checked{% endif %} />
-    <label for="hpradar-is-enabled">
-      <a href="https://skylink.hpradar.com/" data-mdb-toggle="tooltip"
-         title="please note that this site is missing a clear data/privacy policy">HPRadar</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="alive-is-enabled" id="alive-is-enabled"
-           {% if aggregators['alive'].enabled %}checked{% endif %} />
-    <label for="alive-is-enabled">
-      <a href="https://airplanes.live/privacy">airplanes.live</a>
-    </label>
-  </div>
-  <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="adsbx-is-enabled" id="adsbx-is-enabled"
-           {% if aggregators['adsbx'].enabled %}checked{% endif %} />
-    <label for="adsbx-is-enabled">
-      <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
-    </label>
-  </div>
-  {% if aggregators['adsblol'].enabled or any_non_adsblol_uf_aggregators %}
-    <div class="col-12 small fw-light text-muted text-end">
-      <div class="small fw-light text-muted text-end collapse" id="show-uuids">
-        {% if aggregators['adsblol'].enabled %}
-          adsb.lol UUID: {{ list_value_by_tags(['adsblol_uuid']) }}
-        {% endif %}
-        <br>
-        {% if any_non_adsblol_uf_aggregators %}
-          Ultrafeeder UUID: {{ list_value_by_tag(['ultrafeeder_uuid']) }}
-        {% endif %}
-      </div>
-      <button class="btn btn-secondary small" type="button" data-mdb-toggle="collapse" data-mdb-target="#show-uuids"
-              aria-expanded="false" aria-controls="show-uuids">Show UUIDS</button>
-    </div>
-  {% endif %}
-  <div class="col-12 mt-3 mb-1 h5">Select the account based ADS-B aggregators you want to feed:</div>
-  <div class="col-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="flightradar-is-enabled" id="flightradar-is-enabled"
-           {% if aggregators['flightradar'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="flightradar-is-enabled">
-      <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
-      <div class="form-group" id="flightradar-setup">
-        <label for="flightradar-key-or-email">
-          {% if not is_enabled('uat978') %}
-          Enter your FR24 sharing key (or enter your email address and click the button to request a sharing key)
-          {% else %}
-          Enter your two FR24 sharing keys (first one for ADS-B/1090, second one for UAT). For either or both of the
-          fields you can also enter your email address and the feeder will request the corresponding key for you.
-          {% endif %}
-          Please note that requesting a feeder key by entering an email will fail if you already have three feeders
-          associated with that email address. In that case you will need to email FR24 support and request that they
-          manually add another key for you (or simply use a different email address).
-        </label>
-        <input type="text" id="flightradar-key-or-email" name="flightradar-key-or-email" class="form-control w-75 required-if-enabled"
-               placeholder="existing flightradar24 ADS-B sharing key or email address"
-               value="{{ list_value_by_tags(['flightradar', 'key']) }}" />
-        <input {% if not is_enabled('uat978') %}style="display: none;" {% endif %} type="text"
-               id="flightradar-uat-key-or-email" name="flightradar-uat-key-or-email" class="form-control w-75"
-               placeholder="existing flightradar24 UAT sharing key or email address"
-               value="{{ list_value_by_tags(['flightradar_uat', 'key']) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="flightradar-request-key" value="stay">
-          Request key
-        </button>
-      </div>
-    </label>
-  </div>
-  <div class="col-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="planewatch-is-enabled" id="planewatch-is-enabled"
-           {% if aggregators['planewatch'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="planewatch-is-enabled">
-      <a href="https://plane.watch" data-mdb-toggle="tooltip"
-         title="please note that this site is missing a clear data/privacy policy">Plane.watch</a>
-      <div class="form-group" id="planewatch-setup">
-        <label for="planewatch-key">
-          To sign up for an API key go to <a href="https://atc.plane.watch/">atc.plane.watch</a>, sign up for an
-          account, log in and click on <b>Feeders, + New Feeder</b>. Fill out the details and save the data. This will
-          show you an API key that you can enter here.
-        </label>
-        <input type="text" id="planewatch-key" name="planewatch-key" class="form-control w-75 required-if-enabled"
-               placeholder="Plane.watch API key" value="{{ list_value_by_tags(['planewatch', 'key']) }}">
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="flightaware-is-enabled" id="flightaware-is-enabled"
-           {% if aggregators['flightaware'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="FA">
-      <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
-      <div class="form-group" id="flightaware-setup">
-        <label for="flightaware-feeder-id">
-          You need a FlightAware / Piaware feeder ID. If you already have one, please enter it below. Otherwise, leave
-          the field empty and click on the button and we will try to get one for you. Once this process completes and
-          the feeder ID has been filled in, open the local
-          <a id="piaware" href="" target="_blank">Piaware page</a> (this should open in a new tab) and click on the
-          "Claim this feeder on FlightAware" button.
-        </label>
-        <script>
+  <form class="row gy-2 gx-3 mx-1 mx-lg-3 mx-xl-5 align-items-center"
+        method="post"
+        onsubmit="show_spinner(); return true;">
+    <button type="submit"
+            class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
+            name="aggregators"
+            value="go">apply settings - take me to the website</button>
+    <div class="accordion">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="aggregators-heading-adsb">
+          <button class="accordion-button"
+                  type="button"
+                  data-mdb-toggle="collapse"
+                  data-mdb-target="#aggregators-collapse-adsb"
+                  aria-expanded="true"
+                  aria-controls="aggregators-collapse-adsb">ADS-B</button>
+        </h2>
+        <div id="aggregators-collapse-adsb"
+             class="accordion-collapse collapse"
+             aria-labelledby="aggregators-heading-adsb">
+          <div class="accordion-body">
+            <div class="col-12 form-check {% if env_value_by_tag('aggregator_choice') in ['micro', 'nano'] %}d-none{% endif %}">
+              <input class="form-check-input me-1"
+                     type="checkbox"
+                     name="mlat_privacy--is_enabled"
+                     id="mlat_privacy--is_enabled"
+                     {% if is_enabled('mlat_privacy') %}checked{% endif %} />
+              <label for="mlat_privacy--is_enabled">
+                Enable privacy flag (ON = your site won't be visible at all on
+                <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">
+                  public aggregator maps
+                </a>
+                -- OFF = your site will be visible at an approximate location.)
+              </label>
+            </div>
+            <div class="col-12 form-check">
+              <input class="form-check-input me-1"
+                     type="checkbox"
+                     name="mlat_enable--is_enabled"
+                     id="mlat_enable--is_enabled"
+                     {% if is_enabled('mlat_enable') %}checked{% endif %} />
+              <label for="mlat_enable--is_enabled">Enable MLAT (for selected aggregators supporting MLAT)</label>
+            </div>
+            <div class="col-12 h5 mt-3">Select the account-less ADS-B aggregators you want to feed:</div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="adsblol-is-enabled"
+                     id="adsblol-is-enabled"
+                     {% if aggregators['adsblol'].enabled %}checked{% endif %} />
+              <label for="adsblol-is-enabled">
+                <a href="https://adsb.lol/privacy-license/">adsb.lol</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="flyitaly-is-enabled"
+                     id="flyitaly-is-enabled"
+                     {% if aggregators['flyitaly'].enabled %}checked{% endif %} />
+              <label for="flyitaly-is-enabled">
+                <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="avdelphi-is-enabled"
+                     id="avdelphi-is-enabled"
+                     {% if aggregators['avdelphi'].enabled %}checked{% endif %} />
+              <label for="avdelphi-is-enabled">
+                <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="planespotters-is-enabled"
+                     id="planespotters-is-enabled"
+                     {% if aggregators['planespotters'].enabled %}checked{% endif %} />
+              <label for="planespotters-is-enabled">
+                <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     data-mdb-toggle="tooltip"
+                     title="please note that this site is missing a clear data/privacy policy"
+                     name="tat-is-enabled"
+                     id="tat-is-enabled"
+                     {% if aggregators['tat'].enabled %}checked{% endif %} />
+              <label for="tat-is-enabled">
+                <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="adsbfi-is-enabled"
+                     id="adsbfi-is-enabled"
+                     {% if aggregators['adsbfi'].enabled %}checked{% endif %} />
+              <label for="adsbfi-is-enabled">
+                <a href="https://adsb.fi/privacy">adsb.fi</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     data-mdb-toggle="tooltip"
+                     title="please note that this site is missing a clear data/privacy policy"
+                     name="hpradar-is-enabled"
+                     id="hpradar-is-enabled"
+                     {% if aggregators['hpradar'].enabled %}checked{% endif %} />
+              <label for="hpradar-is-enabled">
+                <a href="https://skylink.hpradar.com/"
+                   data-mdb-toggle="tooltip"
+                   title="please note that this site is missing a clear data/privacy policy">HPRadar</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="alive-is-enabled"
+                     id="alive-is-enabled"
+                     {% if aggregators['alive'].enabled %}checked{% endif %} />
+              <label for="alive-is-enabled">
+                <a href="https://airplanes.live/privacy">airplanes.live</a>
+              </label>
+            </div>
+            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="adsbx-is-enabled"
+                     id="adsbx-is-enabled"
+                     {% if aggregators['adsbx'].enabled %}checked{% endif %} />
+              <label for="adsbx-is-enabled">
+                <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
+              </label>
+            </div>
+            {% if aggregators['adsblol'].enabled or any_non_adsblol_uf_aggregators %}
+              <div class="col-12 small fw-light text-muted text-end">
+                <div class="small fw-light text-muted text-end collapse" id="show-uuids">
+                  {% if aggregators['adsblol'].enabled %}adsb.lol UUID: {{ list_value_by_tags(["adsblol_uuid"]) }}{% endif %}
+                  <br>
+                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ list_value_by_tag(["ultrafeeder_uuid"]) }}{% endif %}
+                </div>
+                <button class="btn btn-secondary small"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#show-uuids"
+                        aria-expanded="false"
+                        aria-controls="show-uuids">Show UUIDS</button>
+              </div>
+            {% endif %}
+            <div class="col-12 mt-3 mb-1 h5">Select the account based ADS-B aggregators you want to feed:</div>
+            <div class="col-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="flightradar-is-enabled"
+                     id="flightradar-is-enabled"
+                     {% if aggregators['flightradar'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="flightradar-is-enabled">
+                <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
+                <div class="form-group" id="flightradar-setup">
+                  <label for="flightradar-key-or-email">
+                    {% if not is_enabled('uat978') %}
+                      Enter your FR24 sharing key (or enter your email address and click the button to request a sharing
+                      key)
+                    {% else %}
+                      Enter your two FR24 sharing keys (first one for ADS-B/1090, second one for UAT). For either or
+                      both of the fields you can also enter your email address and the feeder will request the
+                      corresponding key for you.
+                    {% endif %}
+                    Please note that requesting a feeder key by entering an email will fail if you already have three
+                    feeders associated with that email address. In that case you will need to email FR24 support and
+                    request that they manually add another key for you (or simply use a different email address).
+                  </label>
+                  <input type="text"
+                         id="flightradar-key-or-email"
+                         name="flightradar-key-or-email"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="existing flightradar24 ADS-B sharing key or email address"
+                         value="{{ list_value_by_tags(['flightradar', 'key']) }}" />
+                  <input {% if not is_enabled('uat978') %}style="display: none;"{% endif %}
+                         type="text"
+                         id="flightradar-uat-key-or-email"
+                         name="flightradar-uat-key-or-email"
+                         class="form-control w-75"
+                         placeholder="existing flightradar24 UAT sharing key or email address"
+                         value="{{ list_value_by_tags(['flightradar_uat', 'key']) }}" />
+                  <button type="submit"
+                          class="btn btn-primary mt-1"
+                          name="flightradar-request-key"
+                          value="stay">Request key</button>
+                </div>
+              </label>
+            </div>
+            <div class="col-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="planewatch-is-enabled"
+                     id="planewatch-is-enabled"
+                     {% if aggregators['planewatch'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="planewatch-is-enabled">
+                <a href="https://plane.watch"
+                   data-mdb-toggle="tooltip"
+                   title="please note that this site is missing a clear data/privacy policy">Plane.watch</a>
+                <div class="form-group" id="planewatch-setup">
+                  <label for="planewatch-key">
+                    To sign up for an API key go to <a href="https://atc.plane.watch/">atc.plane.watch</a>, sign up for
+                    an account, log in and click on <b>Feeders, + New Feeder</b>. Fill out the details and save the
+                    data. This will show you an API key that you can enter here.
+                  </label>
+                  <input type="text"
+                         id="planewatch-key"
+                         name="planewatch-key"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="Plane.watch API key"
+                         value="{{ list_value_by_tags(['planewatch', 'key']) }}">
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="flightaware-is-enabled"
+                     id="flightaware-is-enabled"
+                     {% if aggregators['flightaware'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="FA">
+                <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
+                <div class="form-group" id="flightaware-setup">
+                  <label for="flightaware-feeder-id">
+                    You need a FlightAware / Piaware feeder ID. If you already have one, please enter it below.
+                    Otherwise, leave the field empty and click on the button and we will try to get one for you. Once
+                    this process completes and the feeder ID has been filled in, open the local
+                    <a id="piaware" href="" target="_blank">Piaware page</a> (this should open in a new tab) and click
+                    on the "Claim this feeder on FlightAware" button.
+                  </label>
+                  <script>
           var link = document.getElementById('piaware');
           link.setAttribute(
             'href', window.location.protocol + "//" + window.location.hostname
             + ":{{ env_value_by_tag('piastatport') }}");
-        </script>
-        <input type="text" id="flightaware-feeder-id" name="flightaware-feeder-id" class="form-control w-75"
-               placeholder="Piaware key" value="{{ list_value_by_tags(['flightaware', 'key']) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="flightaware-request-key" value="stay">Request
-          key</button>
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="radarbox-is-enabled" id="radarbox-is-enabled"
-           {% if aggregators['radarbox'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="radarbox-is-enabled">
-      <a href="https://www.airnavradar.com/terms-of-use" data-mdb-toggle="tooltip"
-         title="please note that this site is missing a clear data/privacy policy">AirNav Radar</a>
-      <div class="form-group" id="radarbox-setup">
-        <label for="radarbox-sharing-key">
-          You need a AirNav Radar (formerly RadarBox) sharing key. If you already have one, please enter it below. Otherwise,
-          leave the field empty and click on the button and we will try to get one for you. Please log into the
-          <a href="https://www.radarbox.com/sharing-data/claim">AirNav Radar website</a> once this process has completed
-          in order to claim the key for your account.
-        </label>
-        <input type="text" id="radarbox-sharing-key" name="radarbox-sharing-key" class="form-control w-75"
-               placeholder="AirNav Radar sharing key"
-               value="{{ list_value_by_tags(['radarbox', 'key']) }}">
-        <button type="submit" class="btn btn-primary mt-1" name="radarbox-request-key" value="stay">Request key</button>
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="planefinder-is-enabled" id="planefinder-is-enabled"
-           {% if aggregators['planefinder'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="planefinder-is-enabled">
-      <a href="https://planefinder.net/legal/privacy-information-notice">PlaneFinder</a>
-      <div class="form-group" id="planefinder-setup">
-        <label for="planefinder-key">
-          You need a PlaneFinder sharecode. If you already have one, please enter it below. Otherwise, request a
-          sharecode from their <a href="https://planefinder.net/sharing/create-sharecode">sharing portal</a>. Make sure
-          you enter the exact same location data in that form.
-        </label>
-        <input type="text" id="planefinder-key" name="planefinder-key" class="form-control w-75 required-if-enabled"
-               placeholder="PlaneFinder sharecode" value="{{ list_value_by_tags(['planefinder', 'key']) }}">
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="adsbhub-is-enabled" id="adsbhub-is-enabled"
-           {% if aggregators['adsbhub'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="adsbhub-is-enabled">
-      <a href="https://www.adsbhub.org/privacy-policy.php">ADSBHub</a>
-      <div class="form-group" id="adsbhub-setup">
-        <label for="adsbhub-key">
-          To sign up for an ADSBHub station key go to
-          <a href="https://www.adsbhub.org/howtofeed.php">ADSBHub how to feed</a>, setting your station up as feeder
-          type "Linux" in "Client" mode, feeding via the "SBS" protocol. This will get you your station key. Existing
-          users can find their station key on the Settings page of the ADSBHub site.
-        </label>
-        <input type="text" id="adsbhub-key" name="adsbhub-key" class="form-control w-75 required-if-enabled"
-               placeholder="ADSBHub station key"
-               value="{{ list_value_by_tags(['adsbhub', 'key']) }}">
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="opensky-is-enabled" id="opensky-is-enabled"
-           {% if aggregators['opensky'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="opensky-is-enabled">
-      <a href="https://opensky-network.org/about/privacy-policy">OpenSky Network</a>
-      <!-- this one needs automation set up with a docker container again -- and it needs two fields -->
-      <div class="form-group" id="opensky-setup">
-        <label for="opensky-serial">
-          You need an OpenSky username and serial number. If you already have these, please enter them below.
-          Otherwise, please go to the <a href="https://opensky-network.org/">OpenSky website</a>
-          and register (button should be in the top right corner). Once you have an OpenSky username, enter it below
-          and click Request Key; we will get a serial for you.
-        </label>
-        <input type="text" id="opensky-user" name="opensky-user" class="form-control w-75 required-if-enabled"
-               placeholder="OpenSky username"
-               value="{{ list_value_by_tags(['opensky', 'user']) }}">
-        <input type="text" id="opensky-serial" name="opensky-serial" class="form-control w-75"
-               placeholder="OpenSky serial number" value="{{ list_value_by_tags(['opensky', 'key']) }}" />
-        <button type="submit" class="btn btn-primary mt-1" name="opensky-request-key" value="stay">Request key</button>
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="radarvirtuel-is-enabled" id="radarvirtuel-is-enabled"
-           {% if aggregators['radarvirtuel'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="radarvirtuel-is-enabled">
-      <a href="https://www.radarvirtuel.com/" data-mdb-toggle="tooltip"
-         title="please note that this site is missing a clear data/privacy policy">RadarVirtuel</a>
-      <div class="form-group" id="radarvirtuel-setup">
-        <label for="radarvirtuel-key">
-          To sign up for a feeder key send email to
-          <a href="mailto://support@adsbnetwork.com">support@adsbnetwork.com</a>. Include your name, Lat/Lon of
-          nearest airport, and mention that you are using a Docker setup. They will respond with a feeder key that you
-          can enter here
-        </label>
-        <input type="text" id="radarvirtuel-key" name="radarvirtuel-key" class="form-control w-75 required-if-enabled"
-               placeholder="RadarVirtuel feeder key" value="{{ list_value_by_tags(['radarvirtuel', 'key']) }}">
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="1090uk-is-enabled" id="1090uk-is-enabled"
-           {% if aggregators['1090uk'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="1090uk-is-enabled">
-      <a href="https://1090mhz.uk/legal.html#privacy">1090MHz UK</a>
-      <div class="form-group" id="1090uk-setup">
-        <label for="1090uk-key">
-          1090MHz UK is only interested in the UK and surrounding countries out to 1000nm including Ireland, Jersey,
-          Guernsey, France, Belgium, Netherlands, North Germany, Denmark, Norway, Faroe Islands. If you are in one of
-          those locations, please contact them at info@1090mhz.uk to get a sharing key.
-        </label>
-        <input type="text" id="1090uk-key" name="1090uk-key" class="form-control w-75 required-if-enabled"
-               placeholder="1090MHz UK sharing key"
-               value="{{ list_value_by_tags(['1090uk', 'key']) }}">
-      </div>
-    </label>
-  </div>
-  <div class="ol-12 form-check">
-    <input type="checkbox" class="form-check-input me-1" name="sdrmap-is-enabled" id="sdrmap-is-enabled"
-           {% if aggregators['sdrmap'].enabled %}checked{% endif %} />
-    <label class="mx-1 w-auto" for="sdrmap-is-enabled">
-      <a href="https://sdrmap.org/">sdrmap</a>
-      <div class="form-group" id="sdrmap-setup">
-        <label for="sdrmap-user">
-          You need an sdrmap username and password. If you already have these, please enter them below.
-          Otherwise, please send them an email at <tt>send us an email feed@sdrmap.org</tt> and request
-          an account. To make things easier, include your broad location (city/state/country) in the email.
-        </label>
-        <input type="text" id="sdrmap-user" name="sdrmap-user" class="form-control w-75 required-if-enabled"
-               placeholder="sdrmap username"
-               value="{{ list_value_by_tags(['sdrmap', 'user']) }}">
-        <input type="text" id="sdrmap-password" name="sdrmap-password" class="form-control w-75 required-if-enabled"
-               placeholder="sdrmap password" value="{{ list_value_by_tags(['sdrmap', 'key']) }}" />
-
+                  </script>
+                  <input type="text"
+                         id="flightaware-feeder-id"
+                         name="flightaware-feeder-id"
+                         class="form-control w-75"
+                         placeholder="Piaware key"
+                         value="{{ list_value_by_tags(['flightaware', 'key']) }}" />
+                  <button type="submit"
+                          class="btn btn-primary mt-1"
+                          name="flightaware-request-key"
+                          value="stay">
+                    Request
+                    key
+                  </button>
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="radarbox-is-enabled"
+                     id="radarbox-is-enabled"
+                     {% if aggregators['radarbox'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="radarbox-is-enabled">
+                <a href="https://www.airnavradar.com/terms-of-use"
+                   data-mdb-toggle="tooltip"
+                   title="please note that this site is missing a clear data/privacy policy">AirNav Radar</a>
+                <div class="form-group" id="radarbox-setup">
+                  <label for="radarbox-sharing-key">
+                    You need a AirNav Radar (formerly RadarBox) sharing key. If you already have one, please enter it
+                    below. Otherwise, leave the field empty and click on the button and we will try to get one for you.
+                    Please log into the <a href="https://www.radarbox.com/sharing-data/claim">AirNav Radar website</a>
+                    once this process has completed in order to claim the key for your account.
+                  </label>
+                  <input type="text"
+                         id="radarbox-sharing-key"
+                         name="radarbox-sharing-key"
+                         class="form-control w-75"
+                         placeholder="AirNav Radar sharing key"
+                         value="{{ list_value_by_tags(['radarbox', 'key']) }}">
+                  <button type="submit"
+                          class="btn btn-primary mt-1"
+                          name="radarbox-request-key"
+                          value="stay">Request key</button>
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="planefinder-is-enabled"
+                     id="planefinder-is-enabled"
+                     {% if aggregators['planefinder'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="planefinder-is-enabled">
+                <a href="https://planefinder.net/legal/privacy-information-notice">PlaneFinder</a>
+                <div class="form-group" id="planefinder-setup">
+                  <label for="planefinder-key">
+                    You need a PlaneFinder sharecode. If you already have one, please enter it below. Otherwise, request
+                    a sharecode from their
+                    <a href="https://planefinder.net/sharing/create-sharecode">sharing portal</a>. Make sure you enter
+                    the exact same location data in that form.
+                  </label>
+                  <input type="text"
+                         id="planefinder-key"
+                         name="planefinder-key"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="PlaneFinder sharecode"
+                         value="{{ list_value_by_tags(['planefinder', 'key']) }}">
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="adsbhub-is-enabled"
+                     id="adsbhub-is-enabled"
+                     {% if aggregators['adsbhub'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="adsbhub-is-enabled">
+                <a href="https://www.adsbhub.org/privacy-policy.php">ADSBHub</a>
+                <div class="form-group" id="adsbhub-setup">
+                  <label for="adsbhub-key">
+                    To sign up for an ADSBHub station key go to
+                    <a href="https://www.adsbhub.org/howtofeed.php">ADSBHub how to feed</a>, setting your station up as
+                    feeder type "Linux" in "Client" mode, feeding via the "SBS" protocol. This will get you your station
+                    key. Existing users can find their station key on the Settings page of the ADSBHub site.
+                  </label>
+                  <input type="text"
+                         id="adsbhub-key"
+                         name="adsbhub-key"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="ADSBHub station key"
+                         value="{{ list_value_by_tags(['adsbhub', 'key']) }}">
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="opensky-is-enabled"
+                     id="opensky-is-enabled"
+                     {% if aggregators['opensky'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="opensky-is-enabled">
+                <a href="https://opensky-network.org/about/privacy-policy">OpenSky Network</a>
+                <!-- this one needs automation set up with a docker container again -- and it needs two fields -->
+                <div class="form-group" id="opensky-setup">
+                  <label for="opensky-serial">
+                    You need an OpenSky username and serial number. If you already have these, please enter them below.
+                    Otherwise, please go to the <a href="https://opensky-network.org/">OpenSky website</a>
+                    and register (button should be in the top right corner). Once you have an OpenSky username, enter it
+                    below and click Request Key; we will get a serial for you.
+                  </label>
+                  <input type="text"
+                         id="opensky-user"
+                         name="opensky-user"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="OpenSky username"
+                         value="{{ list_value_by_tags(['opensky', 'user']) }}">
+                  <input type="text"
+                         id="opensky-serial"
+                         name="opensky-serial"
+                         class="form-control w-75"
+                         placeholder="OpenSky serial number"
+                         value="{{ list_value_by_tags(['opensky', 'key']) }}" />
+                  <button type="submit"
+                          class="btn btn-primary mt-1"
+                          name="opensky-request-key"
+                          value="stay">Request key</button>
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="radarvirtuel-is-enabled"
+                     id="radarvirtuel-is-enabled"
+                     {% if aggregators['radarvirtuel'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="radarvirtuel-is-enabled">
+                <a href="https://www.radarvirtuel.com/"
+                   data-mdb-toggle="tooltip"
+                   title="please note that this site is missing a clear data/privacy policy">RadarVirtuel</a>
+                <div class="form-group" id="radarvirtuel-setup">
+                  <label for="radarvirtuel-key">
+                    To sign up for a feeder key send email to
+                    <a href="mailto://support@adsbnetwork.com">support@adsbnetwork.com</a>. Include your name, Lat/Lon
+                    of nearest airport, and mention that you are using a Docker setup. They will respond with a feeder
+                    key that you can enter here
+                  </label>
+                  <input type="text"
+                         id="radarvirtuel-key"
+                         name="radarvirtuel-key"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="RadarVirtuel feeder key"
+                         value="{{ list_value_by_tags(['radarvirtuel', 'key']) }}">
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="1090uk-is-enabled"
+                     id="1090uk-is-enabled"
+                     {% if aggregators['1090uk'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="1090uk-is-enabled">
+                <a href="https://1090mhz.uk/legal.html#privacy">1090MHz UK</a>
+                <div class="form-group" id="1090uk-setup">
+                  <label for="1090uk-key">
+                    1090MHz UK is only interested in the UK and surrounding countries out to 1000nm including Ireland,
+                    Jersey, Guernsey, France, Belgium, Netherlands, North Germany, Denmark, Norway, Faroe Islands. If
+                    you are in one of those locations, please contact them at info@1090mhz.uk to get a sharing key.
+                  </label>
+                  <input type="text"
+                         id="1090uk-key"
+                         name="1090uk-key"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="1090MHz UK sharing key"
+                         value="{{ list_value_by_tags(['1090uk', 'key']) }}">
+                </div>
+              </label>
+            </div>
+            <div class="ol-12 form-check">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="sdrmap-is-enabled"
+                     id="sdrmap-is-enabled"
+                     {% if aggregators['sdrmap'].enabled %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="sdrmap-is-enabled">
+                <a href="https://sdrmap.org/">sdrmap</a>
+                <div class="form-group" id="sdrmap-setup">
+                  <label for="sdrmap-user">
+                    You need an sdrmap username and password. If you already have these, please enter them below.
+                    Otherwise, please send them an email at <tt>send us an email feed@sdrmap.org</tt> and request
+                    an account. To make things easier, include your broad location (city/state/country) in the email.
+                  </label>
+                  <input type="text"
+                         id="sdrmap-user"
+                         name="sdrmap-user"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="sdrmap username"
+                         value="{{ list_value_by_tags(['sdrmap', 'user']) }}">
+                  <input type="text"
+                         id="sdrmap-password"
+                         name="sdrmap-password"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="sdrmap password"
+                         value="{{ list_value_by_tags(['sdrmap', 'key']) }}" />
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
-    </label>
-  </div>
-      </div>
-      </div>
       </div>
       <div class="accordion-item">
         <h2 class="accordion-header" id="aggregators-heading-ais">
-          <button class="accordion-button" type="button" data-mdb-toggle="collapse"
-            data-mdb-target="#aggregators-collapse-ais" aria-expanded="true" aria-controls="aggregators-collapse-ais">
-            AIS
-          </button>
+          <button class="accordion-button"
+                  type="button"
+                  data-mdb-toggle="collapse"
+                  data-mdb-target="#aggregators-collapse-ais"
+                  aria-expanded="true"
+                  aria-controls="aggregators-collapse-ais">AIS</button>
         </h2>
-        <div id="aggregators-collapse-ais" class="accordion-collapse collapse" aria-labelledby="aggregators-heading-ais">
+        <div id="aggregators-collapse-ais"
+             class="accordion-collapse collapse"
+             aria-labelledby="aggregators-heading-ais">
           <div class="accordion-body">
             <div class="form-check col-12">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="porttracker-is-enabled"
-                     id="porttracker-is-enabled" {% if aggregators['porttracker'].enabled %}checked{% endif %} />
+                     id="porttracker-is-enabled"
+                     {% if aggregators['porttracker'].enabled %}checked{% endif %} />
               <label for="porttracker-is-enabled">
                 <a href="https://porttracker.co/">Porttracker</a>
               </label>
               <div class="form-group" id="porttracker-setup">
                 <!-- These hidden inputs are set by a script on radio button select. -->
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-protocol" value="" \>
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-host" value="" \>
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-port" value="" \>
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-username" value="" \>
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-password" value="" \>
-                <input type="hidden" class="required-if-enabled"
-                  name="porttracker-mqtt-topic" value="" \>
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-protocol"
+                       value="">
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-host"
+                       value="">
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-port"
+                       value="">
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-username"
+                       value="">
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-password"
+                       value="">
+                <input type="hidden"
+                       class="required-if-enabled"
+                       name="porttracker-mqtt-topic"
+                       value="">
                 <div class="d-flex p-2">
                   <div class="form-outline" data-mdb-input-init style="width: 20rem">
-                    <input type="text" id="porttracker-data-sharing-key"
-                    name="porttracker-data-sharing-key" class="form-control required-if-enabled"
-                    value="{{ list_value_by_tags(['porttracker', 'key']) }}">
-                    <label class="form-label" for="porttracker-data-sharing-key">
-                      Data sharing key
-                    </label>
+                    <input type="text"
+                           id="porttracker-data-sharing-key"
+                           name="porttracker-data-sharing-key"
+                           class="form-control required-if-enabled"
+                           value="{{ list_value_by_tags(['porttracker', 'key']) }}">
+                    <label class="form-label" for="porttracker-data-sharing-key">Data sharing key</label>
                   </div>
-                  <button type="button" class="btn btn-primary"
-                  data-mdb-button-init data-mdb-ripple-init
-                  onclick="getAndShowRegisteredPorttrackerStations()">
-                    Set data sharing key
-                  </button>
+                  <button type="button"
+                          class="btn btn-primary"
+                          data-mdb-button-init
+                          data-mdb-ripple-init
+                          onclick="getAndShowRegisteredPorttrackerStations()">Set data sharing key</button>
                 </div>
                 <div id="porttracker-registered-stations"></div>
               </div>
@@ -375,236 +528,225 @@
           </div>
         </div>
       </div>
-      </div>
-  <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="aggregators"
-          value="go">apply settings - take me to the website</button>
-</form>
-<script>
-  function showOrHide(b, f) {
-    if (b.checked) f.style.display = "block";
-    else f.style.display = "none";
-  }
+    </div>
+    <button type="submit"
+            class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
+            name="aggregators"
+            value="go">apply settings - take me to the website</button>
+  </form>
+  <script>
+    function showOrHide(b, f) {
+      if (b.checked) f.style.display = "block";
+      else f.style.display = "none";
+    }
 
-  const aggregatorsWithExtraInputFields = [
-    "flightradar",
-    "planewatch",
-    "flightaware",
-    "radarbox",
-    "planefinder",
-    "adsbhub",
-    "opensky",
-    "radarvirtuel",
-    "1090uk",
-    "sdrmap",
-    "porttracker",
-  ];
-  for (const aggKey of aggregatorsWithExtraInputFields) {
-    let checkBox = document.getElementById(`${aggKey}-is-enabled`);
-    let fieldsElement = document.getElementById(`${aggKey}-setup`);
-    const requiredInputFieldSelector = `#${aggKey}-setup input.required-if-enabled`;
-    checkBox.addEventListener("click", function () {
+    const aggregatorsWithExtraInputFields = [
+      "flightradar",
+      "planewatch",
+      "flightaware",
+      "radarbox",
+      "planefinder",
+      "adsbhub",
+      "opensky",
+      "radarvirtuel",
+      "1090uk",
+      "sdrmap",
+      "porttracker",
+    ];
+    for (const aggKey of aggregatorsWithExtraInputFields) {
+      let checkBox = document.getElementById(`${aggKey}-is-enabled`);
+      let fieldsElement = document.getElementById(`${aggKey}-setup`);
+      const requiredInputFieldSelector = `#${aggKey}-setup input.required-if-enabled`;
+      checkBox.addEventListener("click", function () {
+        showOrHide(checkBox, fieldsElement);
+        for (let requiredInputField of $(requiredInputFieldSelector)) {
+          requiredInputField.required = checkBox.checked;
+        }
+      });
       showOrHide(checkBox, fieldsElement);
-      for (let requiredInputField of $(requiredInputFieldSelector)) {
-        requiredInputField.required = checkBox.checked;
-      }
-    });
-    showOrHide(checkBox, fieldsElement);
-  }
+    }
 
-  function getAndShowRegisteredPorttrackerStations() {
-    const dataSharingKey = $("#porttracker-data-sharing-key").val();
-    $.ajax(
-      "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
-      {headers: {"X-Data-Sharing-Key": dataSharingKey}}
-    ).done(function (userStations) {
-      $("#porttracker-registered-stations").html(`
-        <table class="table caption-top">
-          <caption>Registered stations</caption>
-          <thead>
-            <tr>
-              <th scope="col">Use</th>
-              <th scope="col">Station ID</th>
-              <th scope="col">Name</th>
-              <th scope="col">Description</th>
-              <th scope="col">Latitude</th>
-              <th scope="col">Longitude</th>
-            </tr>
-          </thead>
-          <tbody>
-          </tbody>
-        </table>`);
-      for (const userStation of userStations) {
-        appendRegisteredPorttrackerStation(userStation);
+    function getAndShowRegisteredPorttrackerStations() {
+      const dataSharingKey = $("#porttracker-data-sharing-key").val();
+      $.ajax(
+        "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
+        {headers: {"X-Data-Sharing-Key": dataSharingKey}}
+      ).done(function (userStations) {
+        $("#porttracker-registered-stations").html(`
+          <table class="table caption-top">
+            <caption>Registered stations</caption>
+            <thead>
+              <tr>
+                <th scope="col">Use</th>
+                <th scope="col">Station ID</th>
+                <th scope="col">Name</th>
+                <th scope="col">Description</th>
+                <th scope="col">Latitude</th>
+                <th scope="col">Longitude</th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>`);
+        for (const userStation of userStations) {
+          appendRegisteredPorttrackerStation(userStation);
+        }
+      $("#porttracker-registered-stations > table > tbody").append(`
+        <tr id="porttracker-add-new-station-row">
+          <td colspan="6">
+            <button type="button" class="btn btn-primary col-12" data-mdb-button-init data-mdb-ripple-init onclick="showNewPorttrackerStationRegistrationFields()">
+              Register a new station
+            </button>
+          </td>
+        </tr>`);
+      }).fail(function(jqXHR) {
+        showRegisteredStationNotification(
+          "error", "Error getting stations", parsePorttrackerErrorDetail(jqXHR));
+      });
+    }
+
+    function appendRegisteredPorttrackerStation(
+      userStation, useImmediately=false) {
+      let row = $("<tr></tr>");
+      let useRadioButton = $(
+        `<input class="form-check-input required-if-enabled" type="radio" ` + `name="porttracker-station-id" value="${userStation.station.id}" />`);
+      useRadioButton.on(
+        "click change", {userStation: userStation}, setPorttrackerData);
+      if (useImmediately || userStation.station.id == {{ list_value_by_tags(['porttracker', 'station_id']) or 'undefined' }}) {
+        useRadioButton.prop("checked", true);
+        useRadioButton.trigger("click");
       }
-    $("#porttracker-registered-stations > table > tbody").append(`
-      <tr id="porttracker-add-new-station-row" >
-        <td colspan="6">
-          <button type="button" class="btn btn-primary col-12"
-          data-mdb-button-init data-mdb-ripple-init
-          onclick="showNewPorttrackerStationRegistrationFields()">
-            Register a new station
+      $("<td></td>").append(useRadioButton).appendTo(row);
+      row.append(`<th scope='row'>${userStation.station.id}</th>`);
+      row.append(`<td>${userStation.station.hostname}</td>`);
+      row.append(`<td>${userStation.station.description ?? ""}</td>`);
+      row.append(`<td>${userStation.station.position.lat}</td>`);
+      row.append(`<td>${userStation.station.position.lon}</td></tr>`);
+      $("#porttracker-registered-stations > table > tbody").append(row);
+    }
+
+    function setPorttrackerData(event) {
+      $("input[name=porttracker-mqtt-protocol]").val(
+        event.data.userStation.mosquittoAccess.protocol);
+      $("input[name=porttracker-mqtt-host]").val(
+        event.data.userStation.mosquittoAccess.host);
+      $("input[name=porttracker-mqtt-port]").val(
+        event.data.userStation.mosquittoAccess.port);
+      $("input[name=porttracker-mqtt-username]").val(
+        event.data.userStation.mosquittoAccess.username);
+      $("input[name=porttracker-mqtt-password]").val(
+        event.data.userStation.mosquittoAccess.password);
+      $("input[name=porttracker-mqtt-topic]").val(
+        event.data.userStation.mosquittoAccess.aisJsonTopic);
+    }
+
+    function showNewPorttrackerStationRegistrationFields() {
+      let row = $();
+      $("#porttracker-add-new-station-row").html(`
+        <td>
+          <button type="button" class="btn btn-primary" data-mdb-button-init data-mdb-ripple-init onclick="registerNewPorttrackerStation()">
+            Register
           </button>
         </td>
-      </tr>`);
-    }).fail(function(jqXHR) {
-      showRegisteredStationNotification(
-        "error", "Error getting stations", parsePorttrackerErrorDetail(jqXHR));
-    });
-  }
-
-  function appendRegisteredPorttrackerStation(
-    userStation, useImmediately=false) {
-    let row = $("<tr></tr>");
-    let useRadioButton = $(
-      `<input class="form-check-input required-if-enabled" type="radio" `
-      + `name="porttracker-station-id" value="${userStation.station.id}" />`);
-    useRadioButton.on(
-      "click change", {userStation: userStation}, setPorttrackerData);
-    if (useImmediately || userStation.station.id == {{ list_value_by_tags(['porttracker', 'station_id']) or 'undefined' }}) {
-      useRadioButton.prop("checked", true);
-      useRadioButton.trigger("click");
+        <td></td>
+        <td>
+          <input type="text" id="porttracker-register-new-station-hostname" class="form-control required-if-enabled" value="{{ list_value_by_tags(['site_name_sanitized']) }}" />
+        </td>
+        <td>
+          <input type="text" id="porttracker-register-new-station-description" class="form-control required-if-enabled" placeholder="Optional" />
+        </td>
+        <td>
+          <input type="text" id="porttracker-register-new-station-latitude" class="form-control required-if-enabled" value="{{ list_value_by_tags(['lat']) }}" />
+        </td>
+        <td>
+          <input type="text" id="porttracker-register-new-station-longitude" class="form-control required-if-enabled" value="{{ list_value_by_tags(['lon']) }}" />
+        </td>`);
     }
-    $("<td></td>").append(useRadioButton).appendTo(row);
-    row.append(`<th scope='row'>${userStation.station.id}</th>`);
-    row.append(`<td>${userStation.station.hostname}</td>`);
-    row.append(`<td>${userStation.station.description ?? ""}</td>`);
-    row.append(`<td>${userStation.station.position.lat}</td>`);
-    row.append(`<td>${userStation.station.position.lon}</td></tr>`);
-    $("#porttracker-registered-stations > table > tbody").append(row);
-  }
 
-  function setPorttrackerData(event) {
-    $("input[name=porttracker-mqtt-protocol]").val(
-      event.data.userStation.mosquittoAccess.protocol);
-    $("input[name=porttracker-mqtt-host]").val(
-      event.data.userStation.mosquittoAccess.host);
-    $("input[name=porttracker-mqtt-port]").val(
-      event.data.userStation.mosquittoAccess.port);
-    $("input[name=porttracker-mqtt-username]").val(
-      event.data.userStation.mosquittoAccess.username);
-    $("input[name=porttracker-mqtt-password]").val(
-      event.data.userStation.mosquittoAccess.password);
-    $("input[name=porttracker-mqtt-topic]").val(
-      event.data.userStation.mosquittoAccess.aisJsonTopic);
-  }
-
-  function showNewPorttrackerStationRegistrationFields() {
-    let row = $();
-    $("#porttracker-add-new-station-row").html(`
-      <td>
-        <button type="button" class="btn btn-primary"
-        data-mdb-button-init data-mdb-ripple-init
-        onclick="registerNewPorttrackerStation()">
-          Register
-        </button>
-      </td>
-      <td></td>
-      <td>
-        <input type="text" id="porttracker-register-new-station-hostname"
-          class="form-control required-if-enabled"
-          value="{{ list_value_by_tags(['site_name_sanitized']) }}" />
-      </td>
-      <td>
-        <input type="text" id="porttracker-register-new-station-description"
-          class="form-control required-if-enabled"
-          placeholder="Optional" />
-      </td>
-      <td>
-        <input type="text" id="porttracker-register-new-station-latitude"
-          class="form-control required-if-enabled"
-          value="{{ list_value_by_tags(['lat']) }}" />
-      </td>
-      <td>
-        <input type="text" id="porttracker-register-new-station-longitude"
-          class="form-control required-if-enabled"
-          value="{{ list_value_by_tags(['lon']) }}" />
-      </td>`);
-  }
-
-  function registerNewPorttrackerStation() {
-    const dataSharingKey = $("#porttracker-data-sharing-key").val();
-    const hostname = $("#porttracker-register-new-station-hostname").val();
-    const description = $(
-      "#porttracker-register-new-station-description").val();
-    const latitude = Number.parseFloat(
-      $("#porttracker-register-new-station-latitude").val());
-    const longitude = Number.parseFloat(
-      $("#porttracker-register-new-station-longitude").val());
-    if (!hostname) {
-      alert("Missing station name.");
-      return;
-    }
-    if (Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
-      alert("Invalid latitude");
-      return;
-    }
-    if (Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
-      alert("Invalid longitude");
-      return;
-    }
-    $.ajax(
-      "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
-      {
-        method: "POST",
-        headers: {"X-Data-Sharing-Key": dataSharingKey},
-        contentType: "application/json",
-        data: JSON.stringify({
-          hostname: hostname,
-          description: description || null,
-          position: {
-            lon: longitude,
-            lat: latitude
-          }
-        })
+    function registerNewPorttrackerStation() {
+      const dataSharingKey = $("#porttracker-data-sharing-key").val();
+      const hostname = $("#porttracker-register-new-station-hostname").val();
+      const description = $(
+        "#porttracker-register-new-station-description").val();
+      const latitude = Number.parseFloat(
+        $("#porttracker-register-new-station-latitude").val());
+      const longitude = Number.parseFloat(
+        $("#porttracker-register-new-station-longitude").val());
+      if (!hostname) {
+        alert("Missing station name.");
+        return;
       }
-    ).done(function (userStation) {
-      $("#porttracker-add-new-station-row").remove();
-      appendRegisteredPorttrackerStation(userStation, true);
-    }).fail(function(jqXHR) {
-      showRegisteredStationNotification(
-        "error", "Error registering new station",
-        parsePorttrackerErrorDetail(jqXHR));
+      if (Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
+        alert("Invalid latitude");
+        return;
+      }
+      if (Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
+        alert("Invalid longitude");
+        return;
+      }
+      $.ajax(
+        "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
+        {
+          method: "POST",
+          headers: {"X-Data-Sharing-Key": dataSharingKey},
+          contentType: "application/json",
+          data: JSON.stringify({
+            hostname: hostname,
+            description: description || null,
+            position: {
+              lon: longitude,
+              lat: latitude
+            }
+          })
+        }
+      ).done(function (userStation) {
+        $("#porttracker-add-new-station-row").remove();
+        appendRegisteredPorttrackerStation(userStation, true);
+      }).fail(function(jqXHR) {
+        showRegisteredStationNotification(
+          "error", "Error registering new station",
+          parsePorttrackerErrorDetail(jqXHR));
+      });
+    }
+
+    function showRegisteredStationNotification(kind, title, message) {
+      let kindClass = "text-bg-info";
+      if (kind == "error") {
+        kindClass = "text-bg-danger";
+      }
+      $("#porttracker-registered-stations").html(`
+        <div class="card ${kindClass} mb-3">
+          <div class="card-body">
+            <h5 class="card-title">${title}</h5>
+            <p class="card-text">${message}</p>
+          </div>
+        </div>`);
+    }
+
+    function parsePorttrackerErrorDetail(jqXHR) {
+      try {
+          response = JSON.parse(jqXHR.responseText);
+          return JSON.stringify(response.detail) || jqXHR.responseText;
+      } catch (e) {
+          return jqXHR.responseText;
+      }
+    }
+
+    // Reinitialize mdb inputs to fix labels covering content.
+    $(".form-outline").each((_, formOutline) => {
+      new mdb.Input(formOutline).init();
     });
-  }
 
-  function showRegisteredStationNotification(kind, title, message) {
-    let kindClass = "text-bg-info";
-    if (kind == "error") {
-      kindClass = "text-bg-danger";
+    // If a data sharing key is set, load stations immediately.
+    if ($("#porttracker-data-sharing-key").val()) {
+      showRegisteredStationNotification(
+        "info", "Loading stations",
+        "Loading existing registered stations for your data sharing key.");
+      getAndShowRegisteredPorttrackerStations();
+    } else {
+      showRegisteredStationNotification(
+        "info", "No stations",
+        "Set your data sharing key to see registered stations.");
     }
-    $("#porttracker-registered-stations").html(`
-      <div class="card ${kindClass} mb-3">
-        <div class="card-body">
-          <h5 class="card-title">${title}</h5>
-          <p class="card-text">${message}</p>
-        </div>
-      </div>`);
-  }
-
-  function parsePorttrackerErrorDetail(jqXHR) {
-    try {
-        response = JSON.parse(jqXHR.responseText);
-        return JSON.stringify(response.detail) || jqXHR.responseText;
-    } catch (e) {
-        return jqXHR.responseText;
-    }
-  }
-
-  // Reinitialize mdb inputs to fix labels covering content.
-  $(".form-outline").each((_, formOutline) => {
-    new mdb.Input(formOutline).init();
-  });
-
-  // If a data sharing key is set, load stations immediately.
-  if ($("#porttracker-data-sharing-key").val()) {
-    showRegisteredStationNotification(
-      "info", "Loading stations",
-      "Loading existing registered stations for your data sharing key.");
-    getAndShowRegisteredPorttrackerStations();
-  } else {
-    showRegisteredStationNotification(
-      "info", "No stations",
-      "Set your data sharing key to see registered stations.");
-  }
-</script>
+  </script>
 {% endblock content %}
