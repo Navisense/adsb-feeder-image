@@ -37,6 +37,11 @@ _status_symbol = {
     Status.GOOD: "+",}
 
 
+class MessageType(enum.Enum):
+    AIS = enum.auto()
+    ADSB = enum.auto()
+
+
 class ConfigureError(Exception):
     pass
 
@@ -162,6 +167,12 @@ class Aggregator(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def capable_message_types(self) -> set[MessageType]:
+        """The message types this aggregator can handle."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
     def _container_name(self) -> str:
         raise NotImplementedError
 
@@ -222,6 +233,10 @@ class UltrafeederAggregator(Aggregator):
         self._netconfig = self._d.netconfigs.get(self.agg_key)
         if not self._netconfig:
             raise ValueError
+
+    @property
+    def capable_message_types(self) -> set[MessageType]:
+        return {MessageType.ADSB}
 
     @property
     def _container_name(self) -> str:
@@ -386,6 +401,10 @@ class AccountBasedAggregator(Aggregator):
     Account-based aggregators all require at least some sort of authentication,
     a key, to be configured in order to work.
     """
+    @property
+    def capable_message_types(self) -> set[MessageType]:
+        return {MessageType.ADSB}
+
     def _lat(self):
         return self._d.env_by_tags("lat").list_get(0)
 
@@ -559,6 +578,10 @@ class PorttrackerAggregator(AccountBasedAggregator):
             map_url="https://porttracker.co/",
             status_url="https://www.porttracker.co/app/profile")
         self._station_id = None
+
+    @property
+    def capable_message_types(self) -> set[MessageType]:
+        return {MessageType.AIS}
 
     @property
     def _container_name(self):
