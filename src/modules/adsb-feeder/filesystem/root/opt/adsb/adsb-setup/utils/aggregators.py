@@ -8,6 +8,7 @@ import requests
 import subprocess
 import threading
 import time
+import typing as t
 from typing import Optional
 
 import utils.data
@@ -15,31 +16,34 @@ import utils.system
 import utils.util
 
 
-class Status(enum.Enum):
-    UNKNOWN = enum.auto()
-    DISCONNECTED = enum.auto()
-    DISABLED = enum.auto()
-    CONTAINER_DOWN = enum.auto()
-    STARTING = enum.auto()
-    BAD = enum.auto()
-    WARNING = enum.auto()
-    GOOD = enum.auto()
-
-
-_status_symbol = {
-    Status.UNKNOWN: ".",
-    Status.DISCONNECTED: "\u2612",
-    Status.DISABLED: " ",
-    Status.CONTAINER_DOWN: "\u2608",
-    Status.STARTING: "\u27f3",
-    Status.BAD: "\u2639",
-    Status.WARNING: "\u26a0",
-    Status.GOOD: "+",}
+class Status(enum.StrEnum):
+    UNKNOWN = "unknown"
+    DISCONNECTED = "disconnected"
+    DISABLED = "disabled"
+    CONTAINER_DOWN = "container_down"
+    STARTING = "starting"
+    BAD = "bad"
+    WARNING = "warning"
+    GOOD = "good"
 
 
 class MessageType(enum.Enum):
     AIS = enum.auto()
     ADSB = enum.auto()
+
+
+class AisStatus(t.TypedDict):
+    data_status: Status
+
+
+class AdsbStatus(t.TypedDict):
+    data_status: Status
+    mlat_status: Status
+
+
+class AggregatorStatus(t.TypedDict):
+    ais: Optional[AdsbStatus]
+    adsb: Optional[AdsbStatus]
 
 
 class ConfigureError(Exception):
@@ -122,13 +126,13 @@ class Aggregator(abc.ABC):
         self._map_url = map_url
         self._status_url = status_url
         self._last_check = 0
-        self._data_status = self._mlat_status = Status.UNKNOWN
+        self._status = AggregatorStatus(ais=None, adsb=None)
         self._check_lock = threading.Lock()
 
     def __repr__(self):
         return (
             f"{type(self).__name__}(last_check: {str(self._last_check)}, "
-            f"data: {self._data_status} mlat: {self._mlat_status})")
+            f"status: {self._status})")
 
     @property
     def agg_key(self) -> str:
@@ -156,14 +160,9 @@ class Aggregator(abc.ABC):
         return True
 
     @property
-    def data_status(self) -> str:
+    def status(self) -> AggregatorStatus:
         self.refresh_status_cache()
-        return _status_symbol[self._data_status]
-
-    @property
-    def mlat_status(self) -> str:
-        self.refresh_status_cache()
-        return _status_symbol[self._mlat_status]
+        return self._status
 
     @property
     @abc.abstractmethod
@@ -186,35 +185,42 @@ class Aggregator(abc.ABC):
             return
         try:
             with self._check_lock:
-                data_status, mlat_status = self._get_statuses_locked()
+                status = self._get_status_locked()
         except:
             self._logger.exception("Error checking status.")
-            data_status, mlat_status = Status.UNKNOWN, Status.UNKNOWN
-        self._data_status = data_status
-        self._mlat_status = mlat_status
+            status = AggregatorStatus(ais=None, adsb=None)
+        self._status = status
         self._last_check = time.time()
 
-    def _get_statuses_locked(self) -> None:
+    def _get_status_locked(self) -> AggregatorStatus:
         container_status = self._system.getContainerStatus(
             self._container_name)
-        if container_status == "down":
-            return Status.CONTAINER_DOWN, Status.DISABLED
-        elif container_status == "restarting":
-            return Status.STARTING, Status.DISABLED
+        if container_status in ["down", "restarting"]:
+            if container_status == "down":
+                data_status = Status.CONTAINER_DOWN
+            elif container_status == "restarting":
+                data_status = Status.STARTING
+            return AggregatorStatus(
+                ais=None if MessageType.AIS not in self.capable_message_types
+                else AisStatus(data_status=data_status),
+                adsb=None if MessageType.ADSB not in self.capable_message_types
+                else AdsbStatus(
+                    data_status=data_status, mlat_status=Status.DISABLED),
+            )
 
-        data_status, mlat_status = self._check_aggregator_statuses()
-        # If mlat isn't enabled, ignore status check results.
-        if not self._d.list_is_enabled("mlat_enable", 0):
-            mlat_status = Status.DISABLED
-        return data_status, mlat_status
+        status = self._check_aggregator_status()
+        if not self._d.list_is_enabled("mlat_enable", 0) and status["adsb"]:
+            # If mlat isn't enabled, ignore status check results.
+            status["adsb"]["mlat_status"] = Status.DISABLED
+        return status
 
     @abc.abstractmethod
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         """
         Check status.
 
-        Returns a tuple of data_status, mlat_status. May raise StatusCheckError
-        or other exceptions to indicate that the check couldn't be performed.
+        Returns a fresh status. May raise StatusCheckError or other exceptions
+        to indicate that the check couldn't be performed.
         """
         raise NotImplementedError
 
@@ -246,11 +252,13 @@ class UltrafeederAggregator(Aggregator):
     def needs_key(self) -> bool:
         return False
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         data_status = self._get_data_status()
         mlat_status = self._get_mlat_status()
         self._maybe_set_extra_info_to_settings()
-        return data_status, mlat_status
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status))
 
     def _get_data_status(self) -> Status:
         bconf = self._netconfig.adsb_config
@@ -259,7 +267,7 @@ class UltrafeederAggregator(Aggregator):
         if not bconf:
             self._logger.error(
                 f"No adsb_config in netconfig for {self.agg_key}.")
-            return self._data_status
+            return Status.UNKNOWN
         pattern = (
             'readsb_net_connector_status{{host="{host}",port="{port}"}} (\\d+)'
             .format(host=bconf.split(',')[1], port=bconf.split(',')[2]))
@@ -281,7 +289,7 @@ class UltrafeederAggregator(Aggregator):
             else:
                 return Status.WARNING
         self._logger.error(f"No match checking data status for {pattern}.")
-        return self._data_status
+        return Status.UNKNOWN
 
     def _get_mlat_status(self) -> Status:
         mconf = self._netconfig.mlat_config
@@ -477,8 +485,12 @@ class AccountBasedAggregator(Aggregator):
                 f"docker run {cmdline} completed with output {output}")
         return output
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
-        return Status.UNKNOWN, Status.DISABLED
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(
+                data_status=Status.UNKNOWN, mlat_status=Status.DISABLED),
+        )
 
 
 class PlaneFinderAggregator(AccountBasedAggregator):
@@ -614,7 +626,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
                              "mqtt_msgformat"]).list_set(0, "JSON_NMEA")
         super().configure(enabled, data_sharing_key)
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         data_sharing_key_env = self._d.env_by_tags([
             "porttracker", "data_sharing_key"])
         station_id_env = self._d.env_by_tags(["porttracker", "station_id"])
@@ -637,7 +649,9 @@ class PorttrackerAggregator(AccountBasedAggregator):
             data_status = Status.WARNING
         else:
             data_status = Status.BAD
-        return data_status, Status.DISABLED
+        return AggregatorStatus(
+            ais=None, adsb=AdsbStatus(
+                data_status=data_status, mlat_status=Status.DISABLED))
 
 
 class AirnavRadarAggregator(AccountBasedAggregator):
@@ -693,7 +707,7 @@ class AirnavRadarAggregator(AccountBasedAggregator):
 
         return sharing_key_match.group(1)
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         rbkey = self._d.env_by_tags(["radarbox", "key"]).list_get(0)
         # reset station number if the key has changed
         if rbkey != self._d.env_by_tags(["radarbox", "snkey"]).list_get(0):
@@ -741,7 +755,10 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         mlat_online = station.get("mlat_online")
         data_status = Status.GOOD if online else Status.DISCONNECTED
         mlat_status = Status.GOOD if mlat_online else Status.DISCONNECTED
-        return data_status, mlat_status
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+        )
 
 
 class FlightAwareAggregator(AccountBasedAggregator):
@@ -781,7 +798,7 @@ class FlightAwareAggregator(AccountBasedAggregator):
             "response")
         return None
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
         json_url = f"{host}/fa-status.json/"
         fa_dict, status = utils.util.generic_get_json(json_url)
@@ -809,7 +826,10 @@ class FlightAwareAggregator(AccountBasedAggregator):
                     mlat_status = Status.UNKNOWN
             else:
                 mlat_status = Status.DISCONNECTED
-        return data_status, mlat_status
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+        )
 
 
 class TenNinetyUkAggregator(AccountBasedAggregator):
@@ -827,8 +847,12 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
     def _container_name(self):
         return "radar1090uk"
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
-        return Status.UNKNOWN, Status.DISABLED
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(
+                data_status=Status.UNKNOWN, mlat_status=Status.DISABLED),
+        )
         # TODO This unreachable code was in here from upstream. Not sure why
         # it's been disabled, but I'm leaving it here in case it becomes
         # useful.
@@ -841,7 +865,11 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
                 data_status = Status.GOOD if online else Status.DISCONNECTED
             else:
                 data_status = Status.UNKNOWN
-            return data_status, Status.DISABLED
+            return AggregatorStatus(
+                ais=None,
+                adsb=AdsbStatus(
+                    data_status=data_status, mlat_status=Status.DISABLED),
+            )
 
 
 class FlightRadar24Aggregator(AccountBasedAggregator):
@@ -1015,7 +1043,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             f"Found uat sharing key {uat_key} in the container output")
         return uat_key
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
         json_url = f"{host}/fr24-monitor.json/"
         fr_dict, status = utils.util.generic_get_json(json_url)
@@ -1026,7 +1054,11 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             data_status = Status.GOOD
         else:
             data_status = Status.DISCONNECTED
-        return data_status, Status.DISABLED
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(
+                data_status=data_status, mlat_status=Status.DISABLED),
+        )
 
 
 class PlaneWatchAggregator(AccountBasedAggregator):
@@ -1039,7 +1071,7 @@ class PlaneWatchAggregator(AccountBasedAggregator):
     def _container_name(self):
         return "planewatch"
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         # they sometimes call it key, sometimes uuid
         pw_uuid = self._d.env_by_tags(["planewatch", "key"]).list_get(0)
         if not pw_uuid:
@@ -1059,7 +1091,10 @@ class PlaneWatchAggregator(AccountBasedAggregator):
             "connected") else Status.DISCONNECTED
         mlat_status = Status.GOOD if mlat.get(
             "connected") else Status.DISCONNECTED
-        return data_status, mlat_status
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+        )
 
 
 class SdrMapAggregator(AccountBasedAggregator):
@@ -1084,9 +1119,13 @@ class SdrMapAggregator(AccountBasedAggregator):
         self._d.env_by_tags([self.agg_key, "user"]).list_set(0, user)
         super().configure(enabled, password)
 
-    def _check_aggregator_statuses(self) -> tuple[Status, Status]:
+    def _check_aggregator_status(self) -> AggregatorStatus:
         if self.FEED_OK_FILE.exists():
             data_status = Status.GOOD
         else:
             data_status = Status.DISCONNECTED
-        return data_status, Status.UNKNOWN
+        return AggregatorStatus(
+            ais=None,
+            adsb=AdsbStatus(
+                data_status=data_status, mlat_status=Status.UNKNOWN),
+        )

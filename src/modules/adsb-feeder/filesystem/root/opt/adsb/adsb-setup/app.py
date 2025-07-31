@@ -1268,9 +1268,7 @@ class AdsbIm:
 
     def _make_aggregator_status(
             self, aggregator: utils.aggregators.Aggregator):
-        res = {
-            "data": aggregator.data_status,
-            "mlat": aggregator.mlat_status,}
+        res = aggregator.status
         if aggregator.agg_key == "adsbx":
             res["adsbxfeederid"] = (
                 self._d.env_by_tags("adsbxfeederid").list_get(0))

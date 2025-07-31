@@ -361,19 +361,33 @@
   }
 
   function refreshAggregatorStatus(aggKey) {
+    const statusSymbols = {
+      unknown: ".",
+      disconnected: String.fromCodePoint(0x2612),
+      disabled: " ",
+      container_down: String.fromCodePoint(0x2608),
+      starting: String.fromCodePoint(0x27f3),
+      bad: String.fromCodePoint(0x2639),
+      warning: String.fromCodePoint(0x26a0),
+      good: "+",
+    };
     $(`#${aggKey}-enabled`).attr("class", "text-muted");
     $(`#${aggKey}-data-status`).text(".");
     $(`#${aggKey}-mlat-status`).text(".");
     fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(resp => {
-        $(`#${aggKey}-data-status`).text(resp["data"]);
-        $(`#${aggKey}-mlat-status`).text(resp["mlat"]);
-        const mlatBroken = !(resp["mlat"] == "+" || resp["mlat"] == "." || resp["mlat"] == " ");
-        const dataBroken = !(resp["data"] == "+" || resp["data"] == "." || resp["data"] == " ");
-        if (resp["data"] == "+" && !mlatBroken) {
+        let dataStatus = resp.adsb.data_status;
+        let mlatStatus = resp.adsb.mlat_status;
+        if (dataStatus === undefined) dataStatus = "unknown";
+        if (mlatStatus === undefined) mlatStatus = "unknown";
+        $(`#${aggKey}-data-status`).text(statusSymbols[dataStatus]);
+        $(`#${aggKey}-mlat-status`).text(statusSymbols[mlatStatus]);
+        const dataBroken = !["unknown", "disabled", "good"].includes(dataStatus);
+        const mlatBroken = !["unknown", "disabled", "good"].includes(mlatStatus);
+        if (dataStatus == "good" && !mlatBroken) {
           $(`#${aggKey}-enabled`).attr("class", "text-success");
-        } else if (resp["data"] == "☒") {
+        } else if (dataStatus == "disconnected") {
           $(`#${aggKey}-enabled`).attr("class", "text-danger");
         } else if (dataBroken || mlatBroken) {
           $(`#${aggKey}-enabled`).attr("class", "text-warning");
