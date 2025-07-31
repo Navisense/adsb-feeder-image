@@ -657,8 +657,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
         else:
             data_status = Status.BAD
         return AggregatorStatus(
-            ais=None, adsb=AdsbStatus(
-                data_status=data_status, mlat_status=Status.DISABLED))
+            ais=AisStatus(data_status=data_status), adsb=None)
 
 
 class AirnavRadarAggregator(AccountBasedAggregator):

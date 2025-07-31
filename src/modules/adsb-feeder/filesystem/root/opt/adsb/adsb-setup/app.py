@@ -310,6 +310,7 @@ class AdsbIm:
         # set Cache-Control max-age for static files served
         # cachebust.sh ensures that the browser doesn't get outdated files
         self.app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1209600
+        self.app.jinja_env.add_extension("jinja2.ext.loopcontrols")
 
         self.exiting = False
 

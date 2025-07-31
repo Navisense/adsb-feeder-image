@@ -46,6 +46,45 @@
   <h4>You are feeding</h4>
   <div class="row small">
     <div class="col-12 col-md-6" style="overflow-x: auto">
+      <h5>AIS</h5>
+      <table class="table table-bordered table-sm lh-1 table-striped">
+        <thead>
+          <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
+          <td class="text-center" colspan="1">Enabled</td>
+          <td class="text-center" colspan="1">Data</td>
+          <td class="text-center" colspan="1">Status</td>
+        </thead>
+        <tbody>
+          {% for agg in enabled_aggregators %}
+            {% if not agg.enabled('ais') %}
+              {% continue %}
+            {% endif %}
+            <tr>
+              <td style="position: -webkit-sticky; position: sticky; left: 0px;">
+                {% if agg.map_url %}
+                  <a href="{{ agg.map_url }}">{{ agg.name }}</a>
+                {% else %}
+                  {{ agg.name }}
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <span id="{{ agg.agg_key }}-ais-enabled" width="3em">✓</span>
+              </td>
+              <td class="text-center">
+                <span id="{{ agg.agg_key }}-ais-data-status" width="3em"></span>
+              </td>
+              <td class="text-center">
+                {% if agg.status_url %}
+                  <a href="{{ agg.status_url }}">🔗</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="col-12 col-md-6" style="overflow-x: auto">
+      <h5>ADS-B</h5>
       <table class="table table-bordered table-sm lh-1 table-striped">
         <thead>
           <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
@@ -56,6 +95,9 @@
         </thead>
         <tbody>
           {% for agg in enabled_aggregators %}
+            {% if not agg.enabled('adsb') %}
+              {% continue %}
+            {% endif %}
             <tr>
               <td style="position: -webkit-sticky; position: sticky; left: 0px;">
                 {% if agg.map_url %}
@@ -65,13 +107,13 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-enabled" width="3em">✓</span>
+                <span id="{{ agg.agg_key }}-adsb-enabled" width="3em">✓</span>
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-data-status" width="3em"></span>
+                <span id="{{ agg.agg_key }}-adsb-data-status" width="3em"></span>
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-mlat-status" width="3em"></span>
+                <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em"></span>
               </td>
               <td class="text-center">
                 {% if agg.status_url %}
@@ -375,22 +417,27 @@
     fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(resp => {
-        let dataStatus = resp.adsb.data_status;
-        let mlatStatus = resp.adsb.mlat_status;
-        if (dataStatus === undefined) dataStatus = "unknown";
-        if (mlatStatus === undefined) mlatStatus = "unknown";
-        $(`#${aggKey}-data-status`).text(statusSymbols[dataStatus]);
-        $(`#${aggKey}-mlat-status`).text(statusSymbols[mlatStatus]);
-        const dataBroken = !["unknown", "disabled", "good"].includes(dataStatus);
-        const mlatBroken = !["unknown", "disabled", "good"].includes(mlatStatus);
-        if (dataStatus == "good" && !mlatBroken) {
-          $(`#${aggKey}-enabled`).attr("class", "text-success");
-        } else if (dataStatus == "disconnected") {
-          $(`#${aggKey}-enabled`).attr("class", "text-danger");
-        } else if (dataBroken || mlatBroken) {
-          $(`#${aggKey}-enabled`).attr("class", "text-warning");
-        } else {
-          $(`#${aggKey}-enabled`).attr("class", "text-muted");
+        for (const messageType of ["ais", "adsb"]) {
+          const status = resp[messageType];
+          if (!status) continue;
+          $(`#${aggKey}-${messageType}-data-status`).text(statusSymbols[status.data_status]);
+          let broken = !(["unknown", "disabled", "good"].includes(status.data_status));
+          if (status.mlat_status) {
+            broken ||= !(["unknown", "disabled", "good"].includes(status.mlat_status));
+            $(`#${aggKey}-${messageType}-mlat-status`).text(statusSymbols[status.mlat_status]);
+          }
+          console.log(`${messageType}: ${aggKey}: ${broken}: ${status.data_status}: ${status.mlat_status}`);
+          let checkMarkElement = $(`#${aggKey}-${messageType}-enabled`);
+          console.log(checkMarkElement);
+          if (status.data_status == "good" && !broken) {
+            checkMarkElement.attr("class", "text-success");
+          } else if (status.data_status == "disconnected") {
+            checkMarkElement.attr("class", "text-danger");
+          } else if (broken) {
+            checkMarkElement.attr("class", "text-warning");
+          } else {
+            checkMarkElement.attr("class", "text-muted");
+          }
         }
       });
   }
