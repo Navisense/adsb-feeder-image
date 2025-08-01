@@ -1265,21 +1265,7 @@ class AdsbIm:
             flask.abort(404)
         if not aggregator.enabled():
             return {}
-        return self._make_aggregator_status(aggregator)
-
-    def _make_aggregator_status(
-            self, aggregator: utils.aggregators.Aggregator):
-        res = aggregator.status
-        if aggregator.agg_key == "adsbx":
-            res["adsbxfeederid"] = (
-                self._d.env_by_tags("adsbxfeederid").list_get(0))
-        elif aggregator.agg_key == "adsblol":
-            res["adsblollink"] = (
-                self._d.env_by_tags("adsblol_link").list_get(0))
-        elif aggregator.agg_key == "alive":
-            res["alivemaplink"] = (
-                self._d.env_by_tags("alivemaplink").list_get(0))
-        return res
+        return aggregator.status
 
     @check_restart_lock
     def sdr_setup(self):

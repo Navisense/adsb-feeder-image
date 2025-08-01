@@ -262,7 +262,6 @@ class UltrafeederAggregator(Aggregator):
     def _check_aggregator_status(self) -> AggregatorStatus:
         data_status = self._get_data_status()
         mlat_status = self._get_mlat_status()
-        self._maybe_set_extra_info_to_settings()
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status))
@@ -323,9 +322,6 @@ class UltrafeederAggregator(Aggregator):
         else:
             return Status.WARNING
 
-    def _maybe_set_extra_info_to_settings(self):
-        pass
-
 
 class AirplanesLiveAggregator(UltrafeederAggregator):
     class AirplanesLiveAdsbStatus(AdsbStatus):
@@ -354,18 +350,6 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
         status["adsb"]["alive_map_link"] = self._alive_map_link
         return status
 
-    def _maybe_set_extra_info_to_settings(self):
-        if self._d.env_by_tags("alivemaplink").list_get(0):
-            return
-        json_url = "https://api.airplanes.live/feed-status"
-        a_dict, status = utils.util.generic_get_json(json_url)
-        if a_dict and status == 200:
-            map_link = a_dict.get("map_link")
-            # seems to currently only have one map link per IP, we save it
-            # per microsite nonetheless in case this changes in the future
-            if map_link:
-                self._d.env_by_tags("alivemaplink").list_set(0, map_link)
-
 
 class AdsbLolAggregator(UltrafeederAggregator):
     class AdsbLolAdsbStatus(AdsbStatus):
@@ -393,21 +377,6 @@ class AdsbLolAggregator(UltrafeederAggregator):
                 self._logger.exception("Error getting map link from adsb.lol.")
         status["adsb"]["adsblol_link"] = self._adsblol_link
         return status
-
-    def _maybe_set_extra_info_to_settings(self):
-        if self._d.env_by_tags("adsblol_link").list_get(0):
-            return
-        uuid = self._d.env_by_tags("adsblol_uuid").list_get(0)
-        json_url = "https://api.adsb.lol/0/me"
-        response_dict, status = utils.util.generic_get_json(json_url)
-        if response_dict and status == 200:
-            try:
-                for entry in response_dict.get("clients").get("beast"):
-                    if entry.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14]:
-                        self._d.env_by_tags("adsblol_link").list_set(
-                            0, entry.get("adsblol_my_url"))
-            except:
-                self._logger.exception("Error getting map link from adsb.lol.")
 
 
 class AdsbxAggregator(UltrafeederAggregator):
@@ -444,37 +413,6 @@ class AdsbxAggregator(UltrafeederAggregator):
         self._logger.error(
             f"Unable to find adsbx ID in container logs: {proc.stdout}")
         return None
-
-    def _maybe_set_extra_info_to_settings(self):
-        feeder_id = self._d.env_by_tags("adsbxfeederid").list_get(0)
-        if feeder_id and len(feeder_id) == 12:
-            return
-        # get the adsbexchange feeder id for the anywhere map / status
-        # things
-        self._logger.info("Don't have the adsbX Feeder ID yet, getting it.")
-        container_name = "ultrafeeder"
-        try:
-            result = subprocess.run(
-                f"docker logs {container_name} "
-                "| grep 'www.adsbexchange.com/api/feeders' | tail -1",
-                shell=True,
-                capture_output=True,
-                text=True,
-            )
-            output = result.stdout
-        except:
-            self._logger.exception("Error trying to look at the adsbx logs.")
-            return
-        match = re.search(
-            r"www.adsbexchange.com/api/feeders/\?feed=([^&\s]*)",
-            output,
-        )
-        if match:
-            adsbx_id = match.group(1)
-            self._d.env_by_tags("adsbxfeederid").list_set(0, adsbx_id)
-        else:
-            self._logger.error(
-                f"Unable to find adsbx ID in container logs: {output}")
 
 
 class AccountBasedAggregator(Aggregator):

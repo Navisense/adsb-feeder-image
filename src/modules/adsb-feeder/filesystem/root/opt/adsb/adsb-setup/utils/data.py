@@ -182,7 +182,6 @@ class Data:
         # Ultrafeeder config, used for all 4 types of Ultrafeeder instances
         Env("FEEDER_ULTRAFEEDER_CONFIG", default=[""], tags=["ultrafeeder_config"]),
         Env("ADSBLOL_UUID", default=[""], tags=["adsblol_uuid"]),
-        Env("ADSBLOL_LINK", default=[""], tags=["adsblol_link"]),
         Env("ULTRAFEEDER_UUID", default=[""], tags=["ultrafeeder_uuid"]),
         Env("MLAT_PRIVACY", default=[False], tags=["mlat_privacy", "is_enabled"]),
         Env("MLAT_ENABLE", default=[True], tags=["mlat_enable", "is_enabled"]),
@@ -525,16 +524,6 @@ class Data:
             "_ADSBIM_STATE_IS_ULTRAFEEDER_ADSBX_ENABLED",
             default=[False],
             tags=["adsbx", "ultrafeeder", "is_enabled"],
-        ),
-        Env(
-            "_ADSBIM_STATE_ADSBX_FEEDER_ID",
-            default=[""],
-            tags="adsbxfeederid",
-        ),
-        Env(
-            "_ADSBIM_STATE_ALIVE_MAP_LINK",
-            default=[""],
-            tags="alivemaplink",
         ),
         Env(
             "_ADSBIM_STATE_IS_ULTRAFEEDER_TAT_ENABLED",
