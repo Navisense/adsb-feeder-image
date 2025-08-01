@@ -55,7 +55,7 @@
           <td class="text-center" colspan="1">Status</td>
         </thead>
         <tbody>
-          {% for agg in enabled_aggregators %}
+          {% for agg in enabled_aggregators.values() %}
             {% if not agg.enabled('ais') %}
               {% continue %}
             {% endif %}
@@ -94,7 +94,7 @@
           <td class="text-center" colspan="1">Status</td>
         </thead>
         <tbody>
-          {% for agg in enabled_aggregators %}
+          {% for agg in enabled_aggregators.values() %}
             {% if not agg.enabled('adsb') %}
               {% continue %}
             {% endif %}
@@ -153,6 +153,82 @@
       </span>
     </div>
   </div>
+  {% if enabled_aggregators | select('in', ['adsblol', 'flightradar', 'planefinder', 'adsbx', 'alive', 'flightaware']) | list %}
+    <div class="row mt-3">
+      <h5>Additional aggregator links</h5>
+      {% if 'adsblol' in enabled_aggregators %}
+        <div class="col-12 mb-2">
+          <div class="lead">ADSB.lol</div>
+          <ul class="mb-0">
+            <li><a href="https://status.adsb.lol/">ADSB.lol status</a></li>
+            <li><a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a></li>
+            <li>
+              <a id="adsblol-link" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are sending</a>
+            </li>
+            <li>
+              <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">
+                ADSB.lol MLAT feeder map for the area around {{ list_value_by_tags(['site_name']) }}
+              </a>
+            </li>
+          </ul>
+          {% if list_is_enabled("mlat_privacy", 0) %}
+            (since you have MLAT privacy enabled, your feeder won't be shown)
+          {% else %}
+            (your feeder will be at an approximate location as {{ list_value_by_tags(['site_name']) }})
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if 'flightradar' in enabled_aggregators %}
+        <div class="col-12">
+          <div class="lead">FlightRadar 24</div>
+          <ul class="mb-0">
+            <li><a href="{{ url_for('/fr24/') }}">FR24 status</a></li>
+          </ul>
+        </div>
+      {% endif %}
+      {% if 'flightaware' in enabled_aggregators %}
+        <div class="col-12">
+          <div class="lead">FlightAware</div>
+          <div class="small text-muted">
+            Note: The SkyAware map on the status page does not work, it's not needed to supply data to FA<br>
+            (You can re-enable that map at the cost of increased cpu / memory consumption by adding PIAWARE_MINIMAL=false
+            to the environment variables on the expert page)
+          </div>
+          <ul class="mb-0">
+            <li><a href="{{ url_for('/fa-status/') }}">FlightAware status</a></li>
+            <li class="d-none"><a href="{{ url_for('/fa/') }}">FlightAware map</a></li>
+          </ul>
+        </div>
+      {% endif %}
+      {% if 'planefinder' in enabled_aggregators %}
+        <div class="col-12">
+          <div class="lead">PlaneFinder</div>
+          <ul class="mb-0">
+            <li><a href="{{ url_for('/planefinder/') }}">Planefinder map</a></li>
+            <li><a href="{{ url_for('/planefinder-stat/') }}">Planefinder stats</a></li>
+          </ul>
+        </div>
+      {% endif %}
+      {% if 'adsbx' in enabled_aggregators %}
+        <div class="col-12">
+          <div class="lead">ADSBExchange</div>
+          <ul class="mb-0">
+            <li><a id="adsbxstatlink" href="">ADSBx Anywhere Stats</a></li>
+            <li><a id="adsbxmaplink" href="">ADSBx Anywhere Map</a></li>
+          </ul>
+        </div>
+      {% endif %}
+      {% if 'alive' in enabled_aggregators %}
+        <div class="col-12">
+          <div class="lead">airplanes.live</div>
+          <ul class="mb-0">
+            <li><a id="alivestatus" href="https://airplanes.live/myfeed/">Status</a></li>
+            <li><a id="alive-map-link" href="">Map</a></li>
+          </ul>
+        </div>
+      {% endif %}
+    </div>
+    {% endif %}
 </div>
 <div class="col-12 mb-4">
   <div class="small">
@@ -435,6 +511,17 @@
           } else {
             checkMarkElement.attr("class", "text-muted");
           }
+          if (status.adsblol_link) {
+            $("#adsblol-link").attr("href", status.adsblol_link);
+          }
+          if (status.alive_map_link) {
+            $("#alive-map-link").attr("href", status.alive_map_link);
+          }
+          if (status.adsbx_feeder_id) {
+            $("#adsbxstatlink").attr(
+              "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
+            $("#adsbxmaplink").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
+          }
         }
       });
   }
@@ -456,7 +543,7 @@
     "Update aggregator status",
     60000,
     function() {
-      {% for agg in enabled_aggregators %}
+      {% for agg in enabled_aggregators.values() %}
         refreshAggregatorStatus("{{ agg.agg_key }}");
       {% endfor %}
       $("#last-aggregator-status-update").html(new Date().toLocaleTimeString());

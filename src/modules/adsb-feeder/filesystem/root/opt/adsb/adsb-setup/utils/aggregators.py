@@ -328,11 +328,31 @@ class UltrafeederAggregator(Aggregator):
 
 
 class AirplanesLiveAggregator(UltrafeederAggregator):
+    class AirplanesLiveAdsbStatus(AdsbStatus):
+        alive_map_link: str
+
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="alive", name="airplanes.live",
             map_url="https://globe.airplanes.live/",
             status_url="https://airplanes.live/myfeed/")
+        self._alive_map_link = None
+
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        status = super()._check_aggregator_status()
+        if self._alive_map_link is None:
+            json_url = "https://api.airplanes.live/feed-status"
+            a_dict, status_code = utils.util.generic_get_json(json_url)
+            try:
+                assert a_dict and status_code == 200
+                self._alive_map_link = a_dict.get("map_link")
+                assert self._alive_map_link
+            except:
+                self._logger.exception(
+                    "Unexpected response when checking Airplanes.live map "
+                    f"link: {a_dict}")
+        status["adsb"]["alive_map_link"] = self._alive_map_link
+        return status
 
     def _maybe_set_extra_info_to_settings(self):
         if self._d.env_by_tags("alivemaplink").list_get(0):
@@ -348,11 +368,31 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
 
 
 class AdsbLolAggregator(UltrafeederAggregator):
+    class AdsbLolAdsbStatus(AdsbStatus):
+        adsblol_link: str
+
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="adsblol", name="adsb.lol",
             map_url="https://adsb.lol/",
             status_url="https://api.adsb.lol/0/me")
+        self._adsblol_link = None
+
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        status = super()._check_aggregator_status()
+        if self._adsblol_link is None:
+            uuid = self._d.env_by_tags("adsblol_uuid").list_get(0)
+            json_url = "https://api.adsb.lol/0/me"
+            response_dict, status_code = utils.util.generic_get_json(json_url)
+            try:
+                assert response_dict and status_code == 200
+                for entry in response_dict.get("clients").get("beast"):
+                    if entry.get("uuid", "xxxxxxxx-xxxx-")[:14] == uuid[:14]:
+                        self._adsblol_link = entry.get("adsblol_my_url")
+            except:
+                self._logger.exception("Error getting map link from adsb.lol.")
+        status["adsb"]["adsblol_link"] = self._adsblol_link
+        return status
 
     def _maybe_set_extra_info_to_settings(self):
         if self._d.env_by_tags("adsblol_link").list_get(0):
@@ -371,11 +411,39 @@ class AdsbLolAggregator(UltrafeederAggregator):
 
 
 class AdsbxAggregator(UltrafeederAggregator):
+    class AdsbxAdsbStatus(AdsbStatus):
+        adsbx_feeder_id: str
+
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
             data, system, agg_key="adsbx", name="ADSBExchange",
             map_url="https://globe.adsbexchange.com/",
             status_url="https://www.adsbexchange.com/myip/")
+        self._adsbx_feeder_id = None
+
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        status = super()._check_aggregator_status()
+        if self._adsbx_feeder_id is None:
+            self._adsbx_feeder_id = self._get_feeder_id()
+        status["adsb"]["adsbx_feeder_id"] = self._adsbx_feeder_id
+        return status
+
+    def _get_feeder_id(self):
+        try:
+            proc = utils.util.shell_with_combined_output(
+                f"docker logs ultrafeeder "
+                "| grep 'www.adsbexchange.com/api/feeders' | tail -1")
+            proc.check_returncode()
+        except:
+            self._logger.exception("Error trying to look at the adsbx logs.")
+            return None
+        match = re.search(
+            r"www.adsbexchange.com/api/feeders/\?feed=([^&\s]*)", proc.stdout)
+        if match:
+            return match.group(1)
+        self._logger.error(
+            f"Unable to find adsbx ID in container logs: {proc.stdout}")
+        return None
 
     def _maybe_set_extra_info_to_settings(self):
         feeder_id = self._d.env_by_tags("adsbxfeederid").list_get(0)

@@ -2329,9 +2329,11 @@ class AdsbIm:
 
     @check_restart_lock
     def overview(self):
-        enabled_aggregators = [
-            a for a in self._all_aggregators().values() if a.enabled()]
-        for aggregator in enabled_aggregators:
+        enabled_aggregators = {
+            k: a
+            for k, a in self._all_aggregators().items()
+            if a.enabled()}
+        for aggregator in enabled_aggregators.values():
             aggregator.refresh_status_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
