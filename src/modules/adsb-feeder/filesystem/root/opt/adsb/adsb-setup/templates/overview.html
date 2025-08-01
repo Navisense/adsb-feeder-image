@@ -154,7 +154,17 @@
     </div>
   </div>
   {% if enabled_aggregators | select('in', ['adsblol', 'flightradar', 'planefinder', 'adsbx', 'alive', 'flightaware']) | list %}
-    <div class="row mt-3">
+    <div class="row">
+      <button class="btn btn-secondary small"
+              type="button"
+              data-mdb-toggle="collapse"
+              data-mdb-target="#additional-aggregator-links"
+              aria-expanded="false"
+              aria-controls="additional-aggregator-links">
+        Show additional aggregator links
+      </button>
+    </div>
+    <div id="additional-aggregator-links" class="row mt-3 collapse">
       <h5>Additional aggregator links</h5>
       {% if 'adsblol' in enabled_aggregators %}
         <div class="col-12 mb-2">
