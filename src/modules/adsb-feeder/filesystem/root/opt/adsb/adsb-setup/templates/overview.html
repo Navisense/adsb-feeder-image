@@ -68,10 +68,10 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-ais-enabled" width="3em">✓</span>
+                <span id="{{ agg.agg_key }}-ais-enabled" width="3em" class="text-muted">✓</span>
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-ais-data-status" width="3em"></span>
+                <span id="{{ agg.agg_key }}-ais-data-status" width="3em">.</span>
               </td>
               <td class="text-center">
                 {% if agg.status_url %}
@@ -107,13 +107,13 @@
                 {% endif %}
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-enabled" width="3em">✓</span>
+                <span id="{{ agg.agg_key }}-adsb-enabled" width="3em" class="text-muted">✓</span>
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-data-status" width="3em"></span>
+                <span id="{{ agg.agg_key }}-adsb-data-status" width="3em">.</span>
               </td>
               <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em"></span>
+                <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em">.</span>
               </td>
               <td class="text-center">
                 {% if agg.status_url %}
@@ -496,9 +496,6 @@
       warning: String.fromCodePoint(0x26a0),
       good: "+",
     };
-    $(`#${aggKey}-enabled`).attr("class", "text-muted");
-    $(`#${aggKey}-data-status`).text(".");
-    $(`#${aggKey}-mlat-status`).text(".");
     fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(resp => {
