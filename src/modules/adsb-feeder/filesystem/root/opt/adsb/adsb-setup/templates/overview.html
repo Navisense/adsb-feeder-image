@@ -392,7 +392,6 @@
       let new_ip_message = ["IP check: browser got", browser_ip, "feeder has", feeder_ip].join(" ");
       if (new_ip_message != ip_message) {
         ip_message = new_ip_message;
-        console.log(ip_message);
       }
       $("#ip-mismatch").show();
     } else {
@@ -426,9 +425,7 @@
             broken ||= !(["unknown", "disabled", "good"].includes(status.mlat_status));
             $(`#${aggKey}-${messageType}-mlat-status`).text(statusSymbols[status.mlat_status]);
           }
-          console.log(`${messageType}: ${aggKey}: ${broken}: ${status.data_status}: ${status.mlat_status}`);
           let checkMarkElement = $(`#${aggKey}-${messageType}-enabled`);
-          console.log(checkMarkElement);
           if (status.data_status == "good" && !broken) {
             checkMarkElement.attr("class", "text-success");
           } else if (status.data_status == "disconnected") {
