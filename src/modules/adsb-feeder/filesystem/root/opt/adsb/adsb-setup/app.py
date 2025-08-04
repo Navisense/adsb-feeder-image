@@ -101,11 +101,6 @@ def setup_logging():
     logging.getLogger("werkzeug").addFilter(NoStatic())
 
 
-def only_alphanum_dash(name):
-    new_name = "".join(c for c in name if c.isalnum() or c == "-")
-    new_name = new_name.strip("-")[:63]
-    return new_name
-
 def url_for_with_empty_parameters(*args, **kwargs):
     empty_parameters = set()
     for parameter in list(kwargs):
@@ -353,7 +348,6 @@ class AdsbIm:
             on_usb_change=self._sdrdevices._ensure_populated,
             on_undervoltage=self._set_undervoltage)
 
-        self._current_site_name = None
         self._next_url_from_director = ""
 
         self.lastSetGainWrite = 0
@@ -603,9 +597,10 @@ class AdsbIm:
 
     @property
     def hostname(self):
-        if not self._current_site_name:
-            return ""
-        return only_alphanum_dash(self._current_site_name)
+        only_alphanum_and_dash = "".join(
+            c for c in self._d.env_by_tags("site_name").list_get(0)
+            if c.isalnum() or c == "-")
+        return only_alphanum_and_dash.strip("-")[:63]
 
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
@@ -788,10 +783,10 @@ class AdsbIm:
         self._d.env_by_tags("ultrafeeder_config").list_set(
             0, self._ultrafeeder_config.generate())
 
-    def set_hostname_and_enable_mdns(self, site_name: str):
-        self._current_site_name = site_name
+    def set_hostname_and_enable_mdns(self):
         if self.hostname:
             subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
+        self._maybe_enable_mdns()
 
     def _maybe_enable_mdns(self):
         if not self._d.is_enabled("mdns"):
@@ -975,9 +970,8 @@ class AdsbIm:
             include_heatmap=include_heatmap,
         )
 
-        site_name = self._d.env_by_tags("site_name_sanitized").list_get(0)
         now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
-        download_name = f"adsb-feeder-config-{site_name}-{now}.backup"
+        download_name = f"adsb-feeder-config-{self.hostname}-{now}.backup"
         try:
             return send_file(
                 pipeOut,
@@ -1330,15 +1324,6 @@ class AdsbIm:
                 "Failure while setting root password, check logs for details",
                 flash_message=True)
 
-    def unique_site_name(self, name, idx=-1):
-        # make sure that a site name is unique - if the idx is given that's
-        # the current value and excluded from the check
-        existing_names = self._d.env_by_tags("site_name")
-        names = [existing_names.list_get(n) for n in range(0, len(existing_names.value)) if n != idx]
-        while name in names:
-            name += "_"
-        return name
-
     def import_graphs_and_history_from_remote(self, ip, port):
         print_err(f"importing graphs and history from {ip}")
         # first make sure that there isn't any old data that needs to be moved
@@ -1438,16 +1423,13 @@ class AdsbIm:
 
         self._d.env_by_tags(["tar1090_ac_db"]).value = ac_db
 
-        # make sure the avahi alias service runs on an adsb.im image
-        self.set_hostname_and_enable_mdns(self._d.env_by_tags("site_name").list_get(0))
+        # Set hostname and restart mDNS services in case the user changed the
+        # hostname.
+        self.set_hostname_and_enable_mdns()
 
         self._d.env_by_tags("stage2_nano").value = False
         self._d.env_by_tags("nano_beast_port").value = "30005"
         self._d.env_by_tags("nano_beastreduce_port").value = "30006"
-
-        site_name = self._d.env_by_tags("site_name").list_get(0)
-        sanitized = "".join(c if c.isalnum() or c in "-_." else "_" for c in site_name)
-        self._d.env_by_tags("site_name_sanitized").list_set(0, sanitized)
 
         # fixup altitude mishaps by stripping the value
         # strip meter units and whitespace for good measure
@@ -1793,14 +1775,13 @@ class AdsbIm:
                         )
                         cmd = ["/usr/bin/tailscale", "up"]
 
-                        name = only_alphanum_dash(self._d.env_by_tags("site_name").list_get(0))
                         # due to the following error, we just add --reset to the options
                         # Error: changing settings via 'tailscale up' requires mentioning all
                         # non-default flags. To proceed, either re-run your command with --reset or
                         # use the command below to explicitly mention the current value of
                         # all non-default settings:
                         cmd += ["--reset"]
-                        cmd += [f"--hostname={name}"]
+                        cmd += [f"--hostname={self.hostname}"]
 
                         if ts_args:
                             cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
@@ -1948,8 +1929,6 @@ class AdsbIm:
                     value = "autogain"
                 elif key == "gain" and value == "":
                     value = "auto"
-                elif key == "site_name":
-                    value = self.unique_site_name(value, 0)
                 # If user is changing to 'individual' selection (either in
                 # initial setup or when coming back to that setting later),
                 # show them the aggregator selection page next.
@@ -2478,9 +2457,8 @@ class AdsbIm:
 
         self._executor.submit(get_log, fobj=pipeIn)
 
-        site_name = self._d.env_by_tags("site_name").list_get(0)
         now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
-        download_name = f"adsb-feeder-config-{site_name}-{now}.txt"
+        download_name = f"adsb-feeder-config-{self.hostname}-{now}.txt"
         return send_file(
             pipeOut,
             as_attachment=as_attachment,

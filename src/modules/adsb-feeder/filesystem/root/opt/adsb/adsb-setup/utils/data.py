@@ -144,7 +144,6 @@ class Data:
         Env("FEEDER_ALT_M", default=[""], is_mandatory=True, tags=["alt"]),
         Env("FEEDER_TZ", default=[""], tags=["tz"]),
         Env("MLAT_SITE_NAME", default=[""], is_mandatory=True, tags=["site_name"]),
-        Env("MLAT_SITE_NAME_SANITIZED", default=[""], is_mandatory=True, tags=["site_name_sanitized"]),
         # SDR settings are only valid on an integrated feeder or a micro feeder, not on stage2
         # sdrs_locked means the initial setup has been completed, don't change
         # SDR assignments unless requested explicitely by the user
