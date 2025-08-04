@@ -8,9 +8,9 @@ else
     rootcheck
 fi
 
-log $0 "Setting up mDNS aliases for $1"
+log $0 "Setting up mDNS aliases for $@"
 service_names=()
-for name in $1; do
+for name in $@; do
     service_name="adsb-avahi-alias@${name}.service"
     service_names+=("${service_name}")
     # Make sure the service is enabled, and restart it in case it is already
