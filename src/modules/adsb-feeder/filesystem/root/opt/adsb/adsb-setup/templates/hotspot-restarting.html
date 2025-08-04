@@ -2,13 +2,7 @@
 {% set active_page = "hotspot" %}
 {% block title %}Trying to connect to WiFi{% endblock title %}
 {% block content %}
-  <script type="text/javascript" src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
   <script>
-    function show_spinner() {
-      document.getElementById("loader").style.display = "block";
-      document.getElementById("overlay").style.display = "block";
-    }
-
     function after60() {
       // hide spinner after 60 seconds and change the overlay text
       document.getElementById("loader").style.display = "none";
