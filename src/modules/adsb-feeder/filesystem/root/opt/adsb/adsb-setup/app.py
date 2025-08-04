@@ -797,11 +797,13 @@ class AdsbIm:
         if not self._d.is_enabled("mdns"):
             return
         args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
+        mdns_domains = ["porttracker-feeder.local"]
         if self.hostname:
             # If we have a hostname, make the mDNS script create an alias for
             # it as well.
-            args.append(self.hostname)
-        subprocess.run(args)
+            mdns_domains.append(f"{self.hostname}.local")
+        self._d.env_by_tags(["mdns", "domains"]).value = ";".join(mdns_domains)
+        subprocess.run(args + mdns_domains)
 
     def set_tz(self, timezone):
         # timezones don't have spaces, only underscores

@@ -1,27 +1,16 @@
 #!/bin/bash
 
-# this needs to run as root
-if [ "$(id -u)" != "0" ] ; then
-    echo "this command requires superuser privileges - please run as sudo bash $0"
+if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
+    echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
     exit 1
+else
+    source /opt/adsb/scripts/lib-common.bash
+    rootcheck
 fi
 
-names=("porttracker-feeder.local")
-if [ "$1" != "" ] ; then
-    host_name="$1"
-    host_name_no_dash="${host_name//-/}"
-    # ensure that the local hosts file includes the hostname
-    if ! grep -q "$host_name" /etc/hosts ; then
-        echo "127.0.2.1 $host_name" >> /etc/hosts
-    fi
-
-    names+=("${host_name}.local")
-    names+=("${host_name_no_dash}.local")
-fi
-
-echo "set up mDNS aliases: ${names[@]}"
+log $0 "Setting up mDNS aliases for $1"
 service_names=()
-for name in "${names[@]}"; do
+for name in $1; do
     service_name="adsb-avahi-alias@${name}.service"
     service_names+=("${service_name}")
     # Make sure the service is enabled, and restart it in case it is already
