@@ -639,6 +639,7 @@ class AdsbIm:
 
         self._dmesg_monitor.start()
         self._reception_monitor.start()
+        self._maybe_enable_mdns()
 
         self._server = werkzeug.serving.make_server(
             host="0.0.0.0", port=int(self._d.env_by_tags("webport").value),
