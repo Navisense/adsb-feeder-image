@@ -539,12 +539,18 @@
     $("#feeder-reachability").html("<ul></ul>");
     for (const deviceInfo of feederConnectivity["device_infos"]) {
       $("#feeder-reachability ul").append(`
-        <li>${deviceInfo.ip} (device ${deviceInfo.device} via ${deviceInfo.gateway}):
-        <span id="feeder-reachability-${deviceInfo.ip}">checking...</span></li>`);
+        <li>
+          <a href="http://${deviceInfo.ip}">${deviceInfo.ip}</a>
+          (device ${deviceInfo.device} via ${deviceInfo.gateway}):
+          <span id="feeder-reachability-${deviceInfo.ip}">checking...</span>
+        </li>`);
     }
     for (const domain of feederConnectivity["mdns_domains"]) {
       $("#feeder-reachability ul").append(
-        `<li>${domain}: <span id="feeder-reachability-${domain}">checking...</span></li>`);
+        `<li>
+          <a href="http://${domain}">${domain}</a>:
+          <span id="feeder-reachability-${domain}">checking...</span>
+        </li>`);
     }
     const hosts = feederConnectivity["device_infos"].map(di => di["ip"]).concat(feederConnectivity["mdns_domains"]);
     const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 50 * 1000, 3000);
