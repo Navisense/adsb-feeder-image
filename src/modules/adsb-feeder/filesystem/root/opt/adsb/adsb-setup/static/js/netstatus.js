@@ -45,7 +45,7 @@ class FeederConnectivityChecker {
 
   maybeUpdateStatus(domain, previousStatus, status) {
     return (_) => {
-      this.stati[domain] = status;
+      this.stati.set(domain, status);
       this.hasTimedOut = Date.now() > this.checkUntil;
       if (this.hasTimedOut || status != previousStatus) {
         this.onStatusUpdate(this.stati, this.hasTimedOut);

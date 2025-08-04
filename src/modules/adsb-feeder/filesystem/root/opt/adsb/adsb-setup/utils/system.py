@@ -1,9 +1,12 @@
+import json
 import logging
-import requests
 import socket
 import subprocess
 import threading
 import time
+from typing import Optional
+
+import requests
 
 from .data import Data
 from .util import print_err, run_shell_captured, shell_with_combined_output
@@ -178,29 +181,34 @@ class System:
         # we have an ipv6 address but curl -6 isn't working
         return True
 
-    def check_ip(self):
+    def get_external_ip(self) -> Optional[str]:
+        """Get our external IP in the public internet."""
+        # Force IPv4, so we don't get an IPv6 back.
         requests.packages.urllib3.util.connection.HAS_IPV6 = False
-        status = -1
-        try:
-            response = requests.get(
-                "http://v4.ipv6-test.com/api/myip.php",
-                headers={
-                    "User-Agent": "Python3/requests/adsb.im",
-                    "Accept": "text/plain",
-                },
-            )
-        except (
-            requests.HTTPError,
-            requests.ConnectionError,
-            requests.Timeout,
-            requests.RequestException,
-        ) as err:
-            status = err.errno
-        except:
-            status = -1
-        else:
-            return response.text, response.status_code
-        return None, status
+        headers = {
+            "User-Agent": "Python3/requests/adsb.im", "Accept": "text/plain"}
+        response = requests.get(
+            "http://v4.ipv6-test.com/api/myip.php", headers=headers)
+        response.raise_for_status()
+        return response.text or None
+
+    def get_network_device_infos(self) -> list[dict]:
+        """Get information about network devices."""
+        proc = shell_with_combined_output("ip --json route show")
+        proc.check_returncode()
+        route_infos = json.loads(proc.stdout)
+        device_infos = []
+        for route_info in route_infos:
+            try:
+                if route_info["dst"] != "default":
+                    continue
+                device_infos.append({
+                    "gateway": "192.168.179.1",
+                    "device": "wlan0",
+                    "ip": "192.168.179.14",})
+            except KeyError:
+                continue
+        return device_infos
 
     def check_gpsd(self):
         # gateway IP shouldn't change on a system, buffer it for the duration the program runs

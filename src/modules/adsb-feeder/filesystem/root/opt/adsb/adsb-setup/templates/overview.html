@@ -265,6 +265,7 @@
   <dl>
     <dt>Feeder external IP</dt>
     <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
+    <dt>How to reach this feeder</dt><dd id="feeder-reachability">checking...</dd>
     <dt>Board</dt><dd>{{ board }}</dd>
     <dt>Containers:</dt>
     <dd>
@@ -299,6 +300,7 @@
 <script src="{{ url_for('static', filename='js/chartjs-adapter-moment.js') }}"
         integrity="sha256-p6tY88yPX1/I2nC4PfLYbXO21Y6CV+3eOsWtOdkHt3Y="
         crossorigin="anonymous"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
 <script>
   function createReceptionHistoryChart() {
     let context = document.getElementById("reception-history-chart");
@@ -510,24 +512,51 @@
       });
   }
 
-  async function updateIpInfo() {
-    let feederIpData = fetch("/api/ip_info", { signal: AbortSignal.timeout(15000) })
+  async function updateConnectivityInfo() {
+    let feederConnData = fetch("/api/connectivity_info", { signal: AbortSignal.timeout(15000) })
       .then(response => response.json());
     let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
       .then(response => response.json());
-    let feederIp = (await feederIpData)["feeder_ip"];
-    let browserIp = (await browserIpData)["ip"];
-    if (feederIp) {
-      $("#feeder-external-ip").text(feederIp);
+    const feederConnectivity = await feederConnData;
+    const browserIp = (await browserIpData)["ip"];
+
+    if (feederConnectivity["external_ip"]) {
+      $("#feeder-external-ip").text(feederConnectivity["external_ip"]);
     }
-    if (feederIp && browserIp) {
-      if (feederIp == browserIp) {
+    if (feederConnectivity["external_ip"] && browserIp) {
+      if (feederConnectivity["external_ip"] == browserIp) {
         $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
         $("#ip-mismatch").hide();
       } else {
         $("#feeder-external-ip-comment").text(
           ` (that's a different one than the one of this browser, which has ${browserIp})`);
         $("#ip-mismatch").show();
+      }
+    }
+
+    $("#feeder-reachability").html("<dl></dl>");
+    for (const deviceInfo of feederConnectivity["device_infos"]) {
+      $("#feeder-reachability dl").append(`
+        <dt>${deviceInfo.ip} (device ${deviceInfo.device} via ${deviceInfo.gateway})</dt>
+        <dd id="feeder-reachability-${deviceInfo.ip}">checking...</dd>`);
+    }
+    for (const domain of feederConnectivity["mdns_domains"]) {
+      $("#feeder-reachability dl").append(`<dt>${domain}</dt><dd id="feeder-reachability-${domain}">checking...</dd>`);
+    }
+    const hosts = feederConnectivity["device_infos"].map(di => di["ip"]).concat(feederConnectivity["mdns_domains"]);
+    const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 50 * 1000, 3000);
+    connectivityChecker.start();
+  }
+
+  function updateReachabilityInfo(stati, hasTimedOut) {
+    for ([host, status] of stati.entries()) {
+      let connectivityDescription = document.getElementById(`feeder-reachability-${host}`);
+      if (status == "success") {
+        connectivityDescription.innerText = "✓";
+      } else if (hasTimedOut) {
+        connectivityDescription.innerText = `❌ (${status}, gave up checking)`;
+      } else {
+        connectivityDescription.innerText = `❌ (${status})`;
       }
     }
   }
@@ -556,6 +585,6 @@
     }
   );
 
-  registerTask("Update IP info", 60000, updateIpInfo);
+  registerTask("Update connectivity info", 60000, updateConnectivityInfo);
 </script>
 {% endblock content %}

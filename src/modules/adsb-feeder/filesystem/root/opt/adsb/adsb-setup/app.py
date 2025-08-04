@@ -222,9 +222,7 @@ class HotspotApp:
         self._message = ""
 
     def handle_request(self, request):
-        if request.path == "/healthz" and request.method in ["OPTIONS", "GET"]:
-            return self.healthz()
-        elif request.path == "/hotspot" and request.method in ["GET"]:
+        if request.path == "/hotspot" and request.method in ["GET"]:
             return self.hotspot()
         elif request.path == "/restarting":
             return self.restarting()
@@ -232,17 +230,6 @@ class HotspotApp:
             return self.restart()
         else:
             return self.catch_all()
-
-    def healthz(self):
-        if request.method == "OPTIONS":
-            response = flask.make_response()
-            response.headers.add("Access-Control-Allow-Origin", "*")
-            response.headers.add("Access-Control-Allow-Headers", "*")
-            response.headers.add("Access-Control-Allow-Methods", "*")
-        else:
-            response = flask.make_response("ok")
-            response.headers.add("Access-Control-Allow-Origin", "*")
-        return response
 
     def restart(self):
         return self._restart_state
@@ -364,6 +351,12 @@ class AdsbIm:
             self.set_secure_image()
 
         self._routemanager.add_proxy_routes(self._d.proxy_routes)
+        self.app.add_url_rule(
+            "/healthz",
+            "healthz",
+            self._decide_route_hotspot_mode(self.healthz),
+            methods=["OPTIONS", "GET"],
+        )
         self.app.add_url_rule(
             "/restarting",
             "restarting",
@@ -488,9 +481,9 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/api/ip_info",
-            "ip_info",
-            self._decide_route_hotspot_mode(self.ip_info),
+            "/api/connectivity_info",
+            "connectivity_info",
+            self._decide_route_hotspot_mode(self.connectivity_info),
         )
         self.app.add_url_rule(
             "/api/sdr_info",
@@ -567,7 +560,7 @@ class AdsbIm:
                     "We've been put into hotspot mode, but don't have a "
                     "hotspot. Disabling it.")
                 self._hotspot_mode = False
-            if request.path == "/overview":
+            if request.path in ["/healthz", "/overview"]:
                 return view_func(*args, **kwargs)
             elif self._hotspot_mode:
                 return self._hotspot_app.handle_request(request)
@@ -835,6 +828,17 @@ class AdsbIm:
                 pass
 
         return True
+
+    def healthz(self):
+        if request.method == "OPTIONS":
+            response = flask.make_response()
+            response.headers.add("Access-Control-Allow-Origin", "*")
+            response.headers.add("Access-Control-Allow-Headers", "*")
+            response.headers.add("Access-Control-Allow-Methods", "*")
+        else:
+            response = flask.make_response("ok")
+            response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
 
     def restarting(self):
         return render_template("restarting.html")
@@ -1168,11 +1172,22 @@ class AdsbIm:
     def at_least_one_aggregator(self) -> bool:
         return any(agg.enabled() for agg in self._all_aggregators().values())
 
-    def ip_info(self):
-        ip, status = self._system.check_ip()
-        if not 200 <= status < 300:
-            flask.abort(status)
-        return {"feeder_ip": ip}
+    def connectivity_info(self):
+        try:
+            external_ip = self._system.get_external_ip()
+        except:
+            self._logger.exception("Error getting external IP.")
+            external_ip = ""
+        try:
+            device_infos = self._system.get_network_device_infos()
+        except:
+            self._logger.exception("Error getting network device infos.")
+            device_infos = []
+        mdns_domains = (
+            self._d.env_by_tags(["mdns", "domains"]).value.split(";"))
+        return {
+            "external_ip": external_ip, "device_infos": device_infos,
+            "mdns_domains": mdns_domains}
 
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
