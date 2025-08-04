@@ -1170,16 +1170,9 @@ class AdsbIm:
 
     def ip_info(self):
         ip, status = self._system.check_ip()
-        if status == 200:
-            self._d.env_by_tags(["feeder_ip"]).value = ip
-            self._d.env_by_tags(["mf_ip"]).list_set(0, ip)
-        jsonString = json.dumps(
-            {
-                "feeder_ip": ip,
-            },
-            indent=2,
-        )
-        return Response(jsonString, mimetype="application/json")
+        if not 200 <= status < 300:
+            flask.abort(status)
+        return {"feeder_ip": ip}
 
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
@@ -1401,17 +1394,10 @@ class AdsbIm:
             string2file(path=setGainPath, string=f"{gain}\n")
 
     def setup_or_disable_uat(self, sitenum):
-        if sitenum and self._d.list_is_enabled(["uat978"], sitenum):
-            # always get UAT from the readsb uat_replay
-            self._d.env_by_tags("replay978").list_set(sitenum, "--net-uat-replay-port 30978")
-            self._d.env_by_tags("978host").list_set(sitenum, f"uf_{sitenum}")
-            self._d.env_by_tags("rb978host").list_set(sitenum, self._d.env_by_tags("mf_ip").list_get(sitenum))
-            self._d.env_by_tags("978piaware").list_set(sitenum, "relay")
-        else:
-            self._d.env_by_tags("replay978").list_set(sitenum, "")
-            self._d.env_by_tags("978host").list_set(sitenum, "")
-            self._d.env_by_tags("rb978host").list_set(sitenum, "")
-            self._d.env_by_tags("978piaware").list_set(sitenum, "")
+        self._d.env_by_tags("replay978").list_set(sitenum, "")
+        self._d.env_by_tags("978host").list_set(sitenum, "")
+        self._d.env_by_tags("rb978host").list_set(sitenum, "")
+        self._d.env_by_tags("978piaware").list_set(sitenum, "")
 
     def handle_implied_settings(self):
         ac_db = True

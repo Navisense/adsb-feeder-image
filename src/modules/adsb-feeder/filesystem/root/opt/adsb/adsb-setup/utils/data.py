@@ -587,10 +587,6 @@ class Data:
             tags=["dns_state", "norestore"],
         ),
         Env(
-            "_ADSBIM_STATE_FEEDER_IP",
-            tags=["feeder_ip", "norestore"],
-        ),
-        Env(
             "_ADSBIM_STATE_UNDER_VOLTAGE",
             tags=["under_voltage", "norestore"],
         ),
@@ -611,7 +607,6 @@ class Data:
             default=0,
             tags=["num_micro_sites"],
         ),
-        Env("AF_MICRO_IP", default=[""], tags=["mf_ip"]),
         Env("AF_MICRO_PORT", default=[""], tags=["mf_port"]),
         Env("AF_MICRO_BROFM", default=[False], tags=["mf_brofm", "is_enabled"]),
         Env(
