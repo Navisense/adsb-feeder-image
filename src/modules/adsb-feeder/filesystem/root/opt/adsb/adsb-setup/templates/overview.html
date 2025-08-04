@@ -262,26 +262,20 @@
   {% endwith %}
 </div>
 <div class="col-12">
-  <ul>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Feeder version:</strong></span> {{ version }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ board }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Base:</strong></span> {{ base }}
-    </li>
-    <li>
-      <strong>Containers:</strong>
+  <dl>
+    <dt>Feeder external IP</dt>
+    <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
+    <dt>Board</dt><dd>{{ board }}</dd>
+    <dt>Containers:</dt>
+    <dd>
       <ul>
         {% for container in containers %}
           <li>{{ container }}</li>
         {% endfor %}
       </ul>
-    </li>
-    <li>
-      <strong>SDR(s):</strong>
+    </dd>
+    <dt>SDR(s)</dt>
+    <dd>
       {% if sdrs %}
         <ul>
           {% for sdr in sdrs %}
@@ -293,8 +287,8 @@
       {% else %}
         no SDRs connected
       {% endif %}
-    </li>
-  </ul>
+    </dd>
+  </dl>
 </div>
 <script src="{{ url_for('static', filename='js/chart.js') }}"
         integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
@@ -467,23 +461,6 @@
     receptionHistoryChart.data.datasets = datasets;
     updateChartWithShownIndices(receptionHistoryChart);
   }
-  let browser_ip = null;
-  let feeder_ip = null;
-  let ip_message = "";
-  function compareIps() {
-    if (feeder_ip == null || browser_ip == null) {
-      return;
-    }
-    if (browser_ip != feeder_ip) {
-      let new_ip_message = ["IP check: browser got", browser_ip, "feeder has", feeder_ip].join(" ");
-      if (new_ip_message != ip_message) {
-        ip_message = new_ip_message;
-      }
-      $("#ip-mismatch").show();
-    } else {
-      $("#ip-mismatch").hide();
-    }
-  }
 
   function refreshAggregatorStatus(aggKey) {
     const statusSymbols = {
@@ -533,6 +510,28 @@
       });
   }
 
+  async function updateIpInfo() {
+    let feederIpData = fetch("/api/ip_info", { signal: AbortSignal.timeout(15000) })
+      .then(response => response.json());
+    let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
+      .then(response => response.json());
+    let feederIp = (await feederIpData)["feeder_ip"];
+    let browserIp = (await browserIpData)["ip"];
+    if (feederIp) {
+      $("#feeder-external-ip").text(feederIp);
+    }
+    if (feederIp && browserIp) {
+      if (feederIp == browserIp) {
+        $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
+        $("#ip-mismatch").hide();
+      } else {
+        $("#feeder-external-ip-comment").text(
+          ` (that's a different one than the one of this browser, which has ${browserIp})`);
+        $("#ip-mismatch").show();
+      }
+    }
+  }
+
   registerTask(
     "Update reception stats",
     15000,
@@ -557,23 +556,6 @@
     }
   );
 
-  registerTask(
-    "Update IP info",
-    60000,
-    function() {
-      fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(data => {
-          browser_ip = data["ip"];
-          compareIps();
-        });
-      fetch("/api/ip_info", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(data => {
-          feeder_ip = data["feeder_ip"];
-          compareIps();
-        });
-    }
-  );
+  registerTask("Update IP info", 60000, updateIpInfo);
 </script>
 {% endblock content %}
