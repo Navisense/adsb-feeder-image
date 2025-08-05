@@ -249,20 +249,21 @@
     <a href="{{ url_for('aggregators') }}">Data Sharing</a>
   </div>
 </div>
-<div class="col-12 mb-4">
-  {% with current_version = env_value_by_tag("base_version") %}
-    Running Porttracker Feeder version <strong>{{ current_version }}</strong>
-    {% if current_version == tags[0] %}
-      (this is the latest stable version)
-    {% else %}
-      (latest stable version is <strong>{{ tags[0] }}</strong>, see
-      <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
-    {% endif %}
-  {% endwith %}
-</div>
 <div class="col-12">
   <dl>
     <dt>Hostname</dt><dd>{{ list_value_by_tags(['site_name']) }}</dd>
+    {% with current_version = env_value_by_tag("base_version") %}
+      <dt>Current version</dt>
+      <dd>
+        <strong>{{ current_version }}</strong>
+        {% if current_version == tags[0] %}
+          (this is the latest stable version)
+        {% else %}
+          (latest stable version is <strong>{{ tags[0] }}</strong>, see
+          <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
+        {% endif %}
+      </dd>
+    {% endwith %}
     <dt>Feeder external IP</dt>
     <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
     <dt>How to reach this feeder</dt><dd id="feeder-reachability">checking...</dd>
