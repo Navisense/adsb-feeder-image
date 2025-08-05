@@ -590,10 +590,7 @@ class AdsbIm:
 
     @property
     def hostname(self):
-        only_alphanum_and_dash = "".join(
-            c for c in self._d.env_by_tags("site_name").list_get(0)
-            if c.isalnum() or c == "-")
-        return only_alphanum_and_dash.strip("-")[:63]
+        return self._d.env_by_tags("site_name").list_get(0)
 
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
@@ -1930,6 +1927,10 @@ class AdsbIm:
                     value = "autogain"
                 elif key == "gain" and value == "":
                     value = "auto"
+                elif key == "site_name":
+                    value = "".join(
+                        c for c in value if c.isalnum() or c == "-")
+                    value = value.strip("-")[:63]
                 # If user is changing to 'individual' selection (either in
                 # initial setup or when coming back to that setting later),
                 # show them the aggregator selection page next.

@@ -19,7 +19,6 @@ sanitize_vars = [
     "FEEDER_LAT",
     "FEEDER_LONG",
     "MLAT_SITE_NAME",
-    "MLAT_SITE_NAME_SANITIZED",
     "ADSBLOL_UUID",
     "AF_MICRO_IP",
     "ULTRAFEEDER_UUID",
