@@ -203,9 +203,9 @@ class System:
                 if route_info["dst"] != "default":
                     continue
                 device_infos.append({
-                    "gateway": "192.168.179.1",
-                    "device": "wlan0",
-                    "ip": "192.168.179.14",})
+                    "gateway": route_info["gateway"],
+                    "device": route_info["dev"],
+                    "ip": route_info["prefsrc"],})
             except KeyError:
                 continue
         return device_infos
