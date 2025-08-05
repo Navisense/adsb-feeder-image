@@ -32,7 +32,6 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
-  <div class="col-12 mb-3">hostname {{ list_value_by_tag('site_name', 0) }}</div>
   <div id="ais-stats" class="col-12 mb-3">AIS: No information  </div>
   <div id="adsb-stats" class="col-12 mb-3">ADS-B: No information</div>
 <div id="chart-wrapper"
@@ -263,6 +262,7 @@
 </div>
 <div class="col-12">
   <dl>
+    <dt>Hostname</dt><dd>{{ list_value_by_tags(['site_name']) }}</dd>
     <dt>Feeder external IP</dt>
     <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
     <dt>How to reach this feeder</dt><dd id="feeder-reachability">checking...</dd>
