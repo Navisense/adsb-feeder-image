@@ -42,9 +42,11 @@ class Setting(abc.ABC):
 class ScalarSetting(Setting):
     def __init__(
             self, config: "Config", value: t.Any, *,
+            default: Optional[t.Any] = None,
             env_variable_name: Optional[str] = None):
         super().__init__(config)
         self._value = value
+        self._default = default
         self._env_variable_name = env_variable_name
 
     @property
@@ -62,24 +64,32 @@ class ScalarSetting(Setting):
     def get(self, key_path: t.Literal[""], *, default: t.Any = None) -> t.Any:
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
-        return self._value if self._value is None else default
+        if self._value is not None:
+            return self._value
+        elif default is not None:
+            return default
+        return self._default
 
 
 class TypeConstrainedScalarSetting(ScalarSetting):
     def __init__(
             self, required_type: type, config: "Config", value: str, *args,
-            **kwargs):
+            default: Optional[t.Any] = None, **kwargs):
         if not isinstance(value, (required_type, None)):
             raise ValueError(
                 f"Value must be a {required_type}, but is {type(value)}.")
-        super().__init__(config, value, *args, **kwargs)
+        if not isinstance(default, (required_type, None)):
+            raise ValueError(
+                f"Default value must be a {required_type}, but is "
+                f"{type(default)}.")
+        super().__init__(config, value, *args, default=default, **kwargs)
 
 
 class BoolSetting(TypeConstrainedScalarSetting):
     def __init__(
-            self, *args, env_string_false="False", env_string_true="True",
-            **kwargs):
-        super().__init__(bool, *args, **kwargs)
+            self, *args, default: Optional[t.Any] = None,
+            env_string_false="False", env_string_true="True", **kwargs):
+        super().__init__(bool, *args, default=default, **kwargs)
         self._env_string_false = env_string_false
         self._env_string_true = env_string_true
 
@@ -151,21 +161,27 @@ class Config(CompoundSetting):
         # --- Mandatory site data end ---
         # sdrs_locked means the initial setup has been completed, don't change
         # SDR assignments unless requested explicitely by the user.
-        "sdrs_locked": StringSetting,
+        "sdrs_locked": ft.partial(BoolSetting, default=False),
         # Misnomer, FEEDER_RTL_SDR is used as follows:
         # READSB_DEVICE_TYPE=${FEEDER_RTL_SDR}
         "readsb_device_type": ft.partial(
-            StringSetting, env_variable_name="FEEDER_RTL_SDR"),
+            StringSetting, default="rtlsdr",
+            env_variable_name="FEEDER_RTL_SDR"),
         "biast": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_ENABLE_BIASTEE",
-            env_string_false="", env_string_true="1"),
+            BoolSetting, default=False,
+            env_variable_name="FEEDER_ENABLE_BIASTEE", env_string_false="",
+            env_string_true="1"),
         "uatbiast": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_ENABLE_UATBIASTEE",
-            env_string_false="", env_string_true="1"),
-        "gain": StringSetting,
+            BoolSetting, default=False,
+            env_variable_name="FEEDER_ENABLE_UATBIASTEE", env_string_false="",
+            env_string_true="1"),
+        "gain": ft.partial(StringSetting, default="autogain"),
         "gain_airspy": ft.partial(
-            StringSetting, env_variable_name="FEEDER_AIRSPY_GAIN"),
-        "uatgain": ft.partial(StringSetting, env_variable_name="UAT_SDR_GAIN"),
+            StringSetting, default="auto",
+            env_variable_name="FEEDER_AIRSPY_GAIN"),
+        "uatgain": ft.partial(
+            StringSetting, default="autogain",
+            env_variable_name="UAT_SDR_GAIN"),
         "serial_devices": ft.partial(
             CompoundSetting, schema={
                 "1090": ft.partial(
@@ -179,16 +195,16 @@ class Config(CompoundSetting):
                 "other-2": StringSetting,
                 "other-3": StringSetting,}),
         "uat_device_type": ft.partial(
-            StringSetting, env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
+            StringSetting, default="rtlsdr",
+            env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
         "beast-reduce-optimize-for-mlat": BoolSetting,
         "max_range": ft.partial(
-            RealNumberSetting, env_variable_name="FEEDER_MAX_RANGE"
-        ),
-        "use_gpsd": BoolSetting,
-        "has_gpsd": BoolSetting,
-        "docker_concurrent": BoolSetting,
-        "temperature_block": BoolSetting,
-        #
+            RealNumberSetting, default=300,
+            env_variable_name="FEEDER_MAX_RANGE"),
+        "use_gpsd": ft.partial(BoolSetting, default=False),
+        "has_gpsd": ft.partial(BoolSetting, default=False),
+        "docker_concurrent": ft.partial(BoolSetting, default=True),
+        "temperature_block": ft.partial(BoolSetting, default=False),
         # Ultrafeeder config, used for all 4 types of Ultrafeeder instances
         "ultrafeeder_config": ft.partial(
             StringSetting, env_variable_name="FEEDER_ULTRAFEEDER_CONFIG"),
@@ -197,25 +213,23 @@ class Config(CompoundSetting):
         "ultrafeeder_uuid": ft.partial(
             StringSetting, env_variable_name="ULTRAFEEDER_UUID"),
         "mlat_privacy": ft.partial(
-            BoolSetting, env_variable_name="MLAT_PRIVACY"
-        ),
+            BoolSetting, default=False, env_variable_name="MLAT_PRIVACY"),
         "mlat_enable": ft.partial(
-            BoolSetting, env_variable_name="MLAT_ENABLE"
-        ),
+            BoolSetting, default=True, env_variable_name="MLAT_ENABLE"),
         "route_api": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_TAR1090_USEROUTEAPI",
-            env_string_false="",
-            env_string_true="1"),
+            BoolSetting, default=True,
+            env_variable_name="FEEDER_TAR1090_USEROUTEAPI",
+            env_string_false="", env_string_true="1"),
         "tar1090_configjs_append": ft.partial(
             StringSetting, env_variable_name="FEEDER_TAR1090_CONFIGJS_APPEND"),
         "tar1090_image_config_link": ft.partial(
-            StringSetting, env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"
-        ),
-        "css_theme": StringSetting,
-        "tar1090_query_params": StringSetting,
+            StringSetting, default="http://HOSTNAME:80/",
+            env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"),
+        "css_theme": ft.partial(StringSetting, default="auto"),
+        "tar1090_query_params": ft.partial(StringSetting, default=""),
         "uat978": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_ENABLE_UAT978"
-        ),
+            BoolSetting, default=False,
+            env_variable_name="FEEDER_ENABLE_UAT978"),
         "replay978": BoolSetting,
         # hostname ultrafeeder uses to get 978 data
         "978host": ft.partial(
@@ -231,8 +245,7 @@ class Config(CompoundSetting):
             StringSetting, env_variable_name="FEEDER_URL_AIRSPY"),
         # port for Airspy stats (used in micro feeder and handed to stage2 via base_info)
         "airspyport": ft.partial(
-            IntSetting,
-            env_variable_name="FEEDER_AIRSPY_PORT"),
+            IntSetting, default=8070, env_variable_name="FEEDER_AIRSPY_PORT"),
         # URL to get remote 1090 stats data (for gain, %-age of strong signals, and signal graph)
         "rtlsdrurl": ft.partial(
             StringSetting, env_variable_name="FEEDER_URL_RTLSDR"
@@ -241,65 +254,54 @@ class Config(CompoundSetting):
         "978piaware": ft.partial(
             StringSetting, env_variable_name="FEEDER_PIAWARE_UAT978"),
         # Misc
-        "heywhatsthat": BoolSetting,
+        "heywhatsthat": ft.partial(BoolSetting, default=False),
         "heywhatsthat_id": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_HEYWHATSTHAT_ID"),
+            StringSetting, env_variable_name="FEEDER_HEYWHATSTHAT_ID"),
         # Aggregators
         "aggregators": ft.partial(
             CompoundSetting,
             schema={
                 "adsblol": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "flyitaly": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "adsbx": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "tat": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "planespotters": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "adsbfi": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "avdelphi": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "hpradar": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "alive": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                     }),
                 "flightradar": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_FLIGHTRADAR24_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_FLIGHTRADAR24_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_FR24_SHARING_KEY"),
@@ -308,12 +310,10 @@ class Config(CompoundSetting):
                             env_variable_name="FEEDER_FR24_UAT_SHARING_KEY"),
                     }),
                 "flightaware": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_FLIGHTAWARE_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_FLIGHTAWARE_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PIAWARE_FEEDER_ID"),}),
@@ -321,9 +321,8 @@ class Config(CompoundSetting):
                     CompoundSetting,
                     schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_RADARBOX_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_RADARBOX_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_RADARBOX_SHARING_KEY"),
@@ -333,33 +332,27 @@ class Config(CompoundSetting):
                         # if it doesn't match the currently set share key, determine new station number
                         "snkey": StringSetting,}),
                 "planefinder": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_PLANEFINDER_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_PLANEFINDER_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PLANEFINDER_SHARECODE"),
                     }),
                 "adsbhub": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_ADSBHUB_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_ADSBHUB_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_ADSBHUB_STATION_KEY"),}),
                 "opensky": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_OPENSKY_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_OPENSKY_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_OPENSKY_SERIAL"),
@@ -367,42 +360,34 @@ class Config(CompoundSetting):
                             StringSetting,
                             env_variable_name="FEEDER_OPENSKY_USERNAME"),}),
                 "radarvirtuel": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_RADARVIRTUEL_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_RADARVIRTUEL_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_RV_FEEDER_KEY"),}),
                 "planewatch": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_PLANEWATCH_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_PLANEWATCH_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PLANEWATCH_API_KEY"),}),
                 "1090uk": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_1090UK_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_1090UK_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_1090UK_API_KEY"),}),
                 "sdrmap": ft.partial(
-                    CompoundSetting,
-                    schema={
+                    CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting,
-                            env_variable_name="AF_IS_SDRMAP_ENABLED"
-                        ),
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_SDRMAP_ENABLED"),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_SM_PASSWORD"),
@@ -410,9 +395,8 @@ class Config(CompoundSetting):
                             StringSetting,
                             FEEDER_OPENSKY_USERNAME="FEEDER_SM_USERNAME"),}),
                 "porttracker": ft.partial(
-                    CompoundSetting,
-                    schema={
-                        "is_enabled": BoolSetting,
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting, env_variable_name=
                             "FEEDER_PORTTRACKER_DATA_SHARING_KEY"),
@@ -448,68 +432,69 @@ class Config(CompoundSetting):
         "mdns": ft.partial(
             CompoundSetting,
             schema={
-                "is_enabled": BoolSetting,
-                "domains": StringSetting,}),
+                "is_enabled": ft.partial(BoolSetting, default=True),
+                "domains": ft.partial(StringSetting, default=""),}),
         "prometheus": ft.partial(
-            CompoundSetting,
-            schema={
-                "is_enabled": BoolSetting,
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(BoolSetting, default=False),
                 "textfile_dir": ft.partial(
-                    StringSetting,
-                    env_variable_name="AF_PROMETHEUS_TEXTFILE_DIR"
-                ),
-            }),
+                    StringSetting, default="/var/lib/prometheus/node-exporter",
+                    env_variable_name="AF_PROMETHEUS_TEXTFILE_DIR"),}),
         "ports": ft.partial(
             CompoundSetting,
             schema={
                 "web": ft.partial(
-                    IntSetting, env_variable_name="AF_WEBPORT"
+                    IntSetting, default=80, env_variable_name="AF_WEBPORT"
                 ),
                 "dazzle": ft.partial(
-                    IntSetting, env_variable_name="AF_DAZZLE_PORT"
+                    IntSetting, default=9999,
+                    env_variable_name="AF_DAZZLE_PORT"
                 ),
                 "tar1090": ft.partial(
-                    IntSetting, env_variable_name="AF_TAR1090_PORT"
+                    IntSetting, default=8080,
+                    env_variable_name="AF_TAR1090_PORT"
                 ),
                 "tar1090adjusted": ft.partial(
-                    IntSetting, env_variable_name="AF_TAR1090_PORT_ADJUSTED"
-                ),
+                    IntSetting, default=8080,
+                    env_variable_name="AF_TAR1090_PORT_ADJUSTED"),
                 "nanotar1090adjusted": ft.partial(
-                    IntSetting,
+                    IntSetting, default=8080,
                     env_variable_name="AF_NANO_TAR1090_PORT_ADJUSTED"
                 ),
                 "uat": ft.partial(
-                    IntSetting, env_variable_name="AF_UAT978_PORT"
+                    IntSetting, default=9780,
+                    env_variable_name="AF_UAT978_PORT"
                 ),
                 "piamap": ft.partial(
-                    IntSetting, env_variable_name="AF_PIAWAREMAP_PORT"
+                    IntSetting, default=8081,
+                    env_variable_name="AF_PIAWAREMAP_PORT"
                 ),
                 "piastat": ft.partial(
-                    IntSetting, env_variable_name="AF_PIAWARESTAT_PORT"
+                    IntSetting, default=8082,
+                    env_variable_name="AF_PIAWARESTAT_PORT"
                 ),
                 "fr": ft.partial(
-                    IntSetting, env_variable_name="AF_FLIGHTRADAR_PORT"
-                ),
+                    IntSetting, default=8754,
+                    env_variable_name="AF_FLIGHTRADAR_PORT"),
                 "pf": ft.partial(
-                    IntSetting, env_variable_name="AF_PLANEFINDER_PORT"
-                ),
+                    IntSetting, default=30053,
+                    env_variable_name="AF_PLANEFINDER_PORT"),
                 "aiscatcher": ft.partial(
-                    IntSetting, env_variable_name="AF_AIS_CATCHER_PORT"
-                ),
-            }),
+                    IntSetting, default=41580,
+                    env_variable_name="AF_AIS_CATCHER_PORT"),}),
         "image_name": StringSetting,
         "secure_image": ft.partial(
-            BoolSetting, env_variable_name="AF_IS_SECURE_IMAGE"
+            BoolSetting, default=False, env_variable_name="AF_IS_SECURE_IMAGE"
         ),
         "airspy": BoolSetting,
         "sdrplay": BoolSetting,
         "sdrplay_license_accepted": BoolSetting,
-        "journal_configured": BoolSetting,
+        "journal_configured": ft.partial(BoolSetting, default=False),
         "ssh_configured": BoolSetting,
         "base_config": ft.partial(
-            BoolSetting, env_variable_name="AF_IS_BASE_CONFIG_FINISHED"
-        ),
-        "aggregators_chosen": BoolSetting,
+            BoolSetting, default=False,
+            env_variable_name="AF_IS_BASE_CONFIG_FINISHED"),
+        "aggregators_chosen": ft.partial(BoolSetting, default=False),
         "nightly_base_update": ft.partial(
             BoolSetting,
             env_variable_name="AF_IS_NIGHTLY_BASE_UPDATE_ENABLED"),
@@ -523,32 +508,34 @@ class Config(CompoundSetting):
         "ultrafeeder_extra_env": StringSetting,
         "ultrafeeder_extra_args": StringSetting,
         "tar1090_ac_db": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"
-        ),
+            BoolSetting, default=True,
+            env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
         "mlathub_disable": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_MLATHUB_DISABLE"
-        ),
+            BoolSetting, default=False,
+            env_variable_name="FEEDER_MLATHUB_DISABLE"),
         "mlathub_enable": ft.partial(
-            BoolSetting, env_variable_name="FEEDER_MLATHUB_ENABLE"
-        ),
+            BoolSetting, default=True,
+            env_variable_name="FEEDER_MLATHUB_ENABLE"),
         "remote_sdr": StringSetting,
         "dns_state": StringSetting,
         "under_voltage": StringSetting,
         "low_disk": StringSetting,
         "stage2": ft.partial(
-            BoolSetting,
-            env_variable_name="AF_IS_STAGE2"),
+            BoolSetting, default=False, env_variable_name="AF_IS_STAGE2"
+        ),
         "stage2_nano": ft.partial(
-            BoolSetting, env_variable_name="AF_STAGE2_NANOFEEDER"
+            BoolSetting, default=False,
+            env_variable_name="AF_STAGE2_NANOFEEDER"
         ),
         "nano_beast_port": ft.partial(
-            IntSetting, env_variable_name="AF_NANO_BEAST_PORT"
+            IntSetting, default=30005, env_variable_name="AF_NANO_BEAST_PORT"
         ),
         "nano_beastreduce_port": ft.partial(
-            IntSetting, env_variable_name="AF_NANO_BEASTREDUCE_PORT"
+            IntSetting, default=30006,
+            env_variable_name="AF_NANO_BEASTREDUCE_PORT"
         ),
         "num_micro_sites": ft.partial(
-            IntSetting, env_variable_name="AF_NUM_MICRO_SITES"
+            IntSetting, default=0, env_variable_name="AF_NUM_MICRO_SITES"
         ),
     }
 
