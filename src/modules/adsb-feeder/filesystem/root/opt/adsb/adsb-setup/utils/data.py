@@ -43,11 +43,21 @@ class ScalarSetting(Setting):
     def __init__(
             self, config: "Config", value: t.Any, *,
             default: Optional[t.Any] = None,
-            env_variable_name: Optional[str] = None):
+            env_variable_name: Optional[str] = None, norestore: bool = False):
+        """
+        :param default: A default value to use if no value is set explicitly
+            (i.e. is None).
+        :param env_variable_name: The name of the environment variable with
+            which this setting is represented. If None, the setting will not
+            appear in the env file.
+        :param norestore: Whether this setting should be omitted when restoring
+            a config from backup.
+        """
         super().__init__(config)
         self._value = value
         self._default = default
         self._env_variable_name = env_variable_name
+        self._norestore = norestore
 
     @property
     def env_value_string(self) -> str:
@@ -73,7 +83,7 @@ class ScalarSetting(Setting):
 
 class TypeConstrainedScalarSetting(ScalarSetting):
     def __init__(
-            self, required_type: type, config: "Config", value: str, *args,
+            self, required_type: type, config: "Config", value: t.Any, *args,
             default: Optional[t.Any] = None, **kwargs):
         if not isinstance(value, (required_type, None)):
             raise ValueError(
@@ -87,9 +97,9 @@ class TypeConstrainedScalarSetting(ScalarSetting):
 
 class BoolSetting(TypeConstrainedScalarSetting):
     def __init__(
-            self, *args, default: Optional[t.Any] = None,
-            env_string_false="False", env_string_true="True", **kwargs):
-        super().__init__(bool, *args, default=default, **kwargs)
+            self, *args, env_string_false="False", env_string_true="True",
+            **kwargs):
+        super().__init__(bool, *args, **kwargs)
         self._env_string_false = env_string_false
         self._env_string_true = env_string_true
 
@@ -424,11 +434,11 @@ class Config(CompoundSetting):
         "aggregator_choice": ft.partial(
             StringSetting, env_variable_name="_ADSBIM_AGGREGATORS_SELECTION"),
         "base_version": ft.partial(
-            StringSetting, env_variable_name="_ADSBIM_BASE_VERSION"
-        ),
+            StringSetting, env_variable_name="_ADSBIM_BASE_VERSION",
+            norestore=True),
         "board_name": ft.partial(
-            StringSetting, env_variable_name="_ADSBIM_STATE_BOARD_NAME"
-        ),
+            StringSetting, env_variable_name="_ADSBIM_STATE_BOARD_NAME",
+            norestore=True),
         "mdns": ft.partial(
             CompoundSetting,
             schema={
@@ -444,16 +454,14 @@ class Config(CompoundSetting):
             CompoundSetting,
             schema={
                 "web": ft.partial(
-                    IntSetting, default=80, env_variable_name="AF_WEBPORT"
-                ),
+                    IntSetting, default=80, env_variable_name="AF_WEBPORT",
+                    norestore=True),
                 "dazzle": ft.partial(
                     IntSetting, default=9999,
-                    env_variable_name="AF_DAZZLE_PORT"
-                ),
+                    env_variable_name="AF_DAZZLE_PORT", norestore=True),
                 "tar1090": ft.partial(
                     IntSetting, default=8080,
-                    env_variable_name="AF_TAR1090_PORT"
-                ),
+                    env_variable_name="AF_TAR1090_PORT", norestore=True),
                 "tar1090adjusted": ft.partial(
                     IntSetting, default=8080,
                     env_variable_name="AF_TAR1090_PORT_ADJUSTED"),
@@ -463,16 +471,13 @@ class Config(CompoundSetting):
                 ),
                 "uat": ft.partial(
                     IntSetting, default=9780,
-                    env_variable_name="AF_UAT978_PORT"
-                ),
+                    env_variable_name="AF_UAT978_PORT", norestore=True),
                 "piamap": ft.partial(
                     IntSetting, default=8081,
-                    env_variable_name="AF_PIAWAREMAP_PORT"
-                ),
+                    env_variable_name="AF_PIAWAREMAP_PORT", norestore=True),
                 "piastat": ft.partial(
                     IntSetting, default=8082,
-                    env_variable_name="AF_PIAWARESTAT_PORT"
-                ),
+                    env_variable_name="AF_PIAWARESTAT_PORT", norestore=True),
                 "fr": ft.partial(
                     IntSetting, default=8754,
                     env_variable_name="AF_FLIGHTRADAR_PORT"),
@@ -482,10 +487,10 @@ class Config(CompoundSetting):
                 "aiscatcher": ft.partial(
                     IntSetting, default=41580,
                     env_variable_name="AF_AIS_CATCHER_PORT"),}),
-        "image_name": StringSetting,
+        "image_name": ft.partial(StringSetting, norestore=True),
         "secure_image": ft.partial(
-            BoolSetting, default=False, env_variable_name="AF_IS_SECURE_IMAGE"
-        ),
+            BoolSetting, default=False, env_variable_name="AF_IS_SECURE_IMAGE",
+            norestore=True),
         "airspy": BoolSetting,
         "sdrplay": BoolSetting,
         "sdrplay_license_accepted": BoolSetting,
@@ -517,9 +522,9 @@ class Config(CompoundSetting):
             BoolSetting, default=True,
             env_variable_name="FEEDER_MLATHUB_ENABLE"),
         "remote_sdr": StringSetting,
-        "dns_state": StringSetting,
-        "under_voltage": StringSetting,
-        "low_disk": StringSetting,
+        "dns_state": ft.partial(StringSetting, norestore=True),
+        "under_voltage": ft.partial(StringSetting, norestore=True),
+        "low_disk": ft.partial(StringSetting, norestore=True),
         "stage2": ft.partial(
             BoolSetting, default=False, env_variable_name="AF_IS_STAGE2"
         ),
