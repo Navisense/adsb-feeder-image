@@ -41,7 +41,7 @@
     {% block title required -%}
     {%- endblock title %}
   </title>
-  <nav class="navbar fixed-top bg-body navbar-expand-md">
+  <nav class="navbar fixed-top navbar-expand-md">
     <div class="container-fluid">
       <a class="navbar-brand ms-0 me-1 me-sm-3"
          href="{{ url_for('director') }}">Porttracker Feeder</a>
@@ -416,7 +416,7 @@
     });
   </script>
 </head>
-<body>
+<body class="bg-light">
   <div id="loader" style="display: none"></div>
   <div id="overlay" style="display: none">
     <div id="overlaytext">
@@ -426,25 +426,25 @@
     </div>
   </div>
   <div class="container pt-5 my-3">
-    <h1 class="mt-3 text-center text-danger">{{ self.title() }}</h1>
+    <h1 class="mt-3 text-center text-secondary">{{ self.title() }}</h1>
     {% block base_content %}
       {% block content required %}
       {% endblock content %}
     {% endblock base_content %}
-    <footer class="text-start text-muted bg-body">
-      <section class="d-flex justify-content-between border-bottom small">
-        <div class="me-5 d-block">
-          <span>
-            Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Porttracker Feeder</a>
-            {{ env_value_by_tag("base_version") }}, running on {{ env_value_by_tag("board_name") }}.
-            <br />
-            Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
-            <br />
-            {{ env_value_by_tag("image_name") }}
-          </span>
-        </div>
-      </section>
-    </footer>
   </div>
+  <footer class="text-center">
+    <section class="d-flex justify-content-center border-bottom small">
+      <div class="me-5 d-block">
+        <span>
+          Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Porttracker Feeder</a>
+          {{ env_value_by_tag("base_version") }}, running on {{ env_value_by_tag("board_name") }}.
+          <br />
+          Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
+          <br />
+          {{ env_value_by_tag("image_name") }}
+        </span>
+      </div>
+    </section>
+  </footer>
 </body>
 </html>

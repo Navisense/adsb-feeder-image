@@ -1,1 +1,41 @@
 // Your custom variables
+
+$primary: #d97706;
+$secondary: #4f46e5;
+$white: #fbfbfc;
+$light: #f3f4f6;
+$dark: #111827;
+
+// Make disabled buttons less opaque, because the orange is coming on pretty
+// strong.
+$btn-disabled-opacity: 0.5;
+
+// Our buttons are fully rectangular.
+$border-radius: 0;
+
+// Header and footer: dark background, font color to match. Dropdown links
+// with secondary background and a bit spaced apart.
+.navbar, .navbar-brand, footer {
+  @extend .bg-dark;
+}
+
+.navbar{
+  @extend .text-secondary;
+}
+
+.navbar-brand {
+  @extend .text-white;
+}
+
+.nav-link{
+  @extend .bg-secondary;
+  @extend .text-white;
+}
+
+li.nav-item {
+    @extend .mx-2;
+}
+
+footer {
+  @extend .text-muted;
+}
