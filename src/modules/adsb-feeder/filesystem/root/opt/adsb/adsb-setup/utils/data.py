@@ -26,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class Setting(abc.ABC):
-    def __init__(self, config: "Config", value: t.Any):
+    def __init__(self, config: "Config"):
         self._config = config
-        self._value = value
 
     @property
     @abc.abstractmethod
@@ -44,7 +43,8 @@ class ScalarSetting(Setting):
     def __init__(
             self, config: "Config", value: t.Any, *,
             env_variable_name: Optional[str] = None):
-        super().__init__(config, value)
+        super().__init__(config)
+        self._value = value
         self._env_variable_name = env_variable_name
 
     @property
@@ -111,7 +111,7 @@ class CompoundSetting(Setting):
     def __init__(
             self, config: "Config", settings_dict: dict[str, t.Any], *,
             schema: dict[str, type[Setting]]):
-        self._config = config
+        super().__init__(config)
         self._settings = {}
         for key, setting_class in schema.items():
             if "." in key:
@@ -553,7 +553,7 @@ class Config(CompoundSetting):
     }
 
     def __init__(self, settings_dict: dict[str, t.Any]):
-        super().__init__(settings_dict, schema=self._schema)
+        super().__init__(self, settings_dict, schema=self._schema)
 
     @classmethod
     def load_from_file(cls) -> "Config":
