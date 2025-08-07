@@ -1,9 +1,12 @@
 import abc
+import datetime
 import functools as ft
+import itertools as it
 import json
 import logging
 import numbers
 import pathlib
+import shutil
 import typing as t
 from typing import Optional
 
@@ -16,6 +19,8 @@ APP_DIR = pathlib.Path("/opt/adsb")
 METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
 CONFIG_DIR = pathlib.Path("/etc/adsb")
 CONFIG_FILE = CONFIG_DIR / "config.json"
+CONFIG_FILE_BACKUP_TEMPLATE = (
+    "config.json.backup.from:{from_version}.to:{to_version}.{ts}")
 ENV_FILE = CONFIG_DIR / ".env"
 VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
@@ -160,7 +165,7 @@ class CompoundSetting(Setting):
 
 
 class Config(CompoundSetting):
-    VERSION = 1
+    CONFIG_VERSION = 1
     _schema = {
         # --- Mandatory site data start ---
         "lat": ft.partial(RealNumberSetting, env_variable_name="FEEDER_LAT"),
@@ -547,26 +552,76 @@ class Config(CompoundSetting):
     def __init__(self, settings_dict: dict[str, t.Any]):
         super().__init__(self, settings_dict, schema=self._schema)
 
-    @classmethod
-    def load_from_file(cls) -> "Config":
-        config_dict = cls._load_and_maybe_upgrade_config_dict()
+    @staticmethod
+    def load_from_file() -> "Config":
+        config_dict = Config._load_and_maybe_upgrade_config_dict()
         return Config(config_dict)
 
-    @classmethod
-    def _load_and_maybe_upgrade_config_dict(cls) -> dict[str, t.Any]:
+    @staticmethod
+    def _load_and_maybe_upgrade_config_dict() -> dict[str, t.Any]:
         with CONFIG_FILE.open() as f:
             config_dict = json.load(f)
-        version = config_dict.pop("config_version", None)
-        if version != cls.VERSION:
-            config_dict = cls._upgraded_config_dict(config_dict, version)
+        version = config_dict.pop("config_version", 0)
+        if version != Config.CONFIG_VERSION:
+            config_dict = Config._upgraded_config_dict(config_dict, version)
         return config_dict
 
-    @classmethod
+    @staticmethod
     def _upgraded_config_dict(
-            cls, config_dict: dict[str, t.Any],
-            from_version: Optional[int]) -> dict[str, t.Any]:
+            config_dict: dict[str, t.Any],
+            from_version: int) -> dict[str, t.Any]:
+        if from_version > Config.CONFIG_VERSION:
+            raise ValueError(
+                f"Found config with unknown higher version {from_version} "
+                f"(need version {Config.CONFIG_VERSION}).")
+        upgrade_path = list(
+            it.pairwise(range(from_version, Config.CONFIG_VERSION + 1)))
+        logger.info(
+            f"Found config with version {from_version}, need to upgrade to "
+            f"{Config.CONFIG_VERSION}. Upgrade path: {upgrade_path}.")
+        for from_version, to_version in upgrade_path:
+            config_dict = Config._upgrade_config_file(from_version, to_version)
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_file(from_version: int,
+                             to_version: int) -> dict[str, t.Any]:
+        upgrader = Config._config_upgraders[(from_version, to_version)]
+        with CONFIG_FILE.open() as f:
+            config_dict = json.load(f)
+        version = config_dict.pop("config_version", 0)
+        assert version == from_version
+        ts = datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
+        backup_file = (
+            CONFIG_DIR / CONFIG_FILE_BACKUP_TEMPLATE.format(
+                from_version=from_version, to_version=to_version, ts=ts))
+        shutil.copyfile(CONFIG_FILE, backup_file)
+        logger.info(
+            f"Upgrading config from {from_version} to {to_version}. Wrote "
+            f"backup file {backup_file}.")
+        try:
+            config_dict = upgrader(config_dict)
+        except:
+            logger.exception(
+                f"Error upgrading config from {from_version} to {to_version}.")
+            raise
+        config_dict["config_version"] = Config.CONFIG_VERSION
+        with CONFIG_FILE.open("w") as f:
+            json.dump(config_dict, f)
+        return config_dict
+
+    @staticmethod
+    def _upgrade_config_dict_from_legacy_to_1(
+            config_dict: dict[str, t.Any]) -> dict[str, t.Any]:
+        return config_dict
+
+    _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1}
+    for k in it.pairwise(range(CONFIG_VERSION + 1)):
+        # Make sure we have an upgrade function for every version increment,
+        # where the _config_upgraders dict maps tuples of
+        # (from_version, to_version) to upgrader functions.
+        assert k in _config_upgraders
+        assert callable(_config_upgraders[k])
 
 class Data:
     def __new__(cc):
