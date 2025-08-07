@@ -168,6 +168,7 @@ class CompoundSetting(Setting):
 class Config(CompoundSetting):
     CONFIG_VERSION = 1
     _file_lock = threading.Lock()
+    _has_instance = False
     _schema = {
         # --- Mandatory site data start ---
         "lat": ft.partial(RealNumberSetting, env_variable_name="FEEDER_LAT"),
@@ -552,6 +553,9 @@ class Config(CompoundSetting):
     }
 
     def __init__(self, settings_dict: dict[str, t.Any]):
+        if Config._has_instance:
+            raise ValueError("Config has already been instantiated.")
+        Config._has_instance = True
         super().__init__(self, settings_dict, schema=self._schema)
 
     @staticmethod
