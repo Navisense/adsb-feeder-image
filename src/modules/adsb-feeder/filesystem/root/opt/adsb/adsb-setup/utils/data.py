@@ -7,6 +7,7 @@ import logging
 import numbers
 import pathlib
 import shutil
+import threading
 import typing as t
 from typing import Optional
 
@@ -166,6 +167,7 @@ class CompoundSetting(Setting):
 
 class Config(CompoundSetting):
     CONFIG_VERSION = 1
+    _file_lock = threading.Lock()
     _schema = {
         # --- Mandatory site data start ---
         "lat": ft.partial(RealNumberSetting, env_variable_name="FEEDER_LAT"),
@@ -554,8 +556,9 @@ class Config(CompoundSetting):
 
     @staticmethod
     def load_from_file() -> "Config":
-        config_dict = Config._load_and_maybe_upgrade_config_dict()
-        return Config(config_dict)
+        with Config._file_lock:
+            config_dict = Config._load_and_maybe_upgrade_config_dict()
+            return Config(config_dict)
 
     @staticmethod
     def _load_and_maybe_upgrade_config_dict() -> dict[str, t.Any]:
