@@ -613,7 +613,203 @@ class Config(CompoundSetting):
     @staticmethod
     def _upgrade_config_dict_from_legacy_to_1(
             config_dict: dict[str, t.Any]) -> dict[str, t.Any]:
-        return config_dict
+        return {
+            "lat": float(config_dict["FEEDER_LAT"][0]),
+            "lon": float(config_dict["FEEDER_LONG"][0]),
+            "alt": float(config_dict["FEEDER_ALT_M"][0]),
+            "tz": config_dict["FEEDER_TZ"][0],
+            "site_name": config_dict["MLAT_SITE_NAME"][0],
+            "sdrs_locked": config_dict["FEEDER_SDRS_LOCKED"],
+            "readsb_device_type": config_dict["FEEDER_RTL_SDR"],
+            "biast": config_dict["FEEDER_ENABLE_BIASTEE"],
+            "uatbiast": config_dict["FEEDER_ENABLE_UATBIASTEE"],
+            "gain": config_dict["FEEDER_READSB_GAIN"],
+            "gain_airspy": config_dict["FEEDER_AIRSPY_GAIN"],
+            "uatgain": config_dict["UAT_SDR_GAIN"],
+            "serial_devices": {
+                "1090": config_dict["FEEDER_SERIAL_1090"],
+                "978": config_dict["FEEDER_SERIAL_978"],
+                "ais": config_dict["FEEDER_SERIAL_AIS"],
+                "other-0": config_dict["FEEDER_UNUSED_SERIAL_0"],
+                "other-1": config_dict["FEEDER_UNUSED_SERIAL_1"],
+                "other-2": config_dict["FEEDER_UNUSED_SERIAL_2"],
+                "other-3": config_dict["FEEDER_UNUSED_SERIAL_3"],},
+            "uat_device_type": config_dict["FEEDER_UAT_DEVICE_TYPE"],
+            "beast-reduce-optimize-for-mlat": config_dict[
+                "READSB_NET_BR_OPTIMIZE_FOR_MLAT"],
+            "max_range": config_dict["FEEDER_MAX_RANGE"][0],
+            "use_gpsd": config_dict["FEEDER_USE_GPSD"],
+            "has_gpsd": config_dict["_ADSBIM_FEEDER_HAS_GPSD"],
+            "docker_concurrent": config_dict[
+                "_ADSBIM_STATE_DOCKER_CONCURRENT"],
+            "temperature_block": config_dict[
+                "_ADSBIM_STATE_TEMPERATURE_BLOCK"],
+            "ultrafeeder_config": config_dict["FEEDER_ULTRAFEEDER_CONFIG"][0],
+            "adsblol_uuid": config_dict["ADSBLOL_UUID"][0],
+            "ultrafeeder_uuid": config_dict["ULTRAFEEDER_UUID"][0],
+            "mlat_privacy": config_dict["MLAT_PRIVACY"][0],
+            "mlat_enable": config_dict["MLAT_ENABLE"][0],
+            "route_api": config_dict["FEEDER_TAR1090_USEROUTEAPI"][0],
+            "tar1090_configjs_append": config_dict[
+                "FEEDER_TAR1090_CONFIGJS_APPEND"],
+            "tar1090_image_config_link": config_dict[
+                "FEEDER_TAR1090_IMAGE_CONFIG_LINK"],
+            "css_theme": config_dict["_ASDBIM_CSS_THEME"],
+            "tar1090_query_params": config_dict[
+                "_ASDBIM_TAR1090_QUERY_PARAMS"],
+            "uat978": config_dict["FEEDER_ENABLE_UAT978"][0],
+            "replay978": config_dict["FEEDER_UAT_REPLAY978"][0],
+            "978host": config_dict["FEEDER_UAT_REPLAY978"][0],
+            "rb978host": config_dict["FEEDER_RB_UAT978_HOST"][0],
+            "978url": config_dict["FEEDER_URL_978"][0],
+            "airspyurl": config_dict["FEEDER_URL_AIRSPY"][0],
+            "airspyport": config_dict["FEEDER_AIRSPY_PORT"],
+            "rtlsdrurl": config_dict["FEEDER_URL_RTLSDR"][0],
+            "978piaware": config_dict["FEEDER_PIAWARE_UAT978"][0],
+            "heywhatsthat": config_dict["_ADSBIM_HEYWHATSTHAT_ENABLED"][0],
+            "heywhatsthat_id": config_dict["FEEDER_HEYWHATSTHAT_ID"][0],
+            "aggregators": {
+                "adsblol": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_ADSBLOL_ENABLED"][0],},
+                "flyitaly": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_FLYITALYADSB_ENABLED"]
+                    [0],},
+                "adsbx": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_ADSBX_ENABLED"][0],},
+                "tat": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_TAT_ENABLED"][0],},
+                "planespotters": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_PLANESPOTTERS_ENABLED"]
+                    [0],},
+                "adsbfi": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_ADSBFI_ENABLED"][0],},
+                "avdelphi": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_AVDELPHI_ENABLED"][0],},
+                "hpradar": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_HPRADAR_ENABLED"][0],},
+                "alive": {
+                    "is_enabled": config_dict[
+                        "_ADSBIM_STATE_IS_ULTRAFEEDER_ALIVE_ENABLED"][0],},
+                "flightradar": {
+                    "is_enabled": config_dict["AF_IS_FLIGHTRADAR24_ENABLED"]
+                    [0],
+                    "key": config_dict["FEEDER_FR24_SHARING_KEY"][0],
+                    "uat_key": config_dict["FEEDER_FR24_UAT_SHARING_KEY"][0],},
+                "flightaware": {
+                    "is_enabled": config_dict["AF_IS_FLIGHTAWARE_ENABLED"][0],
+                    "key": config_dict["FEEDER_PIAWARE_FEEDER_ID"][0],},
+                "radarbox": {
+                    "is_enabled": config_dict["AF_IS_RADARBOX_ENABLED"][0],
+                    "key": config_dict["FEEDER_RADARBOX_SHARING_KEY"][0],
+                    "sn": config_dict["FEEDER_RADARBOX_SN"][0],
+                    "snkey": config_dict[
+                        "_ADSBIM_STATE_FEEDER_RADARBOX_SN_KEY"][0],},
+                "planefinder": {
+                    "is_enabled": config_dict["AF_IS_PLANEFINDER_ENABLED"][0],
+                    "key": config_dict["FEEDER_PLANEFINDER_SHARECODE"][0],},
+                "adsbhub": {
+                    "is_enabled": config_dict["AF_IS_ADSBHUB_ENABLED"][0],
+                    "key": config_dict["FEEDER_ADSBHUB_STATION_KEY"][0],},
+                "opensky": {
+                    "is_enabled": config_dict["AF_IS_OPENSKY_ENABLED"][0],
+                    "key": config_dict["FEEDER_OPENSKY_SERIAL"][0],
+                    "user": config_dict["FEEDER_OPENSKY_USERNAME"][0],},
+                "radarvirtuel": {
+                    "is_enabled": config_dict["AF_IS_RADARVIRTUEL_ENABLED"][0],
+                    "key": config_dict["FEEDER_RV_FEEDER_KEY"][0],},
+                "planewatch": {
+                    "is_enabled": config_dict["AF_IS_PLANEWATCH_ENABLED"][0],
+                    "key": config_dict["FEEDER_PLANEWATCH_API_KEY"][0],},
+                "1090uk": {
+                    "is_enabled": config_dict["AF_IS_1090UK_ENABLED"][0],
+                    "key": config_dict["FEEDER_1090UK_API_KEY"][0],},
+                "sdrmap": {
+                    "is_enabled": config_dict["AF_IS_SDRMAP_ENABLED"][0],
+                    "key": config_dict["FEEDER_SM_PASSWORD"][0],
+                    "user": config_dict["FEEDER_SM_USERNAME"][0],},
+                "porttracker": {
+                    "is_enabled": config_dict["AF_IS_PORTTRACKER_ENABLED"][0],
+                    "key": config_dict["FEEDER_PORTTRACKER_DATA_SHARING_KEY"]
+                    [0],
+                    "station_id": int(
+                        config_dict["FEEDER_PORTTRACKER_STATION_ID"][0]),
+                    "mqtt_url": config_dict["FEEDER_PORTTRACKER_MQTT_URL"][0],
+                    "mqtt_client_id": config_dict[
+                        "FEEDER_PORTTRACKER_MQTT_CLIENT_ID"][0],
+                    "mqtt_qos": int(
+                        config_dict["FEEDER_PORTTRACKER_MQTT_QOS"][0]),
+                    "mqtt_topic": config_dict["FEEDER_PORTTRACKER_MQTT_TOPIC"]
+                    [0],
+                    "mqtt_msgformat": config_dict[
+                        "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"][0],},},
+            "rbthermalhack": config_dict["FEEDER_RB_THERMAL_HACK"],
+            "aggregator_choice": config_dict["_ADSBIM_AGGREGATORS_SELECTION"],
+            "base_version": config_dict["_ADSBIM_BASE_VERSION"],
+            "board_name": config_dict["_ADSBIM_STATE_BOARD_NAME"],
+            "mdns": {
+                "is_enabled": config_dict["AF_IS_MDNS_ENABLED"],
+                "domains": config_dict["AF_MDNS_DOMAINS"],},
+            "prometheus": {
+                "is_enabled": config_dict["AF_IS_PROMETHEUS_EXPORTER_ENABLED"],
+                "textfile_dir": config_dict["AF_PROMETHEUS_TEXTFILE_DIR"],},
+            "ports": {
+                "web": config_dict["AF_WEBPORT"],
+                "dazzle": config_dict["AF_DAZZLE_PORT"],
+                "tar1090": config_dict["AF_TAR1090_PORT"],
+                "tar1090adjusted": config_dict["AF_TAR1090_PORT_ADJUSTED"],
+                "nanotar1090adjusted": config_dict[
+                    "AF_NANO_TAR1090_PORT_ADJUSTED"],
+                "uat": config_dict["AF_UAT978_PORT"],
+                "piamap": config_dict["AF_PIAWAREMAP_PORT"],
+                "piastat": config_dict["AF_PIAWARESTAT_PORT"],
+                "fr": config_dict["AF_FLIGHTRADAR_PORT"],
+                "pf": config_dict["AF_PLANEFINDER_PORT"],
+                "aiscatcher": config_dict["AF_AIS_CATCHER_PORT"],},
+            "image_name": config_dict["_ADSBIM_STATE_IMAGE_NAME"],
+            "secure_image": config_dict["AF_IS_SECURE_IMAGE"],
+            "airspy": config_dict["AF_IS_AIRSPY_ENABLED"],
+            "sdrplay": config_dict["AF_IS_SDRPLAY_ENABLED"],
+            "sdrplay_license_accepted": config_dict[
+                "AF_IS_SDRPLAY_LICENSE_ACCEPTED"],
+            "journal_configured": config_dict[
+                "_ADSBIM_STATE_JOURNAL_CONFIGURED"],
+            "ssh_configured": config_dict["_ADSBIM_STATE_IS_SSH_CONFIGURED"],
+            "base_config": config_dict["AF_IS_BASE_CONFIG_FINISHED"],
+            "aggregators_chosen": config_dict[
+                "_ADSBIM_STATE_AGGREGATORS_CHOSEN"],
+            "nightly_base_update": config_dict[
+                "AF_IS_NIGHTLY_BASE_UPDATE_ENABLED"],
+            "nightly_feeder_update": config_dict[
+                "AF_IS_NIGHTLY_FEEDER_UPDATE_ENABLED"],
+            "zerotierid": config_dict["_ADSBIM_STATE_ZEROTIER_KEY"],
+            "tailscale_ll": config_dict["_ADSBIM_STATE_TAILSCALE_LOGIN_LINK"],
+            "tailscale_name": config_dict["_ADSBIM_STATE_TAILSCALE_NAME"],
+            "tailscale_extras": config_dict[
+                "_ADSBIM_STATE_TAILSCALE_EXTRA_ARGS"],
+            "ultrafeeder_extra_env": config_dict["_ADSBIM_STATE_EXTRA_ENV"],
+            "ultrafeeder_extra_args": config_dict[
+                "_ADSBIM_STATE_ULTRAFEEDER_EXTRA_ARGS"],
+            "tar1090_ac_db": config_dict["FEEDER_TAR1090_ENABLE_AC_DB"],
+            "mlathub_disable": config_dict["FEEDER_MLATHUB_DISABLE"],
+            "mlathub_enable": config_dict["FEEDER_MLATHUB_ENABLE"],
+            "remote_sdr": config_dict["_ADSBIM_STATE_REMOTE_SDR"],
+            "dns_state": config_dict["_ADSBIM_STATE_LAST_DNS_CHECK"],
+            "under_voltage": config_dict["_ADSBIM_STATE_UNDER_VOLTAGE"],
+            "low_disk": config_dict["_ADSBIM_STATE_LOW_DISK"],
+            "stage2": config_dict["AF_IS_STAGE2"],
+            "stage2_nano": config_dict["AF_STAGE2_NANOFEEDER"],
+            "nano_beast_port": int(config_dict["AF_NANO_BEAST_PORT"]),
+            "nano_beastreduce_port": int(
+                config_dict["AF_NANO_BEASTREDUCE_PORT"]),
+            "num_micro_sites": config_dict["AF_NUM_MICRO_SITES"],}
 
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1}
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
