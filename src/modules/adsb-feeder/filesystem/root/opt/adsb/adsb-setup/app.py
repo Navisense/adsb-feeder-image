@@ -2351,6 +2351,16 @@ class AdsbIm:
             for container in self._d.tag_for_name.values()
             if self._d.is_enabled(container)
             or container in ["ultrafeeder", "shipfeeder"]]
+
+        def sdr_assignment(sdr):
+            if self._d.env_by_tags("1090serial").value == sdr._serial:
+                return "1090"
+            elif self._d.env_by_tags("978serial").value == sdr._serial:
+                return "978"
+            elif self._d.env_by_tags("aisserial").value == sdr._serial:
+                return "ais"
+            return None
+
         available_tags = gitlab.gitlab_repo().get_tags()
         return render_template(
             "overview.html",
@@ -2364,6 +2374,7 @@ class AdsbIm:
             version=version,
             containers=containers,
             sdrs=self._sdrdevices.sdrs,
+            sdr_assignment=sdr_assignment,
             tags=available_tags,
         )
 

@@ -264,9 +264,32 @@
         {% endif %}
       </dd>
     {% endwith %}
-    <dt>Feeder external IP</dt>
+    <dt>Feeder external IP (on the public internet)</dt>
     <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
-    <dt>How to reach this feeder</dt><dd id="feeder-reachability">checking...</dd>
+    <dt>How to reach this feeder when connected to the same network</dt><dd id="feeder-reachability">checking...</dd>
+    <dt>{{ sdrs | length }} SDR device(s) connected</dt>
+    <dd>
+      {% if sdrs %}
+        <ul>
+          {% for sdr in sdrs %}
+            <li>
+              {{ sdr._type }} device with serial {{ sdr._serial }}:
+              {% with assignment = sdr_assignment(sdr) %}
+                {% if assignment == 'ais' %}
+                  currently handling AIS
+                {% elif assignment in ['1090', '978'] %}
+                  currently handling ADS-B ({{ assignment }}MHz)
+                {% else %}
+                  currently unused
+                {% endif %}
+              {% endwith %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        no SDR devices connected
+      {% endif %}
+    </dd>
     <dt>Containers:</dt>
     <dd>
       <ul>
@@ -274,20 +297,6 @@
           <li>{{ container }}</li>
         {% endfor %}
       </ul>
-    </dd>
-    <dt>SDR(s)</dt>
-    <dd>
-      {% if sdrs %}
-        <ul>
-          {% for sdr in sdrs %}
-            <li>
-              <pre>{{ sdr }}</pre>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        no SDRs connected
-      {% endif %}
     </dd>
   </dl>
 </div>
