@@ -90,10 +90,10 @@ class TypeConstrainedScalarSetting(ScalarSetting):
     def __init__(
             self, required_type: type, config: "Config", value: t.Any, *args,
             default: Optional[t.Any] = None, **kwargs):
-        if not isinstance(value, (required_type, None)):
+        if not isinstance(value, (required_type, type(None))):
             raise ValueError(
                 f"Value must be a {required_type}, but is {type(value)}.")
-        if not isinstance(default, (required_type, None)):
+        if not isinstance(default, (required_type, type(None))):
             raise ValueError(
                 f"Default value must be a {required_type}, but is "
                 f"{type(default)}.")
@@ -245,7 +245,7 @@ class Config(CompoundSetting):
         "uat978": ft.partial(
             BoolSetting, default=False,
             env_variable_name="FEEDER_ENABLE_UAT978"),
-        "replay978": BoolSetting,
+        "replay978": StringSetting,
         # hostname ultrafeeder uses to get 978 data
         "978host": ft.partial(
             StringSetting, env_variable_name="FEEDER_UAT978_HOST"),
@@ -408,7 +408,7 @@ class Config(CompoundSetting):
                             env_variable_name="FEEDER_SM_PASSWORD"),
                         "user": ft.partial(
                             StringSetting,
-                            FEEDER_OPENSKY_USERNAME="FEEDER_SM_USERNAME"),}),
+                            env_variable_name="FEEDER_SM_USERNAME"),}),
                 "porttracker": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(BoolSetting, default=False),
@@ -527,9 +527,9 @@ class Config(CompoundSetting):
             BoolSetting, default=True,
             env_variable_name="FEEDER_MLATHUB_ENABLE"),
         "remote_sdr": StringSetting,
-        "dns_state": ft.partial(StringSetting, norestore=True),
-        "under_voltage": ft.partial(StringSetting, norestore=True),
-        "low_disk": ft.partial(StringSetting, norestore=True),
+        "dns_state": ft.partial(BoolSetting, norestore=True),
+        "under_voltage": ft.partial(BoolSetting, norestore=True),
+        "low_disk": ft.partial(BoolSetting, norestore=True),
         "stage2": ft.partial(
             BoolSetting, default=False, env_variable_name="AF_IS_STAGE2"
         ),
