@@ -31,7 +31,7 @@
                      name="porttracker-is-enabled"
                      id="porttracker-is-enabled"
                      {% if aggregators['porttracker'].enabled('ais') %}checked{% endif %} />
-              <label for="porttracker-is-enabled">
+              <label class="mx-1 w-auto" for="porttracker-is-enabled">
                 <a href="https://porttracker.co/">Porttracker</a>
               </label>
               <div class="form-group" id="porttracker-setup">
@@ -124,7 +124,7 @@
                      name="mlat_privacy--is_enabled"
                      id="mlat_privacy--is_enabled"
                      {% if is_enabled('mlat_privacy') %}checked{% endif %} />
-              <label for="mlat_privacy--is_enabled">
+              <label class="mx-1 w-auto" for="mlat_privacy--is_enabled">
                 Enable privacy flag (ON = your site won't be visible at all on
                 <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">
                   public aggregator maps
@@ -138,7 +138,7 @@
                      name="mlat_enable--is_enabled"
                      id="mlat_enable--is_enabled"
                      {% if is_enabled('mlat_enable') %}checked{% endif %} />
-              <label for="mlat_enable--is_enabled">Enable MLAT (for selected aggregators supporting MLAT)</label>
+              <label class="mx-1 w-auto" for="mlat_enable--is_enabled">Enable MLAT (for selected aggregators supporting MLAT)</label>
             </div>
             <div class="col-12 h5 mt-3">Select the account-less ADS-B aggregators you want to feed:</div>
             <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
@@ -147,7 +147,7 @@
                      name="adsblol-is-enabled"
                      id="adsblol-is-enabled"
                      {% if aggregators['adsblol'].enabled('adsb') %}checked{% endif %} />
-              <label for="adsblol-is-enabled">
+              <label class="mx-1 w-auto" for="adsblol-is-enabled">
                 <a href="https://adsb.lol/privacy-license/">adsb.lol</a>
               </label>
             </div>
@@ -157,7 +157,7 @@
                      name="flyitaly-is-enabled"
                      id="flyitaly-is-enabled"
                      {% if aggregators['flyitaly'].enabled('adsb') %}checked{% endif %} />
-              <label for="flyitaly-is-enabled">
+              <label class="mx-1 w-auto" for="flyitaly-is-enabled">
                 <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>
               </label>
             </div>
@@ -167,7 +167,7 @@
                      name="avdelphi-is-enabled"
                      id="avdelphi-is-enabled"
                      {% if aggregators['avdelphi'].enabled('adsb') %}checked{% endif %} />
-              <label for="avdelphi-is-enabled">
+              <label class="mx-1 w-auto" for="avdelphi-is-enabled">
                 <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>
               </label>
             </div>
@@ -177,7 +177,7 @@
                      name="planespotters-is-enabled"
                      id="planespotters-is-enabled"
                      {% if aggregators['planespotters'].enabled('adsb') %}checked{% endif %} />
-              <label for="planespotters-is-enabled">
+              <label class="mx-1 w-auto" for="planespotters-is-enabled">
                 <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>
               </label>
             </div>
@@ -189,7 +189,7 @@
                      name="tat-is-enabled"
                      id="tat-is-enabled"
                      {% if aggregators['tat'].enabled('adsb') %}checked{% endif %} />
-              <label for="tat-is-enabled">
+              <label class="mx-1 w-auto" for="tat-is-enabled">
                 <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>
               </label>
             </div>
@@ -199,7 +199,7 @@
                      name="adsbfi-is-enabled"
                      id="adsbfi-is-enabled"
                      {% if aggregators['adsbfi'].enabled('adsb') %}checked{% endif %} />
-              <label for="adsbfi-is-enabled">
+              <label class="mx-1 w-auto" for="adsbfi-is-enabled">
                 <a href="https://adsb.fi/privacy">adsb.fi</a>
               </label>
             </div>
@@ -211,7 +211,7 @@
                      name="hpradar-is-enabled"
                      id="hpradar-is-enabled"
                      {% if aggregators['hpradar'].enabled('adsb') %}checked{% endif %} />
-              <label for="hpradar-is-enabled">
+              <label class="mx-1 w-auto" for="hpradar-is-enabled">
                 <a href="https://skylink.hpradar.com/"
                    data-mdb-toggle="tooltip"
                    title="please note that this site is missing a clear data/privacy policy">HPRadar</a>
@@ -223,7 +223,7 @@
                      name="alive-is-enabled"
                      id="alive-is-enabled"
                      {% if aggregators['alive'].enabled('adsb') %}checked{% endif %} />
-              <label for="alive-is-enabled">
+              <label class="mx-1 w-auto" for="alive-is-enabled">
                 <a href="https://airplanes.live/privacy">airplanes.live</a>
               </label>
             </div>
@@ -233,7 +233,7 @@
                      name="adsbx-is-enabled"
                      id="adsbx-is-enabled"
                      {% if aggregators['adsbx'].enabled('adsb') %}checked{% endif %} />
-              <label for="adsbx-is-enabled">
+              <label class="mx-1 w-auto" for="adsbx-is-enabled">
                 <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
               </label>
             </div>
@@ -326,7 +326,7 @@
                      name="flightaware-is-enabled"
                      id="flightaware-is-enabled"
                      {% if aggregators['flightaware'].enabled('adsb') %}checked{% endif %} />
-              <label class="mx-1 w-auto" for="FA">
+              <label class="mx-1 w-auto" for="flightaware-is-enabled">
                 <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
                 <div class="form-group" id="flightaware-setup">
                   <label for="flightaware-feeder-id">
