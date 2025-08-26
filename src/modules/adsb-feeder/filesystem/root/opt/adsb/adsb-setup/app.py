@@ -57,7 +57,7 @@ from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
 import utils.gitlab as gitlab
 import utils.netconfig
-from utils.sdr import SDRDevices
+import utils.sdr
 import utils.stats
 import utils.system
 import utils.util
@@ -324,7 +324,7 @@ class AdsbIm:
         self.wifi = None
         self.wifi_ssid = ""
 
-        self._sdrdevices = SDRDevices()
+        self._sdrdevices = utils.sdr.SDRDevices()
         self._ultrafeeder_config = utils.netconfig.UltrafeederConfig(
             data=self._d)
 
@@ -332,7 +332,7 @@ class AdsbIm:
         self.undervoltage_epoch = 0
 
         self._dmesg_monitor = DmesgMonitor(
-            on_usb_change=self._sdrdevices._ensure_populated,
+            on_usb_change=self._sdrdevices.ensure_populated,
             on_undervoltage=self._set_undervoltage)
 
         self._next_url_from_director = ""
@@ -1193,7 +1193,7 @@ class AdsbIm:
         print_err(f"serial guess: {serial_guess}")
         serials: Dict[str, str] = {f: self._d.env_by_tags(f"{f}serial").value for f in [978, 1090, "ais"]}
         configured_serials = {self._d.env_by_tags(f).value for f in self._sdrdevices.purposes()}
-        available_serials = [sdr._serial for sdr in self._sdrdevices.sdrs]
+        available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
         for f in [978, 1090, "ais"]:
             if (not serials[f] or serials[f] not in available_serials) and serial_guess[f] not in configured_serials:
                 serials[f] = serial_guess[f]
@@ -1470,8 +1470,8 @@ class AdsbIm:
         # fix up airspy installs without proper serial number configuration
         if self._d.is_enabled("airspy"):
             if self._d.env_by_tags("1090serial").value == "" or self._d.env_by_tags("1090serial").value.startswith("AIRSPY SN:"):
-                self._sdrdevices._ensure_populated()
-                airspy_serials = [sdr._serial for sdr in self._sdrdevices.sdrs if sdr._type == "airspy"]
+                self._sdrdevices.ensure_populated()
+                airspy_serials = [sdr.serial for sdr in self._sdrdevices.sdrs if sdr.type == "airspy"]
                 if len(airspy_serials) == 1:
                     self._d.env_by_tags("1090serial").value = airspy_serials[0]
 
@@ -1479,15 +1479,15 @@ class AdsbIm:
         # only run this for initial setup or when the SDR setup is requested via the interface
         if not self._d.env_by_tags("sdrs_locked").value:
             # first grab the SDRs plugged in and check if we have one identified for UAT
-            self._sdrdevices._ensure_populated()
+            self._sdrdevices.ensure_populated()
             env978 = self._d.env_by_tags("978serial")
             env1090 = self._d.env_by_tags("1090serial")
             envais = self._d.env_by_tags("aisserial")
-            if env978.value != "" and not any([sdr._serial == env978.value for sdr in self._sdrdevices.sdrs]):
+            if env978.value != "" and not any([sdr.serial == env978.value for sdr in self._sdrdevices.sdrs]):
                 env978.value = ""
-            if env1090.value != "" and not any([sdr._serial == env1090.value for sdr in self._sdrdevices.sdrs]):
+            if env1090.value != "" and not any([sdr.serial == env1090.value for sdr in self._sdrdevices.sdrs]):
                 env1090.value = ""
-            if envais.value != "" and not any([sdr._serial == envais.value for sdr in self._sdrdevices.sdrs]):
+            if envais.value != "" and not any([sdr.serial == envais.value for sdr in self._sdrdevices.sdrs]):
                 envais.value = ""
             auto_assignment = self._sdrdevices.addresses_per_frequency
 
@@ -1506,7 +1506,7 @@ class AdsbIm:
                 envais.value = auto_assignment["ais"]
 
             stratuxv3 = any(
-                [sdr._serial == env978.value and sdr._type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
+                [sdr.serial == env978.value and sdr.type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
             )
             if stratuxv3:
                 self._d.env_by_tags("uat_device_type").value = "stratuxv3"
@@ -1526,19 +1526,19 @@ class AdsbIm:
                 self._d.env_by_tags("978piaware").list_set(0, "")
 
             # next check for airspy devices
-            airspy = any([sdr._serial == env1090.value and sdr._type == "airspy" for sdr in self._sdrdevices.sdrs])
+            airspy = any([sdr.serial == env1090.value and sdr.type == "airspy" for sdr in self._sdrdevices.sdrs])
             self._d.env_by_tags(["airspy", "is_enabled"]).value = airspy
             self._d.env_by_tags("airspyurl").list_set(0, f"http://airspy_adsb" if airspy else "")
             # SDRplay devices
-            sdrplay = any([sdr._serial == env1090.value and sdr._type == "sdrplay" for sdr in self._sdrdevices.sdrs])
+            sdrplay = any([sdr.serial == env1090.value and sdr.type == "sdrplay" for sdr in self._sdrdevices.sdrs])
             self._d.env_by_tags(["sdrplay", "is_enabled"]).value = sdrplay
             # Mode-S Beast
             modesbeast = any(
-                [sdr._serial == env1090.value and sdr._type == "modesbeast" for sdr in self._sdrdevices.sdrs]
+                [sdr.serial == env1090.value and sdr.type == "modesbeast" for sdr in self._sdrdevices.sdrs]
             )
 
             # rtl-sdr
-            rtlsdr = any(sdr._type == "rtlsdr" and sdr._serial in {env1090.value, envais.value} for sdr in self._sdrdevices.sdrs)
+            rtlsdr = any(sdr.type == "rtlsdr" and sdr.serial in {env1090.value, envais.value} for sdr in self._sdrdevices.sdrs)
 
             if rtlsdr:
                 self._d.env_by_tags("readsb_device_type").value = "rtlsdr"
@@ -2196,7 +2196,7 @@ class AdsbIm:
         # check if any of the SDRs aren't configured
         configured_serials = [self._d.env_by_tags(purpose).value for purpose in self._sdrdevices.purposes()]
         configured_serials = [serial for serial in configured_serials if serial != ""]
-        available_serials = [sdr._serial for sdr in self._sdrdevices.sdrs]
+        available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
         if any([serial not in configured_serials for serial in available_serials]):
             print_err(f"configured serials: {configured_serials}")
             print_err(f"available serials: {available_serials}")
@@ -2254,7 +2254,7 @@ class AdsbIm:
         if time.time() - self.last_dns_check > 300:
             self.update_dns_state()
 
-        self._sdrdevices._ensure_populated()
+        self._sdrdevices.ensure_populated()
 
         self.update_net_dev()
 
@@ -2353,11 +2353,11 @@ class AdsbIm:
             or container in ["ultrafeeder", "shipfeeder"]]
 
         def sdr_assignment(sdr):
-            if self._d.env_by_tags("1090serial").value == sdr._serial:
+            if self._d.env_by_tags("1090serial").value == sdr.serial:
                 return "1090"
-            elif self._d.env_by_tags("978serial").value == sdr._serial:
+            elif self._d.env_by_tags("978serial").value == sdr.serial:
                 return "978"
-            elif self._d.env_by_tags("aisserial").value == sdr._serial:
+            elif self._d.env_by_tags("aisserial").value == sdr.serial:
                 return "ais"
             return None
 
