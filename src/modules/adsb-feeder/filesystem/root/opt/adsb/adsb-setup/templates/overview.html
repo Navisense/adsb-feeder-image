@@ -222,8 +222,8 @@
         <div class="col-12">
           <div class="lead">ADSBExchange</div>
           <ul class="mb-0">
-            <li><a id="adsbxstatlink" href="">ADSBx Anywhere Stats</a></li>
-            <li><a id="adsbxmaplink" href="">ADSBx Anywhere Map</a></li>
+            <li><a id="adsbx-stat-link" href="">ADSBx Anywhere Stats</a></li>
+            <li><a id="adsbx-map-link" href="">ADSBx Anywhere Map</a></li>
           </ul>
         </div>
       {% endif %}
@@ -506,16 +506,19 @@
           } else {
             checkMarkElement.attr("class", "text-muted");
           }
+          // Extra data for adsb.lol.
           if (status.adsblol_link) {
             $("#adsblol-link").attr("href", status.adsblol_link);
           }
+          // Extra data for airplanes.live.
           if (status.alive_map_link) {
             $("#alive-map-link").attr("href", status.alive_map_link);
           }
+          // Extra data for ADSBExchange.
           if (status.adsbx_feeder_id) {
-            $("#adsbxstatlink").attr(
+            $("#adsbx-stat-link").attr(
               "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
-            $("#adsbxmaplink").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
+            $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
           }
         }
       });
