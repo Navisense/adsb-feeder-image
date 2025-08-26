@@ -104,15 +104,42 @@ Download the `adsb-im-x86-64-vm-*-Hyper-V-x86_64.vhdx.xz` for the latest release
 - remember to pass through the SDR USB device to the VM before trying to configure the feeder
 
 
-## Feed from most Linux systems
+## Install on most Linux systems
 
-You can also install this software stack as an app on an existing Linux system. If you are running DietPi as the Linux OS on your system, you can simply install it using `dietpi-software` (it's app 141). Otherwise you can run a small [install script](https://raw.githubusercontent.com/dirkhh/adsb-feeder-image/main/src/tools/app-install.sh). For the trusting kinda people, all you need to do is
-```
-curl https://raw.githubusercontent.com/dirkhh/adsb-feeder-image/main/src/tools/app-install.sh | sudo bash
-```
-Or you could do the more sensible thing of downloading the script, reading it, and then executing it.
+You can also install this software stack as an app on an existing Linux system.
+You can run a small install script [install
+script](https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script),
+which is generated as a build artifact by the CI pipeline. For the trusting
+kind of people, all you need to do is open a root shell and execute
 
-The UI can be accessed via port 1099.
+```
+curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
+    | bash -s -- --web-port 80 --enable-mdns --auto-install-dependencies
+```
+
+This requires `bash`, `curl`, and `jq` to be installed already. All other
+dependencies are checked for (and also installed if you specify
+`--auto-install-dependencies`).
+
+The script allows a few options, which are appended to the bash command after
+`-s --`. They are
+
+- `--ref`: The ref of the git repo to download, e.g. a tag with a specific
+  version. If not specified, the `main` branch is used, which contains the
+  latest stable version.
+- `--web-port`: The port on which the web interface should be started (default
+  1099).
+- `--enable-mdns`: Whether an mDNS service should be started, which makes it
+  easier to access the machine from the outside as `porttracker-feeder.local`.
+- `--expand-rootfs`: Whether a service should be started that automatically
+  expands the root filesystem. This really only makes sense for generating
+  images and shouldn't be used on existing systems.
+- `--auto-install-dependencies`: Whether missing dependencies should be
+  installed automatically. By default, the script will only tell you which
+  dependencies are missing and exit with an error.
+
+Once the script has run through successfully, the web interface should be
+available at the port you specified via `--web-port`, or 1099 by default.
 
 # for developers
 
