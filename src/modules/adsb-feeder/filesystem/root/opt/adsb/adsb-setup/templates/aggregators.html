@@ -78,6 +78,30 @@
                 <div id="porttracker-registered-stations"></div>
               </div>
             </div>
+            <div class="form-check col-12">
+              <input type="checkbox"
+                     class="form-check-input me-1"
+                     name="aishub-is-enabled"
+                     id="aishub-is-enabled"
+                     {% if aggregators['aishub'].enabled('adsb') %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="aishub-is-enabled">
+                <a href="https://www.aishub.net/">Aishub</a>
+                <div class="form-group" id="aishub-setup">
+                  <label for="aishub-udp-port">
+                    Enter your Aishub sharing UDP port. If you don't have one yet, you can request one
+                    <a href="https://www.aishub.net/join-us">on the website</a>.
+                  </label>
+                  <input type="number"
+                         min="1"
+                         max="65535"
+                         id="aishub-udp-port"
+                         name="aishub-udp-port"
+                         class="form-control w-75 required-if-enabled"
+                         placeholder="Aishub sharing UDP port"
+                         value="{{ list_value_by_tags(['aishub', 'key']) }}" />
+                </div>
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -552,6 +576,7 @@
       "1090uk",
       "sdrmap",
       "porttracker",
+      "aishub",
     ];
     for (const aggKey of aggregatorsWithExtraInputFields) {
       let checkBox = document.getElementById(`${aggKey}-is-enabled`);

@@ -10,7 +10,7 @@ import subprocess
 import threading
 import time
 import typing as t
-from typing import Optional
+from typing import Any, Optional
 
 import utils.data
 import utils.system
@@ -105,7 +105,8 @@ def all_aggregators(data: utils.data.Data,
             RadarVirtuelAggregator(data, system),
             TenNinetyUkAggregator(data, system),
             SdrMapAggregator(data, system),
-            PorttrackerAggregator(data, system),]
+            PorttrackerAggregator(data, system),
+            AishubAggregator(data, system),]
         for aggregator in aggregators:
             assert aggregator.agg_key not in _aggregator_dict
             _aggregator_dict[aggregator.agg_key] = aggregator
@@ -442,7 +443,7 @@ class AccountBasedAggregator(Aggregator):
     def _container(self):
         return self._d.env_by_tags([self.agg_key, "container"]).value
 
-    def configure(self, enabled: bool, key: str, *args) -> None:
+    def configure(self, enabled: bool, key: Any, *args) -> None:
         if enabled and not key:
             raise ConfigureError("No key provided.")
         super().configure(enabled)
@@ -1147,3 +1148,33 @@ class SdrMapAggregator(AccountBasedAggregator):
             adsb=AdsbStatus(
                 data_status=data_status, mlat_status=Status.UNKNOWN),
         )
+
+
+class AishubAggregator(AccountBasedAggregator):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="aishub", name="Aishub",
+            map_url="https://www.aishub.net/coverage", status_url=None)
+
+    @property
+    def capable_message_types(self) -> set[MessageType]:
+        return {MessageType.AIS}
+
+    @property
+    def _container_name(self):
+        return "shipfeeder"
+
+    @property
+    def status_url(self) -> Optional[str]:
+        if not self.enabled():
+            return None
+        udp_port = self._d.env_by_tags(["aishub", "udp_port"]).value[0]
+        return f"https://www.aishub.net/stations/{udp_port}"
+
+    def configure(self, enabled: bool, udp_port: str) -> None:
+        udp_port_int = int(udp_port)
+        return super().configure(enabled, udp_port_int)
+
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        return AggregatorStatus(
+            ais=AisStatus(data_status=Status.UNKNOWN), adsb=None)

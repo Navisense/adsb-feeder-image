@@ -435,7 +435,15 @@ class Config(CompoundSetting):
                             env_variable_name="FEEDER_PORTTRACKER_MQTT_TOPIC"),
                         "mqtt_msgformat": ft.partial(
                             StringSetting, env_variable_name=
-                            "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"),})}),
+                            "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"),}),
+                "aishub": ft.partial(
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_AISHUB_ENABLED"),
+                        "key": ft.partial(
+                            IntSetting,
+                            env_variable_name="FEEDER_AISHUB_UDP_PORT"),}),}),
         "rbthermalhack": ft.partial(
             StringSetting, env_variable_name="FEEDER_RB_THERMAL_HACK"),
         # ADSB.im specific
@@ -1165,6 +1173,11 @@ class Data:
             default=[""],
             tags=["porttracker", "mqtt_msgformat"],
         ),
+        Env(
+            "FEEDER_AISHUB_UDP_PORT",
+            default=[None],
+            tags=["aishub", "key", "udp_port"],
+        ),
         # ADSB.im specific
         Env("_ADSBIM_AGGREGATORS_SELECTION", tags=["aggregator_choice"]),
         Env(
@@ -1259,6 +1272,11 @@ class Data:
             "AF_IS_PORTTRACKER_ENABLED",
             default=[False],
             tags=["other_aggregator", "is_enabled", "porttracker"],
+        ),
+        Env(
+            "AF_IS_AISHUB_ENABLED",
+            default=[False],
+            tags=["other_aggregator", "is_enabled", "aishub"],
         ),
         Env(
             "AF_IS_AIRSPY_ENABLED",

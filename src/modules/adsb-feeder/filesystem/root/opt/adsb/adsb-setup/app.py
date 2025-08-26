@@ -2155,6 +2155,8 @@ class AdsbIm:
                 request.form.get("porttracker-mqtt-password", ""))
             kwargs["mqtt_topic"] = (
                 request.form.get("porttracker-mqtt-topic", ""))
+        elif agg_key == "aishub":
+            kwargs["udp_port"] = request.form.get("aishub-udp-port") or None
         return kwargs
 
     @check_restart_lock
