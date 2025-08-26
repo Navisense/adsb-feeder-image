@@ -2,6 +2,7 @@ import abc
 import enum
 import json
 import logging
+import numbers
 import pathlib
 import re
 import requests
@@ -656,12 +657,17 @@ class PorttrackerAggregator(AccountBasedAggregator):
             headers={"X-Data-Sharing-Key": data_sharing_key}, timeout=5)
         response.raise_for_status()
         resp_dict = response.json()
-        if resp_dict["ais"]["past5m"] >= 100:
-            data_status = Status.GOOD
-        elif resp_dict["ais"]["past5m"] > 0:
-            data_status = Status.WARNING
-        else:
-            data_status = Status.BAD
+        try:
+            past5m = resp_dict["ais"]["past5m"]
+            assert isinstance(past5m, numbers.Real)
+            if past5m >= 100:
+                data_status = Status.GOOD
+            elif past5m > 0:
+                data_status = Status.WARNING
+            else:
+                data_status = Status.BAD
+        except (KeyError, AssertionError):
+            data_status = Status.UNKNOWN
         return AggregatorStatus(
             ais=AisStatus(data_status=data_status), adsb=None)
 
