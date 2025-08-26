@@ -273,7 +273,7 @@
         <ul>
           {% for sdr in sdrs %}
             <li>
-              {{ sdr._type }} device with serial {{ sdr._serial }}:
+              {{ sdr.vendor }} {{ sdr.product }} ({{ sdr.type }} device with serial {{ sdr.serial }}):
               {% with assignment = sdr_assignment(sdr) %}
                 {% if assignment == 'ais' %}
                   currently handling AIS

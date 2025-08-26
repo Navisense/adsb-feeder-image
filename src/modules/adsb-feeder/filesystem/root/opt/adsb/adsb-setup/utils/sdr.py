@@ -1,8 +1,17 @@
+import dataclasses as dc
 import logging
 import re
 import subprocess
 import threading
 import time
+from typing import Optional
+
+
+@dc.dataclass
+class SDRInfo:
+    serial: str
+    vendor: str
+    product: str
 
 
 class SDR:
@@ -11,7 +20,7 @@ class SDR:
         self._type = type_
         self._address = address
         self.lsusb_output = ""
-        self._serial = self._probe_serial()
+        self._info = self._probe_info()
 
     @property
     def type(self) -> str:
@@ -19,29 +28,39 @@ class SDR:
 
     @property
     def serial(self) -> str:
-        self._serial = self._serial or self._probe_serial()
-        return self._serial
+        self._info = self._info or self._probe_info()
+        if not self._info:
+            return ""
+        return self._info.serial
 
-    def _probe_serial(self) -> str:
-        serial = ""
+    @property
+    def vendor(self) -> str:
+        self._info = self._info or self._probe_info()
+        if not self._info:
+            return ""
+        return self._info.vendor
+
+    @property
+    def product(self) -> str:
+        self._info = self._info or self._probe_info()
+        if not self._info:
+            return ""
+        return self._info.product
+
+    def _probe_info(self) -> Optional[SDRInfo]:
         cmdline = f"lsusb -s {self._address} -v"
         try:
             result = subprocess.run(cmdline, shell=True, capture_output=True)
         except subprocess.SubprocessError:
             self._logger.exception(f"Error running {cmdline}")
-            return serial
+            return None
         output = result.stdout.decode()
         self.lsusb_output = f"lsusb -s {self._address}: {output}"
-        # is there a serial number?
+        serial = vendor = product = ""
         for line in output.splitlines():
-            serial_match = re.search(r"iSerial\s+\d+\s+(.*)$", line)
-            if serial_match:
-                serial = serial_match.group(1).strip()
-        if self._type == "airspy" and serial:
-            split = serial.split(":")
-            if len(split) == 2 and len(split[1]) == 16:
-                serial = split[1]
-
+            serial = serial or self._extract_serial(line)
+            vendor = vendor or self._extract_vendor(line)
+            product = product or self._extract_product(line)
         if not serial:
             if self._type == "stratuxv3":
                 serial = "stratuxv3 w/o serial"
@@ -49,7 +68,30 @@ class SDR:
                 serial = "Mode-S Beast w/o serial"
             elif self._type == "sdrplay":
                 serial = "SDRplay w/o serial"
+        return SDRInfo(serial=serial, vendor=vendor, product=product)
+
+    def _extract_serial(self, line):
+        match = re.search(r"iSerial\s+\d+\s+(.+)$", line)
+        if not match:
+            return ""
+        serial = match.group(1).strip()
+        if self._type == "airspy":
+            split = serial.split(":")
+            if len(split) == 2 and len(split[1]) == 16:
+                return split[1]
         return serial
+
+    def _extract_vendor(self, line):
+        match = re.search(r"idVendor\s+\S+\s+(.+)$", line)
+        if not match:
+            return ""
+        return match.group(1).strip()
+
+    def _extract_product(self, line):
+        match = re.search(r"idProduct\s+\S+\s+(.+)$", line)
+        if not match:
+            return ""
+        return match.group(1).strip()
 
     @property
     def _json(self):
