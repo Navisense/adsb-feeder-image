@@ -1165,16 +1165,38 @@ class AishubAggregator(AccountBasedAggregator):
         return "shipfeeder"
 
     @property
+    def _udp_port(self) -> Optional[int]:
+        env = self._d.env_by_tags(["aishub", "udp_port"])
+        if not env:
+            return None
+        return int(env.value[0])
+
+    @property
     def status_url(self) -> Optional[str]:
         if not self.enabled():
             return None
-        udp_port = self._d.env_by_tags(["aishub", "udp_port"]).value[0]
-        return f"https://www.aishub.net/stations/{udp_port}"
+        return f"https://www.aishub.net/stations/{self._udp_port}"
 
     def configure(self, enabled: bool, udp_port: str) -> None:
         udp_port_int = int(udp_port)
         return super().configure(enabled, udp_port_int)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
+        if not self._udp_port:
+            raise StatusCheckError("No sharing UDP port configured.")
+        response = requests.get(
+            url=f"https://www.aishub.net/station/{self._udp_port}"
+            "/daily-statistics.json",
+            headers={"X-Requested-With": "XMLHttpRequest"}, timeout=5)
+        response.raise_for_status()
+        resp_dict = response.json()
+        vessel_counts = resp_dict["count"]
+        # Aishub gives us a list of the number of vessels over time. If there
+        # have been any vessels at the latest measurement, we assume data is
+        # arriving.
+        if not vessel_counts or not vessel_counts[-1]:
+            data_status = Status.BAD
+        else:
+            data_status = Status.GOOD
         return AggregatorStatus(
-            ais=AisStatus(data_status=Status.UNKNOWN), adsb=None)
+            ais=AisStatus(data_status=data_status), adsb=None)
