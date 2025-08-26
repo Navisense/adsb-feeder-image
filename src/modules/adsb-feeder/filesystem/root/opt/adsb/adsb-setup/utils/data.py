@@ -1178,6 +1178,36 @@ class Data:
             default=[None],
             tags=["aishub", "key", "udp_port"],
         ),
+        Env(
+            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_URL",
+            default=[""],
+            tags=["shipfeeder_config_porttracker", "mqtt_url"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_CLIENT_ID",
+            default=[""],
+            tags=["shipfeeder_config_porttracker", "mqtt_client_id"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_QOS",
+            default=[""],
+            tags=["shipfeeder_config_porttracker", "mqtt_qos"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_TOPIC",
+            default=[""],
+            tags=["shipfeeder_config_porttracker", "mqtt_topic"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_MSGFORMAT",
+            default=[""],
+            tags=["shipfeeder_config_porttracker", "mqtt_msgformat"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_AISHUB_UDP_PORT",
+            default=[None],
+            tags=["shipfeeder_config_aishub", "key", "udp_port"],
+        ),
         # ADSB.im specific
         Env("_ADSBIM_AGGREGATORS_SELECTION", tags=["aggregator_choice"]),
         Env(

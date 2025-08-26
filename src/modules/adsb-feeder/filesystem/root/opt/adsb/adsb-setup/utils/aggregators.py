@@ -622,6 +622,10 @@ class PorttrackerAggregator(AccountBasedAggregator):
             mqtt_protocol: str, mqtt_host: str, mqtt_port: str,
             mqtt_username: str, mqtt_password: str, mqtt_topic: str) -> None:
         if not enabled:
+            for tag in ["mqtt_url", "mqtt_client_id", "mqtt_qos", "mqtt_topic",
+                        "mqtt_msgformat"]:
+                self._d.env_by_tags(["shipfeeder_config_porttracker",
+                                     tag]).list_set(0, "")
             return super().configure(enabled, data_sharing_key)
         if not all([station_id, data_sharing_key, mqtt_protocol, mqtt_host,
                     mqtt_port, mqtt_username, mqtt_password, mqtt_topic]):
@@ -640,6 +644,18 @@ class PorttrackerAggregator(AccountBasedAggregator):
         self._d.env_by_tags([self.agg_key,
                              "mqtt_msgformat"]).list_set(0, "JSON_NMEA")
         super().configure(enabled, data_sharing_key)
+        self._d.env_by_tags(["shipfeeder_config_porttracker",
+                             "mqtt_url"]).list_set(0, mqtt_url)
+        self._d.env_by_tags([
+            "shipfeeder_config_porttracker",
+            "mqtt_client_id"]).list_set(0, client_id)
+        self._d.env_by_tags(["shipfeeder_config_porttracker",
+                             "mqtt_qos"]).list_set(0, "0")
+        self._d.env_by_tags(["shipfeeder_config_porttracker",
+                             "mqtt_topic"]).list_set(0, mqtt_topic)
+        self._d.env_by_tags([
+            "shipfeeder_config_porttracker",
+            "mqtt_msgformat"]).list_set(0, "JSON_NMEA")
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         data_sharing_key_env = self._d.env_by_tags([
@@ -1179,7 +1195,13 @@ class AishubAggregator(AccountBasedAggregator):
 
     def configure(self, enabled: bool, udp_port: str) -> None:
         udp_port_int = int(udp_port)
-        return super().configure(enabled, udp_port_int)
+        super().configure(enabled, udp_port_int)
+        if enabled:
+            key = self._d.env_by_tags([self.agg_key, "key"]).value[0]
+        else:
+            key = ""
+        self._d.env_by_tags(["shipfeeder_config_aishub",
+                             "key"]).list_set(0, key)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         if not self._udp_port:
