@@ -160,10 +160,15 @@ class IntSetting(TypeConstrainedScalarSetting):
 
 class CompoundSetting(Setting):
     def __init__(
-            self, config: "Config", settings_dict: dict[str, t.Any], *,
-            schema: dict[str, type[Setting]]):
+            self, config: "Config", settings_dict: Optional[dict[str, t.Any]],
+            *, schema: dict[str, type[Setting]]):
         super().__init__(config)
         self._settings = {}
+        if settings_dict is None:
+            logger.warning(
+                "No settings dictionary for compound settings with schema "
+                f"{schema}, starting with an empty one.")
+            settings_dict = {}
         for key, setting_class in schema.items():
             if "." in key:
                 raise ValueError("Keys must not contain dots.")
@@ -177,7 +182,7 @@ class CompoundSetting(Setting):
             if any(k in env_variables for k in setting.env_variables):
                 logger.error(
                     "Overlapping environment variable names in "
-                    f"{env_variables} and {setting.env_variables}")
+                    f"{env_variables} and {setting.env_variables}.")
             env_variables |= setting.env_variables
         return env_variables
 
