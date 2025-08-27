@@ -32,12 +32,18 @@ logger = logging.getLogger(__name__)
 
 
 class Setting(abc.ABC):
+    """
+    Abstract setting.
+
+    A setting is a container for configuration data.
+    """
     def __init__(self, config: "Config"):
         self._config = config
 
     @property
     @abc.abstractmethod
     def env_variables(self) -> dict[str, str]:
+        """Dictionary of environment variables of this setting."""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -50,6 +56,11 @@ class Setting(abc.ABC):
 
 
 class ScalarSetting(Setting):
+    """
+    A setting with a direct value.
+
+    Scalar settings contain values directly, e.g. strings or numbers.
+    """
     def __init__(
             self, config: "Config", value: t.Any, *,
             default: Optional[t.Any] = None,
@@ -84,6 +95,23 @@ class ScalarSetting(Setting):
     def get(
             self, key_path: t.Literal[""], *, default: t.Any = None,
             use_setting_level_default: bool = True) -> t.Any:
+        """
+        Get the value.
+
+        The key_path must be the empty string. Gets the value of this setting,
+        which is
+
+        - the stored value, if it is not None,
+        - otherwise the default given to this method, if it is not None,
+        - otherwise the default given on setting construction, if
+          use_setting_level_default is True,
+        - otherwise None.
+
+        :param use_setting_level_default: Whether to use the setting-level as
+            the final fallback. If False, will return None if the value is None
+            and the default in this get() call are None, even if the setting
+            itself has a non-None default.
+        """
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
         if self._value is not None:
@@ -95,15 +123,24 @@ class ScalarSetting(Setting):
         return None
 
     def set(self, key_path: str, value: t.Any) -> None:
+        """
+        Set the value.
+
+        The key_path must be the empty string. Sets the value and writes any
+        changes through to the config file.
+        """
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
         if value == self._value:
             return
         self._value = value
+        # PERF we're writing to file with every change. we could introduce a
+        # ctx manager that only writes on exit to save on writes++++++++++
         self._config.write_to_file()
 
 
 class TypeConstrainedScalarSetting(ScalarSetting):
+    """A scalar setting enforcing type constraints."""
     def __init__(
             self, required_type: type, config: "Config", value: t.Any, *args,
             default: Optional[t.Any] = None, **kwargs):
@@ -159,6 +196,14 @@ class IntSetting(TypeConstrainedScalarSetting):
 
 
 class CompoundSetting(Setting):
+    """
+    A setting containing nested settings.
+
+    Compound settings are essentially trees of settings nested according to a
+    fixed schema. Child settings can be compound settings again for arbitrary
+    nesting. The leaves of the tree are scalar settings, which can be accessed
+    via period-delimited paths.
+    """
     def __init__(
             self, config: "Config", settings_dict: Optional[dict[str, t.Any]],
             *, schema: dict[str, type[Setting]]):
@@ -199,6 +244,14 @@ class CompoundSetting(Setting):
     def get(
             self, key_path: str, *, default: t.Any = None,
             use_setting_level_default: bool = True) -> t.Any:
+        """
+        Get the scalar setting's value at the given path.
+
+        key_path is a period-delimited path to the desired setting, i.e. a
+        sequence of keys at which the setting is nested. The behavior of
+        default and use_setting_level_default is the same as for ScalarSetting
+        (to which these parameters are passed down to).
+        """
         key, key_path_tail = self._extract_key_head_and_tail(key_path)
         return self._settings[key].get(
             key_path_tail, default=default,
@@ -213,11 +266,23 @@ class CompoundSetting(Setting):
         return key, key_path_tail
 
     def set(self, key_path: str, value: t.Any) -> None:
+        """Set the value at the given path."""
         key, key_path_tail = self._extract_key_head_and_tail(key_path)
         self._settings[key].set(key_path_tail, value)
 
 
 class Config(CompoundSetting):
+    """
+    Application config.
+
+    The config is a compoung setting which is the root of the settings tree. It
+    may only be instantiated once.
+
+    It has additionaly methods to read and write the config file, write the env
+    file, and upgrade the config across versions. Any changes to the schema
+    should introduce a new config version, for which there must be a migration
+    function.
+    """
     CONFIG_VERSION = 1
     _file_lock = threading.Lock()
     _has_instance = False
