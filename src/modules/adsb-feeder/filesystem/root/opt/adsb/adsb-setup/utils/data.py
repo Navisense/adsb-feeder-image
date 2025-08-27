@@ -44,6 +44,10 @@ class Setting(abc.ABC):
     def get(self, key_path: str, *, default: t.Any = None) -> t.Any:
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def set(self, key_path: str, value: t.Any) -> None:
+        raise NotImplementedError
+
 
 class ScalarSetting(Setting):
     def __init__(
@@ -77,28 +81,49 @@ class ScalarSetting(Setting):
             return {}
         return {self._env_variable_name: self.env_value_string}
 
-    def get(self, key_path: t.Literal[""], *, default: t.Any = None) -> t.Any:
+    def get(
+            self, key_path: t.Literal[""], *, default: t.Any = None,
+            use_setting_level_default: bool = True) -> t.Any:
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
         if self._value is not None:
             return self._value
         elif default is not None:
             return default
-        return self._default
+        elif use_setting_level_default:
+            return self._default
+        return None
+
+    def set(self, key_path: str, value: t.Any) -> None:
+        if key_path != "":
+            raise ValueError("Scalar settings have no subkeys.")
+        if value == self._value:
+            return
+        self._value = value
+        self._config.write_to_file()
 
 
 class TypeConstrainedScalarSetting(ScalarSetting):
     def __init__(
             self, required_type: type, config: "Config", value: t.Any, *args,
             default: Optional[t.Any] = None, **kwargs):
-        if not isinstance(value, (required_type, type(None))):
+        self._required_type = required_type
+        self._check_correct_type(value)
+        if not isinstance(default, (self._required_type, type(None))):
             raise ValueError(
-                f"Value must be a {required_type}, but is {type(value)}.")
-        if not isinstance(default, (required_type, type(None))):
-            raise ValueError(
-                f"Default value must be a {required_type}, but is "
+                f"Default value must be a {self._required_type}, but is "
                 f"{type(default)}.")
         super().__init__(config, value, *args, default=default, **kwargs)
+
+    def _check_correct_type(self, value):
+        if not isinstance(value, (self._required_type, type(None))):
+            raise ValueError(
+                f"Value must be a {self._required_type}, but is {type(value)}."
+            )
+
+    def set(self, key_path: str, value: t.Any) -> None:
+        self._check_correct_type(value)
+        super().set(key_path, value)
 
 
 class BoolSetting(TypeConstrainedScalarSetting):
@@ -151,18 +176,40 @@ class CompoundSetting(Setting):
         for setting in self._settings.values():
             if any(k in env_variables for k in setting.env_variables):
                 logger.error(
-                    "Overlapping environemnt variable names in "
+                    "Overlapping environment variable names in "
                     f"{env_variables} and {setting.env_variables}")
             env_variables |= setting.env_variables
         return env_variables
 
-    def get(self, key_path: str, *, default: t.Any = None) -> t.Any:
+    def key_paths(self, prefix: tuple[str, ...]) -> tuple[str, ...]:
+        key_paths = set()
+        for key, setting in self._settings.items():
+            sub_path = prefix + (key,)
+            if isinstance(setting, CompoundSetting):
+                key_paths |= setting.key_paths(sub_path)
+            else:
+                key_paths.add(sub_path)
+        return key_paths
+
+    def get(
+            self, key_path: str, *, default: t.Any = None,
+            use_setting_level_default: bool = True) -> t.Any:
+        key, key_path_tail = self._extract_key_head_and_tail(key_path)
+        return self._settings[key].get(
+            key_path_tail, default=default,
+            use_setting_level_default=use_setting_level_default)
+
+    def _extract_key_head_and_tail(self, key_path):
         components = key_path.split(".", maxsplit=1)
         try:
             key, key_path_tail = components
         except ValueError:
             key, key_path_tail = components[0], ""
-        return self._settings[key].get(key_path_tail, default=default)
+        return key, key_path_tail
+
+    def set(self, key_path: str, value: t.Any) -> None:
+        key, key_path_tail = self._extract_key_head_and_tail(key_path)
+        self._settings[key].set(key_path_tail, value)
 
 
 class Config(CompoundSetting):
@@ -574,6 +621,18 @@ class Config(CompoundSetting):
             raise ValueError("Config has already been instantiated.")
         Config._has_instance = True
         super().__init__(self, settings_dict, schema=self._schema)
+
+    def write_to_file(self):
+        config_dict = {}
+        for key_path in self.key_paths(()):
+            sub_dict = config_dict
+            for key in key_path[:-1]:
+                sub_dict = sub_dict.setdefault(key, {})
+            sub_dict[key_path[-1]] = self.get(
+                ".".join(key_path), use_setting_level_default=False)
+        config_dict["config_version"] = self.CONFIG_VERSION
+        with Config._file_lock, CONFIG_FILE.open("w") as f:
+            json.dump(config_dict, f)
 
     @staticmethod
     def load_from_file() -> "Config":
