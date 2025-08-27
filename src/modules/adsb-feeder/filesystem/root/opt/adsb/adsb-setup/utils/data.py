@@ -236,15 +236,17 @@ class CompoundSetting(Setting):
             env_variables |= setting.env_variables
         return env_variables
 
-    def key_paths(self, prefix: tuple[str, ...]) -> tuple[str, ...]:
-        key_paths = set()
+    def scalar_settings(self, prefix: str) -> set[tuple[str, ScalarSetting]]:
+        settings = set()
         for key, setting in self._settings.items():
-            sub_path = prefix + (key,)
+            sub_path = key
+            if prefix:
+                sub_path = f"{prefix}.{key}"
             if isinstance(setting, CompoundSetting):
-                key_paths |= setting.key_paths(sub_path)
+                settings |= setting.scalar_settings(sub_path)
             else:
-                key_paths.add(sub_path)
-        return key_paths
+                settings.add((sub_path, setting))
+        return settings
 
     def get(
             self, key_path: str, *, default: t.Any = None,
@@ -795,12 +797,16 @@ class Config(CompoundSetting):
 
     def write_to_file(self):
         config_dict = {}
-        for key_path in self.key_paths(()):
+        for key_path, setting in self.scalar_settings(""):
+            if isinstance(setting, GeneratedSetting):
+                # Don't write generated settings to the file.
+                continue
+            path_components = key_path.split(".")
             sub_dict = config_dict
-            for key in key_path[:-1]:
+            for key in path_components[:-1]:
                 sub_dict = sub_dict.setdefault(key, {})
-            sub_dict[key_path[-1]] = self.get(
-                ".".join(key_path), use_setting_level_default=False)
+            sub_dict[path_components[-1]] = setting.get(
+                "", use_setting_level_default=False)
         config_dict["config_version"] = self.CONFIG_VERSION
         with Config._file_lock, CONFIG_FILE.open("w") as f:
             json.dump(config_dict, f)
