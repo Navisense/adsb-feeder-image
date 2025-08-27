@@ -773,7 +773,13 @@ class Config(CompoundSetting):
                     "mqtt_topic": config_dict["FEEDER_PORTTRACKER_MQTT_TOPIC"]
                     [0],
                     "mqtt_msgformat": config_dict[
-                        "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"][0],},},
+                        "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"][0],},
+                "aiscatcher": {
+                    "is_enabled": config_dict["AF_IS_AISCATCHER_ENABLED"][0],
+                    "key": config_dict["FEEDER_AISCATCHER_FEEDER_KEY"][0],},
+                "aishub": {
+                    "is_enabled": config_dict["AF_IS_AISHUB_ENABLED"][0],
+                    "key": config_dict["FEEDER_AISHUB_UDP_PORT"][0],},},
             "rbthermalhack": config_dict["FEEDER_RB_THERMAL_HACK"],
             "aggregator_choice": config_dict["_ADSBIM_AGGREGATORS_SELECTION"],
             "base_version": config_dict["_ADSBIM_BASE_VERSION"],
