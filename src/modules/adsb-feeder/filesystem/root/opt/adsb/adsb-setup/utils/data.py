@@ -639,6 +639,13 @@ class Config(CompoundSetting):
         with Config._file_lock, CONFIG_FILE.open("w") as f:
             json.dump(config_dict, f)
 
+    def write_env_file(self):
+        with Config._file_lock, ENV_FILE.open("w") as f:
+            f.writelines(
+                f"{key}={value}\n"
+                for key, value in self.env_variables.items())
+
+
     @staticmethod
     def load_from_file() -> "Config":
         with Config._file_lock:
