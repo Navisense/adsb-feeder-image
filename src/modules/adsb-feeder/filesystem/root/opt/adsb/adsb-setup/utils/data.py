@@ -1,4 +1,5 @@
 import abc
+import collections.abc as cl_abc
 import datetime
 import functools as ft
 import itertools as it
@@ -47,7 +48,9 @@ class Setting(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get(self, key_path: str, *, default: t.Any = None) -> t.Any:
+    def get(
+            self, key_path: str, *, default: t.Any = None,
+            use_setting_level_default: bool = True) -> t.Any:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -82,9 +85,7 @@ class ScalarSetting(Setting):
 
     @property
     def env_value_string(self) -> str:
-        if self._value is None:
-            return ""
-        return str(self._value)
+        return str(self.get("", default=""))
 
     @property
     def env_variables(self) -> dict[str, str]:
@@ -114,8 +115,12 @@ class ScalarSetting(Setting):
         """
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
-        if self._value is not None:
-            return self._value
+        return self._coalesce_value(
+            self._value, default, use_setting_level_default)
+
+    def _coalesce_value(self, value, default, use_setting_level_default):
+        if value is not None:
+            return value
         elif default is not None:
             return default
         elif use_setting_level_default:
@@ -269,6 +274,102 @@ class CompoundSetting(Setting):
         """Set the value at the given path."""
         key, key_path_tail = self._extract_key_head_and_tail(key_path)
         self._settings[key].set(key_path_tail, value)
+
+
+class GeneratedSetting(ScalarSetting):
+    """
+    A special scalar setting which generates its value based on other settings.
+
+    Instead of a value, this setting is constructed with a value generator
+    function, which takes the config as argument and produces the value. This
+    way, settings can be defined that are dependent on multiple other settings.
+
+    Generated settings cannot be set.
+
+    The default value semantics are unchanged.
+    """
+    def __init__(
+            self, config: "Config",
+            value_generator: cl_abc.Callable[["Config"], t.Any], *,
+            default: Optional[t.Any] = None,
+            env_variable_name: Optional[str] = None):
+        """
+        :param value_generator: A function that takes the config as single
+            parameter and returns the value of the setting.
+        """
+        super().__init__(
+            config, None, default=default, env_variable_name=env_variable_name,
+            norestore=True)
+        self._value_generator = value_generator
+
+    def get(
+            self, key_path: t.Literal[""], *, default: t.Any = None,
+            use_setting_level_default: bool = True) -> t.Any:
+        if key_path != "":
+            raise ValueError("Scalar settings have no subkeys.")
+        value = self._value_generator(self._config)
+        return self._coalesce_value(value, default, use_setting_level_default)
+
+    def set(self, key_path: str, value: t.Any) -> None:
+        raise ValueError("Generated settings can't be set.")
+
+
+class SwitchedGeneratedSetting(GeneratedSetting):
+    """
+    A generated setting that takes one of 2 values based on a switch.
+
+    This setting is configured with a switch_path, which is the path to a
+    setting that is used as a boolean switch. Which value this setting takes on
+    is based on the truthiness of that switch setting. The true and false
+    values can be configured as either a fixed value, or as a path to a
+    setting.
+    """
+    def __init__(
+            self, config: "Config", _: t.Any, *, switch_path: str,
+            true_value: t.Any = None, true_value_path: str = None,
+            false_value: t.Any = None, false_value_path: str = None,
+            env_variable_name: Optional[str] = None):
+        """
+        :param switch_path: Path to a setting that is used as the switch. If no
+            setting with this path exists, it will default to None and the
+            false value is used.
+        :param true_value: The fixed value to use in case the switch is truthy.
+            Mutually exclusive with true_value_path.
+        :param true_value_path: The path to a setting whose value should be
+            used in case the switch is truthy. Mutually exclusive with
+            true_value.
+        :param false_value: Similar to true_value.
+        :param false_value_path: Similar to true_value_path.
+        """
+        if (None not in [true_value, true_value_path]
+                or None not in [false_value, false_value_path]):
+            raise ValueError(
+                "For switch values, only a fixed value or a path can be "
+                "specified, but not both.")
+
+        def get_true_value():
+            if true_value_path is not None:
+                return config.get(true_value_path)
+            return true_value
+
+        def get_false_value():
+            if false_value_path is not None:
+                return config.get(false_value_path)
+            return false_value
+
+        def value_generator(config: "Config"):
+            switch_value = config.get(switch_path)
+            if switch_value is None:
+                logger.warning(
+                    "Switch value for a generated setting was None. This "
+                    "indicates a misconfiguration.")
+            if switch_value:
+                return get_true_value()
+            else:
+                return get_false_value()
+
+        super().__init__(
+            config, value_generator, env_variable_name=env_variable_name)
 
 
 class Config(CompoundSetting):
