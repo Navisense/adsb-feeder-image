@@ -436,6 +436,15 @@ class Config(CompoundSetting):
                         "mqtt_msgformat": ft.partial(
                             StringSetting, env_variable_name=
                             "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"),}),
+                "aiscatcher": ft.partial(
+                    CompoundSetting, schema={
+                        "is_enabled": ft.partial(
+                            BoolSetting, default=False,
+                            env_variable_name="AF_IS_AISCATCHER_ENABLED"),
+                        "key": ft.partial(
+                            StringSetting,
+                            env_variable_name="FEEDER_AISCATCHER_FEEDER_KEY"),
+                    }),
                 "aishub": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(
@@ -443,7 +452,7 @@ class Config(CompoundSetting):
                             env_variable_name="AF_IS_AISHUB_ENABLED"),
                         "key": ft.partial(
                             IntSetting,
-                            env_variable_name="FEEDER_AISHUB_UDP_PORT"),}),}),
+                            env_variable_name="FEEDER_AISHUB_UDP_PORT"),})}),
         "rbthermalhack": ft.partial(
             StringSetting, env_variable_name="FEEDER_RB_THERMAL_HACK"),
         # ADSB.im specific
@@ -1174,6 +1183,11 @@ class Data:
             tags=["porttracker", "mqtt_msgformat"],
         ),
         Env(
+            "FEEDER_AISCATCHER_FEEDER_KEY",
+            default=[""],
+            tags=["aiscatcher", "key", "feeder_key"],
+        ),
+        Env(
             "FEEDER_AISHUB_UDP_PORT",
             default=[None],
             tags=["aishub", "key", "udp_port"],
@@ -1202,6 +1216,16 @@ class Data:
             "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_MSGFORMAT",
             default=[""],
             tags=["shipfeeder_config_porttracker", "mqtt_msgformat"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_AISCATCHER_FEEDER_KEY",
+            default=[None],
+            tags=["shipfeeder_config_aiscatcher", "key", "feeder_key"],
+        ),
+        Env(
+            "SHIPFEEDER_CONFIG_AISCATCHER_SHAREDATA",
+            default=["false"],
+            tags=["shipfeeder_config_aiscatcher", "share_data"],
         ),
         Env(
             "SHIPFEEDER_CONFIG_AISHUB_UDP_PORT",
@@ -1302,6 +1326,11 @@ class Data:
             "AF_IS_PORTTRACKER_ENABLED",
             default=[False],
             tags=["other_aggregator", "is_enabled", "porttracker"],
+        ),
+        Env(
+            "AF_IS_AISCATCHER_ENABLED",
+            default=[False],
+            tags=["other_aggregator", "is_enabled", "aiscatcher"],
         ),
         Env(
             "AF_IS_AISHUB_ENABLED",

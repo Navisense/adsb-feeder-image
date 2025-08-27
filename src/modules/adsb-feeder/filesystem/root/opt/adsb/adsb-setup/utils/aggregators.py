@@ -11,6 +11,7 @@ import threading
 import time
 import typing as t
 from typing import Any, Optional
+import uuid
 
 import utils.data
 import utils.system
@@ -106,6 +107,7 @@ def all_aggregators(data: utils.data.Data,
             TenNinetyUkAggregator(data, system),
             SdrMapAggregator(data, system),
             PorttrackerAggregator(data, system),
+            AiscatcherAggregator(data, system),
             AishubAggregator(data, system),]
         for aggregator in aggregators:
             assert aggregator.agg_key not in _aggregator_dict
@@ -153,9 +155,10 @@ class Aggregator(abc.ABC):
         return self._status_url
 
     @property
+    @abc.abstractmethod
     def needs_key(self) -> bool:
         """Whether the aggregator needs a key in order to work."""
-        return True
+        raise NotImplementedError
 
     @property
     def status(self) -> AggregatorStatus:
@@ -421,9 +424,17 @@ class AccountBasedAggregator(Aggregator):
     """
     Aggregator that requires an account.
 
-    Account-based aggregators all require at least some sort of authentication,
-    a key, to be configured in order to work.
+    Account-based aggregators may all require at least some sort of
+    authentication, a key, to be configured in order to work.
     """
+    def __init__(self, *args, key_required=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._key_required = key_required
+
+    @property
+    def needs_key(self) -> bool:
+        return self._key_required
+
     @property
     def capable_message_types(self) -> set[MessageType]:
         return {MessageType.ADSB}
@@ -444,7 +455,7 @@ class AccountBasedAggregator(Aggregator):
         return self._d.env_by_tags([self.agg_key, "container"]).value
 
     def configure(self, enabled: bool, key: Any, *args) -> None:
-        if enabled and not key:
+        if enabled and not key and self._key_required:
             raise ConfigureError("No key provided.")
         super().configure(enabled)
         self._d.env_by_tags([self.agg_key, "key"]).list_set(0, key)
@@ -1166,6 +1177,44 @@ class SdrMapAggregator(AccountBasedAggregator):
         )
 
 
+class AiscatcherAggregator(AccountBasedAggregator):
+    def __init__(self, data: utils.data.Data, system: utils.system.System):
+        super().__init__(
+            data, system, agg_key="aiscatcher", name="AIS-catcher",
+            map_url="https://www.aiscatcher.org/livemap", status_url=None,
+            key_required=False)
+
+    @property
+    def capable_message_types(self) -> set[MessageType]:
+        return {MessageType.AIS}
+
+    @property
+    def _container_name(self):
+        return "shipfeeder"
+
+    def configure(self, enabled: bool, feeder_key: str) -> None:
+        if not feeder_key:
+            # Sharing key is optional, empty or None is fine.
+            feeder_key_str = ""
+        else:
+            try:
+                feeder_key_str = str(uuid.UUID(feeder_key))
+            except Exception as e:
+                raise ValueError("Invalid feeder key (must be a UUID).") from e
+        super().configure(enabled, feeder_key_str)
+        share_data = "true" if enabled else "false"
+        if not enabled:
+            feeder_key_str = ""
+        self._d.env_by_tags(["shipfeeder_config_aiscatcher",
+                             "key"]).list_set(0, feeder_key_str)
+        self._d.env_by_tags(["shipfeeder_config_aiscatcher",
+                             "share_data"]).list_set(0, share_data)
+
+    def _check_aggregator_status(self) -> AggregatorStatus:
+        return AggregatorStatus(
+            ais=AisStatus(data_status=Status.UNKNOWN), adsb=None)
+
+
 class AishubAggregator(AccountBasedAggregator):
     def __init__(self, data: utils.data.Data, system: utils.system.System):
         super().__init__(
@@ -1194,7 +1243,10 @@ class AishubAggregator(AccountBasedAggregator):
         return f"https://www.aishub.net/stations/{self._udp_port}"
 
     def configure(self, enabled: bool, udp_port: str) -> None:
-        udp_port_int = int(udp_port)
+        try:
+            udp_port_int = int(udp_port)
+        except Exception as e:
+            raise ValueError("Invalid UDP port (must be an integer).") from e
         super().configure(enabled, udp_port_int)
         if enabled:
             key = self._d.env_by_tags([self.agg_key, "key"]).value[0]

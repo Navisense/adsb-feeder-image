@@ -81,6 +81,28 @@
             <div class="form-check col-12">
               <input type="checkbox"
                      class="form-check-input me-1"
+                     name="aiscatcher-is-enabled"
+                     id="aiscatcher-is-enabled"
+                     {% if aggregators['aiscatcher'].enabled('ais') %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="aiscatcher-is-enabled">
+                <a href="https://aiscatcher.org">AIS-catcher</a>
+                <div class="form-group" id="aiscatcher-setup">
+                  <label for="aiscatcher-feeder-key">
+                    Enter your optional AIS-catcher feeder key. Sharing will also work without a key, but you can get
+                    one <a href="https://www.aiscatcher.org/addstation_ac">on the website</a>.
+                  </label>
+                  <input type="text"
+                         id="aiscatcher-feeder-key"
+                         name="aiscatcher-feeder-key"
+                         class="form-control w-75"
+                         placeholder="Optional AIS-catcher feeder key"
+                         value="{{ list_value_by_tags(['aiscatcher', 'key']) }}" />
+                </div>
+              </label>
+            </div>
+            <div class="form-check col-12">
+              <input type="checkbox"
+                     class="form-check-input me-1"
                      name="aishub-is-enabled"
                      id="aishub-is-enabled"
                      {% if aggregators['aishub'].enabled('ais') %}checked{% endif %} />
@@ -576,6 +598,7 @@
       "1090uk",
       "sdrmap",
       "porttracker",
+      "aiscatcher",
       "aishub",
     ];
     for (const aggKey of aggregatorsWithExtraInputFields) {
