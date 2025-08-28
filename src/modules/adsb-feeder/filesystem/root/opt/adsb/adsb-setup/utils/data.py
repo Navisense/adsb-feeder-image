@@ -220,15 +220,20 @@ class CompoundSetting(Setting):
         super().__init__(config)
         self._settings = {}
         if settings_dict is None:
-            logger.warning(
-                "No settings dictionary for compound settings with schema "
-                f"{schema}, starting with an empty one.")
+            settings_dict_was_none = True
             settings_dict = {}
+        else:
+            settings_dict_was_none = False
         for key, setting_class in schema.items():
             if "." in key:
                 raise ValueError("Keys must not contain dots.")
             self._settings[key] = setting_class(
                 self._config, settings_dict.get(key))
+        if (settings_dict_was_none
+                and any(s.persistent for s in self._settings.values())):
+            logger.warning(
+                "No settings dictionary for compound settings with schema "
+                f"{schema}, starting with an empty one.")
 
     @property
     def env_variables(self) -> dict[str, str]:
