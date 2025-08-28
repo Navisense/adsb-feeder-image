@@ -847,7 +847,79 @@ class Config(CompoundSetting):
         "num_micro_sites": ft.partial(
             IntSetting, default=0, env_variable_name="AF_NUM_MICRO_SITES"
         ),
-    }
+        "images": ft.partial(
+            CompoundSetting,
+            schema={
+                "dozzle": ft.partial(
+                    ConstantSetting, "ghcr.io/amir20/dozzle:v8.11.7",
+                    env_variable_name="DOCKER_CONTAINER_DOZZLE"),
+                "alpine": ft.partial(
+                    ConstantSetting, "alpine:3.21.3",
+                    env_variable_name="DOCKER_IMAGE_ALPINE"),
+                "ultrafeeder": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-adsb-ultrafeeder:latest-build-688",
+                    env_variable_name="DOCKER_IMAGE_ULTRAFEEDER"),
+                "uat978": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-dump978:latest-build-736",
+                    env_variable_name="DOCKER_IMAGE_UAT978"),
+                "flightradar": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-flightradar24:latest-build-783",
+                    env_variable_name="DOCKER_IMAGE_FLIGHTRADAR"),
+                "flightaware": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-piaware:latest-build-603",
+                    env_variable_name="DOCKER_IMAGE_FLIGHTAWARE"),
+                "radarbox": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-airnavradar:latest-build-760",
+                    env_variable_name="DOCKER_IMAGE_RADARBOX"),
+                "radarvirtuel": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-radarvirtuel:latest-build-681",
+                    env_variable_name="DOCKER_IMAGE_RADARVIRTUEL"),
+                "opensky": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-opensky-network:latest-build-772",
+                    env_variable_name="DOCKER_IMAGE_OPENSKY"),
+                "planefinder": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464",
+                    env_variable_name="DOCKER_IMAGE_PLANEFINDER"),
+                "adsbhub": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-adsbhub:latest-build-465",
+                    env_variable_name="DOCKER_IMAGE_ADSBHUB"),
+                "planewatch": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/plane-watch/docker-plane-watch:latest-build-207",
+                    env_variable_name="DOCKER_IMAGE_PLANEWATCH"),
+                "airspy": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/airspy_adsb:latest-build-250",
+                    env_variable_name="DOCKER_IMAGE_AIRSPY"),
+                "1090uk": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-radar1090:latest-build-236",
+                    env_variable_name="DOCKER_IMAGE_1090UK"),
+                "sdrmap": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-sdrmap:latest-build-19",
+                    env_variable_name="DOCKER_IMAGE_SDRMAP"),
+                "sdrplay": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-sdrplay-beast1090:latest-build-24",
+                    env_variable_name="DOCKER_IMAGE_SDRPLAY"),
+                "webproxy": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-reversewebproxy:latest-build-683",
+                    env_variable_name="DOCKER_IMAGE_WEBPROXY"),
+                "shipfeeder": ft.partial(
+                    ConstantSetting,
+                    "ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-1731",
+                    env_variable_name="DOCKER_IMAGE_SHIPFEEDER"),}),}
 
     def __init__(self, settings_dict: dict[str, t.Any]):
         if Config._has_instance:
