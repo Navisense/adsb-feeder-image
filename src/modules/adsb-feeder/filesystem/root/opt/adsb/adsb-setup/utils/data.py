@@ -635,44 +635,71 @@ class Config(CompoundSetting):
                 "porttracker": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(BoolSetting, default=False),
-                        "key": ft.partial(
-                            StringSetting, env_variable_name=
-                            "FEEDER_PORTTRACKER_DATA_SHARING_KEY"),
-                        "station_id": ft.partial(
-                            IntSetting,
-                            env_variable_name="FEEDER_PORTTRACKER_STATION_ID"),
-                        "mqtt_url": ft.partial(
-                            StringSetting,
-                            env_variable_name="FEEDER_PORTTRACKER_MQTT_URL"),
-                        "mqtt_client_id": ft.partial(
-                            StringSetting, env_variable_name=
-                            "FEEDER_PORTTRACKER_MQTT_CLIENT_ID"),
-                        "mqtt_qos": ft.partial(
-                            IntSetting,
-                            env_variable_name="FEEDER_PORTTRACKER_MQTT_QOS"),
-                        "mqtt_topic": ft.partial(
-                            StringSetting,
-                            env_variable_name="FEEDER_PORTTRACKER_MQTT_TOPIC"),
-                        "mqtt_msgformat": ft.partial(
-                            StringSetting, env_variable_name=
-                            "FEEDER_PORTTRACKER_MQTT_MSGFORMAT"),}),
+                        "key": StringSetting,
+                        "station_id": IntSetting,
+                        "mqtt_url": StringSetting,
+                        "mqtt_client_id": StringSetting,
+                        "mqtt_qos": IntSetting,
+                        "mqtt_topic": StringSetting,
+                        "mqtt_msgformat": StringSetting,
+                        "shipfeeder_config_mqtt_url": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.porttracker.is_enabled",
+                            true_value_path="aggregators.porttracker.mqtt_url",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_URL"),
+                        "shipfeeder_config_mqtt_client_id": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.porttracker.is_enabled",
+                            true_value_path=
+                            "aggregators.porttracker.mqtt_client_id",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_CLIENT_ID"),
+                        "shipfeeder_config_mqtt_qos": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.porttracker.is_enabled",
+                            true_value_path="aggregators.porttracker.mqtt_qos",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_QOS"),
+                        "shipfeeder_config_mqtt_topic": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.porttracker.is_enabled",
+                            true_value_path=
+                            "aggregators.porttracker.mqtt_topic",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_TOPIC"),
+                        "shipfeeder_config_mqtt_msgformat": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.porttracker.is_enabled",
+                            true_value_path=
+                            "aggregators.porttracker.mqtt_msgformat",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_MSGFORMAT"),}),
                 "aiscatcher": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(
                             BoolSetting, default=False,
+                            env_string_false="false", env_string_true="true",
                             env_variable_name="AF_IS_AISCATCHER_ENABLED"),
-                        "key": ft.partial(
-                            StringSetting,
-                            env_variable_name="FEEDER_AISCATCHER_FEEDER_KEY"),
-                    }),
+                        "key": StringSetting,
+                        "shipfeeder_config_feeder_key": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.aiscatcher.is_enabled",
+                            true_value_path="aggregators.aiscatcher.key",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_AISCATCHER_FEEDER_KEY"),}),
                 "aishub": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(
                             BoolSetting, default=False,
                             env_variable_name="AF_IS_AISHUB_ENABLED"),
-                        "key": ft.partial(
-                            IntSetting,
-                            env_variable_name="FEEDER_AISHUB_UDP_PORT"),})}),
+                        "key": IntSetting,
+                        "shipfeeder_config_udp_port": ft.partial(
+                            SwitchedGeneratedSetting,
+                            switch_path="aggregators.aishub.is_enabled",
+                            true_value_path="aggregators.aishub.key",
+                            false_value="", env_variable_name=
+                            "SHIPFEEDER_CONFIG_AISHUB_UDP_PORT"),})}),
         "rbthermalhack": ft.partial(
             StringSetting, env_variable_name="FEEDER_RB_THERMAL_HACK"),
         # ADSB.im specific
