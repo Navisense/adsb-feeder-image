@@ -2609,7 +2609,7 @@ class Manager:
         self._connectivity_change_thread = None
         data = utils.data.Data()
         self._hotspot_app = HotspotApp(data, self._on_wifi_credentials)
-        self._hotspot = hotspot.make_hotspot(self._on_wifi_test_status)
+        self._hotspot = hotspot.make_hotspot(data, self._on_wifi_test_status)
         self._adsb_im = AdsbIm(data, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True

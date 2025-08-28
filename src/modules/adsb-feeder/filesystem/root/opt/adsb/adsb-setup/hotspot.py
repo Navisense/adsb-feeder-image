@@ -20,15 +20,15 @@ import utils.wifi
 logger = logging.getLogger(__name__)
 
 
-def make_hotspot(on_wifi_test_status):
+def make_hotspot(data: utils.data.Data, on_wifi_test_status):
     wlan = _find_wlan_device()
     if not wlan:
         return None
     baseos = utils.util.get_baseos()
     if baseos == "dietpi":
-        return NetworkingHotspot(wlan, on_wifi_test_status)
+        return NetworkingHotspot(data, wlan, on_wifi_test_status)
     elif baseos in ["raspbian", "postmarketos"]:
-        return NetworkManagerHotspot(wlan, on_wifi_test_status)
+        return NetworkManagerHotspot(data, wlan, on_wifi_test_status)
     else:
         raise ValueError(f"unknown OS {baseos}")
 
@@ -163,7 +163,8 @@ class Hotspot(abc.ABC):
     AVAHI_UNIT_PATH = pathlib.Path(
         "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
-    def __init__(self, wlan, on_wifi_test_status):
+    def __init__(self, data: utils.data.Data, wlan, on_wifi_test_status):
+        self._d = data
         self.wlan = wlan
         self._on_wifi_test_status = on_wifi_test_status
         self._hotspot_lock = threading.Lock()
@@ -176,7 +177,6 @@ class Hotspot(abc.ABC):
         self._dns_server = fakedns.Server(
             response_ip=self.HOTSPOT_IP,
             non_response_domains={"local", "local.porttracker-feeder.de"})
-        self._d = utils.data.Data()
         self._logger = logging.getLogger(type(self).__name__)
         self.wifi = utils.wifi.make_wifi(self.wlan)
         self._setup_config_files()
