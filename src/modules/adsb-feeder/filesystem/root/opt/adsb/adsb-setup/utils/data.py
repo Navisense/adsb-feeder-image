@@ -42,6 +42,11 @@ class Setting(abc.ABC):
         self._config = config
 
     @property
+    def persistent(self) -> bool:
+        """Whether this setting should be written to the config file."""
+        return True
+
+    @property
     @abc.abstractmethod
     def env_variables(self) -> dict[str, str]:
         """Dictionary of environment variables of this setting."""
@@ -278,7 +283,36 @@ class CompoundSetting(Setting):
         self._settings[key].set(key_path_tail, value)
 
 
-class GeneratedSetting(ScalarSetting):
+class TransientSetting(ScalarSetting):
+    """A setting that doesn't get written to the config file."""
+    def __init__(self, config: "Config", value: t.Any, *args, **kwargs):
+        super().__init__(config, value, *args, **kwargs, norestore=True)
+
+    @property
+    def persistent(self) -> bool:
+        return False
+
+
+class ConstantSetting(TransientSetting):
+    """
+    A setting that always has a fixed value.
+
+    Constants cannot be set.
+    """
+    def __init__(
+            self, config: "Config", unused_value: t.Any, constant_value: t.Any,
+            env_variable_name: Optional[str] = None):
+        # unused_value is what CompoungSetting will automatically give us,
+        # extracted from the config file. We want to use the constant value
+        # instead.
+        super().__init__(
+            config, constant_value, env_variable_name=env_variable_name)
+
+    def set(self, key_path: str, value: t.Any) -> None:
+        raise ValueError("Constant settings can't be set.")
+
+
+class GeneratedSetting(TransientSetting):
     """
     A special scalar setting which generates its value based on other settings.
 
@@ -300,8 +334,7 @@ class GeneratedSetting(ScalarSetting):
             parameter and returns the value of the setting.
         """
         super().__init__(
-            config, None, default=default, env_variable_name=env_variable_name,
-            norestore=True)
+            config, None, default=default, env_variable_name=env_variable_name)
         self._value_generator = value_generator
 
     def get(
@@ -825,8 +858,9 @@ class Config(CompoundSetting):
     def write_to_file(self):
         config_dict = {}
         for key_path, setting in self.scalar_settings(""):
-            if isinstance(setting, GeneratedSetting):
-                # Don't write generated settings to the file.
+            if not setting.persistent:
+                # Don't write transient settings like constants or generated
+                # settings.
                 continue
             path_components = key_path.split(".")
             sub_dict = config_dict
