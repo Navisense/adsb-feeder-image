@@ -234,7 +234,7 @@ class Aggregator(abc.ABC):
         return self._conf.get(f"aggregators.{self.agg_key}.is_enabled")
 
     def configure(self, enabled: bool, *args) -> None:
-        self._conf.get(f"aggregators.{self.agg_key}.is_enabled", enabled)
+        self._conf.set(f"aggregators.{self.agg_key}.is_enabled", enabled)
         self._logger.info("Enabled." if enabled else "Disabled.")
 
     def refresh_status_cache(self) -> None:
@@ -687,14 +687,19 @@ class PorttrackerAggregator(AccountBasedAggregator):
             return super().configure(enabled, data_sharing_key)
         if not all([station_id, data_sharing_key, mqtt_protocol, mqtt_host,
                     mqtt_port, mqtt_username, mqtt_password, mqtt_topic]):
-            raise ConfigureError("Missing setting.")
+            raise ConfigureError("missing setting")
+        try:
+            station_id = int(station_id)
+        except Exception as e:
+            raise ConfigureError(
+                "invalid station ID (must be a number)") from e
         mqtt_url = "{}://{}:{}@{}:{}".format(
             mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
         client_id = f"{mqtt_username}-{station_id}"
         self._conf.set("aggregators.porttracker.station_id", station_id)
         self._conf.set("aggregators.porttracker.mqtt_url", mqtt_url)
         self._conf.set("aggregators.porttracker.mqtt_client_id", client_id)
-        self._conf.set("aggregators.porttracker.mqtt_qos", "0")
+        self._conf.set("aggregators.porttracker.mqtt_qos", 0)
         self._conf.set("aggregators.porttracker.mqtt_topic", mqtt_topic)
         self._conf.set("aggregators.porttracker.mqtt_msgformat", "JSON_NMEA")
         super().configure(enabled, data_sharing_key)
