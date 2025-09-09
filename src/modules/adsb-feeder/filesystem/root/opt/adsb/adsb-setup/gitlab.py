@@ -2,12 +2,18 @@ import json
 import logging
 import urllib.request
 
+import util
+
 
 class GitlabRepo:
     API_BASE_URL = "https://gitlab.navisense.de/api/v4/projects/96"
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
+
+    def get_semver_tags(self) -> list[str]:
+        """Get tags that are semvers, latest first."""
+        return [t for t in self.get_tags() if util.is_semver(t)]
 
     def get_tags(self) -> list[str]:
         url = self.API_BASE_URL + "/repository/tags"

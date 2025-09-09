@@ -1883,16 +1883,17 @@ class AdsbIm:
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
-        available_tags = gitlab.gitlab_repo().get_tags()
+        available_versions = gitlab.gitlab_repo().get_semver_tags()
         return render_template(
             "systemmgmt.html",
             tailscale_running=tailscale_running,
             zerotier_running=zerotier_running,
             rpw=self.rpw,
-            tags=available_tags,
+            available_versions=available_versions,
             containers=self._system.list_containers(),
             persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
+            is_semver=util.is_semver,
         )
 
     @check_restart_lock

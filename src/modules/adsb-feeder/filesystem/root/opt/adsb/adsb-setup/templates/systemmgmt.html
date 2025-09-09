@@ -161,7 +161,8 @@
       <form method="post"
             action="{{ url_for('feeder-update') }}"
             onsubmit="show_spinner(); return true;">
-        {% with current_version = get_conf("base_version") %}
+        {% with %}
+          {% set current_version = get_conf("base_version") %}
           <div class="row align-items-center">
             <div class="col-8">Currently running {{ current_version }}.</div>
           </div>
@@ -169,10 +170,14 @@
             <div class="col-8">
               <label for="feeder-update-tag-select">These versions are available to update to:</label>
               <select id="feeder-update-tag-select" name="tag">
-                {% for tag in tags %}
+                {% for tag in available_versions %}
+                  {% set disabled = False %}
+                  {% if is_semver(current_version) %}
+                    {% set disabled = current_version >= tag %}
+                  {% endif %}
                   <option value="{{ tag }}"
-                          {% if tag == tags[0] %}selected{% endif %}
-                          {% if tag == current_version %}disabled{% endif %}>{{ tag }}</option>
+                          {% if tag == available_versions[0] %}selected{% endif %}
+                          {% if disabled %}disabled{% endif %}>{{ tag }}</option>
                 {% endfor %}
               </select>
             </div>

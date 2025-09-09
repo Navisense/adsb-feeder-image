@@ -282,6 +282,11 @@ def shell_with_combined_output(args, **kwargs):
         stderr=subprocess.STDOUT)
 
 
+def is_semver(s: str) -> bool:
+    """Check whether the string represents a semver."""
+    return bool(re.match(r'^v[0-9]+\.[0-9]+\.[0-9]$', s))
+
+
 class FlashingLogger(logging.getLoggerClass()):
     """
     Logger that can flash messages to the frontend.
