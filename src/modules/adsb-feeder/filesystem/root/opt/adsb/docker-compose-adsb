@@ -51,7 +51,6 @@ $docker_compose version &> /dev/null || docker_compose="docker-compose"
 # To make this less ugly, check for the partial name
 if grep -q "_IS_BASE_CONFIG_FINISHED=True" /etc/adsb/.env 2> /dev/null ; then
     # We have a .env file and the base config is done.
-    env_file="/etc/adsb/.env"
     # This source will set the COMPOSE_FILES array.
     source /opt/adsb/default.docker-compose
     if [ -f /etc/adsb/.env.user ] ; then
@@ -61,7 +60,6 @@ if grep -q "_IS_BASE_CONFIG_FINISHED=True" /etc/adsb/.env 2> /dev/null ; then
     fi
 else
     log $0 "Things aren't configured yet, only starting Dozzle and the logger container."
-    env_file="/opt/adsb/docker.image.versions"
     COMPOSE_FILES=( "-f" "/opt/adsb/compose_files/dozzle.yml" )
     if [[ "$1" == "pull" ]]; then
         log $0 "For argument pull we will also pull ultrafeeder."
@@ -69,7 +67,7 @@ else
     fi
 fi
 
-docker_compose_command="$docker_compose --env-file ${env_file} ${COMPOSE_FILES[@]} $@"
+docker_compose_command="$docker_compose --env-file /etc/adsb/.env ${COMPOSE_FILES[@]} $@"
 log $0 "Running $docker_compose_command"
 success="false"
 # Try 3 times.
