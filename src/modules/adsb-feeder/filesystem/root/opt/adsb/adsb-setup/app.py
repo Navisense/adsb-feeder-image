@@ -47,11 +47,6 @@ from werkzeug.utils import secure_filename
 
 import hotspot
 import aggregators
-from config import (
-    config_lock,
-    read_values_from_env_file,
-    write_values_to_config_json,
-)
 import data
 from flask_util import RouteManager, check_restart_lock
 import gitlab
