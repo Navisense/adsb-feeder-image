@@ -623,9 +623,7 @@ class Config(CompoundSetting):
                     }),
                 "flightradar": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_FLIGHTRADAR24_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_FR24_SHARING_KEY"),
@@ -635,18 +633,14 @@ class Config(CompoundSetting):
                     }),
                 "flightaware": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_FLIGHTAWARE_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PIAWARE_FEEDER_ID"),}),
                 "radarbox": ft.partial(
                     CompoundSetting,
                     schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_RADARBOX_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_RADARBOX_SHARING_KEY"),
@@ -657,26 +651,20 @@ class Config(CompoundSetting):
                         "snkey": StringSetting,}),
                 "planefinder": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_PLANEFINDER_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PLANEFINDER_SHARECODE"),
                     }),
                 "adsbhub": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_ADSBHUB_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_ADSBHUB_STATION_KEY"),}),
                 "opensky": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_OPENSKY_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_OPENSKY_SERIAL"),
@@ -685,33 +673,26 @@ class Config(CompoundSetting):
                             env_variable_name="FEEDER_OPENSKY_USERNAME"),}),
                 "radarvirtuel": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_RADARVIRTUEL_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_RV_FEEDER_KEY"),}),
                 "planewatch": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_PLANEWATCH_ENABLED"),
+                            BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PLANEWATCH_API_KEY"),}),
                 "1090uk": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_1090UK_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_1090UK_API_KEY"),}),
                 "sdrmap": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False,
-                            env_variable_name="AF_IS_SDRMAP_ENABLED"),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_SM_PASSWORD"),
@@ -1275,6 +1256,10 @@ def ensure_config_exists() -> Config:
     return conf
 
 
+def _get(key_path: str, default: t.Any):
+        print(Config.load_from_file().get(key_path, default=default))
+
+
 def _set(key_path: str, value: t.Any) -> None:
     conf = Config.load_from_file()
     setting = conf.get_setting(key_path)
@@ -1295,6 +1280,7 @@ def _main():
     subparsers.add_parser("ensure_config_exists")
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("key_path")
+    get_parser.add_argument("--default")
     set_parser = subparsers.add_parser("set")
     set_parser.add_argument("key_path")
     set_parser.add_argument("value")
@@ -1302,7 +1288,7 @@ def _main():
     if args.command == "ensure_config_exists":
         ensure_config_exists()
     elif args.command == "get":
-        print(Config.load_from_file().get(args.key_path))
+        _get(args.key_path, args.default)
     elif args.command == "set":
         _set(args.key_path, args.value)
     else:

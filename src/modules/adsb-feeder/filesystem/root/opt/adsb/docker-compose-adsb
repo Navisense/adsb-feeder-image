@@ -45,29 +45,74 @@ fi
 
 docker_compose="docker compose"
 $docker_compose version &> /dev/null || docker_compose="docker-compose"
+compose_file_args="-f /opt/adsb/compose_files/dozzle.yml"
 
-# when we restart the containers after an upgrade from v1.2.3 or earlier to a later version,
-# the very first time we still need to check for the old name of the environment variable
-# To make this less ugly, check for the partial name
-if grep -q "_IS_BASE_CONFIG_FINISHED=True" /etc/adsb/.env 2> /dev/null ; then
-    # We have a .env file and the base config is done.
-    # This source will set the COMPOSE_FILES array.
-    source /opt/adsb/default.docker-compose
+if [ "$(/opt/adsb/adsb-setup/config.py get base_config)" != True ] ; then
+    log $0 "Things aren't configured yet, only starting Dozzle and the logger container."
+    if [[ "$1" == "pull" ]]; then
+        log $0 "For argument pull we will also pull ultrafeeder."
+        compose_file_args+=" -f /opt/adsb/compose_files/ultrafeeder.yml"
+    fi
+else
+    # The base config is done, start all the compose files.
+    if [ "$(/opt/adsb/adsb-setup/config.py get airspy)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/airspy.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get sdrplay)" = True ] \
+        && [ "$(/opt/adsb/adsb-setup/config.py get sdrplay_license_accepted)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/sdrplay.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get uat978)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/uat978.yml"
+    fi
+    if [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.1090 --default=)" ] \
+        || [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.978 --default=)" ] ; then
+        # Start ultrafeeder if a serial device for 978 or 1090 MHz is configured.
+        compose_file_args+=" -f /opt/adsb/compose_files/ultrafeeder.yml"
+    fi
+    if [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.ais --default=)" ] ; then
+    # Start shipfeeder if a serial device for AIS is configured.
+        compose_file_args+=" -f /opt/adsb/compose_files/shipfeeder.yml"
+    fi
+    # For each of the yml snippets check if the aggregator is enabled.
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.flightradar.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/fr24.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.planewatch.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/pw.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.flightaware.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/fa.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.radarbox.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/rb.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.planefinder.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/pf.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.adsbhub.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/ah.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.opensky.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/os.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.radarvirtuel.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/rv.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.1090uk.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/1090uk.yml"
+    fi
+    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.sdrmap.is_enabled)" = True ] ; then
+        compose_file_args+=" -f /opt/adsb/compose_files/sdrmap.yml"
+    fi
+    # Now inject the user env values.
     if [ -f /etc/adsb/.env.user ] ; then
-        # now inject the user env values
         log $0 "Injecting user env."
         python3 /opt/adsb/scripts/inject-env.py /etc/adsb/.env.user /opt/adsb/compose_files/*.yml
     fi
-else
-    log $0 "Things aren't configured yet, only starting Dozzle and the logger container."
-    COMPOSE_FILES=( "-f" "/opt/adsb/compose_files/dozzle.yml" )
-    if [[ "$1" == "pull" ]]; then
-        log $0 "For argument pull we will also pull ultrafeeder."
-        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ultrafeeder.yml" )
-    fi
 fi
 
-docker_compose_command="$docker_compose --env-file /etc/adsb/.env ${COMPOSE_FILES[@]} $@"
+docker_compose_command="$docker_compose --env-file /etc/adsb/.env ${compose_file_args} $@"
 log $0 "Running $docker_compose_command"
 success="false"
 # Try 3 times.
