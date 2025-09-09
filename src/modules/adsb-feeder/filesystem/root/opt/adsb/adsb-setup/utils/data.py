@@ -13,7 +13,6 @@ import typing as t
 from typing import Optional
 
 from .environment import Env
-from .netconfig import NetConfig
 from .util import is_true, print_err
 from utils.config import read_values_from_env_file
 
@@ -30,6 +29,19 @@ FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
 SECURE_IMAGE_FILE = APP_DIR / "adsb.im.secure_image"
 
 logger = logging.getLogger(__name__)
+
+
+def read_version():
+    """Read the version string from the version file."""
+    return _read_file(VERSION_FILE)
+
+
+def _read_file(file: pathlib.Path) -> str:
+    try:
+        with file.open() as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "unknown"
 
 
 class Setting(abc.ABC):
@@ -60,6 +72,16 @@ class Setting(abc.ABC):
 
     @abc.abstractmethod
     def set(self, key_path: str, value: t.Any) -> None:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def init_with_default(self) -> None:
+        """
+        Initialize the value with defaults, if appropriate.
+
+        If there is some sort of default value, and no actual value has been
+        set, permanently use the default value.
+        """
         raise NotImplementedError
 
 
@@ -144,9 +166,14 @@ class ScalarSetting(Setting):
         if value == self._value:
             return
         self._value = value
-        # PERF we're writing to file with every change. we could introduce a
-        # ctx manager that only writes on exit to save on writes++++++++++
         self._config.write_to_file()
+
+    def init_with_default(self) -> None:
+        if self._value:
+            logger.warning(
+                "Setting is being initialized with default, but we already "
+                "have a value.")
+        self._value = self._default
 
 
 class TypeConstrainedScalarSetting(ScalarSetting):
@@ -235,6 +262,16 @@ class CompoundSetting(Setting):
                 "No settings dictionary for compound settings with schema "
                 f"{schema}, starting with an empty one.")
 
+    def __iter__(self) -> cl_abc.Iterator[tuple[str, Setting]]:
+        """
+        Iterate over keys and settings.
+
+        Yields tuples of (key, setting), where key is a single key (not a path,
+        i.e. doesn't contain "."), and setting is the corresponding setting
+        (may be a compound or scalar setting).
+        """
+        yield from self._settings.items()
+
     @property
     def env_variables(self) -> dict[str, str]:
         env_variables = {}
@@ -282,10 +319,27 @@ class CompoundSetting(Setting):
             key, key_path_tail = components[0], ""
         return key, key_path_tail
 
+    def get_setting(self, key_path: str) -> Setting:
+        """
+        Get the setting at the given path.
+
+        In contrast to get(), this returns a Setting object rather than a
+        scalar setting's value. This can also return compound settings.
+        """
+        key, key_path_tail = self._extract_key_head_and_tail(key_path)
+        setting = self._settings[key]
+        if key_path_tail:
+            return setting.get_setting(key_path_tail)
+        return setting
+
     def set(self, key_path: str, value: t.Any) -> None:
         """Set the value at the given path."""
         key, key_path_tail = self._extract_key_head_and_tail(key_path)
         self._settings[key].set(key_path_tail, value)
+
+    def init_with_default(self) -> None:
+        for _, setting in self:
+            setting.init_with_default()
 
 
 class TransientSetting(ScalarSetting):
@@ -297,24 +351,26 @@ class TransientSetting(ScalarSetting):
     def persistent(self) -> bool:
         return False
 
+    def init_with_default(self) -> None:
+        pass
+
 
 class ConstantSetting(TransientSetting):
     """
     A setting that always has a fixed value.
 
-    Constants cannot be set.
+    Constants can be modified at runtime, but those changes are not persisted
+    to the config file (i.e. the constant value will be reset on the next
+    load).
     """
     def __init__(
-            self, config: "Config", unused_value: t.Any, constant_value: t.Any,
-            env_variable_name: Optional[str] = None):
+            self, config: "Config", unused_value: t.Any, *,
+            constant_value: t.Any, env_variable_name: Optional[str] = None):
         # unused_value is what CompoungSetting will automatically give us,
         # extracted from the config file. We want to use the constant value
         # instead.
         super().__init__(
             config, constant_value, env_variable_name=env_variable_name)
-
-    def set(self, key_path: str, value: t.Any) -> None:
-        raise ValueError("Constant settings can't be set.")
 
 
 class GeneratedSetting(TransientSetting):
@@ -473,7 +529,6 @@ class Config(CompoundSetting):
         "uat_device_type": ft.partial(
             StringSetting, default="rtlsdr",
             env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
-        "beast-reduce-optimize-for-mlat": BoolSetting,
         "max_range": ft.partial(
             RealNumberSetting, default=300,
             env_variable_name="FEEDER_MAX_RANGE"),
@@ -856,73 +911,74 @@ class Config(CompoundSetting):
             CompoundSetting,
             schema={
                 "dozzle": ft.partial(
-                    ConstantSetting, "ghcr.io/amir20/dozzle:v8.11.7",
-                    env_variable_name="DOCKER_CONTAINER_DOZZLE"),
+                    ConstantSetting,
+                    constant_value="ghcr.io/amir20/dozzle:v8.11.7",
+                    env_variable_name="DOCKER_IMAGE_DOZZLE"),
                 "alpine": ft.partial(
-                    ConstantSetting, "alpine:3.21.3",
+                    ConstantSetting, constant_value="alpine:3.21.3",
                     env_variable_name="DOCKER_IMAGE_ALPINE"),
                 "ultrafeeder": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-adsb-ultrafeeder:latest-build-688",
                     env_variable_name="DOCKER_IMAGE_ULTRAFEEDER"),
                 "uat978": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-dump978:latest-build-736",
                     env_variable_name="DOCKER_IMAGE_UAT978"),
                 "flightradar": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-flightradar24:latest-build-783",
                     env_variable_name="DOCKER_IMAGE_FLIGHTRADAR"),
                 "flightaware": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-piaware:latest-build-603",
                     env_variable_name="DOCKER_IMAGE_FLIGHTAWARE"),
                 "radarbox": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-airnavradar:latest-build-760",
                     env_variable_name="DOCKER_IMAGE_RADARBOX"),
                 "radarvirtuel": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-radarvirtuel:latest-build-681",
                     env_variable_name="DOCKER_IMAGE_RADARVIRTUEL"),
                 "opensky": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-opensky-network:latest-build-772",
                     env_variable_name="DOCKER_IMAGE_OPENSKY"),
                 "planefinder": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464",
                     env_variable_name="DOCKER_IMAGE_PLANEFINDER"),
                 "adsbhub": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-adsbhub:latest-build-465",
                     env_variable_name="DOCKER_IMAGE_ADSBHUB"),
                 "planewatch": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/plane-watch/docker-plane-watch:latest-build-207",
                     env_variable_name="DOCKER_IMAGE_PLANEWATCH"),
                 "airspy": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/airspy_adsb:latest-build-250",
                     env_variable_name="DOCKER_IMAGE_AIRSPY"),
                 "1090uk": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-radar1090:latest-build-236",
                     env_variable_name="DOCKER_IMAGE_1090UK"),
                 "sdrmap": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-sdrmap:latest-build-19",
                     env_variable_name="DOCKER_IMAGE_SDRMAP"),
                 "sdrplay": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-sdrplay-beast1090:latest-build-24",
                     env_variable_name="DOCKER_IMAGE_SDRPLAY"),
                 "webproxy": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-reversewebproxy:latest-build-683",
                     env_variable_name="DOCKER_IMAGE_WEBPROXY"),
                 "shipfeeder": ft.partial(
-                    ConstantSetting,
+                    ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-1731",
                     env_variable_name="DOCKER_IMAGE_SHIPFEEDER"),}),}
 
@@ -955,6 +1011,12 @@ class Config(CompoundSetting):
                 f"{key}={value}\n"
                 for key, value in self.env_variables.items())
 
+    @staticmethod
+    def create_default() -> "Config":
+        """Create a config with default values."""
+        conf = Config({})
+        conf.init_with_default()
+        return conf
 
     @staticmethod
     def load_from_file() -> "Config":

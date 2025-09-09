@@ -1,6 +1,6 @@
 services:
   airspy_adsb:
-    image: ${AIRSPY_CONTAINER}
+    image: ${DOCKER_IMAGE_AIRSPY}
     healthcheck:
       disable: true
     container_name: airspy_adsb

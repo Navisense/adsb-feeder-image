@@ -18,7 +18,7 @@ for i in range(int((len(sys.argv) - 1) / 2)):
 sanitize_vars = [
     "FEEDER_LAT",
     "FEEDER_LONG",
-    "MLAT_SITE_NAME",
+    "SITE_NAME",
     "ADSBLOL_UUID",
     "AF_MICRO_IP",
     "ULTRAFEEDER_UUID",

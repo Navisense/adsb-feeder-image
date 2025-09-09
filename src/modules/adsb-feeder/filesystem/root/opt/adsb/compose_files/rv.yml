@@ -1,6 +1,6 @@
 services:
   radarvirtuel:
-    image: ${RV_CONTAINER}
+    image: ${DOCKER_IMAGE_RADARVIRTUEL}
     healthcheck:
       disable: true
     container_name: radarvirtuel

@@ -116,11 +116,11 @@ class ReceptionMonitor:
     SCRAPE_INTERVAL = 60
     MAX_HISTORY_AGE = 14 * 24 * 3600
 
-    def __init__(self, data: utils.data.Data):
+    def __init__(self, conf: utils.data.Config):
         self._logger = logging.getLogger(type(self).__name__)
         self.stats = None
         self._readsb_scraper = ReadsbScraper()
-        self._ais_catcher_scraper = AisCatcherScraper(data)
+        self._ais_catcher_scraper = AisCatcherScraper(conf)
         self._scrape_tasks = [
             utils.util.RepeatingTask(self.SCRAPE_INTERVAL, scrape_function)
             for scrape_function in [
@@ -288,9 +288,9 @@ class ReadsbScraper(Scraper):
 
 
 class AisCatcherScraper(Scraper):
-    def __init__(self, data: utils.data.Data):
+    def __init__(self, conf: utils.data.Config):
         super().__init__()
-        self._data = data
+        self._conf = conf
 
     def get_last_minute_stats(self) -> TimeFrameStats:
         try:
@@ -313,7 +313,7 @@ class AisCatcherScraper(Scraper):
         return requests.get(url, timeout=1).json()
 
     def _make_url(self, path):
-        port = self._data.env_by_tags("aiscatcherport").value
+        port = self._conf.get("ports.aiscatcher")
         if not port:
             raise self.NoStats
         return f"http://localhost:{port}/{path}"

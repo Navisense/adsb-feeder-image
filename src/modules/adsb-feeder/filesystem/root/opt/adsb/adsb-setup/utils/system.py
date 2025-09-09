@@ -8,7 +8,6 @@ from typing import Optional
 
 import requests
 
-from .data import Data
 from .util import print_err, run_shell_captured, shell_with_combined_output
 
 
@@ -103,9 +102,8 @@ class Restart:
 
 
 class System:
-    def __init__(self, data: Data):
+    def __init__(self):
         self._restart = Restart()
-        self._d = data
 
         self.gateway_ips = None
 

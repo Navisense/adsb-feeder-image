@@ -13,11 +13,11 @@ title = "Restarting the ADS-B Feeder System"
 theme = "auto"
 
 
-# we need to fake having env_value_by_tag so that the waiting.html can be
+# we need to fake having get_conf so that the waiting.html can be
 # used both by this and the main app
 @app.context_processor
 def utility_processor():
-    return {"env_value_by_tag": lambda _: theme}
+    return {"get_conf": lambda _: theme}
 
 
 def print_err(*args, **kwargs):

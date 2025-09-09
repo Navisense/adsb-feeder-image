@@ -1,6 +1,6 @@
 {% extends "base-regular.html" %}
 {% set active_page = "visualization" %}
-{% block title %}Setup Map Options{% if is_enabled('stage2') %} ({{ site }}){% endif %}{% endblock title %}
+{% block title %}Setup Map Options{% endblock title %}
 {% block content %}
 {% if m == "0" %}{% set go = "go" %}{% else %}{% set go = "go-" ~ m %}{% endif %}
 <form class="row gy-2 gx-3 align-items-center" method="post">
@@ -13,24 +13,24 @@
       apply settings - take me to this map</button>
   </div>
   <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="route_api--is_enabled" id="route_api--is_enabled"
-           {% if list_is_enabled("route_api", m) %}checked{% endif %} />
-    <label for="route_api--is_enabled" class="mb-3">
+    <input class="form-check-input me-1" type="checkbox" name="set_config--bool--route_api" id="route_api"
+           {% if get_conf("route_api") %}checked{% endif %} />
+    <label for="route_api" class="mb-3">
       Use Route API to show flight routes when
       known.
     </label>
   </div>
   <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="heywhatsthat--is_enabled" id="heywhatsthat--is_enabled"
-           {% if list_is_enabled("heywhatsthat", m) %}checked{% endif %} />
+    <input class="form-check-input me-1" type="checkbox" name="set_config--bool--heywhatsthat" id="heywhatsthat"
+           {% if get_conf("heywhatsthat") %}checked{% endif %} />
     <div>
-      <label class="form-check-label" for="heywhatsthat--is_enabled">
+      <label class="form-check-label" for="heywhatsthat">
         <a href="https://www.heywhatsthat.com/">HeyWhat'sThat</a> is an incredibly cool web service that allows
         you to discover what you should be able to see from the location of your antenna - including estimates for
         how far away you should be able to detect planes (depending on their altitude - and assuming there are no
         other obstructions).
         <span id="hwt-text"
-              {% if not list_is_enabled('heywhatsthat',m) or list_value_by_tag('heywhatsthat_id', m) != '' %}style="display: none;"
+              {% if not get_conf('heywhatsthat') or get_conf('heywhatsthat_id') %}style="display: none;"
               {% endif %}>
           Click on the link, select "New Panorama" at the top, enter your address (or find the location
           on the map), enter a title on the lower left and click "Submit request". After a couple of minutes
@@ -38,8 +38,8 @@
           latitude and longitude and elevation - and below that a link that ends with <code>/?view=CODE</code>.
           Enter this code here to see the theoretical range information on your receiver map.
         </span>
-        <input type="text" id="heywhatsthat_id" name="heywhatsthat_id" class="form-control col-6 ml-1 mb-2"
-               placeholder="HeyWhat'sThat Panorama ID" value="{{ list_value_by_tag("heywhatsthat_id", m) }}">
+        <input type="text" id="heywhatsthat_id" name="set_config--str--heywhatsthat_id" class="form-control col-6 ml-1 mb-2"
+               placeholder="HeyWhat'sThat Panorama ID" value="{{ get_conf('heywhatsthat_id', default='') }}">
       </label>
     </div>
   </div>
@@ -61,7 +61,7 @@
     if (b.checked) f.style.display = "block";
     else f.style.display = "none";
   }
-  const hwt = document.getElementById('heywhatsthat--is_enabled');
+  const hwt = document.getElementById('heywhatsthat');
   const hwttext = document.getElementById('hwt-text');
   hwt.addEventListener("change", function () {
     show_or_hide(hwt, hwttext);

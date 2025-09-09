@@ -1,6 +1,6 @@
 services:
   adsbhub:
-    image: ${AH_CONTAINER}
+    image: ${DOCKER_IMAGE_ADSBHUB}
     healthcheck:
       disable: true
     container_name: adsbhub

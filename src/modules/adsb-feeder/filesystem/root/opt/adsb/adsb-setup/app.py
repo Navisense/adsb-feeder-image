@@ -21,7 +21,8 @@ import tempfile
 import threading
 import time
 import tempfile
-from uuid import uuid4
+import uuid
+import re
 import sys
 import zipfile
 from datetime import datetime
@@ -50,10 +51,8 @@ from utils.config import (
     config_lock,
     read_values_from_env_file,
     write_values_to_config_json,
-    write_values_to_env_file,
 )
 import utils.data
-from utils.environment import Env
 from utils.flask import RouteManager, check_restart_lock
 import utils.gitlab as gitlab
 import utils.netconfig
@@ -214,8 +213,8 @@ class HotspotApp:
     you can set wifi credentials. Has a catch-all route, since the hotspot
     intercepts (almost) all requests.
     """
-    def __init__(self, data: utils.data.Data, on_wifi_credentials):
-        self._d = data
+    def __init__(self, conf: utils.data.Config, on_wifi_credentials):
+        self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
         self.ssids = []
         self._restart_state = "done"
@@ -236,9 +235,9 @@ class HotspotApp:
 
     def hotspot(self):
         return flask.render_template(
-            "hotspot.html", version=self._d.env_by_tags("base_version").value,
+            "hotspot.html", version=self._conf.get("base_version"),
             comment=self._message, ssids=self.ssids,
-            mdns_enabled=self._d.is_enabled("mdns"))
+            mdns_enabled=self._conf.get("mdns.is_enabled"))
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -277,10 +276,10 @@ class HotspotApp:
 
 
 class AdsbIm:
-    def __init__(self, data: utils.data.Data, hotspot_app):
+    def __init__(self, conf: utils.data.Config, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
-        self._d = data
+        self._conf = conf
         self._hotspot_app = hotspot_app
         self._hotspot_mode = False
         self._server = self._server_thread = None
@@ -298,35 +297,20 @@ class AdsbIm:
 
         @self.app.context_processor
         def env_functions():
-            def get_value(tags):
-                e = self._d.env_by_tags(tags)
-                return e.value if e else ""
-
-            def list_value_by_tags(tags, idx):
-                e = self._d.env_by_tags(tags)
-                return e.list_get(idx) if e else ""
-
             return {
-                "is_enabled": lambda tag: self._d.is_enabled(tag),
-                "list_is_enabled": lambda tag, idx: self._d.list_is_enabled(tag, idx=idx),
-                "env_value_by_tag": lambda tag: get_value([tag]),  # single tag
-                "env_value_by_tags": lambda tags: get_value(tags),  # list of tags
-                "list_value_by_tag": lambda tag, idx: list_value_by_tags([tag], idx),
-                "list_value_by_tags": lambda tags: list_value_by_tags(tags, 0),
+                "get_conf": self._conf.get,
                 "url_for": url_for_with_empty_parameters,
                 "is_reception_enabled": self.is_reception_enabled,
             }
 
         self._routemanager = RouteManager(self.app)
-        self._system = utils.system.System(data=self._d)
-        self._reception_monitor = utils.stats.ReceptionMonitor(self._d)
+        self._system = utils.system.System()
+        self._reception_monitor = utils.stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
         self.wifi_ssid = ""
 
         self._sdrdevices = utils.sdr.SDRDevices()
-        self._ultrafeeder_config = utils.netconfig.UltrafeederConfig(
-            data=self._d)
 
         self.last_dns_check = 0
         self.undervoltage_epoch = 0
@@ -341,16 +325,12 @@ class AdsbIm:
 
         # no one should share a CPU serial with AirNav, so always create fake cpuinfo;
         # also identify if we would use the thermal hack for RB and Ultrafeeder
-        if create_fake_info([0]):
-            self._d.env_by_tags("rbthermalhack").value = "/sys/class/thermal"
+        if create_fake_info():
+            self._conf.set("rbthermalhack", "/sys/class/thermal")
         else:
-            self._d.env_by_tags("rbthermalhack").value = ""
+            self._conf.set("rbthermalhack", "")
 
-        # Ensure secure_image is set the new way if before the update it was set only as env variable
-        if self._d.is_enabled("secure_image"):
-            self.set_secure_image()
-
-        self._routemanager.add_proxy_routes(self._d.proxy_routes)
+        self._routemanager.add_proxy_routes(self._conf)
         self.app.add_url_rule(
             "/healthz",
             "healthz",
@@ -437,7 +417,7 @@ class AdsbIm:
             "/systemmgmt",
             "systemmgmt",
             self._decide_route_hotspot_mode(self.systemmgmt),
-            methods=["GET", "POST"],
+            methods=["GET"],
         )
         self.app.add_url_rule(
             "/aggregators",
@@ -506,9 +486,63 @@ class AdsbIm:
             self._decide_route_hotspot_mode(self.temperatures),
         )
         self.app.add_url_rule(
+            "/set-ssh-credentials",
+            "set-ssh-credentials",
+            self._decide_route_hotspot_mode(self.set_ssh_credentials),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/create-root-password",
+            "create-root-password",
+            self._decide_route_hotspot_mode(self.create_root_password),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/set-secure-image",
+            "set-secure-image",
+            self._decide_route_hotspot_mode(self.set_secure_image),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/shutdown-reboot",
+            "shutdown-reboot",
+            self._decide_route_hotspot_mode(self.shutdown_reboot),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/toggle-log-persistence",
+            "toggle-log-persistence",
+            self._decide_route_hotspot_mode(self.toggle_log_persistence),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
             "/feeder-update",
             "feeder-update",
             self._decide_route_hotspot_mode(self.feeder_update),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/restart-containers",
+            "restart-containers",
+            self._decide_route_hotspot_mode(self.restart_containers),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/configure-zerotier",
+            "configure-zerotier",
+            self._decide_route_hotspot_mode(self.configure_zerotier),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/configure-tailscale",
+            "configure-tailscale",
+            self._decide_route_hotspot_mode(self.configure_tailscale),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
+            "/configure-wifi",
+            "configure-wifi",
+            self._decide_route_hotspot_mode(self.configure_wifi),
             methods=["POST"],
         )
         self.app.add_url_rule(
@@ -538,11 +572,8 @@ class AdsbIm:
         self.update_meminfo()
         self.update_journal_state()
 
-        # now all the envs are loaded and reconciled with the data on file - which means we should
-        # actually write out the potentially updated values (e.g. when plain values were converted
-        # to lists)
-        with config_lock:
-            write_values_to_config_json(self._d.env_values, reason="Startup")
+        # Write out the env file in case anything has changed.
+        self._conf.write_env_file()
 
     def _decide_route_hotspot_mode(self, view_func):
         """
@@ -574,7 +605,7 @@ class AdsbIm:
         return handle_request
 
     def _set_undervoltage(self):
-        self._d.env_by_tags("under_voltage").value = True
+        self._conf.set("under_voltage", True)
         self.undervoltage_epoch = time.time()
 
     @property
@@ -590,20 +621,20 @@ class AdsbIm:
 
     @property
     def hostname(self):
-        return self._d.env_by_tags("site_name").list_get(0)
+        return self._conf.get("site_name")
 
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
-            return bool(self._d.env_by_tags("aisserial").value)
+            return bool(self._conf.get("serial_devices.ais"))
         elif reception_type == "adsb":
             return bool(
-                self._d.env_by_tags("1090serial").value
-                or self._d.env_by_tags("978serial").value)
+                self._conf.get("serial_devices.1090")
+                or self._conf.get("serial_devices.978"))
         else:
             raise ValueError(f"Unknown reception type {reception_type}.")
 
     def _all_aggregators(self) -> dict[str, utils.aggregators.Aggregator]:
-        return utils.aggregators.all_aggregators(self._d, self._system)
+        return utils.aggregators.all_aggregators(self._conf, self._system)
 
     def start(self):
         if self._server:
@@ -612,7 +643,7 @@ class AdsbIm:
         self.update_config()
 
         # if using gpsd, try to update the location
-        if self._d.is_enabled("use_gpsd"):
+        if self._conf.get("use_gpsd"):
             self.get_lat_lon_alt()
 
         every_minute_task = utils.util.RepeatingTask(60, self.every_minute)
@@ -620,14 +651,14 @@ class AdsbIm:
         self._background_tasks["every_minute"] = every_minute_task
 
         # reset undervoltage indicator
-        self._d.env_by_tags("under_voltage").value = False
+        self._conf.set("under_voltage", False)
 
         self._dmesg_monitor.start()
         self._reception_monitor.start()
         self._maybe_enable_mdns()
 
         self._server = werkzeug.serving.make_server(
-            host="0.0.0.0", port=int(self._d.env_by_tags("webport").value),
+            host="0.0.0.0", port=int(self._conf.get("ports.web")),
             app=self.app, threaded=True)
         self._server_thread = threading.Thread(
             target=self._server.serve_forever, name="AdsbIm")
@@ -636,14 +667,14 @@ class AdsbIm:
     def update_config(self):
         # hopefully very temporary hack to deal with a broken container that
         # doesn't run on Raspberry Pi 5 boards
-        board = self._d.env_by_tags("board_name").value
+        board = self._conf.get("board_name", default="")
         if board.startswith("Raspberry Pi 5"):
-            self._d.env_by_tags(["container", "planefinder"]).value = (
-                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
-            )
+            self._conf.set(
+                "images.planefinder",
+                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64")
 
         self.handle_implied_settings()
-        self.write_envfile()
+        self._conf.write_env_file()
 
     def stop(self):
         if not self._server:
@@ -714,10 +745,10 @@ class AdsbIm:
             board = f"Libre Computer Renegade ({board})"
         elif board == "Libre Computer AML-S905X-CC":
             board = "Libre Computer Le Potato (AML-S905X-CC)"
-        self._d.env_by_tags("board_name").value = board
+        self._conf.set("board_name", board)
 
     def update_version(self):
-        self._d.env_by_tags("base_version").value = self._d.read_version()
+        self._conf.set("base_version", utils.data.read_version())
 
     def update_meminfo(self):
         self._memtotal = 0
@@ -746,32 +777,35 @@ class AdsbIm:
                 self._persistent_journal = False
                 break
 
-    def check_secure_image(self):
-        return utils.data.SECURE_IMAGE_FILE.exists()
-
-    def set_secure_image(self):
-        # set legacy env variable as well for webinterface
-        self._d.env_by_tags("secure_image").value = True
-        if not self.check_secure_image():
-            utils.data.SECURE_IMAGE_FILE.touch(exist_ok=True)
-            print_err("secure_image has been set")
-
     def update_dns_state(self):
         def update_dns():
             dns_state = self._system.check_dns()
-            self._d.env_by_tags("dns_state").value = dns_state
+            self._conf.set("dns_state", dns_state)
             if not dns_state:
                 print_err("ERROR: we appear to have lost DNS")
 
         self.last_dns_check = time.time()
         self._executor.submit(update_dns)
 
-    def write_envfile(self):
-        write_values_to_env_file(self._d.envs_for_envfile)
-
     def _setup_ultrafeeder_args(self):
-        self._d.env_by_tags("ultrafeeder_config").list_set(
-            0, self._ultrafeeder_config.generate())
+        for agg_key, aggregator in self._all_aggregators().items():
+            try:
+                netconfig = aggregator.netconfig
+            except AttributeError:
+                # Not an Ultrafeedeer aggregator with a netconfig, ignore.
+                continue
+            if aggregator.enabled():
+                # Already enabled, nothing to do.
+                continue
+            is_enabled = False
+            if self._conf.get("aggregator_choice") == "all":
+                is_enabled = True
+            elif self._conf.get("aggregator_choice") == "privacy":
+                is_enabled = netconfig.has_policy
+            self._conf.set(f"aggregators.{agg_key}.is_enabled", is_enabled)
+        ultrafeeder_config = utils.netconfig.UltrafeederConfig(
+            self._conf, self._all_aggregators())
+        self._conf.set("ultrafeeder_config", ultrafeeder_config.generate())
 
     def set_hostname_and_enable_mdns(self):
         if self.hostname:
@@ -779,7 +813,7 @@ class AdsbIm:
         self._maybe_enable_mdns()
 
     def _maybe_enable_mdns(self):
-        if not self._d.is_enabled("mdns"):
+        if not self._conf.get("mdns.is_enabled"):
             return
         args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
         mdns_domains = ["porttracker-feeder.local"]
@@ -787,7 +821,7 @@ class AdsbIm:
             # If we have a hostname, make the mDNS script create an alias for
             # it as well.
             mdns_domains.append(f"{self.hostname}.local")
-        self._d.env_by_tags(["mdns", "domains"]).value = ";".join(mdns_domains)
+        self._conf.set("mdns.domains", ";".join(mdns_domains))
         subprocess.run(args + mdns_domains)
 
     def set_tz(self, timezone):
@@ -797,12 +831,12 @@ class AdsbIm:
 
         success = self.set_system_tz(timezone)
         if success:
-            self._d.env("FEEDER_TZ").list_set(0, timezone)
+            self._conf.set("tz", timezone)
         else:
             self._logger.warning(
                 f"Timezone {timezone} probably invalid, defaulting to UTC.",
                 flash_message=True)
-            self._d.env("FEEDER_TZ").list_set(0, "UTC")
+            self._conf.set("tz", "UTC")
             self.set_system_tz("UTC")
 
     def set_system_tz(self, timezone):
@@ -1028,6 +1062,8 @@ class AdsbIm:
             return render_template("/restarting.html")
 
     def restore_get(self, request):
+        # TODO
+        raise NotImplementedError
         # the user has uploaded a zip file and we need to take a look.
         # be very careful with the content of this zip file...
         print_err("zip file uploaded, looking at the content")
@@ -1075,6 +1111,8 @@ class AdsbIm:
         return render_template("/restoreexecute.html", changed=changed, unchanged=unchanged)
 
     def restore_post(self, form):
+        # TODO
+        raise NotImplementedError
         # they have selected the files to restore
         print_err("restoring the files the user selected")
         (utils.data.CONFIG_DIR / "ultrafeeder").mkdir(
@@ -1133,10 +1171,10 @@ class AdsbIm:
         self.update_boardname()
         self.update_version()
 
-        self.set_tz(self._d.env("FEEDER_TZ").list_get(0))
+        self.set_tz(self._conf.get("tz"))
 
         # make sure we are connected to the right Zerotier network
-        zt_network = self._d.env_by_tags("zerotierid").value
+        zt_network = self._conf.get("zerotierid")
         if zt_network and len(zt_network) == 16:  # that's the length of a valid network id
             try:
                 subprocess.call(
@@ -1149,7 +1187,7 @@ class AdsbIm:
                     "continue...", flash_message=True)
 
         self.handle_implied_settings()
-        self.write_envfile()
+        self._conf.write_env_file()
 
         try:
             subprocess.call("/opt/adsb/docker-compose-start", timeout=180.0, shell=True)
@@ -1159,12 +1197,14 @@ class AdsbIm:
                 flash_message=True)
 
     def base_is_configured(self):
-        base_config: set[Env] = {env for env in self._d._env if env.is_mandatory}
-        for env in base_config:
-            if env._value == None or (type(env._value) == list and not env.list_get(0)):
-                print_err(f"base_is_configured: {env} isn't set up yet")
-                return False
-        return True
+        mandatory_setting_key_paths = {"lon", "lat", "alt", "site_name"}
+        for key_path in list(mandatory_setting_key_paths):
+            if self._conf.get(key_path) is not None:
+                mandatory_setting_key_paths.discard(key_path)
+            else:
+                self._logger.info(
+                    f"Basic setup incomplete: {key_path} is missing.")
+        return len(mandatory_setting_key_paths) == 0
 
     def at_least_one_aggregator(self) -> bool:
         return any(agg.enabled() for agg in self._all_aggregators().values())
@@ -1180,8 +1220,7 @@ class AdsbIm:
         except:
             self._logger.exception("Error getting network device infos.")
             device_infos = []
-        mdns_domains = (
-            self._d.env_by_tags(["mdns", "domains"]).value.split(";"))
+        mdns_domains = self._conf.get("mdns.domains").split(";")
         return {
             "external_ip": external_ip, "device_infos": device_infos,
             "mdns_domains": mdns_domains}
@@ -1189,14 +1228,21 @@ class AdsbIm:
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
         # and then update with the actual settings
-        serial_guess: Dict[str, str] = self._sdrdevices.addresses_per_frequency
+        serial_guess: dict[str, str] = self._sdrdevices.addresses_per_frequency
         print_err(f"serial guess: {serial_guess}")
-        serials: Dict[str, str] = {f: self._d.env_by_tags(f"{f}serial").value for f in [978, 1090, "ais"]}
-        configured_serials = {self._d.env_by_tags(f).value for f in self._sdrdevices.purposes()}
+        serials: dict[str, str] = {
+            purpose: self._conf.get(f"serial_devices.{purpose}")
+            for purpose in ["978", "1090", "ais"]}
+        configured_serials = {
+            self._conf.get(f"serial_devices.{purpose}")
+            for purpose in self._sdrdevices.purposes()}
         available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
-        for f in [978, 1090, "ais"]:
-            if (not serials[f] or serials[f] not in available_serials) and serial_guess[f] not in configured_serials:
-                serials[f] = serial_guess[f]
+        for purpose in ["978", "1090", "ais"]:
+            if (
+                    (not serials[purpose]
+                    or serials[purpose] not in available_serials)
+                    and serial_guess[purpose] not in configured_serials):
+                serials[purpose] = serial_guess[purpose]
 
         print_err(f"sdr_info->frequencies: {str(serials)}")
         jsonString = json.dumps(
@@ -1213,26 +1259,21 @@ class AdsbIm:
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
         # or from the env variables
-        lat = self._d.env_by_tags("lat").list_get(0)
-        lon = self._d.env_by_tags("lon").list_get(0)
-        alt = self._d.env_by_tags("alt").list_get(0)
+        lat = self._conf.get("lat", default=0)
+        lon = self._conf.get("lon", default=0)
+        alt = self._conf.get("alt", default=0)
         gps_json = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/gpsd.json")
-        if self._d.is_enabled("use_gpsd") and gps_json.exists():
+        if self._conf.get("use_gpsd") and gps_json.exists():
             with gps_json.open() as f:
                 gps = json.load(f)
                 if "lat" in gps and "lon" in gps:
-                    lat = gps["lat"]
-                    lon = gps["lon"]
-                    # normalize to no more than 5 digits after the decimal point for lat/lon
-                    lat = f"{float(lat):.5f}"
-                    lon = f"{float(lon):.5f}"
-                    self._d.env_by_tags("lat").list_set(0, lat)
-                    self._d.env_by_tags("lon").list_set(0, lon)
+                    lat = float(gps["lat"])
+                    lon = float(gps["lon"])
+                    self._conf.set("lat", lat)
+                    self._conf.set("lon", lon)
                 if "alt" in gps:
-                    alt = gps["alt"]
-                    # normalize to whole meters for alt
-                    alt = f"{float(alt):.0f}"
-                    self._d.env_by_tags("alt").list_set(0, alt)
+                    alt = float(gps["alt"])
+                    self._conf.set("alt", alt)
         return lat, lon, alt
 
     def stats(self):
@@ -1382,7 +1423,7 @@ class AdsbIm:
             gaindir.mkdir(exist_ok=True, parents=True)
         except:
             pass
-        gain = self._d.env_by_tags(["gain"]).value
+        gain = self._conf.get("gain")
 
         # autogain is configured via the container env vars to be always enabled
         # so we can change gain on the fly without changing env vars
@@ -1405,147 +1446,139 @@ class AdsbIm:
             self.waitSetGainRace()
             string2file(path=setGainPath, string=f"{gain}\n")
 
-    def setup_or_disable_uat(self, sitenum):
-        self._d.env_by_tags("replay978").list_set(sitenum, "")
-        self._d.env_by_tags("978host").list_set(sitenum, "")
-        self._d.env_by_tags("rb978host").list_set(sitenum, "")
-        self._d.env_by_tags("978piaware").list_set(sitenum, "")
-
     def handle_implied_settings(self):
-        ac_db = True
-        self._d.env_by_tags(["mlathub_disable"]).value = False
+        self._conf.set("mlathub_disable", False)
 
+        ac_db = True
         if self._memtotal < 900000:
             ac_db = False
             # save 100 MB of memory for low memory setups
 
-        self._d.env_by_tags(["tar1090_ac_db"]).value = ac_db
+        self._conf.set("tar1090_ac_db", ac_db)
 
         # Set hostname and restart mDNS services in case the user changed the
         # hostname.
         self.set_hostname_and_enable_mdns()
 
-        self._d.env_by_tags("stage2_nano").value = False
-        self._d.env_by_tags("nano_beast_port").value = "30005"
-        self._d.env_by_tags("nano_beastreduce_port").value = "30006"
-
-        # fixup altitude mishaps by stripping the value
-        # strip meter units and whitespace for good measure
-        alt = self._d.env_by_tags("alt").list_get(0)
-        alt_m = alt.strip().strip("m").strip()
-        self._d.env_by_tags("alt").list_set(0, alt_m)
-
-        # make sure use_route_api is populated with the default:
-        self._d.env_by_tags("route_api").list_get(0)
+        self._conf.set("stage2_nano", False)
+        self._conf.set("nano_beast_port", 30005)
+        self._conf.set("nano_beastreduce_port", 30006)
 
         # make sure the uuids are populated:
-        if not self._d.env_by_tags("adsblol_uuid").list_get(0):
-            self._d.env_by_tags("adsblol_uuid").list_set(0, str(uuid4()))
-        if not self._d.env_by_tags("ultrafeeder_uuid").list_get(0):
-            self._d.env_by_tags("ultrafeeder_uuid").list_set(0, str(uuid4()))
+        if not self._conf.get("adsblol_uuid"):
+            self._conf.set("adsblol_uuid", str(uuid.uuid4()))
+        if not self._conf.get("ultrafeeder_uuid"):
+            self._conf.set("ultrafeeder_uuid", str(uuid.uuid4()))
 
         for agg in self._all_aggregators().values():
-            if (agg.enabled() and agg.needs_key and self._d.env_by_tags([
-                    agg.agg_key, "key"]).list_get(0) == ""):
+            if (agg.enabled() and agg.needs_key
+                    and not self._conf.get(f"aggregators.{agg.agg_key}.key")):
                 self._logger.warning(f"Empty key, disabling {agg}.")
-                self._d.env_by_tags([agg.agg_key,
-                                     "is_enabled"]).list_set(0, False)
+                self._conf.set(f"aggregators.{agg.agg_key}.is_enabled", False)
 
-        # explicitely enable mlathub unless disabled
-        self._d.env_by_tags(["mlathub_enable"]).value = not self._d.env_by_tags(["mlathub_disable"]).value
+        # Explicitly enable mlathub unless disabled.
+        self._conf.set("mlathub_enable", not self._conf.get("mlathub_disable"))
 
-        self._d.env_by_tags("beast-reduce-optimize-for-mlat").value = False
+        if self._conf.get("tar1090_image_config_link") != "":
+            self._conf.set("tar1090_image_config_link",
+                f"http://HOSTNAME:{self._conf.get('ports.web')}/")
 
-        if self._d.env_by_tags("tar1090_image_config_link").value != "":
-            self._d.env_by_tags("tar1090_image_config_link").value = (
-                f"http://HOSTNAME:{self._d.env_by_tags('webport').value}/"
-            )
-
-        self._d.env_by_tags("tar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
-        self._d.env_by_tags("nanotar1090portadjusted").value = self._d.env_by_tags("tar1090port").value
+        self._conf.set(
+            "ports.tar1090adjusted", self._conf.get("ports.tar1090"))
+        self._conf.set(
+            "ports.nanotar1090adjusted", self._conf.get("ports.tar1090"))
 
         # for regular feeders or micro feeders a max range of 300nm seem reasonable
-        self._d.env_by_tags("max_range").list_set(0, 300)
+        self._conf.set("max_range", 300)
 
         # fix up airspy installs without proper serial number configuration
-        if self._d.is_enabled("airspy"):
-            if self._d.env_by_tags("1090serial").value == "" or self._d.env_by_tags("1090serial").value.startswith("AIRSPY SN:"):
+        if self._conf.get("airspy"):
+            if (
+                    self._conf.get("serial_devices.1090") == ""
+                    or self._conf.get("serial_devices.1090", default="").startswith("AIRSPY SN:")):
                 self._sdrdevices.ensure_populated()
                 airspy_serials = [sdr.serial for sdr in self._sdrdevices.sdrs if sdr.type == "airspy"]
                 if len(airspy_serials) == 1:
-                    self._d.env_by_tags("1090serial").value = airspy_serials[0]
+                    self._conf.set("serial_devices.1090", airspy_serials[0])
 
         # make all the smart choices for plugged in SDRs
         # only run this for initial setup or when the SDR setup is requested via the interface
-        if not self._d.env_by_tags("sdrs_locked").value:
+        if not self._conf.get("sdrs_locked"):
             # first grab the SDRs plugged in and check if we have one identified for UAT
             self._sdrdevices.ensure_populated()
-            env978 = self._d.env_by_tags("978serial")
-            env1090 = self._d.env_by_tags("1090serial")
-            envais = self._d.env_by_tags("aisserial")
-            if env978.value != "" and not any([sdr.serial == env978.value for sdr in self._sdrdevices.sdrs]):
-                env978.value = ""
-            if env1090.value != "" and not any([sdr.serial == env1090.value for sdr in self._sdrdevices.sdrs]):
-                env1090.value = ""
-            if envais.value != "" and not any([sdr.serial == envais.value for sdr in self._sdrdevices.sdrs]):
-                envais.value = ""
+            serial_978 = self._conf.get(f"serial_devices.978")
+            serial_1090 = self._conf.get(f"serial_devices.1090")
+            serial_ais = self._conf.get(f"serial_devices.ais")
+            if serial_978 and not any([sdr.serial == serial_978 for sdr in self._sdrdevices.sdrs]):
+                self._conf.set(f"serial_devices.978", "")
+            if serial_1090 and not any([sdr.serial == serial_1090 for sdr in self._sdrdevices.sdrs]):
+                self._conf.set(f"serial_devices.1090", "")
+            if serial_ais and not any([sdr.serial == serial_ais for sdr in self._sdrdevices.sdrs]):
+                self._conf.set(f"serial_devices.ais", "")
             auto_assignment = self._sdrdevices.addresses_per_frequency
 
             purposes = self._sdrdevices.purposes()
 
             # if we have an actual asignment, that overrides the auto-assignment,
             # delete the auto-assignment
-            for frequency in [978, 1090, "ais"]:
-                if any(auto_assignment[frequency] == self._d.env_by_tags(purpose).value for purpose in purposes):
+            for frequency in ["978", "1090", "ais"]:
+                if any(
+                        auto_assignment[frequency] == self._conf.get(f"serial_devices.{purpose}")
+                        for purpose in purposes):
                     auto_assignment[frequency] = ""
-            if not env1090.value and auto_assignment[1090]:
-                env1090.value = auto_assignment[1090]
-            if not env978.value and auto_assignment[978]:
-                env978.value = auto_assignment[978]
-            if not envais.value and auto_assignment["ais"]:
-                envais.value = auto_assignment["ais"]
+            if not self._conf.get("serial_devices.1090") and auto_assignment["1090"]:
+                self._conf.set("serial_devices.1090", auto_assignment["1090"])
+            if not self._conf.get("serial_devices.978") and auto_assignment["978"]:
+                self._conf.set("serial_devices.978", auto_assignment["978"])
+            if not self._conf.get("serial_devices.ais") and auto_assignment["ais"]:
+                self._conf.set("serial_devices.ais", auto_assignment["ais"])
 
             stratuxv3 = any(
-                [sdr.serial == env978.value and sdr.type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
+                [sdr.serial == self._conf.get("serial_devices.978") and sdr.type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
             )
             if stratuxv3:
-                self._d.env_by_tags("uat_device_type").value = "stratuxv3"
+                self._conf.set("uat_device_type", "stratuxv3")
             else:
-                self._d.env_by_tags("uat_device_type").value = "rtlsdr"
+                self._conf.set("uat_device_type", "rtlsdr")
 
             # handle 978 settings for stage1
-            if env978.value:
-                self._d.env_by_tags(["uat978", "is_enabled"]).list_set(0, True)
-                self._d.env_by_tags("978url").list_set(0, "http://dump978/skyaware978")
-                self._d.env_by_tags("978host").list_set(0, "dump978")
-                self._d.env_by_tags("978piaware").list_set(0, "relay")
+            if self._conf.get("serial_devices.978"):
+                self._conf.set("uat978", True)
+                self._conf.set("978url", "http://dump978/skyaware978")
+                self._conf.set("978host", "dump978")
+                self._conf.set("978piaware", "relay")
             else:
-                self._d.env_by_tags(["uat978", "is_enabled"]).list_set(0, False)
-                self._d.env_by_tags("978url").list_set(0, "")
-                self._d.env_by_tags("978host").list_set(0, "")
-                self._d.env_by_tags("978piaware").list_set(0, "")
+                self._conf.set("uat978", False)
+                self._conf.set("978url", "")
+                self._conf.set("978host", "")
+                self._conf.set("978piaware", "")
 
             # next check for airspy devices
-            airspy = any([sdr.serial == env1090.value and sdr.type == "airspy" for sdr in self._sdrdevices.sdrs])
-            self._d.env_by_tags(["airspy", "is_enabled"]).value = airspy
-            self._d.env_by_tags("airspyurl").list_set(0, f"http://airspy_adsb" if airspy else "")
+            airspy = any([sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "airspy" for sdr in self._sdrdevices.sdrs])
+            self._conf.set("airspy", airspy)
+            self._conf.set("airspyurl", "http://airspy_adsb" if airspy else "")
             # SDRplay devices
-            sdrplay = any([sdr.serial == env1090.value and sdr.type == "sdrplay" for sdr in self._sdrdevices.sdrs])
-            self._d.env_by_tags(["sdrplay", "is_enabled"]).value = sdrplay
+            sdrplay = any([sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "sdrplay" for sdr in self._sdrdevices.sdrs])
+            self._conf.set("sdrplay", sdrplay)
             # Mode-S Beast
             modesbeast = any(
-                [sdr.serial == env1090.value and sdr.type == "modesbeast" for sdr in self._sdrdevices.sdrs]
+                [sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "modesbeast" for sdr in self._sdrdevices.sdrs]
             )
 
             # rtl-sdr
-            rtlsdr = any(sdr.type == "rtlsdr" and sdr.serial in {env1090.value, envais.value} for sdr in self._sdrdevices.sdrs)
+            rtlsdr = any(
+                sdr.type == "rtlsdr"
+                and sdr.serial in {
+                    self._conf.get("serial_devices.1090"),
+                    self._conf.get("serial_devices.ais")}
+                for sdr in self._sdrdevices.sdrs)
 
             if rtlsdr:
-                self._d.env_by_tags("readsb_device_type").value = "rtlsdr"
+                self._conf.set("readsb_device_type", "rtlsdr")
             elif modesbeast:
-                self._d.env_by_tags("readsb_device_type").value = "modesbeast"
+                self._conf.set("readsb_device_type", "modesbeast")
             else:
-                self._d.env_by_tags("readsb_device_type").value = ""
+                self._conf.set("readsb_device_type", "")
 
             if rtlsdr:
                 # set rtl-sdr 1090 gain, bit hacky but means we don't have to restart the bulky ultrafeeder for gain changes
@@ -1553,31 +1586,31 @@ class AdsbIm:
 
             if airspy:
                 # make sure airspy gain is within bounds
-                gain = self._d.env_by_tags(["gain"]).value
+                gain = self._conf.get(["gain"])
                 if gain.startswith("auto"):
-                    self._d.env_by_tags(["gain_airspy"]).value = "auto"
+                    self._conf.set("gain_airspy", "auto")
                 elif make_int(gain) > 21:
-                    self._d.env_by_tags(["gain_airspy"]).value = "21"
-                    self._d.env_by_tags(["gain"]).value = "21"
+                    self._conf.set("gain_airspy", "21")
+                    self._conf.set("gain", "21")
                 elif make_int(gain) < 0:
-                    self._d.env_by_tags(["gain_airspy"]).value = "0"
-                    self._d.env_by_tags(["gain"]).value = "0"
+                    self._conf.set("gain_airspy", "0")
+                    self._conf.set("gain", "0")
                 else:
-                    self._d.env_by_tags(["gain_airspy"]).value = gain
+                    self._conf.set("gain_airspy", gain)
 
             if verbose & 1:
                 print_err(f"in the end we have")
-                print_err(f"1090serial {env1090.value}")
-                print_err(f"978serial {env978.value}")
-                print_err(f"aisserial {envais.value}")
-                print_err(f"airspy container is {self._d.is_enabled(['airspy'])}")
-                print_err(f"SDRplay container is {self._d.is_enabled(['sdrplay'])}")
-                print_err(f"dump978 container {self._d.list_is_enabled(['uat978'], 0)}")
+                print_err(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
+                print_err(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
+                print_err(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
+                print_err(f"airspy container is {self._conf.get('airspy')}")
+                print_err(f"SDRplay container is {self._conf.get('sdrplay')}")
+                print_err(f"dump978 container {self._conf.get('uat978')}")
 
             # if the base config is completed, lock down further SDR changes so they only happen on
             # user request
             if self.base_is_configured():
-                self._d.env_by_tags("sdrs_locked").value = True
+                self._conf.set("sdrs_locked", True)
 
         # set all of the ultrafeeder config data up
         self._setup_ultrafeeder_args()
@@ -1585,22 +1618,22 @@ class AdsbIm:
         # finally, check if this has given us enough configuration info to
         # start the containers
         if self.base_is_configured():
-            self._d.env_by_tags(["base_config", "is_enabled"]).value = True
+            self._conf.set("base_config", True)
             if self.at_least_one_aggregator():
-                self._d.env_by_tags("aggregators_chosen").value = True
+                self._conf.set("aggregators_chosen", True)
 
-            if not self._d.env_by_tags("journal_configured").value:
+            if not self._conf.get("journal_configured"):
                 try:
                     cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
                     print_err(cmd)
                     subprocess.run(cmd, shell=True, timeout=5.0)
                     self.update_journal_state()
-                    self._d.env_by_tags("journal_configured").value = True
+                    self._conf.set("journal_configured", True)
                 except:
                     pass
 
     def set_docker_concurrent(self, value):
-        self._d.env_by_tags("docker_concurrent").value = value
+        self._conf.set("docker_concurrent", value)
         if not os.path.exists("/etc/docker/daemon.json") and value:
             # this is the default, nothing to do
             return
@@ -1635,7 +1668,7 @@ class AdsbIm:
         sitenum = 0
         extra_args = ""
         referer = request.headers.get("referer")
-        allow_insecure = not self.check_secure_image()
+        allow_insecure = not self._conf.get("secure_image")
         print_err(f"handling input from {referer} and site # {sitenum} / {site} (allow insecure is {allow_insecure})")
         form: Dict = request.form
         seen_go = False
@@ -1652,206 +1685,35 @@ class AdsbIm:
                     self._next_url_from_director = f"/map_{idx}/"
                     print_err(f"after applying changes, go to map at {self._next_url_from_director}")
                 if key == "sdrplay_license_accept":
-                    self._d.env_by_tags("sdrplay_license_accepted").value = True
+                    self._conf.set("sdrplay_license_accepted", True)
                 if key == "sdrplay_license_reject":
-                    self._d.env_by_tags("sdrplay_license_accepted").value = False
+                    self._conf.set("sdrplay_license_accepted", False)
                 if key == "aggregators":
                     # user has clicked Submit on Aggregator page
-                    self._d.env_by_tags("aggregators_chosen").value = True
+                    self._conf.set("aggregators_chosen", True)
                     # set this to individual so if people have set "all" before can still deselect individual aggregators
-                    self._d.env_by_tags("aggregator_choice").value = "individual"
+                    self._conf.set("aggregator_choice", "individual")
 
                 if key == "sdr_setup" and value == "go":
-                    self._d.env_by_tags("sdrs_locked").value = False
-
-                if allow_insecure and key == "shutdown":
-                    # schedule shutdown in 0.5 seconds
-                    self._system.shutdown(delay=0.5)
-                    self.exiting = True
-                    return redirect(url_for("shutdownpage"))
-                if allow_insecure and key == "reboot":
-                    # schedule reboot in 0.5 seconds
-                    self._system.reboot(delay=0.5)
-                    self.exiting = True
-                    return redirect(url_for("restarting"))
-                if key == "restart_containers" or key == "recreate_containers":
-                    containers = self._system.list_containers()
-                    containers_to_restart = []
-                    for container in containers:
-                        # only restart the ones that have been checked
-                        user_selection = form.get(f"restart-{container}", "0")
-                        if user_selection == "1":
-                            containers_to_restart.append(container)
-                    self.write_envfile()
-                    if key == "restart_containers":
-                        self._system.restart_containers(containers_to_restart)
-                    else:
-                        self._system.recreate_containers(containers_to_restart)
-                    self._next_url_from_director = request.url
-                    return render_template("/restarting.html")
-                if key == "log_persistence_toggle":
-                    if self._persistent_journal:
-                        cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
-                    else:
-                        cmd = "/opt/adsb/scripts/journal-set-persist.sh"
-                    try:
-                        print_err(cmd)
-                        subprocess.run(cmd, shell=True, timeout=5.0)
-                        self.update_journal_state()
-                    except:
-                        pass
-                    self._next_url_from_director = request.url
-                if key == "secure_image":
-                    self.set_secure_image()
+                    self._conf.set("sdrs_locked", False)
                 if key == "no_config_link":
-                    self._d.env_by_tags("tar1090_image_config_link").value = ""
+                    self._conf.set("tar1090_image_config_link", "")
                 if key == "allow_config_link":
-                    self._d.env_by_tags("tar1090_image_config_link").value = f"WILL_BE_SET_IN_IMPLIED_SETTINGS"
+                    self._conf.set(
+                        "tar1090_image_config_link",
+                        "WILL_BE_SET_IN_IMPLIED_SETTINGS")
                 if key == "turn_on_gpsd":
-                    self._d.env_by_tags(["use_gpsd", "is_enabled"]).value = True
+                    self._conf.set("use_gpsd", True)
                     # this updates the lat/lon/alt env variables as side effect, if there is a GPS fix
                     self.get_lat_lon_alt()
                 if key == "turn_off_gpsd":
-                    self._d.env_by_tags(["use_gpsd", "is_enabled"]).value = False
+                    self._conf.set("use_gpsd", False)
                 if key in ["enable_parallel_docker", "disable_parallel_docker"]:
                     self.set_docker_concurrent(key == "enable_parallel_docker")
-                if key == "nightly_update" or key == "zerotier":
-                    # this will be handled through the separate key/value pairs
-                    pass
                 if key == "os_update":
                     self._system._restart.bg_run(func=self._system.os_update)
                     self._next_url_from_director = request.url
                     return render_template("/restarting.html")
-                if allow_insecure and key == "tailscale_disable_go" and form.get("tailscale_disable") == "disable":
-                    success, output = run_shell_captured(
-                        "systemctl disable --now tailscaled && systemctl mask tailscaled", timeout=30
-                    )
-                    continue
-                if allow_insecure and key == "zerotier" and form.get("zerotier_disable") == "disable":
-                    self._d.env_by_tags("zerotierid").value = ""
-                    success, output = run_shell_captured(
-                        "systemctl disable --now zerotier-one && systemctl mask zerotier-one", timeout=30
-                    )
-                    continue
-                if allow_insecure and key == "tailscale":
-                    # grab extra arguments if given
-                    ts_args = form.get("tailscale_extras", "")
-                    if ts_args:
-                        # right now we really only want to allow the login server arg
-                        try:
-                            ts_cli_switch, ts_cli_value = ts_args.split("=")
-                        except:
-                            ts_cli_switch, ts_cli_value = ["", ""]
-
-                        if ts_cli_switch != "--login-server":
-                            self._logger.warning(
-                                "at this point we only allow the "
-                                "--login-server=<server> argument; please let "
-                                "us know at the Zulip support link why you "
-                                f"need this to support {ts_cli_switch}",
-                            flash_message=True)
-                            continue
-                        print_err(f"login server arg is {ts_cli_value}")
-                        match = re.match(
-                            r"^https?://[-a-zA-Z0-9._\+~=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?::[0-9]{1,5})?(?:[-a-zA-Z0-9()_\+.~/=]*)$",
-                            ts_cli_value,
-                        )
-                        if not match:
-                            self._logger.error(
-                                "The login server URL didn't make sense "
-                                f"{ts_cli_value}", flash_message=True)
-                            continue
-                    print_err(f"starting tailscale (args='{ts_args}')")
-                    try:
-                        subprocess.run(
-                            ["/usr/bin/systemctl", "unmask", "tailscaled"],
-                            timeout=20.0,
-                        )
-                        subprocess.run(
-                            ["/usr/bin/systemctl", "enable", "--now", "tailscaled"],
-                            timeout=20.0,
-                        )
-                        cmd = ["/usr/bin/tailscale", "up"]
-
-                        # due to the following error, we just add --reset to the options
-                        # Error: changing settings via 'tailscale up' requires mentioning all
-                        # non-default flags. To proceed, either re-run your command with --reset or
-                        # use the command below to explicitly mention the current value of
-                        # all non-default settings:
-                        cmd += ["--reset"]
-                        cmd += [f"--hostname={self.hostname}"]
-
-                        if ts_args:
-                            cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
-                        cmd += ["--accept-dns=false"]
-                        print_err(f"running {cmd}")
-                        proc = subprocess.Popen(
-                            cmd,
-                            stderr=subprocess.PIPE,
-                            stdout=subprocess.DEVNULL,
-                            text=True,
-                        )
-                        os.set_blocking(proc.stderr.fileno(), False)
-                    except:
-                        # this really needs a user visible error...
-                        self._logger.exception(
-                            "Exception trying to set up tailscale - giving up",
-                            flash_message=True)
-                        continue
-                    else:
-                        startTime = time.time()
-                        match = None
-                        while time.time() - startTime < 30:
-                            output = proc.stderr.readline()
-                            if not output:
-                                if proc.poll() != None:
-                                    break
-                                time.sleep(0.1)
-                                continue
-                            print_err(output.rstrip("\n"))
-                            # standard tailscale result
-                            match = re.search(r"(https://login\.tailscale.*)", output)
-                            if match:
-                                break
-                            # when using a login-server
-                            match = re.search(r"(https://.*/register/nodekey.*)", output)
-                            if match:
-                                break
-
-                        proc.terminate()
-
-                    if match:
-                        login_link = match.group(1)
-                        print_err(f"found login link {login_link}")
-                        self._d.env_by_tags("tailscale_ll").value = login_link
-                    else:
-                        self._logger.error(
-                            "ERROR: tailscale didn't provide a login link "
-                            "within 30 seconds", flash_message=True)
-                    return redirect(url_for("systemmgmt"))
-                # tailscale handling uses 'continue' to avoid deep nesting - don't add other keys
-                # here at the end - instead insert them before tailscale
-                continue
-            if value == "stay" or value.startswith("stay-"):
-                if allow_insecure and key == "rpw":
-                    print_err("updating the root password")
-                    self.set_rpw()
-                    continue
-                if key == "wifi":
-                    print_err("updating the wifi settings")
-                    ssid = form.get("wifi_ssid")
-                    password = form.get("wifi_password")
-
-                    def connect_wifi():
-                        if self.wifi is None:
-                            self.wifi = make_wifi()
-                        status = self.wifi.wifi_connect(ssid, password)
-                        print_err(f"wifi_connect returned {status}")
-                        self.update_net_dev()
-
-                    self._system._restart.bg_run(func=connect_wifi)
-                    self._next_url_from_director = url_for("systemmgmt")
-                    # FIXME: let user know
             # now handle other form input
             if key == "clear_range" and value == "1":
                 self.clear_range_outline()
@@ -1875,88 +1737,71 @@ class AdsbIm:
                     self._logger.exception(
                         "Error running UAT autogain reset", flash_message=True)
                 continue
-            if allow_insecure and key == "ssh_pub":
-                ssh_dir = pathlib.Path("/root/.ssh")
-                ssh_dir.mkdir(mode=0o700, exist_ok=True)
-                with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
-                    authorized_keys.write(f"{value}\n")
-                self._d.env_by_tags("ssh_configured").value = True
-                success, output = run_shell_captured(
-                    "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
-                    + "systemctl enable --now ssh || systemctl enable --now dropbear",
-                    timeout=60,
-                )
-                if not success:
-                    self._logger.error(
-                        f"Failed to enable ssh: {output}",
-                        flash_message="Failed to enable ssh - check the logs "
-                        "for details.")
-                continue
             if key == "enable-prometheus-metrics":
                 self._ensure_prometheus_metrics_state(is_true(value))
                 continue
             if key == "tz":
                 self.set_tz(value)
                 continue
-            # Form data can directly set config variables if the key, when
-            # split by the string "--" is a subset of the config variable's
-            # tags (this includes the case where the key is equal to one of the
-            # tags). At the time of this writing, the only cases where
-            # splitting by "--" is done is for <something>--is_enabled, to
-            # enable certain features directly from a template. Other uses
-            # exist, but there the key is exactly one of the tags.
-            tags = key.split("--")
-            env = self._d.env_by_tags(tags)
-            if env:
-                if allow_insecure and key == "zerotierid":
-                    try:
-                        utils.system.systemctl().run(
-                            ["unmask", "enable --now"], ["zerotier-one"])
-                        # Wait for the service to get ready...
-                        sleep(5.0)
-                        subprocess.call([
-                            "/usr/sbin/zerotier-cli", "join", f"{value}"])
-                    except:
-                        self._logger.exception(
-                            "Exception trying to set up zerotier - giving up",
-                            flash_message=True)
-                elif key in {"lat", "lon"}:
-                    # remove letters, spaces, degree symbols
-                    value = str(float(re.sub("[a-zA-Z° ]", "", value)))
-                elif key == "uatgain" and value in ["", "auto"]:
+            # Form data can directly set config variables if the key has the
+            # format set_config--<data_type>--<key_path>, where data_type is
+            # one of str, bool, or float, and key_path is the one in the
+            # config. The data_type is used to parse the input into the
+            # appropriate type.
+            set_config_match = re.match(
+                r"set_config--(?P<data_type>\S+)--(?P<key_path>\S+)", key)
+            if set_config_match:
+                data_type = set_config_match.group("data_type")
+                key_path = set_config_match.group("key_path")
+                try:
+                    if data_type == "bool":
+                        # The form will set the value to on if a checkbox is
+                        # checked, but we need a bool.
+                        value = value == "on"
+                    elif data_type == "float":
+                        # Remove letters, spaces, degree symbols before
+                        # parsing.
+                        value = float(re.sub("[a-zA-Z° ]", "", value))
+                    else:
+                        assert data_type == "str"
+                except:
+                    self._logger.exception(
+                        f"Error parsing config setting {key_path}.",
+                        flash_message=True)
+                    continue
+
+                if key_path == "uatgain" and value in ["", "auto"]:
                     value = "autogain"
-                elif key == "gain" and value == "":
+                elif key_path == "gain" and value == "":
                     value = "auto"
-                elif key == "site_name":
+                elif key_path == "site_name":
                     value = "".join(
                         c for c in value if c.isalnum() or c == "-")
                     value = value.strip("-")[:63]
                 # If user is changing to 'individual' selection (either in
                 # initial setup or when coming back to that setting later),
                 # show them the aggregator selection page next.
-                if (key == "aggregator_choice" and value == "individual"
-                        and self._d.env_by_tags("aggregator_choice").value
+                if (key_path == "aggregator_choice" and value == "individual"
+                        and self._conf.get("aggregator_choice")
                         != "individual"):
                     next_url = url_for("aggregators")
                 # If this is an assignment of an SDR device to a purpose (i.e.
                 # ais, 1090 etc.), make sure that device is only assigned once
                 # by clearing all of its other assignments.
-                purposes = self._sdrdevices.purposes()
-                if key in purposes and value != "":
+                purposes = [
+                    f"serial_devices.{p}" for p in self._sdrdevices.purposes()]
+                if key_path in purposes and value != "":
                     for other_purpose in purposes:
-                        if key == other_purpose or value != self._d.env_by_tags(
-                                other_purpose).value:
+                        if (key_path == other_purpose
+                            or value != self._conf.get(other_purpose)):
                             continue
                         self._logger.info(
                             f"Device {value} was just assigned to purpose "
-                            f"{key}, but still had a previous assignment to "
-                            f"{other_purpose}. Clearing the old one so it "
+                            f"{key_path}, but still had a previous assignment "
+                            f"to {other_purpose}. Clearing the old one so it "
                             "only has one purpose.")
-                        self._d.env_by_tags(other_purpose).value = ""
-                if type(env._value) == list:
-                    env.list_set(0, value)
-                else:
-                    env.value = value
+                        self._conf.set(other_purpose, "")
+                self._conf.set(key_path, value)
 
         # done handling the input data
         # what implied settings do we have (and could we simplify them?)
@@ -1964,7 +1809,7 @@ class AdsbIm:
         self.handle_implied_settings()
 
         # write all this out to the .env file so that a docker-compose run will find it
-        self.write_envfile()
+        self._conf.write_env_file()
 
         if needs_docker_restart or seen_go:
             # Restart (i.e. up) the compose files if we're changing the page
@@ -1981,16 +1826,16 @@ class AdsbIm:
         # where do we go from here?
         if next_url:  # we figured it out above
             return redirect(next_url)
-        if self._d.is_enabled("base_config"):
+        if self._conf.get("base_config"):
             print_err("base config is completed", level=2)
-            if self._d.is_enabled("sdrplay") and not self._d.is_enabled("sdrplay_license_accepted"):
+            if self._conf.get("sdrplay") and not self._conf.get("sdrplay_license_accepted"):
                 return redirect(url_for("sdrplay_license"))
             return render_template("/restarting.html", extra_args=extra_args)
         print_err("base config not completed", level=2)
         return redirect(url_for("director"))
 
     def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
-        currently_enabled = self._d.is_enabled("prometheus_exporter")
+        currently_enabled = self._conf.get("prometheus.is_enabled")
         if currently_enabled != should_be_enabled:
             self._logger.info(
                 f"Toggling Prometheus metrics state from {currently_enabled} "
@@ -2003,20 +1848,18 @@ class AdsbIm:
                 "Error enabling/disabling Prometheus metrics state: "
                 f"{proc.stdout}", flash_message=True)
             return
-        self._d.env_by_tags("prometheus_exporter").value = should_be_enabled
+        self._conf.set("prometheus.is_enabled", should_be_enabled)
 
     @check_restart_lock
     def expert(self):
         if request.method == "POST":
             return self.update()
         # make sure we only show the gpsd option if gpsd is correctly configured and running
-        self._d.env_by_tags("has_gpsd").value = self._system.check_gpsd()
+        self._conf.set("has_gpsd", self._system.check_gpsd())
         return render_template("expert.html")
 
     @check_restart_lock
     def systemmgmt(self):
-        if request.method == "POST":
-            return self.update()
         tailscale_running = False
         zerotier_running = False
         success, output = run_shell_captured("ps -e", timeout=2)
@@ -2037,17 +1880,17 @@ class AdsbIm:
             # reset both associated env vars
             # if tailscale recovers / is re-enabled and the system management page is visited,
             # the code below will set the appropriate tailscale_name once more.
-            self._d.env_by_tags("tailscale_name").value = ""
-            self._d.env_by_tags("tailscale_ll").value = ""
+            self._conf.set("tailscale_name", "")
+            self._conf.set("tailscale_ll", "")
         else:
             ts_status = json.loads(result.stdout.decode())
             if ts_status.get("BackendState") == "Running" and ts_status.get("Self"):
                 tailscale_name = ts_status.get("Self").get("HostName")
                 print_err(f"configured as {tailscale_name} on tailscale")
-                self._d.env_by_tags("tailscale_name").value = tailscale_name
-                self._d.env_by_tags("tailscale_ll").value = ""
+                self._conf.set("tailscale_name", tailscale_name)
+                self._conf.set("tailscale_ll", "")
             else:
-                self._d.env_by_tags("tailscale_name").value = ""
+                self._conf.set("tailscale_name", "")
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
@@ -2167,7 +2010,7 @@ class AdsbIm:
         # figure out where to go:
         if request.method == "POST":
             return self.update()
-        if not self._d.is_enabled("base_config"):
+        if not self._conf.get("base_config"):
             print_err(f"director redirecting to setup, base_config not completed")
             return flask.redirect("/setup")
         # if we already figured out where to go next, let's just do that
@@ -2199,8 +2042,11 @@ class AdsbIm:
             # return self.sdr_setup()
 
         # check if any of the SDRs aren't configured
-        configured_serials = [self._d.env_by_tags(purpose).value for purpose in self._sdrdevices.purposes()]
-        configured_serials = [serial for serial in configured_serials if serial != ""]
+        configured_serials = [
+            self._conf.get(f"serial_devices.{purpose}")
+            for purpose in self._sdrdevices.purposes()]
+        configured_serials = [
+            serial for serial in configured_serials if serial != ""]
         available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
         if any([serial not in configured_serials for serial in available_serials]):
             print_err(f"configured serials: {configured_serials}")
@@ -2208,8 +2054,9 @@ class AdsbIm:
             print_err("director redirecting to sdr_setup: unconfigured devices present")
             return flask.redirect("/sdr_setup")
 
-        used_serials = [self._d.env_by_tags(purpose).value for purpose in ["978serial","1090serial","aisserial"]]
-        used_serials = [serial for serial in used_serials if serial != ""]
+        used_serials = [self._conf.get(f"serial_devices.{purpose}")
+                        for purpose in ["978","1090","ais"]]
+        used_serials = [serial for serial in used_serials if serial]
         if any([serial not in available_serials for serial in used_serials]):
             print_err(f"used serials: {used_serials}")
             print_err(f"available serials: {available_serials}")
@@ -2218,7 +2065,7 @@ class AdsbIm:
 
         # if the user chose to individually pick aggregators but hasn't done so,
         # they need to go to the aggregator page
-        if self.at_least_one_aggregator() or self._d.env_by_tags("aggregators_chosen"):
+        if self.at_least_one_aggregator() or self._conf.get("aggregators_chosen"):
             return flask.redirect("/overview")
         print_err("director redirecting to aggregators: to be configured")
         return flask.redirect("/aggregators")
@@ -2263,7 +2110,7 @@ class AdsbIm:
 
         self.update_net_dev()
 
-        if self._d.env_by_tags("tailscale_name").value:
+        if self._conf.get("tailscale_name"):
             try:
                 result = subprocess.run(
                     "tailscale ip -4 2>/dev/null",
@@ -2278,7 +2125,7 @@ class AdsbIm:
             self.tailscale_address = result
         else:
             self.tailscale_address = ""
-        zt_network = self._d.env_by_tags("zerotierid").value
+        zt_network = self._conf.get("zerotierid")
         if zt_network:
             try:
                 result = subprocess.run(
@@ -2296,11 +2143,12 @@ class AdsbIm:
             self.zerotier_address = ""
 
         # reset undervoltage warning after 2h
-        if self._d.env_by_tags("under_voltage").value and time.time() - self.undervoltage_epoch > 2 * 3600:
-            self._d.env_by_tags("under_voltage").value = False
+        if self._conf.get("under_voltage") and time.time() - self.undervoltage_epoch > 2 * 3600:
+            self._conf.set("under_voltage", False)
 
         # now let's check for disk space
-        self._d.env_by_tags("low_disk").value = shutil.disk_usage("/").free < 1024 * 1024 * 1024
+        self._conf.set(
+            "low_disk", shutil.disk_usage("/").free < 1024 * 1024 * 1024)
 
     @check_restart_lock
     def overview(self):
@@ -2330,7 +2178,6 @@ class AdsbIm:
             self.set_rpw()
             os.remove("/opt/adsb/adsb.im.passwd.and.keys")
 
-        board = self._d.env_by_tags("board_name").value
         if self.local_address:
             local_address = self.local_address
         else:
@@ -2348,22 +2195,17 @@ class AdsbIm:
         # refresh docker ps cache so the aggregator status is nicely up to date
         self._executor.submit(self._system.refreshDockerPs)
 
-        board = self._d.env_by_tags("board_name").value
-        base = self._d.env_by_tags("image_name").value
-        version = self._d.env_by_tags("base_version").value
+        board = self._conf.get("board_name")
+        base = self._conf.get("image_name")
+        version = self._conf.get("base_version")
         containers = [
-            self._d.env_by_tags(["container", container]).value
-            for container in self._d.tag_for_name.values()
-            if self._d.is_enabled(container)
-            or container in ["ultrafeeder", "shipfeeder"]]
+            image_setting.get("")
+            for _, image_setting in self._conf.get_setting("images")]
 
         def sdr_assignment(sdr):
-            if self._d.env_by_tags("1090serial").value == sdr.serial:
-                return "1090"
-            elif self._d.env_by_tags("978serial").value == sdr.serial:
-                return "978"
-            elif self._d.env_by_tags("aisserial").value == sdr.serial:
-                return "ais"
+            for purpose in ["1090", "978", "ais"]:
+                if self._conf.get(f"serial_devices.{purpose}") == sdr.serial:
+                    return purpose
             return None
 
         available_tags = gitlab.gitlab_repo().get_tags()
@@ -2484,11 +2326,6 @@ class AdsbIm:
         )
 
     def info(self):
-        board = self._d.env_by_tags("board_name").value
-        base = self._d.env_by_tags("image_name").value
-        current = self._d.env_by_tags("base_version").value
-        ufargs = self._d.env_by_tags("ultrafeeder_extra_args").value
-        envvars = self._d.env_by_tags("ultrafeeder_extra_env").value
         sdrs = [f"{sdr}" for sdr in self._sdrdevices.sdrs] if len(self._sdrdevices.sdrs) > 0 else ["none"]
 
         def simple_cmd_result(cmd):
@@ -2512,25 +2349,23 @@ class AdsbIm:
         netdog = simple_cmd_result("tail -n 10 /opt/adsb/logs/netdog.log 2>/dev/null")
 
         containers = [
-            self._d.env_by_tags(["container", container]).value
-            for container in self._d.tag_for_name.values()
-            if self._d.is_enabled(container) or container == "ultrafeeder"
-        ]
+            image_setting.get("")
+            for _, image_setting in self._conf.get_setting("images")]
         return render_template(
             "info.html",
-            board=board,
+            board=self._conf.get("board_name"),
             memory=memory,
             top=top,
             storage=storage,
-            base=base,
+            base=self._conf.get("image_name"),
             kernel=kernel,
             journal=journal,
             ipv6=ipv6,
-            current=current,
+            current=self._conf.get("base_version"),
             containers=containers,
             sdrs=sdrs,
-            ufargs=ufargs,
-            envvars=envvars,
+            ufargs=self._conf.get("ultrafeeder_extra_args"),
+            envvars=self._conf.get("ultrafeeder_extra_env"),
             netdog=netdog,
         )
 
@@ -2558,6 +2393,72 @@ class AdsbIm:
 
         return Response(tail(), mimetype="text/event-stream")
 
+    def set_ssh_credentials(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot set SSH credentials.", 400
+        ssh_dir = pathlib.Path("/root/.ssh")
+        ssh_dir.mkdir(mode=0o700, exist_ok=True)
+        with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
+            authorized_keys.write(f"{request.form["ssh-public-key"]}\n")
+        self._conf.set("ssh_configured", True)
+        success, output = run_shell_captured(
+            "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
+            + "systemctl enable --now ssh || systemctl enable --now dropbear",
+            timeout=60,
+        )
+        if not success:
+            self._logger.error(
+                f"Failed to enable ssh: {output}",
+                flash_message="Failed to enable ssh - check the logs "
+                "for details.")
+        return redirect(url_for("systemmgmt"))
+
+    def create_root_password(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot set root password.", 400
+        self._logger.info("Updating the root password.")
+        self.set_rpw()
+        return redirect(url_for("systemmgmt"))
+
+    def set_secure_image(self):
+        self._conf.set("secure_image", True)
+        if not utils.data.SECURE_IMAGE_FILE.exists():
+            utils.data.SECURE_IMAGE_FILE.touch()
+            self._logger.info("Created secure_image file.")
+        return redirect(url_for("systemmgmt"))
+
+    @check_restart_lock
+    def shutdown_reboot(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot shutdown or reboot.", 400
+        if "shutdown" in request.form:
+            # schedule shutdown in 0.5 seconds
+            self._system.shutdown(delay=0.5)
+            self.exiting = True
+            return redirect(url_for("shutdownpage"))
+        elif "reboot" in request.form:
+            # schedule reboot in 0.5 seconds
+            self._system.reboot(delay=0.5)
+            self.exiting = True
+            return redirect(url_for("restarting"))
+        else:
+            self._logger.warning(
+                "Shutdown/reboot endpoint called, but neither shutdown nor "
+                "reboot were in the form.")
+        return redirect(url_for("systemmgmt"))
+
+    def toggle_log_persistence(self):
+        if self._persistent_journal:
+            cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
+        else:
+            cmd = "/opt/adsb/scripts/journal-set-persist.sh"
+        try:
+            subprocess.run(cmd, shell=True, timeout=5.0)
+            self.update_journal_state()
+        except:
+            self._logger.exception("Error toggling log persistence.")
+        return redirect(url_for("systemmgmt"))
+
     @check_restart_lock
     def feeder_update(self):
         tag = request.form["tag"]
@@ -2577,6 +2478,157 @@ class AdsbIm:
         # version will then say that the restart is complete.
         self.exiting = True
         return render_template("/restarting.html")
+
+    def restart_containers(self):
+        containers = self._system.list_containers()
+        containers_to_restart = []
+        for container in containers:
+            # Only restart the ones that have been checked.
+            if container in request.form:
+                containers_to_restart.append(container)
+        self._conf.write_env_file()
+        if "recreate" in request.form:
+            self._system.recreate_containers(containers_to_restart)
+        else:
+            self._system.restart_containers(containers_to_restart)
+        return render_template("/restarting.html")
+
+    def configure_zerotier(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot configure zerotier.", 400
+        if "enabled" in request.form and "zerotierid" in request.form:
+            zerotier_id = request.form["zerotierid"]
+            try:
+                utils.system.systemctl().run(
+                    ["unmask", "enable --now"], ["zerotier-one"])
+                # Wait for the service to get ready...
+                sleep(5.0)
+                subprocess.call([
+                    "/usr/sbin/zerotier-cli", "join", zerotier_id])
+            except:
+                self._logger.exception(
+                    "Exception trying to set up zerotier - giving up",
+                    flash_message=True)
+        else:
+            self._conf.set("zerotierid", "")
+            success, output = run_shell_captured(
+                "systemctl disable --now zerotier-one && systemctl mask zerotier-one", timeout=30
+            )
+        return redirect(url_for("systemmgmt"))
+
+    def configure_tailscale(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot configure tailscale.", 400
+        if "enabled" not in request.form:
+            success, output = run_shell_captured(
+                "systemctl disable --now tailscaled && systemctl mask tailscaled",
+                timeout=30)
+            self._logger.info("Disabled Tailscale.")
+        else:
+            ts_args = request.form.get("tailscale_extras", "")
+            if ts_args:
+                # right now we really only want to allow the login server arg
+                try:
+                    ts_cli_switch, ts_cli_value = ts_args.split("=")
+                except:
+                    ts_cli_switch, ts_cli_value = ["", ""]
+                if ts_cli_switch != "--login-server":
+                    self._logger.warning(
+                        "At this point we only allow the "
+                        "--login-server=<server> argument.",
+                    flash_message=True)
+                    return f"Unsupported switch {ts_cli_switch}.", 400
+                match = re.match(
+                    r"^https?://[-a-zA-Z0-9._\+~=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?::[0-9]{1,5})?(?:[-a-zA-Z0-9()_\+.~/=]*)$",
+                    ts_cli_value,
+                )
+                if not match:
+                    self._logger.error(
+                        "The login server URL didn't make sense "
+                        f"{ts_cli_value}", flash_message=True)
+                    return f"Invalid login server URL {ts_cli_value}.", 400
+            self._logger.info(f"Starting tailscale (args='{ts_args}')")
+            try:
+                subprocess.run(
+                    ["/usr/bin/systemctl", "unmask", "tailscaled"],
+                    timeout=20.0,
+                )
+                subprocess.run(
+                    ["/usr/bin/systemctl", "enable", "--now", "tailscaled"],
+                    timeout=20.0,
+                )
+                cmd = ["/usr/bin/tailscale", "up"]
+
+                # due to the following error, we just add --reset to the options
+                # Error: changing settings via 'tailscale up' requires mentioning all
+                # non-default flags. To proceed, either re-run your command with --reset or
+                # use the command below to explicitly mention the current value of
+                # all non-default settings:
+                cmd += ["--reset"]
+                cmd += [f"--hostname={self.hostname}"]
+
+                if ts_args:
+                    cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
+                cmd += ["--accept-dns=false"]
+                proc = subprocess.Popen(
+                    cmd,
+                    stderr=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    text=True,
+                )
+                os.set_blocking(proc.stderr.fileno(), False)
+            except:
+                self._logger.exception(
+                    "Exception trying to set up tailscale - giving up",
+                    flash_message=True)
+                return "Error setting up Tailscale.", 500
+            start_time = time.time()
+            match = None
+            while time.time() - start_time < 30:
+                output = proc.stderr.readline()
+                if not output:
+                    if proc.poll() != None:
+                        break
+                    time.sleep(0.1)
+                    continue
+                # standard tailscale result
+                match = re.search(r"(https://login\.tailscale.*)", output)
+                if match:
+                    break
+                # when using a login-server
+                match = re.search(r"(https://.*/register/nodekey.*)", output)
+                if match:
+                    break
+
+            proc.terminate()
+
+            if match:
+                login_link = match.group(1)
+                self._logger.debug(f"Found Tailscale login link {login_link}")
+                self._conf.set("tailscale_ll", login_link)
+            else:
+                self._logger.error(
+                    "ERROR: tailscale didn't provide a login link "
+                    "within 30 seconds", flash_message=True)
+                return "Unable to get a login link", 500
+        return redirect(url_for("systemmgmt"))
+
+    @check_restart_lock
+    def configure_wifi(self):
+        if self._conf.get("secure_image"):
+            return "Image is secured, cannot configure wifi.", 400
+        ssid = request.form.get("wifi_ssid")
+        password = request.form.get("wifi_password")
+
+        def connect_wifi():
+            if self.wifi is None:
+                self.wifi = make_wifi()
+            status = self.wifi.wifi_connect(ssid, password)
+            self._logger.debug(f"wifi_connect returned {status}")
+            self.update_net_dev()
+
+        self._system._restart.bg_run(func=connect_wifi)
+        return redirect(url_for("systemmgmt"))
 
 
 class Manager:
@@ -2603,29 +2655,16 @@ class Manager:
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
-    def __init__(self):
+    def __init__(self, conf: utils.data.Config):
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
-        data = utils.data.Data()
-        self._hotspot_app = HotspotApp(data, self._on_wifi_credentials)
-        self._hotspot = hotspot.make_hotspot(data, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(data, self._hotspot_app)
+        self._hotspot_app = HotspotApp(conf, self._on_wifi_credentials)
+        self._hotspot = hotspot.make_hotspot(conf, self._on_wifi_test_status)
+        self._adsb_im = AdsbIm(conf, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
-        self._ensure_config_exists()
-
-    def _ensure_config_exists(self):
-        if not utils.data.CONFIG_DIR.exists():
-            utils.data.CONFIG_DIR.mkdir()
-
-        if not utils.data.ENV_FILE.exists():
-            env_file = utils.data.APP_DIR / ".env"
-            if not env_file.exists():
-                env_file = utils.data.APP_DIR / "docker.image.versions"
-            shutil.copyfile(env_file, utils.data.ENV_FILE)
-
 
     def __enter__(self):
         assert self._connectivity_monitor is None
@@ -2791,9 +2830,21 @@ class Manager:
 
 
 def main():
+    if not utils.data.CONFIG_DIR.exists():
+        logger.info("Config directory doesn't exist, creating an empty one.")
+        utils.data.CONFIG_DIR.mkdir()
+    if not utils.data.CONFIG_FILE.exists():
+        logger.info("Config file doesn't exist, creating a default one.")
+        conf = utils.data.Config.create_default()
+        conf.write_to_file()
+    else:
+        conf = utils.data.Config.load_from_file()
+    if not utils.data.ENV_FILE.exists():
+        logger.info("Env file doesn't exist, writing one based on the config.")
+        conf.write_env_file()
     if "--update-config" in sys.argv:
         # Just get AdsbIm to do some housekeeping and exit.
-        AdsbIm(utils.data.Data(), None).update_config()
+        AdsbIm(conf, None).update_config()
         sys.exit(0)
 
     shutdown_event = threading.Event()
@@ -2807,7 +2858,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    with PidFile(), Manager():
+    with PidFile(), Manager(conf):
         shutdown_event.wait()
     logger.info("Shut down.")
 

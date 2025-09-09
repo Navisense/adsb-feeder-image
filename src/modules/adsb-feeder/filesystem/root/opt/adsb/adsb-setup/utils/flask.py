@@ -1,6 +1,7 @@
 import re
 from functools import wraps
 
+import utils.data
 from utils.util import print_err
 
 from flask import Flask, redirect, request
@@ -10,9 +11,31 @@ class RouteManager:
     def __init__(self, app: Flask):
         self.app = app
 
-    def add_proxy_routes(self, proxy_routes):
+    def _make_proxy_route_specs(self, conf: utils.data.Config):
+        for endpoint, port_key_path, path in [
+            ["/map/", "ports.tar1090", "/"],
+            ["/tar1090/", "ports.tar1090", "/"],
+            ["/graphs1090/", "ports.tar1090", "/graphs1090/"],
+            ["/graphs/", "ports.tar1090", "/graphs1090/"],
+            ["/stats/", "ports.tar1090", "/graphs1090/"],
+            ["/fa/", "ports.piamap", "/"],
+            ["/fa-status/", "ports.piastat", "/"],
+            ["/fa-status.json/", "ports.piastat", "/status.json"],
+            ["/fr24/", "ports.fr", "/"],
+            ["/fr24-monitor.json/", "ports.fr", "/monitor.json"],
+            ["/planefinder/", "ports.pf", "/"],
+            ["/planefinder-stat/", "ports.pf", "/stats.html"],
+            ["/dump978/", "ports.uat", "/skyaware978/"],
+            ["/logs/", "ports.dazzle", "/"],
+            ["/dozzle/<sub_path>", "ports.dazzle", "/"],
+            ["/config/", "ports.dazzle", "/setup"],
+            ["/ais-catcher/", "ports.aiscatcher", "/"],]:
+            port = conf.get(port_key_path)
+            yield endpoint, port, path
+
+    def add_proxy_routes(self, conf: utils.data.Config):
         # print_err(f"adding proxy_routes {proxy_routes}", level=2)
-        for endpoint, port, url_path in proxy_routes:
+        for endpoint, port, url_path in self._make_proxy_route_specs(conf):
             # print_err(f"add_proxy_route {endpoint} {port } {url_path}")
             r = self.function_factory(endpoint, port, url_path)
             self.app.add_url_rule(endpoint, endpoint, r)

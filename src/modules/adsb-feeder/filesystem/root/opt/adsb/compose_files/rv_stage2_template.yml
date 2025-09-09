@@ -1,6 +1,6 @@
 services:
   radarvirtuel_STAGE2NUM:
-    image: ${RV_CONTAINER}
+    image: ${DOCKER_IMAGE_RADARVIRTUEL}
     healthcheck:
       disable: true
     container_name: radarvirtuel_STAGE2NUM

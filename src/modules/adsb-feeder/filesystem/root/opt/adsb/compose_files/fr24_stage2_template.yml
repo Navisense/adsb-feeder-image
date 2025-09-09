@@ -1,6 +1,6 @@
 services:
   fr24feed_STAGE2NUM:
-    image: ${FR24_CONTAINER}
+    image: ${DOCKER_IMAGE_FLIGHTRADAR}
     healthcheck:
       disable: true
     dns_search: . # Ensures unified DNS config.

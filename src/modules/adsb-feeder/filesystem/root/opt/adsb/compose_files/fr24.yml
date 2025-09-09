@@ -1,6 +1,6 @@
 services:
   fr24feed:
-    image: ${FR24_CONTAINER}
+    image: ${DOCKER_IMAGE_FLIGHTRADAR}
     healthcheck:
       disable: true
     dns_search: . # Ensures unified DNS config.

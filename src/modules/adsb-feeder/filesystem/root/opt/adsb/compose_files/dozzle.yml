@@ -1,7 +1,7 @@
 services:
   dozzle:
     container_name: dozzle
-    image: ${DOZZLE_CONTAINER}
+    image: ${DOCKER_IMAGE_DOZZLE}
     healthcheck:
       disable: true
     restart: unless-stopped
@@ -16,7 +16,7 @@ services:
 
   adsb-setup-proxy:
     container_name: adsb-setup-proxy
-    image: ${ALPINE_CONTAINER}
+    image: ${DOCKER_IMAGE_ALPINE}
     healthcheck:
       disable: true
     stop_signal: SIGKILL

@@ -2,7 +2,7 @@ services:
   webproxy:
     container_name: webproxy
     hostname: webproxy
-    image: ${WEBPROXY_CONTAINER}
+    image: ${DOCKER_IMAGE_WEBPROXY}
     healthcheck:
       disable: true
     restart: unless-stopped

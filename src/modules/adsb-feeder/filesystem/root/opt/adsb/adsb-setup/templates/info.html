@@ -9,10 +9,10 @@
   <li><span style="display: inline-block; width: 6em;"><strong>Base:</strong></span> {{ base }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Kernel:</strong></span> {{ kernel }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Power:</strong></span> Undervoltage
-    {% if not env_value_by_tag('under_voltage') %}not{% endif %} reported</li>
+    {% if not get_conf('under_voltage') %}not{% endif %} reported</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Journal:</strong></span> {{ journal }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>DNS:</strong></span>
-    {% if env_value_by_tag('dns_state') %} DNS appears to be working{% else %} The feeder cannot resolve DNS queries
+    {% if get_conf('dns_state') %} DNS appears to be working{% else %} The feeder cannot resolve DNS queries
     {% endif %}
   </li>
   <li><span style="display: inline-block; width: 6em;"><strong>IPv6:</strong></span> {{ ipv6 }}</li>

@@ -1,6 +1,6 @@
 services:
   dump978:
-    image: ${UAT978_CONTAINER}
+    image: ${DOCKER_IMAGE_UAT978}
     healthcheck:
       disable: true
     container_name: dump978

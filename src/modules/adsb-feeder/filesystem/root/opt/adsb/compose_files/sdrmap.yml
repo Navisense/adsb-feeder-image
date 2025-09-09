@@ -1,6 +1,6 @@
 services:
   sdrmap:
-    image: ${SDRMAP_CONTAINER}
+    image: ${DOCKER_IMAGE_SDRMAP}
     healthcheck:
       disable: true
     container_name: sdrmap

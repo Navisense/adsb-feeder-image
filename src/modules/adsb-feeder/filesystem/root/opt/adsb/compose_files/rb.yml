@@ -1,6 +1,6 @@
 services:
   rbfeeder:
-    image: ${RB_CONTAINER}
+    image: ${DOCKER_IMAGE_RADARBOX}
     healthcheck:
       disable: true
     container_name: rbfeeder

@@ -66,7 +66,7 @@
                            id="porttracker-data-sharing-key"
                            name="porttracker-data-sharing-key"
                            class="form-control required-if-enabled"
-                           value="{{ list_value_by_tags(['porttracker', 'key']) }}">
+                           value="{{ get_conf('aggregators.porttracker.key') }}">
                     <label class="form-label" for="porttracker-data-sharing-key">Data sharing key</label>
                   </div>
                   <button type="button"
@@ -96,7 +96,7 @@
                          name="aiscatcher-feeder-key"
                          class="form-control w-75"
                          placeholder="Optional AIS-catcher feeder key"
-                         value="{{ list_value_by_tags(['aiscatcher', 'key']) }}" />
+                         value="{{ get_conf('aggregators.aiscatcher.key', default='') }}" />
                 </div>
               </label>
             </div>
@@ -120,7 +120,7 @@
                          name="aishub-udp-port"
                          class="form-control w-75 required-if-enabled"
                          placeholder="Aishub sharing UDP port"
-                         value="{{ list_value_by_tags(['aishub', 'key']) }}" />
+                         value="{{ get_conf('aggregators.aishub.key', default='') }}" />
                 </div>
               </label>
             </div>
@@ -143,12 +143,12 @@
             <div class="col-12 form-check">
               <input class="form-check-input me-1"
                      type="checkbox"
-                     name="mlat_privacy--is_enabled"
-                     id="mlat_privacy--is_enabled"
-                     {% if is_enabled('mlat_privacy') %}checked{% endif %} />
-              <label class="mx-1 w-auto" for="mlat_privacy--is_enabled">
+                     name="set_config--bool--mlat_privacy"
+                     id="mlat_privacy"
+                     {% if get_conf('mlat_privacy') %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="mlat_privacy">
                 Enable privacy flag (ON = your site won't be visible at all on
-                <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">
+                <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
                   public aggregator maps
                 </a>
                 -- OFF = your site will be visible at an approximate location.)
@@ -157,10 +157,10 @@
             <div class="col-12 form-check">
               <input class="form-check-input me-1"
                      type="checkbox"
-                     name="mlat_enable--is_enabled"
-                     id="mlat_enable--is_enabled"
-                     {% if is_enabled('mlat_enable') %}checked{% endif %} />
-              <label class="mx-1 w-auto" for="mlat_enable--is_enabled">Enable MLAT (for selected aggregators supporting MLAT)</label>
+                     name="set_config--bool--mlat_enable"
+                     id="mlat_enable"
+                     {% if get_conf('mlat_enable') %}checked{% endif %} />
+              <label class="mx-1 w-auto" for="mlat_enable">Enable MLAT (for selected aggregators supporting MLAT)</label>
             </div>
             <div class="col-12 h5 mt-3">Select the account-less ADS-B aggregators you want to feed:</div>
             <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
@@ -262,9 +262,9 @@
             {% if aggregators['adsblol'].enabled('adsb') or any_non_adsblol_uf_aggregators %}
               <div class="col-12 small fw-light text-muted text-end">
                 <div class="small fw-light text-muted text-end collapse" id="show-uuids">
-                  {% if aggregators['adsblol'].enabled('adsb') %}adsb.lol UUID: {{ list_value_by_tags(["adsblol_uuid"]) }}{% endif %}
+                  {% if aggregators['adsblol'].enabled('adsb') %}adsb.lol UUID: {{ get_conf("adsblol_uuid", default="") }}{% endif %}
                   <br>
-                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ list_value_by_tags(["ultrafeeder_uuid"]) }}{% endif %}
+                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ get_conf("ultrafeeder_uuid", default="") }}{% endif %}
                 </div>
                 <button class="btn btn-secondary small"
                         type="button"
@@ -285,7 +285,7 @@
                 <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
                 <div class="form-group" id="flightradar-setup">
                   <label for="flightradar-key-or-email">
-                    {% if not is_enabled('uat978') %}
+                    {% if not get_conf('uat978') %}
                       Enter your FR24 sharing key (or enter your email address and click the button to request a sharing
                       key)
                     {% else %}
@@ -302,14 +302,14 @@
                          name="flightradar-key-or-email"
                          class="form-control w-75 required-if-enabled"
                          placeholder="existing flightradar24 ADS-B sharing key or email address"
-                         value="{{ list_value_by_tags(['flightradar', 'key']) }}" />
-                  <input {% if not is_enabled('uat978') %}style="display: none;"{% endif %}
+                         value="{{ get_conf('aggregators.flightradar.key', default='') }}" />
+                  <input {% if not get_conf('uat978') %}style="display: none;"{% endif %}
                          type="text"
                          id="flightradar-uat-key-or-email"
                          name="flightradar-uat-key-or-email"
                          class="form-control w-75"
                          placeholder="existing flightradar24 UAT sharing key or email address"
-                         value="{{ list_value_by_tags(['flightradar_uat', 'key']) }}" />
+                         value="{{ get_conf('aggregators.flightradar.uat_key', default='') }}" />
                   <button type="submit"
                           class="btn btn-primary mt-1"
                           name="flightradar-request-key"
@@ -338,7 +338,7 @@
                          name="planewatch-key"
                          class="form-control w-75 required-if-enabled"
                          placeholder="Plane.watch API key"
-                         value="{{ list_value_by_tags(['planewatch', 'key']) }}">
+                         value="{{ get_conf('aggregators.planewatch.key', default='') }}">
                 </div>
               </label>
             </div>
@@ -362,14 +362,14 @@
           var link = document.getElementById('piaware');
           link.setAttribute(
             'href', window.location.protocol + "//" + window.location.hostname
-            + ":{{ env_value_by_tag('piastatport') }}");
+            + ":{{ get_conf('ports.piastat') }}");
                   </script>
                   <input type="text"
                          id="flightaware-feeder-id"
                          name="flightaware-feeder-id"
                          class="form-control w-75"
                          placeholder="Piaware key"
-                         value="{{ list_value_by_tags(['flightaware', 'key']) }}" />
+                         value="{{ get_conf('aggregators.flightaware.key', default='') }}" />
                   <button type="submit"
                           class="btn btn-primary mt-1"
                           name="flightaware-request-key"
@@ -402,7 +402,7 @@
                          name="radarbox-sharing-key"
                          class="form-control w-75"
                          placeholder="AirNav Radar sharing key"
-                         value="{{ list_value_by_tags(['radarbox', 'key']) }}">
+                         value="{{ get_conf('aggregators.radarbox.key', default='') }}">
                   <button type="submit"
                           class="btn btn-primary mt-1"
                           name="radarbox-request-key"
@@ -430,7 +430,7 @@
                          name="planefinder-key"
                          class="form-control w-75 required-if-enabled"
                          placeholder="PlaneFinder sharecode"
-                         value="{{ list_value_by_tags(['planefinder', 'key']) }}">
+                         value="{{ get_conf('aggregators.planefinder.key', default='') }}">
                 </div>
               </label>
             </div>
@@ -454,7 +454,7 @@
                          name="adsbhub-key"
                          class="form-control w-75 required-if-enabled"
                          placeholder="ADSBHub station key"
-                         value="{{ list_value_by_tags(['adsbhub', 'key']) }}">
+                         value="{{ get_conf('aggregators.adsbhub.key', default='') }}">
                 </div>
               </label>
             </div>
@@ -479,13 +479,13 @@
                          name="opensky-user"
                          class="form-control w-75 required-if-enabled"
                          placeholder="OpenSky username"
-                         value="{{ list_value_by_tags(['opensky', 'user']) }}">
+                         value="{{ get_conf('aggregators.opensky.user', default='') }}">
                   <input type="text"
                          id="opensky-serial"
                          name="opensky-serial"
                          class="form-control w-75"
                          placeholder="OpenSky serial number"
-                         value="{{ list_value_by_tags(['opensky', 'key']) }}" />
+                         value="{{ get_conf('aggregators.opensky.key', default='') }}" />
                   <button type="submit"
                           class="btn btn-primary mt-1"
                           name="opensky-request-key"
@@ -515,7 +515,7 @@
                          name="radarvirtuel-key"
                          class="form-control w-75 required-if-enabled"
                          placeholder="RadarVirtuel feeder key"
-                         value="{{ list_value_by_tags(['radarvirtuel', 'key']) }}">
+                         value="{{ get_conf('aggregators.radarvirtuel.key', default='') }}">
                 </div>
               </label>
             </div>
@@ -538,7 +538,7 @@
                          name="1090uk-key"
                          class="form-control w-75 required-if-enabled"
                          placeholder="1090MHz UK sharing key"
-                         value="{{ list_value_by_tags(['1090uk', 'key']) }}">
+                         value="{{ get_conf('aggregators.1090uk.key', default='') }}">
                 </div>
               </label>
             </div>
@@ -561,13 +561,13 @@
                          name="sdrmap-user"
                          class="form-control w-75 required-if-enabled"
                          placeholder="sdrmap username"
-                         value="{{ list_value_by_tags(['sdrmap', 'user']) }}">
+                         value="{{ get_conf('aggregators.sdrmap.user', default='') }}">
                   <input type="text"
                          id="sdrmap-password"
                          name="sdrmap-password"
                          class="form-control w-75 required-if-enabled"
                          placeholder="sdrmap password"
-                         value="{{ list_value_by_tags(['sdrmap', 'key']) }}" />
+                         value="{{ get_conf('aggregators.sdrmap.key', default='') }}" />
                 </div>
               </label>
             </div>
@@ -660,7 +660,7 @@
         `<input class="form-check-input required-if-enabled" type="radio" ` + `name="porttracker-station-id" value="${userStation.station.id}" />`);
       useRadioButton.on(
         "click change", {userStation: userStation}, setPorttrackerData);
-      if (useImmediately || userStation.station.id == {{ list_value_by_tags(['porttracker', 'station_id']) or 'undefined' }}) {
+      if (useImmediately || userStation.station.id == {{ get_conf('aggregators.porttracker.station_id') or 'undefined' }}) {
         useRadioButton.prop("checked", true);
         useRadioButton.trigger("click");
       }
@@ -698,16 +698,16 @@
         </td>
         <td></td>
         <td>
-          <input type="text" id="porttracker-register-new-station-hostname" class="form-control required-if-enabled" value="{{ list_value_by_tags(['site_name']) }}" />
+          <input type="text" id="porttracker-register-new-station-hostname" class="form-control required-if-enabled" value="{{ get_conf('site_name') }}" />
         </td>
         <td>
           <input type="text" id="porttracker-register-new-station-description" class="form-control required-if-enabled" placeholder="Optional" />
         </td>
         <td>
-          <input type="text" id="porttracker-register-new-station-latitude" class="form-control required-if-enabled" value="{{ list_value_by_tags(['lat']) }}" />
+          <input type="text" id="porttracker-register-new-station-latitude" class="form-control required-if-enabled" value="{{ get_conf('lat', default=0) }}" />
         </td>
         <td>
-          <input type="text" id="porttracker-register-new-station-longitude" class="form-control required-if-enabled" value="{{ list_value_by_tags(['lon']) }}" />
+          <input type="text" id="porttracker-register-new-station-longitude" class="form-control required-if-enabled" value="{{ get_conf('lon', default=0) }}" />
         </td>`);
     }
 

@@ -1,6 +1,6 @@
 {# Base template with common skeleton for all pages. #}
 <!DOCTYPE html>
-{% set css_theme = env_value_by_tag("css_theme") %}
+{% set css_theme = get_conf("css_theme") %}
 <html lang="en"
       data-mdb-theme="{{ css_theme if css_theme in ['light', 'dark'] else 'auto' }}">
   <head>
@@ -36,7 +36,7 @@
     <link rel="stylesheet"
           href="{{ url_for('static', filename='css/style.css') }}" />
     <title>
-      {{ list_value_by_tag('site_name', 0) }}{%- if list_value_by_tag("site_name", 0) != "" -%}:
+      {{ get_conf("site_name") }}{%- if get_conf('site_name') -%}:
     {% endif %}
     {% block title required -%}
     {%- endblock title %}
@@ -59,7 +59,7 @@
           <button type="button"
                   class="btn btn-primary"
                   {% if not is_reception_enabled('adsb') %}disabled{% endif %}
-                  onclick="document.location='{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}'">
+                  onclick="document.location='{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}'">
             Live Map (ADS-B)
           </button>
           <button type="button"
@@ -80,7 +80,7 @@
           </ul>
         </div>
       </div>
-      {% if is_enabled('temperature_block') %}
+      {% if get_conf('temperature_block') %}
         <div id="temperature_block"
              style="width: 4em;
                     height:auto"
@@ -152,7 +152,7 @@
               {% if is_reception_enabled('adsb') %}
                 <li>
                   <a class="dropdown-item"
-                     href="{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                     href="{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
                 </li>
                 <li>
                   <a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
@@ -166,7 +166,7 @@
               {% else %}
                 <li title="ADS-B reception is disabled">
                   <a class="dropdown-item disabled"
-                     href="{{ url_for("/map/" + env_value_by_tag("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                     href="{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
                 </li>
                 <li title="ADS-B reception is disabled">
                   <a class="dropdown-item disabled"
@@ -296,7 +296,7 @@
       taskTimeout = setTimeout(maybeExecuteTasks, nextTaskExecutionTime - Date.now());
     }
 
-    {% if is_enabled('temperature_block') %}
+    {% if get_conf('temperature_block') %}
       function update_temp_block(cpu, ext, age) {
         if (cpu == null && ext == null) {
           $("#temperature_block").addClass('d-none');
@@ -437,11 +437,11 @@
       <div class="me-5 d-block">
         <span>
           Running <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Porttracker Feeder</a>
-          {{ env_value_by_tag("base_version") }}, running on {{ env_value_by_tag("board_name") }}.
+          {{ get_conf("base_version") }}, running on {{ get_conf("board_name") }}.
           <br />
           Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
           <br />
-          {{ env_value_by_tag("image_name") }}
+          {{ get_conf("image_name") }}
         </span>
       </div>
     </section>

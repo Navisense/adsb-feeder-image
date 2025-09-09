@@ -2,7 +2,7 @@
 {% set active_page = "setup" %}
 {% block title %}Setup required parameters{% endblock title %}
 {% block content %}
-<div class="alert alert-danger" role="alert" {% if env_value_by_tag('dns_state') %} style="display: none;" {% endif %}>
+<div class="alert alert-danger" role="alert" {% if get_conf('dns_state') %} style="display: none;" {% endif %}>
   The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
 </div>
 <p>
@@ -30,9 +30,9 @@
       <label for="site_name">Station Name (shows up on public maps if enabled later)</label>
     </span>
     <span class="col-md">
-      <input type="text" id="site_name" name="site_name" required placeholder="my-awesome-antenna" class="form-control"
+      <input type="text" id="site_name" name="set_config--str--site_name" required placeholder="my-awesome-antenna" class="form-control"
              pattern="[\-_.a-zA-Z0-9 ]+" title="Letters, numbers, -, _, ."
-             value="{{ list_value_by_tag('site_name', 0) }}" />
+             value="{{ get_conf('site_name') }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -40,9 +40,9 @@
       <label for="lat">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
     </span>
     <span class="col-md">
-      <input type="text" id="lat" name="lat" required placeholder="Antenna latitude" class="form-control"
+      <input type="text" id="lat" name="set_config--float--lat" required placeholder="Antenna latitude" class="form-control"
              pattern="(?:\+|-|)(?:(?:[0-8]?\d)(?:\.\d+)?|90(?:\.0+)?)(,(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?))?"
-             title="Number between -90 and 90" value="{{ list_value_by_tag('lat', 0) }}" />
+             title="Number between -90 and 90" value="{{ get_conf('lat', default=0) }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -50,9 +50,9 @@
       <label for="lon">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
     </span>
     <span class="col-md">
-      <input type="text" id="lon" name="lon" required placeholder="Antenna longitude" class="form-control"
+      <input type="text" id="lon" name="set_config--float--lon" required placeholder="Antenna longitude" class="form-control"
              pattern="(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?)" title="Number between -180 and 180"
-             value="{{ list_value_by_tag('lon', 0) }}" />
+             value="{{ get_conf('lon', default=0) }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -60,8 +60,8 @@
       <label for="alt">Altitude above mean sealevel, rounded to whole meters</label>
     </span>
     <span class="col-md">
-      <input type="text" id="alt" name="alt" required placeholder="in m - or add 'ft' to enter in ft" class="form-control"
-             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ list_value_by_tag('alt', 0) }}" />
+      <input type="text" id="alt" name="set_config--float--alt" required placeholder="in m - or add 'ft' to enter in ft" class="form-control"
+             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ get_conf('alt', default=0) }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -74,7 +74,7 @@
     <span class="col-md">
       <input type="text" name="tz" id="tz" required
              placeholder="populate from the browser timezone by clicking the 'update timezone' button"
-             class="form-control mt-2" value="{{ list_value_by_tag('tz', 0) }}" />
+             class="form-control mt-2" value="{{ get_conf('tz', default='') }}" />
     </span>
   </div>
   <div class="form-check-prepend row align-items-center mb-1">
@@ -83,7 +83,7 @@
     </span>
     <span class="col-md">
       <input type="checkbox" id="enable-prometheus-metrics" name="enable-prometheus-metrics"
-             class="form-check-input mt-2 pull-right" {%- if is_enabled("prometheus_exporter") -%}checked{%- endif -%}/>
+             class="form-check-input mt-2 pull-right" {%- if get_conf("prometheus.is_enabled") -%}checked{%- endif -%}/>
     </span>
   </div>
   <div class="form-group mt-3">
@@ -96,18 +96,18 @@
     </label>
     <br />
     <div>
-      <input type="radio" name="aggregator_choice" id="all" value="all" required {% if env_value_by_tag("aggregator_choice")=="all"
+      <input type="radio" name="set_config--str--aggregator_choice" id="all" value="all" required {% if get_conf("aggregator_choice")=="all"
       %} checked {% endif %}>
       <label class="form-check-label mr-3" for="all">All</label>
-      <input type="radio" name="aggregator_choice" id="privacy" value="privacy" {% if
-      env_value_by_tag("aggregator_choice")=="privacy" %} checked {% endif %}>
+      <input type="radio" name="set_config--str--aggregator_choice" id="privacy" value="privacy" {% if
+      get_conf("aggregator_choice")=="privacy" %} checked {% endif %}>
       <label class="form-check-label mr-3" for="privacy">Aggregators with privacy policy</label>
-      <input type="radio" name="aggregator_choice" id="individual" value="individual" {% if
-      env_value_by_tag("aggregator_choice")=="individual" %} checked {% endif %}>
+      <input type="radio" name="set_config--str--aggregator_choice" id="individual" value="individual" {% if
+      get_conf("aggregator_choice")=="individual" %} checked {% endif %}>
       <label class="form-check-label" for="individual">Pick individually</label>
     </div>
     <br>
-    <div id="explain-all" style="display: {% if env_value_by_tag('aggregator_choice')=='all' %} block {% else %} none {%
+    <div id="explain-all" style="display: {% if get_conf('aggregator_choice')=='all' %} block {% else %} none {%
             endif %}; font-size: normal;">
       With this option you will feed data to
       <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
@@ -120,7 +120,7 @@
       <a href="https://airplanes.live/privacy">airplanes.live</a>,
       <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
     </div>
-    <div id="explain-privacy" style="display: {% if env_value_by_tag('aggregator_choice')=='priv' %} block {% else %}
+    <div id="explain-privacy" style="display: {% if get_conf('aggregator_choice')=='privacy' %} block {% else %}
             none {% endif %}; font-size: normal;">
       With this option you will feed data to
       <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
@@ -131,7 +131,7 @@
       <a href="https://airplanes.live/privacy">airplanes.live</a>,
       <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
     </div>
-    <div id="explain-individual" style="display: {% if env_value_by_tag('aggregator_choice')=='ind' %} block {% else %}
+    <div id="explain-individual" style="display: {% if get_conf('aggregator_choice')=='individual' %} block {% else %}
                 none {% endif %}; font-size: normal;">
       With this option you can make detailed selections on the Aggregator page.
     </div>

@@ -59,7 +59,7 @@ class StatusCheckError(Exception):
 _aggregator_dict = None
 
 
-def all_aggregators(data: utils.data.Data,
+def all_aggregators(conf: utils.data.Config,
                     system: utils.system.System) -> dict[str, "Aggregator"]:
     """
     Get all aggregators.
@@ -70,60 +70,107 @@ def all_aggregators(data: utils.data.Data,
     if _aggregator_dict is None:
         _aggregator_dict = {}
         aggregators = [
-            AdsbLolAggregator(data, system),
+            AdsbLolAggregator(conf, system),
             UltrafeederAggregator(
-                data, system, agg_key="flyitaly", name="Fly Italy ADSB",
+                conf, system, agg_key="flyitaly", name="Fly Italy ADSB",
                 map_url="https://mappa.flyitalyadsb.com/",
-                status_url="https://my.flyitalyadsb.com/am_i_feeding"),
+                status_url="https://my.flyitalyadsb.com/am_i_feeding",
+                netconfig=NetConfig(
+                    "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
+                    "mlat,dati.flyitalyadsb.com,30100,39002",
+                    has_policy=True)),
             UltrafeederAggregator(
-                data, system, agg_key="avdelphi", name="AVDelphi",
+                conf, system, agg_key="avdelphi", name="AVDelphi",
                 map_url="https://www.avdelphi.com/coverage.html",
-                status_url=None),
+                status_url=None, netconfig=NetConfig(
+                    "adsb,data.avdelphi.com,24999,beast_reduce_plus_out", "",
+                    has_policy=True)),
             UltrafeederAggregator(
-                data, system, agg_key="planespotters", name="Planespotters",
+                conf, system, agg_key="planespotters", name="Planespotters",
                 map_url="https://radar.planespotters.net/",
-                status_url="https://www.planespotters.net/feed/status"),
+                status_url="https://www.planespotters.net/feed/status",
+                netconfig=NetConfig(
+                    "adsb,feed.planespotters.net,30004,beast_reduce_plus_out",
+                    "mlat,mlat.planespotters.net,31090,39005",
+                    has_policy=True)),
             UltrafeederAggregator(
-                data, system, agg_key="tat", name="TheAirTraffic",
+                conf, system, agg_key="tat", name="TheAirTraffic",
                 map_url="https://globe.theairtraffic.com/",
-                status_url="https://theairtraffic.com/feed/myip/"),
+                status_url="https://theairtraffic.com/feed/myip/",
+                netconfig=NetConfig(
+                    "adsb,feed.theairtraffic.com,30004,beast_reduce_plus_out",
+                    "mlat,feed.theairtraffic.com,31090,39004",
+                    has_policy=False)),
             UltrafeederAggregator(
-                data, system, agg_key="adsbfi", name="adsb.fi",
+                conf, system, agg_key="adsbfi", name="adsb.fi",
                 map_url="https://globe.adsb.fi/",
-                status_url="https://api.adsb.fi/v1/myip"),
-            AdsbxAggregator(data, system),
+                status_url="https://api.adsb.fi/v1/myip", netconfig=NetConfig(
+                    "adsb,feed.adsb.fi,30004,beast_reduce_plus_out",
+                    "mlat,feed.adsb.fi,31090,39007", has_policy=True)),
+            AdsbxAggregator(conf, system),
             UltrafeederAggregator(
-                data, system, agg_key="hpradar", name="HPRadar",
-                map_url="https://skylink.hpradar.com/", status_url=None),
-            AirplanesLiveAggregator(data, system),
-            FlightRadar24Aggregator(data, system),
-            PlaneWatchAggregator(data, system),
-            FlightAwareAggregator(data, system),
-            AirnavRadarAggregator(data, system),
-            PlaneFinderAggregator(data, system),
-            AdsbHubAggregator(data, system),
-            OpenSkyAggregator(data, system),
-            RadarVirtuelAggregator(data, system),
-            TenNinetyUkAggregator(data, system),
-            SdrMapAggregator(data, system),
-            PorttrackerAggregator(data, system),
-            AiscatcherAggregator(data, system),
-            AishubAggregator(data, system),]
+                conf, system, agg_key="hpradar", name="HPRadar",
+                map_url="https://skylink.hpradar.com/", status_url=None,
+                netconfig=NetConfig(
+                    "adsb,skyfeed.hpradar.com,30004,beast_reduce_plus_out",
+                    "mlat,skyfeed.hpradar.com,31090,39011", has_policy=False)),
+            AirplanesLiveAggregator(conf, system),
+            FlightRadar24Aggregator(conf, system),
+            PlaneWatchAggregator(conf, system),
+            FlightAwareAggregator(conf, system),
+            AirnavRadarAggregator(conf, system),
+            PlaneFinderAggregator(conf, system),
+            AdsbHubAggregator(conf, system),
+            OpenSkyAggregator(conf, system),
+            RadarVirtuelAggregator(conf, system),
+            TenNinetyUkAggregator(conf, system),
+            SdrMapAggregator(conf, system),
+            PorttrackerAggregator(conf, system),
+            AiscatcherAggregator(conf, system),
+            AishubAggregator(conf, system),]
         for aggregator in aggregators:
             assert aggregator.agg_key not in _aggregator_dict
             _aggregator_dict[aggregator.agg_key] = aggregator
     return _aggregator_dict
 
 
+class NetConfig:
+    def __init__(self, adsb_config: str, mlat_config: str, has_policy: bool):
+        self.adsb_config = adsb_config
+        self.mlat_config = mlat_config
+        self._has_policy = has_policy
+
+    def generate(
+            self, mlat_privacy: bool = True, uuid: str = None,
+            mlat_enable: bool = True):
+        adsb_line = self.adsb_config
+        mlat_line = self.mlat_config
+
+        if uuid and len(uuid) == 36:
+            adsb_line += f",uuid={uuid}"
+            if mlat_line:
+                mlat_line += f",uuid={uuid}"
+        if mlat_line and mlat_privacy:
+            mlat_line += ",--privacy"
+        if mlat_enable:
+            return f"{adsb_line};{mlat_line}"
+        else:
+            return f"{adsb_line}"
+
+    @property
+    def has_policy(self):
+        return self._has_policy
+
+
 class Aggregator(abc.ABC):
     MAX_CACHE_AGE = 10
 
     def __init__(
-            self, data: utils.data.Data, system: utils.system.System, *,
+            self, conf: utils.data.Config, system: utils.system.System, *,
             agg_key: str, name: str, map_url: Optional[str],
             status_url: Optional[str]):
         self._logger = logging.getLogger(type(self).__name__)
-        self._d = data
+        self._conf = conf
         self._system = system
         self._agg_key = agg_key
         self._name = name
@@ -185,10 +232,10 @@ class Aggregator(abc.ABC):
         """
         if not all(t in self.capable_message_types for t in message_types):
             return False
-        return self._d.list_is_enabled(self.agg_key, 0)
+        return self._conf.get(f"aggregators.{self.agg_key}.is_enabled")
 
     def configure(self, enabled: bool, *args) -> None:
-        self._d.env_by_tags([self.agg_key, "is_enabled"]).list_set(0, enabled)
+        self._conf.get(f"aggregators.{self.agg_key}.is_enabled", enabled)
         self._logger.info("Enabled." if enabled else "Disabled.")
 
     def refresh_status_cache(self) -> None:
@@ -221,7 +268,7 @@ class Aggregator(abc.ABC):
             )
 
         status = self._check_aggregator_status()
-        if not self._d.list_is_enabled("mlat_enable", 0) and status["adsb"]:
+        if not self._conf.get("mlat_enable") and status["adsb"]:
             # If mlat isn't enabled, ignore status check results.
             status["adsb"]["mlat_status"] = Status.DISABLED
         return status
@@ -242,15 +289,17 @@ class UltrafeederAggregator(Aggregator):
     ULTRAFEEDER_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder")
 
     def __init__(
-            self, data: utils.data.Data, system: utils.system.System, *,
+            self, conf: utils.data.Config, system: utils.system.System, *,
             agg_key: str, name: str, map_url: Optional[str],
-            status_url: Optional[str]):
+            status_url: Optional[str], netconfig: NetConfig):
         super().__init__(
-            data, system, agg_key=agg_key, name=name, map_url=map_url,
+            conf, system, agg_key=agg_key, name=name, map_url=map_url,
             status_url=status_url)
-        self._netconfig = self._d.netconfigs.get(self.agg_key)
-        if not self._netconfig:
-            raise ValueError
+        self._netconfig = netconfig
+
+    @property
+    def netconfig(self) -> NetConfig:
+        return self._netconfig
 
     @property
     def capable_message_types(self) -> set[MessageType]:
@@ -332,11 +381,13 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
     class AirplanesLiveAdsbStatus(AdsbStatus):
         alive_map_link: str
 
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="alive", name="airplanes.live",
+            conf, system, agg_key="alive", name="airplanes.live",
             map_url="https://globe.airplanes.live/",
-            status_url="https://airplanes.live/myfeed/")
+            status_url="https://airplanes.live/myfeed/", netconfig=NetConfig(
+                "adsb,feed.airplanes.live,30004,beast_reduce_plus_out",
+                "mlat,feed.airplanes.live,31090,39012", has_policy=True))
         self._alive_map_link = None
 
     def _check_aggregator_status(self) -> AggregatorStatus:
@@ -360,17 +411,19 @@ class AdsbLolAggregator(UltrafeederAggregator):
     class AdsbLolAdsbStatus(AdsbStatus):
         adsblol_link: str
 
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="adsblol", name="adsb.lol",
+            conf, system, agg_key="adsblol", name="adsb.lol",
             map_url="https://adsb.lol/",
-            status_url="https://api.adsb.lol/0/me")
+            status_url="https://api.adsb.lol/0/me", netconfig=NetConfig(
+                "adsb,feed.adsb.lol,30004,beast_reduce_plus_out",
+                "mlat,feed.adsb.lol,31090,39001", has_policy=True))
         self._adsblol_link = None
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         status = super()._check_aggregator_status()
         if self._adsblol_link is None:
-            uuid = self._d.env_by_tags("adsblol_uuid").list_get(0)
+            uuid = self._conf.get("adsblol_uuid")
             json_url = "https://api.adsb.lol/0/me"
             response_dict, status_code = utils.util.generic_get_json(json_url)
             try:
@@ -388,11 +441,14 @@ class AdsbxAggregator(UltrafeederAggregator):
     class AdsbxAdsbStatus(AdsbStatus):
         adsbx_feeder_id: str
 
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="adsbx", name="ADSBExchange",
+            conf, system, agg_key="adsbx", name="ADSBExchange",
             map_url="https://globe.adsbexchange.com/",
-            status_url="https://www.adsbexchange.com/myip/")
+            status_url="https://www.adsbexchange.com/myip/",
+            netconfig=NetConfig(
+                "adsb,feed1.adsbexchange.com,30004,beast_reduce_plus_out",
+                "mlat,feed.adsbexchange.com,31090,39003", has_policy=True))
         self._adsbx_feeder_id = None
 
     def _check_aggregator_status(self) -> AggregatorStatus:
@@ -440,25 +496,22 @@ class AccountBasedAggregator(Aggregator):
         return {MessageType.ADSB}
 
     def _lat(self):
-        return self._d.env_by_tags("lat").list_get(0)
+        return self._conf.get("lat")
 
     def _lon(self):
-        return self._d.env_by_tags("lon").list_get(0)
+        return self._conf.get("lon")
 
     def _alt(self):
-        return self._d.env_by_tags("alt").list_get(0)
+        return self._conf.get("alt")
 
     def _alt_ft(self):
         return int(int(self._alt()) / 0.308)
-
-    def _container(self):
-        return self._d.env_by_tags([self.agg_key, "container"]).value
 
     def configure(self, enabled: bool, key: Any, *args) -> None:
         if enabled and not key and self._key_required:
             raise ConfigureError("No key provided.")
         super().configure(enabled)
-        self._d.env_by_tags([self.agg_key, "key"]).list_set(0, key)
+        self._conf.set(f"aggregators.{self.agg_key}.key", key)
 
     def _download_docker_image(self, image: str) -> bool:
         self._logger.info(f"download_docker_container {image}")
@@ -520,9 +573,9 @@ class AccountBasedAggregator(Aggregator):
 
 
 class PlaneFinderAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="planefinder", name="PlaneFinder",
+            conf, system, agg_key="planefinder", name="PlaneFinder",
             map_url="https://planefinder.net/",
             status_url="/planefinder-stat/")
 
@@ -532,9 +585,9 @@ class PlaneFinderAggregator(AccountBasedAggregator):
 
 
 class AdsbHubAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="adsbhub", name="ADSBHub",
+            conf, system, agg_key="adsbhub", name="ADSBHub",
             map_url="https://www.adsbhub.org/coverage.php", status_url=None)
 
     @property
@@ -543,9 +596,9 @@ class AdsbHubAggregator(AccountBasedAggregator):
 
 
 class OpenSkyAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="opensky", name="OpenSky Network",
+            conf, system, agg_key="opensky", name="OpenSky Network",
             map_url="https://opensky-network.org/network/explorer",
             status_url=None)
 
@@ -564,12 +617,11 @@ class OpenSkyAggregator(AccountBasedAggregator):
             serial = self._request_fr_serial(user)
             if not serial:
                 raise ConfigureError("failed to get OpenSky serial")
-        self._d.env_by_tags([self.agg_key, "user"]).list_set(0, user)
+        self._conf.set("aggregators.opensky.user", user)
         super().configure(enabled, serial)
 
     def _request_fr_serial(self, user):
-        docker_image = self._d.env_by_tags(["opensky", "container"]).value
-
+        docker_image = self._conf.get("images.opensky")
         if not self._download_docker_image(docker_image):
             self._logger.error(
                 "failed to download the OpenSky docker image",
@@ -595,9 +647,9 @@ class OpenSkyAggregator(AccountBasedAggregator):
 
 
 class RadarVirtuelAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="radarvirtuel", name="RadarVirtuel",
+            conf, system, agg_key="radarvirtuel", name="RadarVirtuel",
             map_url="https://www.radarvirtuel.com/", status_url=None)
 
     @property
@@ -610,9 +662,9 @@ class PorttrackerAggregator(AccountBasedAggregator):
         "https://porttracker-api.porttracker.co/api/v1/sharing/stations/"
         "{station_id}/stats/basic")
 
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="porttracker", name="Porttracker",
+            conf, system, agg_key="porttracker", name="Porttracker",
             map_url="https://porttracker.co/",
             status_url="https://www.porttracker.co/app/profile")
         self._station_id = None
@@ -633,10 +685,6 @@ class PorttrackerAggregator(AccountBasedAggregator):
             mqtt_protocol: str, mqtt_host: str, mqtt_port: str,
             mqtt_username: str, mqtt_password: str, mqtt_topic: str) -> None:
         if not enabled:
-            for tag in ["mqtt_url", "mqtt_client_id", "mqtt_qos", "mqtt_topic",
-                        "mqtt_msgformat"]:
-                self._d.env_by_tags(["shipfeeder_config_porttracker",
-                                     tag]).list_set(0, "")
             return super().configure(enabled, data_sharing_key)
         if not all([station_id, data_sharing_key, mqtt_protocol, mqtt_host,
                     mqtt_port, mqtt_username, mqtt_password, mqtt_topic]):
@@ -644,39 +692,17 @@ class PorttrackerAggregator(AccountBasedAggregator):
         mqtt_url = "{}://{}:{}@{}:{}".format(
             mqtt_protocol, mqtt_username, mqtt_password, mqtt_host, mqtt_port)
         client_id = f"{mqtt_username}-{station_id}"
-        self._d.env_by_tags([self.agg_key,
-                             "station_id"]).list_set(0, station_id)
-        self._d.env_by_tags([self.agg_key, "mqtt_url"]).list_set(0, mqtt_url)
-        self._d.env_by_tags([self.agg_key,
-                             "mqtt_client_id"]).list_set(0, client_id)
-        self._d.env_by_tags([self.agg_key, "mqtt_qos"]).list_set(0, "0")
-        self._d.env_by_tags([self.agg_key,
-                             "mqtt_topic"]).list_set(0, mqtt_topic)
-        self._d.env_by_tags([self.agg_key,
-                             "mqtt_msgformat"]).list_set(0, "JSON_NMEA")
+        self._conf.set("aggregators.porttracker.station_id", station_id)
+        self._conf.set("aggregators.porttracker.mqtt_url", mqtt_url)
+        self._conf.set("aggregators.porttracker.mqtt_client_id", client_id)
+        self._conf.set("aggregators.porttracker.mqtt_qos", "0")
+        self._conf.set("aggregators.porttracker.mqtt_topic", mqtt_topic)
+        self._conf.set("aggregators.porttracker.mqtt_msgformat", "JSON_NMEA")
         super().configure(enabled, data_sharing_key)
-        self._d.env_by_tags(["shipfeeder_config_porttracker",
-                             "mqtt_url"]).list_set(0, mqtt_url)
-        self._d.env_by_tags([
-            "shipfeeder_config_porttracker",
-            "mqtt_client_id"]).list_set(0, client_id)
-        self._d.env_by_tags(["shipfeeder_config_porttracker",
-                             "mqtt_qos"]).list_set(0, "0")
-        self._d.env_by_tags(["shipfeeder_config_porttracker",
-                             "mqtt_topic"]).list_set(0, mqtt_topic)
-        self._d.env_by_tags([
-            "shipfeeder_config_porttracker",
-            "mqtt_msgformat"]).list_set(0, "JSON_NMEA")
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        data_sharing_key_env = self._d.env_by_tags([
-            "porttracker", "data_sharing_key"])
-        station_id_env = self._d.env_by_tags(["porttracker", "station_id"])
-        if not data_sharing_key_env or not station_id_env:
-            raise StatusCheckError(
-                "Data sharing key or station ID configuration not found.")
-        data_sharing_key = data_sharing_key_env.value[0]
-        station_id = station_id_env.value[0]
+        data_sharing_key = self._conf.get("aggregators.porttracker.key")
+        station_id = self._conf.get("aggregators.porttracker.station_id")
         if not data_sharing_key or not station_id:
             raise StatusCheckError(
                 "Data sharing key or station ID not configured.")
@@ -701,15 +727,15 @@ class PorttrackerAggregator(AccountBasedAggregator):
 
 
 class AirnavRadarAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="radarbox", name="AirNav Radar",
+            conf, system, agg_key="radarbox", name="AirNav Radar",
             map_url="https://www.airnavradar.com/coverage-map",
             status_url=None)
 
     @property
     def status_url(self) -> Optional[str]:
-        feeder_id = self._d.env("FEEDER_RADARBOX_SN").list_get(0)
+        feeder_id = self._conf.get("aggregators.radarbox.sn")
         return f"https://www.airnavradar.com/stations/{feeder_id}"
 
     @property
@@ -724,7 +750,7 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         super().configure(enabled, sharing_key)
 
     def _request_rb_sharing_key(self):
-        docker_image = self._d.env_by_tags(["radarbox", "container"]).value
+        docker_image = self._conf.get("images.radarbox")
 
         if not self._download_docker_image(docker_image):
             self._logger.error(
@@ -734,7 +760,7 @@ class AirnavRadarAggregator(AccountBasedAggregator):
 
         # make sure we correctly enable the hacks
         extra_env = f"-v /opt/adsb/rb/cpuinfo:/proc/cpuinfo "
-        if self._d.env_by_tags("rbthermalhack").value != "":
+        if self._conf.get("rbthermalhack"):
             extra_env += "-v /opt/adsb/rb:/sys/class/thermal:ro "
 
         cmdline = (
@@ -754,13 +780,12 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         return sharing_key_match.group(1)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        rbkey = self._d.env_by_tags(["radarbox", "key"]).list_get(0)
+        rbkey = self._conf.get("aggregators.radarbox.key")
         # reset station number if the key has changed
-        if rbkey != self._d.env_by_tags(["radarbox", "snkey"]).list_get(0):
-            station_serial = self._d.env_by_tags(["radarbox",
-                                                  "sn"]).list_set(0, "")
+        if rbkey != self._conf.get("aggregators.radarbox.snkey"):
+            station_serial = self._conf.set("aggregators.radarbox.sn", "")
 
-        station_serial = self._d.env_by_tags(["radarbox", "sn"]).list_get(0)
+        station_serial = self._conf.get("aggregators.radarbox.sn")
         if not station_serial:
             try:
                 result = subprocess.run(
@@ -779,9 +804,8 @@ class AirnavRadarAggregator(AccountBasedAggregator):
                 serial_text)
             if match:
                 station_serial = match.group(1)
-                self._d.env_by_tags(["radarbox",
-                                     "sn"]).list_set(0, station_serial)
-                self._d.env_by_tags(["radarbox", "snkey"]).list_set(0, rbkey)
+                self._conf.set("aggregators.radarbox.sn", station_serial)
+                self._conf.set("aggregators.radarbox.snkey", rbkey)
         if not station_serial:
             raise StatusCheckError(
                 "Unable to parse station serial from rbfeeder logs.")
@@ -808,9 +832,9 @@ class AirnavRadarAggregator(AccountBasedAggregator):
 
 
 class FlightAwareAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="flightaware", name="FlightAware",
+            conf, system, agg_key="flightaware", name="FlightAware",
             map_url="https://www.flightaware.com/live/map",
             status_url="/fa-status/")
 
@@ -827,13 +851,14 @@ class FlightAwareAggregator(AccountBasedAggregator):
         super().configure(enabled, feeder_id)
 
     def _request_fa_feeder_id(self):
-        if not self._download_docker_image(self._docker_image()):
+        docker_image = self._conf.get("images.flightaware")
+        if not self._download_docker_image(docker_image):
             self._logger.error(
                 "failed to download the piaware docker image",
                 flash_message=True)
             return None
 
-        cmdline = f"--rm {self._docker_image()}"
+        cmdline = f"--rm {docker_image}"
         output = self._docker_run_with_timeout(cmdline, 45.0)
         feeder_id_match = re.search(" feeder ID is ([-a-zA-Z0-9]*)", output)
         if feeder_id_match:
@@ -845,7 +870,7 @@ class FlightAwareAggregator(AccountBasedAggregator):
         return None
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
+        host = f"http://127.0.0.1:{self._conf.get('ports.web')}"
         json_url = f"{host}/fa-status.json/"
         fa_dict, status = utils.util.generic_get_json(json_url)
         if not fa_dict or status != 200:
@@ -879,14 +904,14 @@ class FlightAwareAggregator(AccountBasedAggregator):
 
 
 class TenNinetyUkAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="1090uk", name="1090MHz UK",
+            conf, system, agg_key="1090uk", name="1090MHz UK",
             map_url="https://1090mhz.uk", status_url=None)
 
     @property
     def status_url(self) -> Optional[str]:
-        api_key = self._d.env("FEEDER_1090UK_API_KEY").list_get(0)
+        api_key = self._conf.get("aggregators.1090uk.key")
         return f"https://www.1090mhz.uk/mystatus.php?key={api_key}"
 
     @property
@@ -903,7 +928,7 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
         # it's been disabled, but I'm leaving it here in case it becomes
         # useful.
         if False:
-            key = self._d.env_by_tags(["1090uk", "key"]).list_get(0)
+            key = self._conf.get("aggregators.1090uk.key")
             json_url = f"https://www.1090mhz.uk/mystatus.php?key={key}"
             tn_dict, status = utils.util.generic_get_json(json_url)
             if tn_dict and status == 200:
@@ -919,9 +944,9 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
 
 
 class FlightRadar24Aggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="flightradar", name="flightradar24",
+            conf, system, agg_key="flightradar", name="flightradar24",
             map_url="https://www.flightradar24.com/", status_url="/fr24/")
 
     @property
@@ -970,14 +995,14 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
 
         if adsb_sharing_key or uat_sharing_key:
             # we have at least one sharing key, let's just enable the container
-            self._d.env_by_tags(["flightradar_uat",
-                                 "key"]).list_set(0, uat_sharing_key)
+            self._conf.set("aggregators.flightradar.uat_key", uat_sharing_key)
             super().configure(enabled, adsb_sharing_key)
         else:
             raise ConfigureError("Couldn't get any sharing key.")
 
     def _request_fr24_sharing_key(self, email: str):
-        if not self._download_docker_image(self._docker_image()):
+        docker_image = self._conf.get("images.flightradar")
+        if not self._download_docker_image(docker_image):
             self._logger.error(
                 "Failed to download the FR24 docker image.",
                 flash_message=True)
@@ -1002,7 +1027,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         adsb_signup_command = (
             f"docker run --entrypoint /bin/bash --rm "
             f'-e FEEDER_LAT="{lat}" -e FEEDER_LONG="{lon}" -e FEEDER_ALT_FT="{self._alt_ft()}" '
-            f'-e FR24_EMAIL="{email}" {self._docker_image()} '
+            f'-e FR24_EMAIL="{email}" {docker_image} '
             f'-c "apt update && apt install -y expect && $(cat handsoff_signup_expect.sh)"'
         )
         open("/opt/adsb/handsoff_signup.sh",
@@ -1042,7 +1067,8 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         return adsb_key
 
     def _request_fr24_uat_sharing_key(self, email: str):
-        if not self._download_docker_image(self._docker_image()):
+        docker_image = self._conf.get("images.flightradar")
+        if not self._download_docker_image(docker_image):
             self._logger.error(
                 "Failed to download the FR24 docker image.",
                 flash_message=True)
@@ -1051,7 +1077,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         uat_signup_command = (
             f"docker run --entrypoint /bin/bash --rm "
             f'-e FEEDER_LAT="{self._lat()}" -e FEEDER_LONG="{self._lon()}" -e FEEDER_ALT_FT="{self._alt_ft()}" '
-            f'-e FR24_EMAIL="{email}" {self._docker_image()} '
+            f'-e FR24_EMAIL="{email}" {docker_image} '
             f'-c "apt update && apt install -y expect && $(cat handsoff_signup_expect_uat.sh)"'
         )
         open("/opt/adsb/handsoff_signup_uat.sh",
@@ -1090,7 +1116,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         return uat_key
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        host = f"http://127.0.0.1:{self._d.env_by_tags('webport').value}"
+        host = f"http://127.0.0.1:{self._conf.get('ports.web')}"
         json_url = f"{host}/fr24-monitor.json/"
         fr_dict, status = utils.util.generic_get_json(json_url)
         if not fr_dict or status != 200:
@@ -1108,9 +1134,9 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
 
 
 class PlaneWatchAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="planewatch", name="Plane.watch",
+            conf, system, agg_key="planewatch", name="Plane.watch",
             map_url="https:/plane.watch/desktop.html", status_url=None)
 
     @property
@@ -1119,7 +1145,7 @@ class PlaneWatchAggregator(AccountBasedAggregator):
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         # they sometimes call it key, sometimes uuid
-        pw_uuid = self._d.env_by_tags(["planewatch", "key"]).list_get(0)
+        pw_uuid = self._conf.get("aggregators.planewatch.key")
         if not pw_uuid:
             raise StatusCheckError("Now Planewatch UUID set.")
         json_url = (
@@ -1146,9 +1172,9 @@ class PlaneWatchAggregator(AccountBasedAggregator):
 class SdrMapAggregator(AccountBasedAggregator):
     FEED_OK_FILE = pathlib.Path("/run/sdrmap/feed_ok")
 
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="sdrmap", name="sdrmap",
+            conf, system, agg_key="sdrmap", name="sdrmap",
             map_url="https://sdrmap.org/", status_url=None)
 
     @property
@@ -1162,7 +1188,7 @@ class SdrMapAggregator(AccountBasedAggregator):
             raise ConfigureError("missing user")
         if not password:
             raise ConfigureError("missing password")
-        self._d.env_by_tags([self.agg_key, "user"]).list_set(0, user)
+        self._conf.set("aggregators.sdrmap.user", user)
         super().configure(enabled, password)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
@@ -1178,9 +1204,9 @@ class SdrMapAggregator(AccountBasedAggregator):
 
 
 class AiscatcherAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="aiscatcher", name="AIS-catcher",
+            conf, system, agg_key="aiscatcher", name="AIS-catcher",
             map_url="https://www.aiscatcher.org/livemap", status_url=None,
             key_required=False)
 
@@ -1202,13 +1228,6 @@ class AiscatcherAggregator(AccountBasedAggregator):
             except Exception as e:
                 raise ValueError("Invalid feeder key (must be a UUID).") from e
         super().configure(enabled, feeder_key_str)
-        share_data = "true" if enabled else "false"
-        if not enabled:
-            feeder_key_str = ""
-        self._d.env_by_tags(["shipfeeder_config_aiscatcher",
-                             "key"]).list_set(0, feeder_key_str)
-        self._d.env_by_tags(["shipfeeder_config_aiscatcher",
-                             "share_data"]).list_set(0, share_data)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         return AggregatorStatus(
@@ -1216,9 +1235,9 @@ class AiscatcherAggregator(AccountBasedAggregator):
 
 
 class AishubAggregator(AccountBasedAggregator):
-    def __init__(self, data: utils.data.Data, system: utils.system.System):
+    def __init__(self, conf: utils.data.Config, system: utils.system.System):
         super().__init__(
-            data, system, agg_key="aishub", name="Aishub",
+            conf, system, agg_key="aishub", name="Aishub",
             map_url="https://www.aishub.net/coverage", status_url=None)
 
     @property
@@ -1231,10 +1250,7 @@ class AishubAggregator(AccountBasedAggregator):
 
     @property
     def _udp_port(self) -> Optional[int]:
-        env = self._d.env_by_tags(["aishub", "udp_port"])
-        if not env:
-            return None
-        return int(env.value[0])
+        return self._conf.get("aggregators.aishub.key")
 
     @property
     def status_url(self) -> Optional[str]:
@@ -1248,12 +1264,6 @@ class AishubAggregator(AccountBasedAggregator):
         except Exception as e:
             raise ValueError("Invalid UDP port (must be an integer).") from e
         super().configure(enabled, udp_port_int)
-        if enabled:
-            key = self._d.env_by_tags([self.agg_key, "key"]).value[0]
-        else:
-            key = ""
-        self._d.env_by_tags(["shipfeeder_config_aishub",
-                             "key"]).list_set(0, key)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         if not self._udp_port:

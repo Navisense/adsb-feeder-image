@@ -1,6 +1,6 @@
 services:
   piaware:
-    image: ${FA_CONTAINER}
+    image: ${DOCKER_IMAGE_FLIGHTAWARE}
     healthcheck:
       disable: true
     container_name: piaware

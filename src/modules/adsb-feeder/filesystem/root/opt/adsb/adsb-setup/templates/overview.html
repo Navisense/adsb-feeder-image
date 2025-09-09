@@ -4,7 +4,7 @@
   Porttracker Feeder Homepage
 {% endblock title %}
 {% block content %}
-  <div class="alert alert-danger {% if env_value_by_tag('dns_state') %}d-none{% endif %}"
+  <div class="alert alert-danger {% if get_conf('dns_state') %}d-none{% endif %}"
        role="alert">The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.</div>
   <div class="alert alert-danger {% if not ipv6_broken %}d-none{% endif %}"
        role="alert">
@@ -17,7 +17,7 @@
       <button type="submit" name="submit" value="go" class="btn btn-primary">Retry</button>
     </form>
   </div>
-  <div class="alert alert-danger {% if not env_value_by_tag('under_voltage') %}d-none{% endif %}"
+  <div class="alert alert-danger {% if not get_conf('under_voltage') %}d-none{% endif %}"
        role="alert">
     The feeder system kernel detected under-voltage. This can lead to random crashes and various issues with clock
     stability, reduced reception, failing SDRs, etc. Please check and likely replace your power supply.
@@ -27,7 +27,7 @@
     aggregators below may be incorrect.
   </div>
   <div id="low-disk"
-       class="alert alert-info {% if not env_value_by_tag('low_disk') %}d-none{% endif %}"
+       class="alert alert-info {% if not get_conf('low_disk') %}d-none{% endif %}"
        role="alert">
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
@@ -175,15 +175,15 @@
               <a id="adsblol-link" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are sending</a>
             </li>
             <li>
-              <a href="https://mlat.adsb.lol/syncmap/#lat={{ list_value_by_tags(['lat']) }}#lon={{ list_value_by_tags(['lon']) }}#zoom=10">
-                ADSB.lol MLAT feeder map for the area around {{ list_value_by_tags(['site_name']) }}
+              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
+                ADSB.lol MLAT feeder map for the area around {{ get_conf('site_name') }}
               </a>
             </li>
           </ul>
-          {% if list_is_enabled("mlat_privacy", 0) %}
+          {% if get_conf("mlat_privacy") %}
             (since you have MLAT privacy enabled, your feeder won't be shown)
           {% else %}
-            (your feeder will be at an approximate location as {{ list_value_by_tags(['site_name']) }})
+            (your feeder will be at an approximate location as {{ get_conf('site_name') }})
           {% endif %}
         </div>
       {% endif %}
@@ -251,8 +251,8 @@
 </div>
 <div class="col-12">
   <dl>
-    <dt>Hostname</dt><dd>{{ list_value_by_tags(['site_name']) }}</dd>
-    {% with current_version = env_value_by_tag("base_version") %}
+    <dt>Hostname</dt><dd>{{ get_conf('site_name') }}</dd>
+    {% with current_version = get_conf("base_version") %}
       <dt>Current version</dt>
       <dd>
         <strong>{{ current_version }}</strong>

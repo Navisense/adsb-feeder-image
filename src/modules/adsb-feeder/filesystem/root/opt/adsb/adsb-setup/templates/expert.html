@@ -15,37 +15,14 @@
             Add the configuration that you need here - it will be appended to the Ultrafeeder config.
           </label>
         </div>
-        {% if is_enabled('stage2') %}
-        <div class="col-12 mb-2">Stage2: applied to all microsite ultrafeeder instances:</div>
         <div class="col-8">
-          <input class="mx-auto w-100" id="ultrafeeder_extra_args_microsites"
-                 name="ultrafeeder_extra_args_microsites" type="text"
-                 value="{{ env_value_by_tag('ultrafeeder_extra_args_microsites') }}">
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100"
-                  name="ultrafeeder-extra-args-microsites-submit"
-                  value="go">Submit</button>
-        </div>
-        <div class="col-12 mb-2">Stage2: applied to the ultrafeeder instance with combined data:</div>
-        <div class="col-8">
-          <input class="mx-auto w-100" id="ultrafeeder_extra_args" name="ultrafeeder_extra_args" type="text"
-                 value="{{ env_value_by_tag('ultrafeeder_extra_args') }}">
+          <input class="mx-auto w-100" id="ultrafeeder_extra_args" name="set_config--str--ultrafeeder_extra_args" type="text"
+                 value="{{ get_conf('ultrafeeder_extra_args', default='') }}">
         </div>
         <div class="col-4">
           <button type="submit" class="btn btn-primary mx-auto w-100" name="ultrafeeder-extra-args-submit"
                   value="go">Submit</button>
         </div>
-        {% else %}
-        <div class="col-8">
-          <input class="mx-auto w-100" id="ultrafeeder_extra_args" name="ultrafeeder_extra_args" type="text"
-                 value="{{ env_value_by_tag('ultrafeeder_extra_args') }}">
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100" name="ultrafeeder-extra-args-submit"
-                  value="go">Submit</button>
-        </div>
-        {% endif %}
       </div>
     </form>
   </div>
@@ -64,8 +41,8 @@
           </label>
         </div>
         <div class="col-8">
-          <textarea class="mx-auto w-100" id="ultrafeeder_extra_env" name="ultrafeeder_extra_env"
-                    placeholder="READSB_RTLSDR_PPM=22&#13;&#10;READSB_RANGE_OUTLINE_HOURS=72">{{ env_value_by_tag('ultrafeeder_extra_env') }}</textarea>
+          <textarea class="mx-auto w-100" id="ultrafeeder_extra_env" name="set_config--str--ultrafeeder_extra_env"
+                    placeholder="READSB_RTLSDR_PPM=22&#13;&#10;READSB_RANGE_OUTLINE_HOURS=72">{{ get_conf('ultrafeeder_extra_env', default='') }}</textarea>
         </div>
         <div class="col-4">
           <button type="submit" class="btn btn-primary mx-auto w-100" name="ultrafeeder-extra-env-submit"
@@ -86,8 +63,8 @@
           </label>
         </div>
         <div class="col-8">
-          <input class="mx-auto w-100" id="tar1090_query_params" name="tar1090_query_params" type="text"
-                 placeholder="?autoselect&centerReceiver" value="{{ env_value_by_tag('tar1090_query_params') }}">
+          <input class="mx-auto w-100" id="tar1090_query_params" name="set_config--str--tar1090_query_params" type="text"
+                 placeholder="?autoselect&centerReceiver" value="{{ get_conf('tar1090_query_params') }}">
         </div>
         <div class="col-4">
           <button type="submit" class="btn btn-primary mx-auto w-100" name="tar1090-query-params-submit"
@@ -96,8 +73,8 @@
       </div>
     </form>
   </div>
-  {% if is_enabled('has_gpsd') %}
-  {% if is_enabled('use_gpsd') %}
+  {% if get_conf('has_gpsd') %}
+  {% if get_conf('use_gpsd') %}
   <div class="col-12 col-lg-6">
     <h5 class="mt-3">GPS based location</h5>
     <form method="POST">
@@ -133,7 +110,7 @@
   </div>
   {% endif %}
   {% endif %}
-  {% if env_value_by_tag('tar1090_image_config_link') != '' %}
+  {% if get_conf('tar1090_image_config_link') != '' %}
   <div class="col-12 col-lg-6">
     <h5 class="mt-3">Don't show config link on map page</h5>
     <form method="POST" onsubmit="show_spinner(); return true;">
@@ -142,7 +119,7 @@
           <label for="no_config_link">If you want to share ONLY the map / statistics with others, but don't want to show
             them the link to the adsb.im feeder image home page (which allows them to change the configuration), you can
             disable it here. Please note that the user still can simply access that page by changing the port that they
-            access your feeder on from {{ env_value_by_tag('tar1090port') }} to {{ env_value_by_tag('webport') }},
+            access your feeder on from {{ get_conf('ports.tar1090') }} to {{ get_conf('ports.web') }},
             unless you filter this out through some firewall settings (which isn't something this image supports).
           </label>
         </div>
@@ -160,8 +137,8 @@
       <div class="row align-items-center">
         <div class="col-8">
           <label for="allow_config_link">Reenable the link to the adsb.im feeder image home page on the map page.
-            Please make sure that both the map port {{ env_value_by_tag('tar1090port') }} and the feeder UI port
-            {{ env_value_by_tag('webport') }} are accessible to users.
+            Please make sure that both the map port {{ get_conf('ports.tar1090') }} and the feeder UI port
+            {{ get_conf('ports.web') }} are accessible to users.
           </label>
         </div>
         <div class="col-4">
@@ -177,14 +154,14 @@
     <form method="POST" onsubmit="show_spinner(); return true;">
       <div class="row align-items-center">
         <div class="col-8">
-          <input type="radio" name="css_theme" id="css_light" value="light" {% if
-          env_value_by_tag("css_theme")=="light" %} checked {% endif %}>
+          <input type="radio" name="set_config--str--css_theme" id="css_light" value="light" {% if
+          get_conf("css_theme")=="light" %} checked {% endif %}>
           <label class="form-check-label mr-3" for="css_light">Light Theme</label>
-          <input type="radio" name="css_theme" id="css_dark" value="dark" {% if
-          env_value_by_tag("css_theme")=="dark" %} checked {% endif %}>
+          <input type="radio" name="set_config--str--css_theme" id="css_dark" value="dark" {% if
+          get_conf("css_theme")=="dark" %} checked {% endif %}>
           <label class="form-check-label mr-3" for="css_dark">Dark Theme</label>
-          <input type="radio" name="css_theme" id="css_auto" value="auto" {% if
-          env_value_by_tag("css_theme")=="auto" %} checked {% endif %}>
+          <input type="radio" name="set_config--str--css_theme" id="css_auto" value="auto" {% if
+          get_conf("css_theme")=="auto" %} checked {% endif %}>
           <label class="form-check-label mr-3" for="css_auto">Auto</label>
         </div>
         <div class="col-4">
@@ -194,7 +171,7 @@
       </div>
     </form>
   </div>
-  {% if is_enabled('docker_concurrent') %}
+  {% if get_conf('docker_concurrent') %}
   <div class="col-12 col-lg-6">
     <h5 class="mt-3">Docker pull: Disable concurrent downloads</h5>
     <form method="POST" onsubmit="show_spinner(); return true;">

@@ -1,6 +1,6 @@
 services:
   sdrplay-beast1090:
-    image: ${SDRPLAY_CONTAINER}
+    image: ${DOCKER_IMAGE_SDRPLAY}
     healthcheck:
       disable: true
     container_name: sdrplay-beast1090

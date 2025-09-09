@@ -128,9 +128,9 @@ class SDRDevices:
 
     def purposes(self):
         return (
-            "978serial",
-            "1090serial",
-            "aisserial",
+            "978",
+            "1090",
+            "ais",
             "other-0",
             "other-1",
             "other-2",
@@ -258,7 +258,7 @@ class SDRDevices:
         return address
 
     @property
-    def addresses_per_frequency(self, frequencies: list = [1090, 978, "ais"]):
+    def addresses_per_frequency(self, frequencies: list = ["1090", "978", "ais"]):
         self.ensure_populated()
         # - if we find an airspy, that's for 1090
         # - if we find an stratuxv3, that's for 978
@@ -270,22 +270,22 @@ class SDRDevices:
         assignment = {}
         for sdr in self.sdrs:
             if sdr.type in ["airspy", "modesbeast", "sdrplay"]:
-                assignment.setdefault(1090, sdr.serial)
+                assignment.setdefault("1090", sdr.serial)
             elif sdr.type == "stratuxv3":
-                assignment.setdefault(978, sdr.serial)
+                assignment.setdefault("978", sdr.serial)
             elif sdr.type == "rtlsdr":
                 if "1090" in sdr.serial:
-                    assignment.setdefault(1090, sdr.serial)
+                    assignment.setdefault("1090", sdr.serial)
                 elif "978" in sdr.serial and len(self.sdrs) > 1:
-                    assignment.setdefault(978, sdr.serial)
+                    assignment.setdefault("978", sdr.serial)
                 else:
-                    assignment.setdefault(1090, sdr.serial)
+                    assignment.setdefault("1090", sdr.serial)
             else:
                 self._logger.warning(f"Unknown SDR type {sdr.type}.")
         if not assignment and self.sdrs:
             # Nothing is assigned, but we have devices. Use the first one for
             # 1090.
-            assignment[1090] = self.sdrs[0].serial
+            assignment["1090"] = self.sdrs[0].serial
         try:
             unassigned_rtlsdr = next(
                 sdr for sdr in self.sdrs if sdr.type == "rtlsdr"

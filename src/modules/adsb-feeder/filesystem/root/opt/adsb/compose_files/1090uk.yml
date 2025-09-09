@@ -1,6 +1,6 @@
 services:
   1090uk:
-    image: ${TNUK_CONTAINER}
+    image: ${DOCKER_IMAGE_1090UK}
     healthcheck:
       disable: true
     container_name: radar1090uk

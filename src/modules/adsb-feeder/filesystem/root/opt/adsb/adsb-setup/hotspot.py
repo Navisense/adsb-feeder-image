@@ -20,15 +20,15 @@ import utils.wifi
 logger = logging.getLogger(__name__)
 
 
-def make_hotspot(data: utils.data.Data, on_wifi_test_status):
+def make_hotspot(conf: utils.data.Config, on_wifi_test_status):
     wlan = _find_wlan_device()
     if not wlan:
         return None
     baseos = utils.util.get_baseos()
     if baseos == "dietpi":
-        return NetworkingHotspot(data, wlan, on_wifi_test_status)
+        return NetworkingHotspot(conf, wlan, on_wifi_test_status)
     elif baseos in ["raspbian", "postmarketos"]:
-        return NetworkManagerHotspot(data, wlan, on_wifi_test_status)
+        return NetworkManagerHotspot(conf, wlan, on_wifi_test_status)
     else:
         raise ValueError(f"unknown OS {baseos}")
 
@@ -163,8 +163,8 @@ class Hotspot(abc.ABC):
     AVAHI_UNIT_PATH = pathlib.Path(
         "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
-    def __init__(self, data: utils.data.Data, wlan, on_wifi_test_status):
-        self._d = data
+    def __init__(self, conf: utils.data.Config, wlan, on_wifi_test_status):
+        self._conf = conf
         self.wlan = wlan
         self._on_wifi_test_status = on_wifi_test_status
         self._hotspot_lock = threading.Lock()
@@ -275,7 +275,7 @@ class Hotspot(abc.ABC):
         utils.system.systemctl().run(["unmask", "start"], ["hostapd.service"])
         utils.system.systemctl().run(["unmask", "start"],
                                      ["isc-kea-dhcp4-server.service"])
-        if self._d.is_enabled("mdns"):
+        if self._conf.get("mdns.is_enabled"):
             utils.system.systemctl().run(
                 ["restart"],
                 ["adsb-avahi-alias@porttracker-feeder.local.service"])
@@ -293,7 +293,7 @@ class Hotspot(abc.ABC):
             self._dns_server.stop()
         except:
             self._logger.exception("Error stopping DNS server.")
-        if self._d.is_enabled("mdns"):
+        if self._conf.get("mdns.is_enabled"):
             utils.system.systemctl().run(
                 ["stop"],
                 ["adsb-avahi-alias@porttracker-feeder.local.service"])

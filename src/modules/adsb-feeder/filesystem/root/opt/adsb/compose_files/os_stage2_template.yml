@@ -1,6 +1,6 @@
 services:
   opensky_STAGE2NUM:
-    image: ${OS_CONTAINER}
+    image: ${DOCKER_IMAGE_OPENSKY}
     healthcheck:
       disable: true
     container_name: opensky_STAGE2NUM

@@ -1,6 +1,6 @@
 services:
   planewatch:
-    image: ${PW_CONTAINER}
+    image: ${DOCKER_IMAGE_PLANEWATCH}
     healthcheck:
       disable: true
     container_name: planewatch

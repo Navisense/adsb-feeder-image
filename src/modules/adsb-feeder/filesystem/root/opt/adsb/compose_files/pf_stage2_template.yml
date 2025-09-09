@@ -1,6 +1,6 @@
 services:
   pfclient_STAGE2NUM:
-    image: ${PF_CONTAINER}
+    image: ${DOCKER_IMAGE_PLANEFINDER}
     healthcheck:
       disable: true
     container_name: pfclient_STAGE2NUM

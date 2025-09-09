@@ -1,6 +1,6 @@
 services:
   nanofeeder:
-    image: ${ULTRAFEEDER_CONTAINER}
+    image: ${DOCKER_IMAGE_ULTRAFEEDER}
     healthcheck:
       disable: true
     container_name: nanofeeder
