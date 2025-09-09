@@ -62,20 +62,7 @@ for app in "${USR_BIN_APPS[@]}"; do
     [[ -f "/opt/adsb/$app" ]] && rm -f "/usr/bin/$app"
 done
 
-# make sure that we have a .env file so the setup app will start
-# first make sure we have an /opt/adsb/config directory (or a link to one)
-# once we have those two things in place, the setup app will successfully
-# start and finish the rest of the work
-[[ -d /etc/adsb ]] || mkdir -p /etc/adsb
-cd /etc/adsb
-if [ ! -f .env ] ; then
-    cp /opt/adsb/docker.image.versions .env
-    echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> .env
-    echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> .env
-fi
-if [ ! -f config.json ] ; then
-    bash /opt/adsb/create-json-from-env.sh
-fi
+/opt/adsb/adsb-setup/config.py ensure_config_exists
 
 # remember that we handled the housekeeping for this version
 cp /opt/adsb/porttracker_feeder_install_metadata/version.txt /opt/adsb/porttracker_feeder_install_metadata/finish-update.done
