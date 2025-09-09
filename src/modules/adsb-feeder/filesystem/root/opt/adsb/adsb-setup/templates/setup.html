@@ -32,7 +32,7 @@
     <span class="col-md">
       <input type="text" id="site_name" name="set_config--str--site_name" required placeholder="my-awesome-antenna" class="form-control"
              pattern="[\-_.a-zA-Z0-9 ]+" title="Letters, numbers, -, _, ."
-             value="{{ get_conf('site_name') }}" />
+             value="{{ get_conf('site_name', default='') }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -42,7 +42,7 @@
     <span class="col-md">
       <input type="text" id="lat" name="set_config--float--lat" required placeholder="Antenna latitude" class="form-control"
              pattern="(?:\+|-|)(?:(?:[0-8]?\d)(?:\.\d+)?|90(?:\.0+)?)(,(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?))?"
-             title="Number between -90 and 90" value="{{ get_conf('lat', default=0) }}" />
+             title="Number between -90 and 90" value="{{ get_conf('lat', default='') }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -52,7 +52,7 @@
     <span class="col-md">
       <input type="text" id="lon" name="set_config--float--lon" required placeholder="Antenna longitude" class="form-control"
              pattern="(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?)" title="Number between -180 and 180"
-             value="{{ get_conf('lon', default=0) }}" />
+             value="{{ get_conf('lon', default='') }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
@@ -61,7 +61,7 @@
     </span>
     <span class="col-md">
       <input type="text" id="alt" name="set_config--float--alt" required placeholder="in m - or add 'ft' to enter in ft" class="form-control"
-             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ get_conf('alt', default=0) }}" />
+             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ get_conf('alt', default='') }}" />
     </span>
   </div>
   <div class="form-group row align-items-center mb-1">
