@@ -233,7 +233,7 @@ class Aggregator(abc.ABC):
             return False
         return self._conf.get(f"aggregators.{self.agg_key}.is_enabled")
 
-    def configure(self, enabled: bool, *args) -> None:
+    def configure(self, enabled: bool, *args, **kwargs) -> None:
         self._conf.set(f"aggregators.{self.agg_key}.is_enabled", enabled)
         self._logger.info("Enabled." if enabled else "Disabled.")
 
@@ -747,6 +747,8 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         return "rbfeeder"
 
     def configure(self, enabled: bool, sharing_key: Optional[str]) -> None:
+        if not enabled:
+            return super().configure(enabled, sharing_key)
         if not sharing_key:
             sharing_key = self._request_rb_sharing_key()
         if not sharing_key:
@@ -847,9 +849,11 @@ class FlightAwareAggregator(AccountBasedAggregator):
         return "piaware"
 
     def configure(self, enabled: bool, feeder_id: Optional[str]) -> None:
+        if not enabled:
+            return super().configure(enabled, feeder_id)
         if not feeder_id:
             feeder_id = self._request_fa_feeder_id()
-            self._logger.info(f"got back feeder_id |{feeder_id}|")
+            self._logger.info(f"Got back feeder ID {feeder_id}.")
         if not feeder_id:
             raise ConfigureError("Couldn't get a new feeder ID.")
         super().configure(enabled, feeder_id)
@@ -1266,6 +1270,8 @@ class AishubAggregator(AccountBasedAggregator):
         try:
             udp_port_int = int(udp_port)
         except Exception as e:
+            if not enabled:
+                return super().configure(enabled, None)
             raise ValueError("Invalid UDP port (must be an integer).") from e
         super().configure(enabled, udp_port_int)
 
