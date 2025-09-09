@@ -2825,18 +2825,7 @@ class Manager:
 
 
 def main():
-    if not config.CONFIG_DIR.exists():
-        logger.info("Config directory doesn't exist, creating an empty one.")
-        config.CONFIG_DIR.mkdir()
-    if not config.CONFIG_FILE.exists():
-        logger.info("Config file doesn't exist, creating a default one.")
-        conf = config.Config.create_default()
-        conf.write_to_file()
-    else:
-        conf = config.Config.load_from_file()
-    if not config.ENV_FILE.exists():
-        logger.info("Env file doesn't exist, writing one based on the config.")
-        conf.write_env_file()
+    conf = config.ensure_config_exists()
     if "--update-config" in sys.argv:
         # Just get AdsbIm to do some housekeeping and exit.
         AdsbIm(conf, None).update_config()

@@ -1,4 +1,7 @@
+#!/usr/bin/env python
+
 import abc
+import argparse
 import collections.abc as cl_abc
 import datetime
 import functools as ft
@@ -8,6 +11,7 @@ import logging
 import numbers
 import pathlib
 import shutil
+import sys
 import threading
 import typing as t
 from typing import Optional
@@ -795,12 +799,8 @@ class Config(CompoundSetting):
         # ADSB.im specific
         "aggregator_choice": ft.partial(
             StringSetting, env_variable_name="_ADSBIM_AGGREGATORS_SELECTION"),
-        "base_version": ft.partial(
-            StringSetting, env_variable_name="_ADSBIM_BASE_VERSION",
-            norestore=True),
-        "board_name": ft.partial(
-            StringSetting, env_variable_name="_ADSBIM_STATE_BOARD_NAME",
-            norestore=True),
+        "base_version": ft.partial(StringSetting, norestore=True),
+        "board_name": ft.partial(StringSetting, norestore=True),
         "mdns": ft.partial(
             CompoundSetting,
             schema={
@@ -1288,3 +1288,33 @@ class Config(CompoundSetting):
         # (from_version, to_version) to upgrader functions.
         assert k in _config_upgraders
         assert callable(_config_upgraders[k])
+
+
+def ensure_config_exists() -> Config:
+    if not CONFIG_DIR.exists():
+        logger.info("Config directory doesn't exist, creating an empty one.")
+        CONFIG_DIR.mkdir()
+    try:
+        conf = Config.load_from_file()
+    except FileNotFoundError:
+        logger.info("Config file doesn't exist, creating a default one.")
+        conf = Config.create_default()
+        conf.write_to_file()
+    conf.write_env_file()
+    return conf
+
+
+def _main():
+    parser = argparse.ArgumentParser(description="Access the config file.")
+    parser.add_argument("command")
+    args = parser.parse_args()
+    if args.command == "ensure_config_exists":
+        ensure_config_exists()
+    else:
+        logger.error(f"Unknown command {args.command}.")
+        sys.exit(1)
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+    _main()
