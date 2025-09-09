@@ -11,7 +11,7 @@ import socket
 import threading
 import time
 
-import data
+import config
 import fakedns
 import system
 import util
@@ -20,7 +20,7 @@ import wifi
 logger = logging.getLogger(__name__)
 
 
-def make_hotspot(conf: data.Config, on_wifi_test_status):
+def make_hotspot(conf: config.Config, on_wifi_test_status):
     wlan = _find_wlan_device()
     if not wlan:
         return None
@@ -163,7 +163,7 @@ class Hotspot(abc.ABC):
     AVAHI_UNIT_PATH = pathlib.Path(
         "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
-    def __init__(self, conf: data.Config, wlan, on_wifi_test_status):
+    def __init__(self, conf: config.Config, wlan, on_wifi_test_status):
         self._conf = conf
         self.wlan = wlan
         self._on_wifi_test_status = on_wifi_test_status

@@ -47,7 +47,7 @@ from werkzeug.utils import secure_filename
 
 import hotspot
 import aggregators
-import data
+import config
 from flask_util import RouteManager, check_restart_lock
 import gitlab
 import netconfig as netconfig_mod
@@ -208,7 +208,7 @@ class HotspotApp:
     you can set wifi credentials. Has a catch-all route, since the hotspot
     intercepts (almost) all requests.
     """
-    def __init__(self, conf: data.Config, on_wifi_credentials):
+    def __init__(self, conf: config.Config, on_wifi_credentials):
         self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
         self.ssids = []
@@ -271,7 +271,7 @@ class HotspotApp:
 
 
 class AdsbIm:
-    def __init__(self, conf: data.Config, hotspot_app):
+    def __init__(self, conf: config.Config, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
         self._conf = conf
@@ -743,7 +743,7 @@ class AdsbIm:
         self._conf.set("board_name", board)
 
     def update_version(self):
-        self._conf.set("base_version", data.read_version())
+        self._conf.set("base_version", config.read_version())
 
     def update_meminfo(self):
         self._memtotal = 0
@@ -895,7 +895,7 @@ class AdsbIm:
         return self.create_backup_zip(include_graphs=True, include_heatmap=True)
 
     def create_backup_zip(self, include_graphs=False, include_heatmap=False):
-        adsb_path = data.CONFIG_DIR
+        adsb_path = config.CONFIG_DIR
 
         def graphs1090_writeback(uf_path):
             # the rrd file will be updated via move after collectd is done writing it out
@@ -1031,7 +1031,7 @@ class AdsbIm:
                 return redirect(request.url)
             if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
                 filename = secure_filename(file.filename)
-                restore_path = data.CONFIG_DIR / "restore"
+                restore_path = config.CONFIG_DIR / "restore"
                 # clean up the restore path when saving a fresh zipfile
                 shutil.rmtree(restore_path, ignore_errors=True)
                 restore_path.mkdir(mode=0o644, exist_ok=True)
@@ -1063,7 +1063,7 @@ class AdsbIm:
         # be very careful with the content of this zip file...
         print_err("zip file uploaded, looking at the content")
         filename = request.args["zipfile"]
-        restore_path = data.CONFIG_DIR / "restore"
+        restore_path = config.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         restored_files: List[str] = []
         with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
@@ -1090,9 +1090,9 @@ class AdsbIm:
                 if len(parts) < 3:
                     continue
                 uf_paths.add(parts[0] + "/" + parts[1] + "/")
-            elif os.path.isfile(data.CONFIG_DIR / name):
+            elif os.path.isfile(config.CONFIG_DIR / name):
                 if filecmp.cmp(
-                    data.CONFIG_DIR / name,
+                    config.CONFIG_DIR / name,
                     restore_path / name):
                     print_err(f"{name} is unchanged")
                     unchanged.append(name)
@@ -1110,9 +1110,9 @@ class AdsbIm:
         raise NotImplementedError
         # they have selected the files to restore
         print_err("restoring the files the user selected")
-        (data.CONFIG_DIR / "ultrafeeder").mkdir(
+        (config.CONFIG_DIR / "ultrafeeder").mkdir(
             mode=0o755, exist_ok=True)
-        restore_path = data.CONFIG_DIR / "restore"
+        restore_path = config.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         try:
             subprocess.call("/opt/adsb/docker-compose-adsb down -t 20", timeout=40.0, shell=True)
@@ -1121,9 +1121,9 @@ class AdsbIm:
         for name, value in form.items():
             if value == "1":
                 print_err(f"restoring {name}")
-                dest = data.CONFIG_DIR / name
+                dest = config.CONFIG_DIR / name
                 if dest.is_file():
-                    shutil.move(dest, data.CONFIG_DIR / (name + ".dist"))
+                    shutil.move(dest, config.CONFIG_DIR / (name + ".dist"))
                 elif dest.is_dir():
                     shutil.rmtree(dest, ignore_errors=True)
 
@@ -1151,7 +1151,7 @@ class AdsbIm:
                         write_values_to_config_json(values, reason="execute_restore from .env")
 
         # clean up the restore path
-        restore_path = data.CONFIG_DIR / "restore"
+        restore_path = config.CONFIG_DIR / "restore"
         shutil.rmtree(restore_path, ignore_errors=True)
 
         # now that everything has been moved into place we need to read all the values from config.json
@@ -1369,18 +1369,18 @@ class AdsbIm:
         print_err(f"importing graphs and history from {ip}")
         # first make sure that there isn't any old data that needs to be moved
         # out of the way
-        if pathlib.Path(data.CONFIG_DIR / "ultrafeeder" / ip).exists():
+        if pathlib.Path(config.CONFIG_DIR / "ultrafeeder" / ip).exists():
             now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
             shutil.move(
-                data.CONFIG_DIR / "ultrafeeder" / ip,
-                data.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
+                config.CONFIG_DIR / "ultrafeeder" / ip,
+                config.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
             )
 
         url = f"http://{ip}:{port}/backupexecutefull"
         # make tmpfile
-        os.makedirs(data.CONFIG_DIR / "ultrafeeder", exist_ok=True)
+        os.makedirs(config.CONFIG_DIR / "ultrafeeder", exist_ok=True)
         fd, tmpfile = tempfile.mkstemp(
-            dir=data.CONFIG_DIR / "ultrafeeder")
+            dir=config.CONFIG_DIR / "ultrafeeder")
         os.close(fd)
 
         # stream writing to a file with requests library is a pain so just use curl
@@ -1391,15 +1391,15 @@ class AdsbIm:
             )
 
             with zipfile.ZipFile(tmpfile) as zf:
-                zf.extractall(path=data.CONFIG_DIR / "ultrafeeder" / ip)
+                zf.extractall(path=config.CONFIG_DIR / "ultrafeeder" / ip)
             # deal with the duplicate "ultrafeeder in the path"
             shutil.move(
-                data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
-                data.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
+                config.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
+                config.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
             )
             shutil.move(
-                data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
-                data.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
+                config.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
+                config.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
             )
 
             print_err(f"done importing graphs and history from {ip}")
@@ -1412,7 +1412,7 @@ class AdsbIm:
 
     def setRtlGain(self):
         gaindir = (
-            data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
+            config.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
         setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
@@ -2417,8 +2417,8 @@ class AdsbIm:
 
     def set_secure_image(self):
         self._conf.set("secure_image", True)
-        if not data.SECURE_IMAGE_FILE.exists():
-            data.SECURE_IMAGE_FILE.touch()
+        if not config.SECURE_IMAGE_FILE.exists():
+            config.SECURE_IMAGE_FILE.touch()
             self._logger.info("Created secure_image file.")
         return redirect(url_for("systemmgmt"))
 
@@ -2650,7 +2650,7 @@ class Manager:
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
-    def __init__(self, conf: data.Config):
+    def __init__(self, conf: config.Config):
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
@@ -2825,16 +2825,16 @@ class Manager:
 
 
 def main():
-    if not data.CONFIG_DIR.exists():
+    if not config.CONFIG_DIR.exists():
         logger.info("Config directory doesn't exist, creating an empty one.")
-        data.CONFIG_DIR.mkdir()
-    if not data.CONFIG_FILE.exists():
+        config.CONFIG_DIR.mkdir()
+    if not config.CONFIG_FILE.exists():
         logger.info("Config file doesn't exist, creating a default one.")
-        conf = data.Config.create_default()
+        conf = config.Config.create_default()
         conf.write_to_file()
     else:
-        conf = data.Config.load_from_file()
-    if not data.ENV_FILE.exists():
+        conf = config.Config.load_from_file()
+    if not config.ENV_FILE.exists():
         logger.info("Env file doesn't exist, writing one based on the config.")
         conf.write_env_file()
     if "--update-config" in sys.argv:

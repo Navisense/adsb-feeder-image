@@ -11,7 +11,7 @@ import typing as t
 
 import requests
 
-import data
+import config
 import util
 
 
@@ -112,11 +112,11 @@ class ReceptionMonitor:
     Also provides a method to get the current message rate and number of
     ships/planes.
     """
-    STATS_FILE = data.CONFIG_DIR / "reception_stats.json.gz"
+    STATS_FILE = config.CONFIG_DIR / "reception_stats.json.gz"
     SCRAPE_INTERVAL = 60
     MAX_HISTORY_AGE = 14 * 24 * 3600
 
-    def __init__(self, conf: data.Config):
+    def __init__(self, conf: config.Config):
         self._logger = logging.getLogger(type(self).__name__)
         self.stats = None
         self._readsb_scraper = ReadsbScraper()
@@ -288,7 +288,7 @@ class ReadsbScraper(Scraper):
 
 
 class AisCatcherScraper(Scraper):
-    def __init__(self, conf: data.Config):
+    def __init__(self, conf: config.Config):
         super().__init__()
         self._conf = conf
 

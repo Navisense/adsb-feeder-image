@@ -13,7 +13,7 @@ import typing as t
 from typing import Any, Optional
 import uuid
 
-import data
+import config
 import system
 import util
 
@@ -59,7 +59,7 @@ class StatusCheckError(Exception):
 _aggregator_dict = None
 
 
-def all_aggregators(conf: data.Config,
+def all_aggregators(conf: config.Config,
                     system: system.System) -> dict[str, "Aggregator"]:
     """
     Get all aggregators.
@@ -166,7 +166,7 @@ class Aggregator(abc.ABC):
     MAX_CACHE_AGE = 10
 
     def __init__(
-            self, conf: data.Config, system: system.System, *, agg_key: str,
+            self, conf: config.Config, system: system.System, *, agg_key: str,
             name: str, map_url: Optional[str], status_url: Optional[str]):
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
@@ -288,7 +288,7 @@ class UltrafeederAggregator(Aggregator):
     ULTRAFEEDER_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder")
 
     def __init__(
-            self, conf: data.Config, system: system.System, *, agg_key: str,
+            self, conf: config.Config, system: system.System, *, agg_key: str,
             name: str, map_url: Optional[str], status_url: Optional[str],
             netconfig: NetConfig):
         super().__init__(
@@ -380,7 +380,7 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
     class AirplanesLiveAdsbStatus(AdsbStatus):
         alive_map_link: str
 
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="alive", name="airplanes.live",
             map_url="https://globe.airplanes.live/",
@@ -410,7 +410,7 @@ class AdsbLolAggregator(UltrafeederAggregator):
     class AdsbLolAdsbStatus(AdsbStatus):
         adsblol_link: str
 
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="adsblol", name="adsb.lol",
             map_url="https://adsb.lol/",
@@ -440,7 +440,7 @@ class AdsbxAggregator(UltrafeederAggregator):
     class AdsbxAdsbStatus(AdsbStatus):
         adsbx_feeder_id: str
 
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="adsbx", name="ADSBExchange",
             map_url="https://globe.adsbexchange.com/",
@@ -572,7 +572,7 @@ class AccountBasedAggregator(Aggregator):
 
 
 class PlaneFinderAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="planefinder", name="PlaneFinder",
             map_url="https://planefinder.net/",
@@ -584,7 +584,7 @@ class PlaneFinderAggregator(AccountBasedAggregator):
 
 
 class AdsbHubAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="adsbhub", name="ADSBHub",
             map_url="https://www.adsbhub.org/coverage.php", status_url=None)
@@ -595,7 +595,7 @@ class AdsbHubAggregator(AccountBasedAggregator):
 
 
 class OpenSkyAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="opensky", name="OpenSky Network",
             map_url="https://opensky-network.org/network/explorer",
@@ -646,7 +646,7 @@ class OpenSkyAggregator(AccountBasedAggregator):
 
 
 class RadarVirtuelAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="radarvirtuel", name="RadarVirtuel",
             map_url="https://www.radarvirtuel.com/", status_url=None)
@@ -661,7 +661,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
         "https://porttracker-api.porttracker.co/api/v1/sharing/stations/"
         "{station_id}/stats/basic")
 
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="porttracker", name="Porttracker",
             map_url="https://porttracker.co/",
@@ -726,7 +726,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
 
 
 class AirnavRadarAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="radarbox", name="AirNav Radar",
             map_url="https://www.airnavradar.com/coverage-map",
@@ -831,7 +831,7 @@ class AirnavRadarAggregator(AccountBasedAggregator):
 
 
 class FlightAwareAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="flightaware", name="FlightAware",
             map_url="https://www.flightaware.com/live/map",
@@ -903,7 +903,7 @@ class FlightAwareAggregator(AccountBasedAggregator):
 
 
 class TenNinetyUkAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="1090uk", name="1090MHz UK",
             map_url="https://1090mhz.uk", status_url=None)
@@ -943,7 +943,7 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
 
 
 class FlightRadar24Aggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="flightradar", name="flightradar24",
             map_url="https://www.flightradar24.com/", status_url="/fr24/")
@@ -1133,7 +1133,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
 
 
 class PlaneWatchAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="planewatch", name="Plane.watch",
             map_url="https:/plane.watch/desktop.html", status_url=None)
@@ -1171,7 +1171,7 @@ class PlaneWatchAggregator(AccountBasedAggregator):
 class SdrMapAggregator(AccountBasedAggregator):
     FEED_OK_FILE = pathlib.Path("/run/sdrmap/feed_ok")
 
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="sdrmap", name="sdrmap",
             map_url="https://sdrmap.org/", status_url=None)
@@ -1203,7 +1203,7 @@ class SdrMapAggregator(AccountBasedAggregator):
 
 
 class AiscatcherAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="aiscatcher", name="AIS-catcher",
             map_url="https://www.aiscatcher.org/livemap", status_url=None,
@@ -1234,7 +1234,7 @@ class AiscatcherAggregator(AccountBasedAggregator):
 
 
 class AishubAggregator(AccountBasedAggregator):
-    def __init__(self, conf: data.Config, system: system.System):
+    def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="aishub", name="Aishub",
             map_url="https://www.aishub.net/coverage", status_url=None)

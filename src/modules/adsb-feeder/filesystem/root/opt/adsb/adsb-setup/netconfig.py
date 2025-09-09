@@ -1,12 +1,12 @@
 import uuid
 
 import aggregators
-import data
+import config
 from util import is_true, print_err
 
 
 class UltrafeederConfig:
-    def __init__(self, conf: data.Config, all_aggregators: dict[str, aggregators.Aggregator]):
+    def __init__(self, conf: config.Config, all_aggregators: dict[str, aggregators.Aggregator]):
         self._conf = conf
         self._all_aggregators = all_aggregators
 
