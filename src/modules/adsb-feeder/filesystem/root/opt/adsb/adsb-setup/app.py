@@ -2411,9 +2411,6 @@ class AdsbIm:
 
     def set_secure_image(self):
         self._conf.set("secure_image", True)
-        if not config.SECURE_IMAGE_FILE.exists():
-            config.SECURE_IMAGE_FILE.touch()
-            self._logger.info("Created secure_image file.")
         return redirect(url_for("systemmgmt"))
 
     @check_restart_lock

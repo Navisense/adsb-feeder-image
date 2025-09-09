@@ -1,7 +1,15 @@
 #!/bin/bash
 
-if [[ ! -f /opt/adsb/init-complete ]] && grep -e 'AF_IS_BASE_CONFIG_FINISHED=True' /etc/adsb/.env; then
-    echo "First time adsb-system-restart: stop bootstrap"
+if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
+    echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
+    exit 1
+else
+    . /opt/adsb/scripts/lib-common.bash
+    rootcheck
+fi
+
+if [ "$(/opt/adsb/adsb-setup/config.py get base_config)" != True ] ; then
+    log $0 "First time adsb-system-restart: stop bootstrap"
     systemctl disable adsb-bootstrap
     systemctl stop adsb-bootstrap
     touch /opt/adsb/init-complete

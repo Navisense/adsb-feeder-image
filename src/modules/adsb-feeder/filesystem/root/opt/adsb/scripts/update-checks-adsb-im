@@ -5,6 +5,7 @@ if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
     exit 1
 else
     . /opt/adsb/scripts/lib-common.bash
+    . /opt/adsb/scripts/lib-install.bash
     rootcheck
     logparent
 fi
@@ -16,25 +17,24 @@ if [[ -f /run/adsb-feeder-image.log ]] && (( $(wc -l < /run/adsb-feeder-image.lo
 fi
 
 # if this is the update check at 1:30am, do the updates if configured
-currenttime=$(TZ=$(grep -e "FEEDER_TZ=" /etc/adsb/.env | cut -d= -f2) date '+%H:%M')
+currenttime=$(TZ=$(/opt/adsb/adsb-setup/config.py get tz) date '+%H:%M')
 if [[ "$currenttime" > "01:20" ]] && [[ "$currenttime" < "01:40" ]]; then
-    # check in the .env file what we should do
-    if grep -q "^AF_IS_NIGHTLY_BASE_UPDATE_ENABLED=True" /etc/adsb/.env ; then
-        echo "$(date -u +"%FT%T.%3NZ") Nightly OS update:"
+    if [ "$(/opt/adsb/adsb-setup/config.py get nightly_base_update)" = True ] ; then
+        log $0 "Starting nightly OS update."
         /opt/adsb/scripts/update-os
-        echo "$(date -u +"%FT%T.%3NZ") Nightly OS update: done"
+        log $0 "Nightly OS update done."
     fi
-    if grep "^AF_IS_NIGHTLY_FEEDER_UPDATE_ENABLED=True" /etc/adsb/.env ; then
-        echo "$(date -u +"%FT%T.%3NZ") Nightly feeder update:"
-        # just running feeder-update is unnecessary disk thrashing.
-        # check instead if there is an update available
-        PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
-        # if the advice is empty, we don't need to update:
-        if curl -sS "http://127.0.0.1:${PORT}/api/status/im" | jq -e '.in_channel_update == 0' >/dev/null; then
-            echo "$(date -u +"%FT%T.%3NZ") Nightly feeder update: no new version availabe"
+    if [ "$(/opt/adsb/adsb-setup/config.py get nightly_feeder_update)" = True ] ; then
+        # First check if there is even an update available.
+        current_version=$(/opt/adsb/adsb-setup/config.py get base_version)
+        latest_version=$(find_latest_stable_version)
+        if [ "${current_version}" = "${latest_version}" ] ; then
+            log $0 "No new feeder version available."
         else
-            bash /opt/adsb/feeder-update
-            echo "$(date -u +"%FT%T.%3NZ") Nightly feeder update: done"
+            log $0 "Starting nightly feeder update from ${current_version} " \
+                "to ${latest_version}."
+            systemd-run -u nightly-adsb-feeder-update /opt/adsb/scripts/update-feeder.bash $latest_version
+            log $0 "Nightly feeder update done."
         fi
     fi
 fi

@@ -11,7 +11,7 @@ fi
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh"
 
 kill_wait_app() {
-    PORT=$(grep AF_WEBPORT /etc/adsb/.env | cut -d= -f2)
+    PORT=$(/opt/adsb/adsb-setup/config.py get ports.web)
     PORTHEX=$(printf "%04x" "$PORT")
 
     # figure out if something is listening to that port and give it some time to stop running

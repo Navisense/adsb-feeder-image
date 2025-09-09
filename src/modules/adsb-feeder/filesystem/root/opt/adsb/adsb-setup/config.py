@@ -27,7 +27,6 @@ ENV_FILE = CONFIG_DIR / ".env"
 VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
 FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
-SECURE_IMAGE_FILE = APP_DIR / "adsb.im.secure_image"
 
 logger = logging.getLogger(__name__)
 
@@ -819,24 +818,16 @@ class Config(CompoundSetting):
                     IntSetting, default=41580,
                     env_variable_name="AF_AIS_CATCHER_PORT"),}),
         "image_name": ft.partial(StringSetting, norestore=True),
-        "secure_image": ft.partial(
-            BoolSetting, default=False, env_variable_name="AF_IS_SECURE_IMAGE",
-            norestore=True),
+        "secure_image": ft.partial(BoolSetting, default=False, norestore=True),
         "airspy": BoolSetting,
         "sdrplay": BoolSetting,
         "sdrplay_license_accepted": BoolSetting,
         "journal_configured": ft.partial(BoolSetting, default=False),
         "ssh_configured": BoolSetting,
-        "base_config": ft.partial(
-            BoolSetting, default=False,
-            env_variable_name="AF_IS_BASE_CONFIG_FINISHED"),
+        "base_config": ft.partial(BoolSetting, default=False),
         "aggregators_chosen": ft.partial(BoolSetting, default=False),
-        "nightly_base_update": ft.partial(
-            BoolSetting,
-            env_variable_name="AF_IS_NIGHTLY_BASE_UPDATE_ENABLED"),
-        "nightly_feeder_update": ft.partial(
-            BoolSetting,
-            env_variable_name="AF_IS_NIGHTLY_FEEDER_UPDATE_ENABLED"),
+        "nightly_base_update": ft.partial(BoolSetting, default=False),
+        "nightly_feeder_update": ft.partial(BoolSetting, default=False),
         "zerotierid": StringSetting,
         "tailscale_ll": StringSetting,
         "tailscale_name": StringSetting,

@@ -24,6 +24,5 @@ bash /opt/adsb/pre-uninstall-cleanup
 
 # remove the rest of the files
 rm -rf /opt/adsb &> /dev/null
-rm -rf /opt/adsb-feeder-update &> /dev/null
 
 echo "uninstall complete"
