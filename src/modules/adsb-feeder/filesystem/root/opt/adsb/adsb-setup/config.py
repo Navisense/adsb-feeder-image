@@ -562,13 +562,9 @@ class Config(CompoundSetting):
         "uat978": ft.partial(
             BoolSetting, default=False,
             env_variable_name="FEEDER_ENABLE_UAT978"),
-        "replay978": StringSetting,
         # hostname ultrafeeder uses to get 978 data
         "978host": ft.partial(
             StringSetting, env_variable_name="FEEDER_UAT978_HOST"),
-        "rb978host": ft.partial(
-            StringSetting, env_variable_name="FEEDER_RB_UAT978_HOST"
-        ),
         # add the URL to the dump978 map
         "978url": ft.partial(
             StringSetting, env_variable_name="FEEDER_URL_978"),
@@ -578,10 +574,6 @@ class Config(CompoundSetting):
         # port for Airspy stats (used in micro feeder and handed to stage2 via base_info)
         "airspyport": ft.partial(
             IntSetting, default=8070, env_variable_name="FEEDER_AIRSPY_PORT"),
-        # URL to get remote 1090 stats data (for gain, %-age of strong signals, and signal graph)
-        "rtlsdrurl": ft.partial(
-            StringSetting, env_variable_name="FEEDER_URL_RTLSDR"
-        ),
         # magic setting for piaware to get 978 data
         "978piaware": ft.partial(
             StringSetting, env_variable_name="FEEDER_PIAWARE_UAT978"),
@@ -827,10 +819,6 @@ class Config(CompoundSetting):
                 "tar1090adjusted": ft.partial(
                     IntSetting, default=8080,
                     env_variable_name="AF_TAR1090_PORT_ADJUSTED"),
-                "nanotar1090adjusted": ft.partial(
-                    IntSetting, default=8080,
-                    env_variable_name="AF_NANO_TAR1090_PORT_ADJUSTED"
-                ),
                 "uat": ft.partial(
                     IntSetting, default=9780,
                     env_variable_name="AF_UAT978_PORT", norestore=True),
@@ -887,23 +875,6 @@ class Config(CompoundSetting):
         "dns_state": ft.partial(BoolSetting, norestore=True),
         "under_voltage": ft.partial(BoolSetting, norestore=True),
         "low_disk": ft.partial(BoolSetting, norestore=True),
-        "stage2": ft.partial(
-            BoolSetting, default=False, env_variable_name="AF_IS_STAGE2"
-        ),
-        "stage2_nano": ft.partial(
-            BoolSetting, default=False,
-            env_variable_name="AF_STAGE2_NANOFEEDER"
-        ),
-        "nano_beast_port": ft.partial(
-            IntSetting, default=30005, env_variable_name="AF_NANO_BEAST_PORT"
-        ),
-        "nano_beastreduce_port": ft.partial(
-            IntSetting, default=30006,
-            env_variable_name="AF_NANO_BEASTREDUCE_PORT"
-        ),
-        "num_micro_sites": ft.partial(
-            IntSetting, default=0, env_variable_name="AF_NUM_MICRO_SITES"
-        ),
         "images": ft.partial(
             CompoundSetting,
             schema={

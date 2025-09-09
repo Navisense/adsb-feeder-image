@@ -1455,10 +1455,6 @@ class AdsbIm:
         # hostname.
         self.set_hostname_and_enable_mdns()
 
-        self._conf.set("stage2_nano", False)
-        self._conf.set("nano_beast_port", 30005)
-        self._conf.set("nano_beastreduce_port", 30006)
-
         # make sure the uuids are populated:
         if not self._conf.get("adsblol_uuid"):
             self._conf.set("adsblol_uuid", str(uuid.uuid4()))
@@ -1480,8 +1476,6 @@ class AdsbIm:
 
         self._conf.set(
             "ports.tar1090adjusted", self._conf.get("ports.tar1090"))
-        self._conf.set(
-            "ports.nanotar1090adjusted", self._conf.get("ports.tar1090"))
 
         # for regular feeders or micro feeders a max range of 300nm seem reasonable
         self._conf.set("max_range", 300)

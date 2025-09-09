@@ -14,99 +14,43 @@ if [ -f /etc/adsb/.env ] ; then
     if grep "FEEDER_ENABLE_UAT978=True" /etc/adsb/.env > /dev/null 2>&1 ; then
         COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/uat978.yml" )
     fi
-    if grep "_ADSBIM_AGGREGATORS_SELECTION=nano" /etc/adsb/.env > /dev/null 2>&1 ; then
-        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/nanofeeder.yml" )
-    else
-        # Only start containers listening to messages if it's not a stage 2.
-        if grep "AF_IS_STAGE2=False" /etc/adsb/.env > /dev/null 2>&1 ; then
-            # Start ultrafeeder if a serial device for 978 or 1090 MHz is
-            # configured.
-            if grep -E 'FEEDER_SERIAL_(978|1090)=.+' /etc/adsb/.env > /dev/null 2>&1 ; then
-                COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ultrafeeder.yml" )
-            fi
-            # Start shipfeeder if a serial device for AIS is configured.
-            if grep -E 'FEEDER_SERIAL_AIS=.+' /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/shipfeeder.yml" )
-            fi
-        fi
+    # Start ultrafeeder if a serial device for 978 or 1090 MHz is configured.
+    if grep -E 'FEEDER_SERIAL_(978|1090)=.+' /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ultrafeeder.yml" )
     fi
-    if ! grep "_ADSBIM_AGGREGATORS_SELECTION=micro" /etc/adsb/.env > /dev/null 2>&1 ; then
-        # for each of the yml snippets check if this aggregator is enabled
-        # in the .env file
-        if grep "AF_IS_FLIGHTRADAR24_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fr24.yml" )
-        fi
-        if grep "AF_IS_PLANEWATCH_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pw.yml" )
-        fi
-        if grep "AF_IS_FLIGHTAWARE_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fa.yml" )
-        fi
-        if grep "AF_IS_RADARBOX_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rb.yml" )
-        fi
-        if grep "AF_IS_PLANEFINDER_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pf.yml" )
-        fi
-        if grep "AF_IS_ADSBHUB_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ah.yml" )
-        fi
-        if grep "AF_IS_OPENSKY_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/os.yml" )
-        fi
-        if grep "AF_IS_RADARVIRTUEL_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rv.yml" )
-        fi
-        if grep "AF_IS_1090UK_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/1090uk.yml" )
-        fi
-        if grep "AF_IS_SDRMAP_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/sdrmap.yml" )
-        fi
-        # finally, check if this is a stage 2 setup and enable all of the ultrafeeders
-        if grep "AF_IS_STAGE2=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-
-            COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/webproxy.yml" "-f" "/opt/adsb/compose_files/stage2_main.yml" )
-
-            # do we have a local SDR -- if yes, start the nanofeeder container for it
-            if grep "AF_STAGE2_NANOFEEDER=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/nanofeeder.yml" )
-            fi
-            # stage 2 feeder, look through the various containers
-            NUM=$(grep AF_NUM_MICRO_SITES= /etc/adsb/.env | sed -n 's/.*=\([0-9]\+\).*/\1/p')
-            for ((i = 1; i <= NUM; i++)); do
-                COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/stage2_micro_site_${i}.yml" )
-                if grep "AF_IS_FLIGHTRADAR24_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fr24_${i}.yml" )
-                fi
-                if grep "AF_IS_PLANEWATCH_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pw_${i}.yml" )
-                fi
-                if grep "AF_IS_FLIGHTAWARE_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fa_${i}.yml" )
-                fi
-                if grep "AF_IS_RADARBOX_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rb_${i}.yml" )
-                fi
-                if grep "AF_IS_PLANEFINDER_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pf_${i}.yml" )
-                fi
-                if grep "AF_IS_ADSBHUB_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ah_${i}.yml" )
-                fi
-                if grep "AF_IS_OPENSKY_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/os_${i}.yml" )
-                fi
-                if grep "AF_IS_RADARVIRTUEL_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rv_${i}.yml" )
-                fi
-                if grep "AF_IS_1090UK_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/1090uk_${i}.yml" )
-                fi
-                if grep "AF_IS_SDRMAP_ENABLED_${i}=True" /etc/adsb/.env > /dev/null 2>&1 ; then
-                    COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/sdrmap_${i}.yml" )
-                fi
-            done
-        fi
+    # Start shipfeeder if a serial device for AIS is configured.
+    if grep -E 'FEEDER_SERIAL_AIS=.+' /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/shipfeeder.yml" )
+    fi
+    # For each of the yml snippets check if this aggregator is enabled.
+    if grep "AF_IS_FLIGHTRADAR24_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fr24.yml" )
+    fi
+    if grep "AF_IS_PLANEWATCH_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pw.yml" )
+    fi
+    if grep "AF_IS_FLIGHTAWARE_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/fa.yml" )
+    fi
+    if grep "AF_IS_RADARBOX_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rb.yml" )
+    fi
+    if grep "AF_IS_PLANEFINDER_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/pf.yml" )
+    fi
+    if grep "AF_IS_ADSBHUB_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/ah.yml" )
+    fi
+    if grep "AF_IS_OPENSKY_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/os.yml" )
+    fi
+    if grep "AF_IS_RADARVIRTUEL_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/rv.yml" )
+    fi
+    if grep "AF_IS_1090UK_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/1090uk.yml" )
+    fi
+    if grep "AF_IS_SDRMAP_ENABLED=True" /etc/adsb/.env > /dev/null 2>&1 ; then
+        COMPOSE_FILES+=( "-f" "/opt/adsb/compose_files/sdrmap.yml" )
     fi
 fi
