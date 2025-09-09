@@ -1,7 +1,6 @@
 from typing import List, Union
-from utils.config import read_values_from_config_json, write_values_to_config_json, config_lock
-from utils.util import is_true, print_err, stack_info, make_int
-
+from config import read_values_from_config_json, write_values_to_config_json, config_lock
+from util import is_true, print_err, stack_info, make_int
 
 class Env:
     def __init__(

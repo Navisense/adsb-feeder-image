@@ -11,20 +11,20 @@ import socket
 import threading
 import time
 
+import data
 import fakedns
-import utils.data
-import utils.system
-import utils.util
-import utils.wifi
+import system
+import util
+import wifi
 
 logger = logging.getLogger(__name__)
 
 
-def make_hotspot(conf: utils.data.Config, on_wifi_test_status):
+def make_hotspot(conf: data.Config, on_wifi_test_status):
     wlan = _find_wlan_device()
     if not wlan:
         return None
-    baseos = utils.util.get_baseos()
+    baseos = util.get_baseos()
     if baseos == "dietpi":
         return NetworkingHotspot(conf, wlan, on_wifi_test_status)
     elif baseos in ["raspbian", "postmarketos"]:
@@ -34,7 +34,7 @@ def make_hotspot(conf: utils.data.Config, on_wifi_test_status):
 
 
 def _find_wlan_device():
-    raw_output = utils.util.shell_with_combined_output(
+    raw_output = util.shell_with_combined_output(
         "iw dev | grep Interface | cut -d' ' -f2")
     wlans = [wlan for wlan in raw_output.stdout.split("\n") if wlan]
     if not wlans:
@@ -163,7 +163,7 @@ class Hotspot(abc.ABC):
     AVAHI_UNIT_PATH = pathlib.Path(
         "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
-    def __init__(self, conf: utils.data.Config, wlan, on_wifi_test_status):
+    def __init__(self, conf: data.Config, wlan, on_wifi_test_status):
         self._conf = conf
         self.wlan = wlan
         self._on_wifi_test_status = on_wifi_test_status
@@ -178,7 +178,7 @@ class Hotspot(abc.ABC):
             response_ip=self.HOTSPOT_IP,
             non_response_domains={"local", "local.porttracker-feeder.de"})
         self._logger = logging.getLogger(type(self).__name__)
-        self.wifi = utils.wifi.make_wifi(self.wlan)
+        self.wifi = wifi.make_wifi(self.wlan)
         self._setup_config_files()
 
     @abc.abstractmethod
@@ -266,17 +266,17 @@ class Hotspot(abc.ABC):
         # incorrect password configured so it doesn't disrupt hostapd, and to
         # get rid of any DNS proxy that may block port 53.
         self._stop_wifi_client()
-        utils.util.shell_with_combined_output(
+        util.shell_with_combined_output(
             f"ip li set {self.wlan} up && "
             f"ip ad add {self.HOTSPOT_IP}/24 "
             f"broadcast {self.HOTSPOT_BROADCAST} dev {self.wlan}")
         # Sleep for a bit to get hostapd and kea to start up properly.
         time.sleep(2)
-        utils.system.systemctl().run(["unmask", "start"], ["hostapd.service"])
-        utils.system.systemctl().run(["unmask", "start"],
-                                     ["isc-kea-dhcp4-server.service"])
+        system.systemctl().run(["unmask", "start"], ["hostapd.service"])
+        system.systemctl().run(["unmask", "start"],
+                               ["isc-kea-dhcp4-server.service"])
         if self._conf.get("mdns.is_enabled"):
-            utils.system.systemctl().run(
+            system.systemctl().run(
                 ["restart"],
                 ["adsb-avahi-alias@porttracker-feeder.local.service"])
         self._logger.info("Starting DNS server.")
@@ -294,13 +294,13 @@ class Hotspot(abc.ABC):
         except:
             self._logger.exception("Error stopping DNS server.")
         if self._conf.get("mdns.is_enabled"):
-            utils.system.systemctl().run(
+            system.systemctl().run(
                 ["stop"],
                 ["adsb-avahi-alias@porttracker-feeder.local.service"])
-        utils.system.systemctl().run(
+        system.systemctl().run(
             ["stop", "disable", "mask"],
             ["isc-kea-dhcp4-server.service", "hostapd.service"])
-        utils.util.shell_with_combined_output(
+        util.shell_with_combined_output(
             f"ip ad del {self.HOTSPOT_IP}/24 dev {self.wlan}; "
             f"ip addr flush {self.wlan}; ip link set dev {self.wlan} down")
         self._restart_wifi_client()
@@ -339,19 +339,17 @@ class Hotspot(abc.ABC):
 class NetworkingHotspot(Hotspot):
     """Hotspot using networking.service."""
     def _stop_wifi_client(self):
-        utils.system.systemctl().run(["stop"], ["networking.service"])
+        system.systemctl().run(["stop"], ["networking.service"])
 
     def _restart_wifi_client(self):
-        utils.system.systemctl().run(["restart --no-block"],
-                                     ["networking.service"])
+        system.systemctl().run(["restart --no-block"], ["networking.service"])
 
 
 class NetworkManagerHotspot(Hotspot):
     """Hotspot using NetworkManager."""
     def _stop_wifi_client(self):
-        utils.system.systemctl().run(["stop"],
-                                     ["NetworkManager", "wpa_supplicant"])
-        utils.util.shell_with_combined_output("iw reg set 00")
+        system.systemctl().run(["stop"], ["NetworkManager", "wpa_supplicant"])
+        util.shell_with_combined_output("iw reg set 00")
         # In some configurations, NetworkManager starts a dnsmasq as a DNS
         # proxy that can hang around even after we've stopped NetworkManager.
         # We need to stop it so we get port 53 back for our stub DNS server.
@@ -367,18 +365,17 @@ class NetworkManagerHotspot(Hotspot):
             self._logger.error("Giving up trying to stop dnsmasq.")
 
     def _dnsmasq_is_running(self):
-        proc = utils.util.shell_with_combined_output("ps -e | grep dnsmasq")
+        proc = util.shell_with_combined_output("ps -e | grep dnsmasq")
         return proc.returncode == 0
 
     def _kill_dnsmasq(self):
         # This may not exist, we'll get it with killall. Ignore errors.
-        proc, = utils.system.systemctl().run(["stop"], ["dnsmasq"],
-                                             log_errors=False)
+        proc, = system.systemctl().run(["stop"], ["dnsmasq"], log_errors=False)
         if proc.returncode == 0:
             return
-        utils.util.shell_with_combined_output("killall dnsmasq")
+        util.shell_with_combined_output("killall dnsmasq")
 
     def _restart_wifi_client(self):
-        utils.util.shell_with_combined_output("iw reg set 00")
-        utils.system.systemctl().run(["restart"],
-                                     ["wpa_supplicant", "NetworkManager"])
+        util.shell_with_combined_output("iw reg set 00")
+        system.systemctl().run(["restart"],
+                               ["wpa_supplicant", "NetworkManager"])

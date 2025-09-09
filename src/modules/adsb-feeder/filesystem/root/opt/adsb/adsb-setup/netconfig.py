@@ -1,12 +1,12 @@
 import uuid
 
-import utils.aggregators
-import utils.data
-from utils.util import is_true, print_err
+import aggregators
+import data
+from util import is_true, print_err
 
 
 class UltrafeederConfig:
-    def __init__(self, conf: utils.data.Config, all_aggregators: dict[str, utils.aggregators.Aggregator]):
+    def __init__(self, conf: data.Config, all_aggregators: dict[str, aggregators.Aggregator]):
         self._conf = conf
         self._all_aggregators = all_aggregators
 
@@ -14,7 +14,7 @@ class UltrafeederConfig:
         args = set()
         # let's grab the values, depending on the mode
         for agg_key, aggregator in self._all_aggregators.items():
-            if not isinstance(aggregator, utils.aggregators.UltrafeederAggregator):
+            if not isinstance(aggregator, aggregators.UltrafeederAggregator):
                 continue
             if agg_key == "adsblol":
                 uuid_setting_path = "adsblol_uuid"

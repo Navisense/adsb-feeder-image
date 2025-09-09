@@ -3,7 +3,7 @@ import subprocess
 import time
 import traceback
 
-from utils.util import (
+from util import (
     get_baseos, print_err, run_shell_captured, shell_with_combined_output)
 
 

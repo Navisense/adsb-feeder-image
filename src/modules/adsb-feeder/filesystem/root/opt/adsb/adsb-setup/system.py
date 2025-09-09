@@ -8,7 +8,7 @@ from typing import Optional
 
 import requests
 
-from .util import print_err, run_shell_captured, shell_with_combined_output
+from util import print_err, run_shell_captured, shell_with_combined_output
 
 
 class Systemctl:

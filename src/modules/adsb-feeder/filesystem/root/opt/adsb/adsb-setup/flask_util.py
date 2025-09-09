@@ -1,8 +1,8 @@
 import re
 from functools import wraps
 
-import utils.data
-from utils.util import print_err
+import data
+from util import print_err
 
 from flask import Flask, redirect, request
 
@@ -11,7 +11,7 @@ class RouteManager:
     def __init__(self, app: Flask):
         self.app = app
 
-    def _make_proxy_route_specs(self, conf: utils.data.Config):
+    def _make_proxy_route_specs(self, conf: data.Config):
         for endpoint, port_key_path, path in [
             ["/map/", "ports.tar1090", "/"],
             ["/tar1090/", "ports.tar1090", "/"],
@@ -33,7 +33,7 @@ class RouteManager:
             port = conf.get(port_key_path)
             yield endpoint, port, path
 
-    def add_proxy_routes(self, conf: utils.data.Config):
+    def add_proxy_routes(self, conf: data.Config):
         # print_err(f"adding proxy_routes {proxy_routes}", level=2)
         for endpoint, port, url_path in self._make_proxy_route_specs(conf):
             # print_err(f"add_proxy_route {endpoint} {port } {url_path}")

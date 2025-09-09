@@ -46,21 +46,21 @@ import werkzeug.serving
 from werkzeug.utils import secure_filename
 
 import hotspot
-import utils.aggregators
-from utils.config import (
+import aggregators
+from config import (
     config_lock,
     read_values_from_env_file,
     write_values_to_config_json,
 )
-import utils.data
-from utils.flask import RouteManager, check_restart_lock
-import utils.gitlab as gitlab
-import utils.netconfig
-import utils.sdr
-import utils.stats
-import utils.system
-import utils.util
-from utils.util import (
+import data
+from flask_util import RouteManager, check_restart_lock
+import gitlab
+import netconfig as netconfig_mod
+import sdr
+import stats
+import system
+import util
+from util import (
     cleanup_str,
     create_fake_info,
     is_true,
@@ -70,13 +70,13 @@ from utils.util import (
     string2file,
     verbose,
 )
-from utils.wifi import make_wifi
+from wifi import make_wifi
 
 logger = None
 
 
 def setup_logging():
-    logging.setLoggerClass(utils.util.FlashingLogger)
+    logging.setLoggerClass(util.FlashingLogger)
     fmt = '%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s'
     logging.config.dictConfig({
         'version': 1,
@@ -213,7 +213,7 @@ class HotspotApp:
     you can set wifi credentials. Has a catch-all route, since the hotspot
     intercepts (almost) all requests.
     """
-    def __init__(self, conf: utils.data.Config, on_wifi_credentials):
+    def __init__(self, conf: data.Config, on_wifi_credentials):
         self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
         self.ssids = []
@@ -276,7 +276,7 @@ class HotspotApp:
 
 
 class AdsbIm:
-    def __init__(self, conf: utils.data.Config, hotspot_app):
+    def __init__(self, conf: data.Config, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
         self._conf = conf
@@ -304,13 +304,13 @@ class AdsbIm:
             }
 
         self._routemanager = RouteManager(self.app)
-        self._system = utils.system.System()
-        self._reception_monitor = utils.stats.ReceptionMonitor(self._conf)
+        self._system = system.System()
+        self._reception_monitor = stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
         self.wifi_ssid = ""
 
-        self._sdrdevices = utils.sdr.SDRDevices()
+        self._sdrdevices = sdr.SDRDevices()
 
         self.last_dns_check = 0
         self.undervoltage_epoch = 0
@@ -473,7 +473,7 @@ class AdsbIm:
         self.app.add_url_rule(
             "/api/stats",
             "stats",
-            self._decide_route_hotspot_mode(self.stats),
+            self._decide_route_hotspot_mode(self.get_stats),
         )
         self.app.add_url_rule(
             "/api/status/<agg_key>",
@@ -633,8 +633,8 @@ class AdsbIm:
         else:
             raise ValueError(f"Unknown reception type {reception_type}.")
 
-    def _all_aggregators(self) -> dict[str, utils.aggregators.Aggregator]:
-        return utils.aggregators.all_aggregators(self._conf, self._system)
+    def _all_aggregators(self) -> dict[str, aggregators.Aggregator]:
+        return aggregators.all_aggregators(self._conf, self._system)
 
     def start(self):
         if self._server:
@@ -646,7 +646,7 @@ class AdsbIm:
         if self._conf.get("use_gpsd"):
             self.get_lat_lon_alt()
 
-        every_minute_task = utils.util.RepeatingTask(60, self.every_minute)
+        every_minute_task = util.RepeatingTask(60, self.every_minute)
         every_minute_task.start(execute_now=True)
         self._background_tasks["every_minute"] = every_minute_task
 
@@ -748,7 +748,7 @@ class AdsbIm:
         self._conf.set("board_name", board)
 
     def update_version(self):
-        self._conf.set("base_version", utils.data.read_version())
+        self._conf.set("base_version", data.read_version())
 
     def update_meminfo(self):
         self._memtotal = 0
@@ -803,7 +803,7 @@ class AdsbIm:
             elif self._conf.get("aggregator_choice") == "privacy":
                 is_enabled = netconfig.has_policy
             self._conf.set(f"aggregators.{agg_key}.is_enabled", is_enabled)
-        ultrafeeder_config = utils.netconfig.UltrafeederConfig(
+        ultrafeeder_config = netconfig_mod.UltrafeederConfig(
             self._conf, self._all_aggregators())
         self._conf.set("ultrafeeder_config", ultrafeeder_config.generate())
 
@@ -900,7 +900,7 @@ class AdsbIm:
         return self.create_backup_zip(include_graphs=True, include_heatmap=True)
 
     def create_backup_zip(self, include_graphs=False, include_heatmap=False):
-        adsb_path = utils.data.CONFIG_DIR
+        adsb_path = data.CONFIG_DIR
 
         def graphs1090_writeback(uf_path):
             # the rrd file will be updated via move after collectd is done writing it out
@@ -1036,7 +1036,7 @@ class AdsbIm:
                 return redirect(request.url)
             if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
                 filename = secure_filename(file.filename)
-                restore_path = utils.data.CONFIG_DIR / "restore"
+                restore_path = data.CONFIG_DIR / "restore"
                 # clean up the restore path when saving a fresh zipfile
                 shutil.rmtree(restore_path, ignore_errors=True)
                 restore_path.mkdir(mode=0o644, exist_ok=True)
@@ -1068,7 +1068,7 @@ class AdsbIm:
         # be very careful with the content of this zip file...
         print_err("zip file uploaded, looking at the content")
         filename = request.args["zipfile"]
-        restore_path = utils.data.CONFIG_DIR / "restore"
+        restore_path = data.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         restored_files: List[str] = []
         with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
@@ -1095,9 +1095,9 @@ class AdsbIm:
                 if len(parts) < 3:
                     continue
                 uf_paths.add(parts[0] + "/" + parts[1] + "/")
-            elif os.path.isfile(utils.data.CONFIG_DIR / name):
+            elif os.path.isfile(data.CONFIG_DIR / name):
                 if filecmp.cmp(
-                    utils.data.CONFIG_DIR / name,
+                    data.CONFIG_DIR / name,
                     restore_path / name):
                     print_err(f"{name} is unchanged")
                     unchanged.append(name)
@@ -1115,9 +1115,9 @@ class AdsbIm:
         raise NotImplementedError
         # they have selected the files to restore
         print_err("restoring the files the user selected")
-        (utils.data.CONFIG_DIR / "ultrafeeder").mkdir(
+        (data.CONFIG_DIR / "ultrafeeder").mkdir(
             mode=0o755, exist_ok=True)
-        restore_path = utils.data.CONFIG_DIR / "restore"
+        restore_path = data.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
         try:
             subprocess.call("/opt/adsb/docker-compose-adsb down -t 20", timeout=40.0, shell=True)
@@ -1126,9 +1126,9 @@ class AdsbIm:
         for name, value in form.items():
             if value == "1":
                 print_err(f"restoring {name}")
-                dest = utils.data.CONFIG_DIR / name
+                dest = data.CONFIG_DIR / name
                 if dest.is_file():
-                    shutil.move(dest, utils.data.CONFIG_DIR / (name + ".dist"))
+                    shutil.move(dest, data.CONFIG_DIR / (name + ".dist"))
                 elif dest.is_dir():
                     shutil.rmtree(dest, ignore_errors=True)
 
@@ -1156,7 +1156,7 @@ class AdsbIm:
                         write_values_to_config_json(values, reason="execute_restore from .env")
 
         # clean up the restore path
-        restore_path = utils.data.CONFIG_DIR / "restore"
+        restore_path = data.CONFIG_DIR / "restore"
         shutil.rmtree(restore_path, ignore_errors=True)
 
         # now that everything has been moved into place we need to read all the values from config.json
@@ -1276,7 +1276,7 @@ class AdsbIm:
                     self._conf.set("alt", alt)
         return lat, lon, alt
 
-    def stats(self):
+    def get_stats(self):
         current_stats = self._reception_monitor.get_current_stats()
         stats = self._reception_monitor.stats
         ais = self._make_stats(
@@ -1288,8 +1288,8 @@ class AdsbIm:
         return {"ais": ais, "adsb": adsb}
 
     def _make_stats(
-            self, enabled: bool, current_stats: utils.stats.CurrentCraftStats,
-            history: list[utils.stats.TimeFrameStats]):
+            self, enabled: bool, current_stats: stats.CurrentCraftStats,
+            history: list[stats.TimeFrameStats]):
         return {
             "enabled": enabled,
             "uptime": current_stats.uptime if enabled else None,
@@ -1374,18 +1374,18 @@ class AdsbIm:
         print_err(f"importing graphs and history from {ip}")
         # first make sure that there isn't any old data that needs to be moved
         # out of the way
-        if pathlib.Path(utils.data.CONFIG_DIR / "ultrafeeder" / ip).exists():
+        if pathlib.Path(data.CONFIG_DIR / "ultrafeeder" / ip).exists():
             now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
             shutil.move(
-                utils.data.CONFIG_DIR / "ultrafeeder" / ip,
-                utils.data.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
+                data.CONFIG_DIR / "ultrafeeder" / ip,
+                data.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
             )
 
         url = f"http://{ip}:{port}/backupexecutefull"
         # make tmpfile
-        os.makedirs(utils.data.CONFIG_DIR / "ultrafeeder", exist_ok=True)
+        os.makedirs(data.CONFIG_DIR / "ultrafeeder", exist_ok=True)
         fd, tmpfile = tempfile.mkstemp(
-            dir=utils.data.CONFIG_DIR / "ultrafeeder")
+            dir=data.CONFIG_DIR / "ultrafeeder")
         os.close(fd)
 
         # stream writing to a file with requests library is a pain so just use curl
@@ -1396,15 +1396,15 @@ class AdsbIm:
             )
 
             with zipfile.ZipFile(tmpfile) as zf:
-                zf.extractall(path=utils.data.CONFIG_DIR / "ultrafeeder" / ip)
+                zf.extractall(path=data.CONFIG_DIR / "ultrafeeder" / ip)
             # deal with the duplicate "ultrafeeder in the path"
             shutil.move(
-                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
-                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
+                data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
+                data.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
             )
             shutil.move(
-                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
-                utils.data.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
+                data.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
+                data.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
             )
 
             print_err(f"done importing graphs and history from {ip}")
@@ -1417,7 +1417,7 @@ class AdsbIm:
 
     def setRtlGain(self):
         gaindir = (
-            utils.data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
+            data.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
         setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
@@ -1841,7 +1841,7 @@ class AdsbIm:
                 f"Toggling Prometheus metrics state from {currently_enabled} "
                 f"to {should_be_enabled}.")
         command = "enable" if should_be_enabled else "disable"
-        proc, = utils.system.systemctl().run(
+        proc, = system.systemctl().run(
             [f"{command} --now"], ["adsb-push-prometheus-metrics.timer"])
         if proc.returncode != 0:
             self._logger.error(
@@ -1921,8 +1921,8 @@ class AdsbIm:
         any_non_adsblol_uf_aggregators = any(
             agg.enabled()
             for agg in self._all_aggregators().values()
-            if isinstance(agg, utils.aggregators.UltrafeederAggregator)
-            and not isinstance(agg, utils.aggregators.AdsbLolAggregator))
+            if isinstance(agg, aggregators.UltrafeederAggregator)
+            and not isinstance(agg, aggregators.AdsbLolAggregator))
         return render_template(
             "aggregators.html",
             aggregators=self._all_aggregators(),
@@ -1946,7 +1946,7 @@ class AdsbIm:
                 aggregator.configure(**configure_kwargs)
             except Exception as e:
                 message = f"Failed to configure {aggregator.name}."
-                if isinstance(e, utils.aggregators.ConfigureError):
+                if isinstance(e, aggregators.ConfigureError):
                     message = f"Failed to configure {aggregator.name}: {e}."
                 self._logger.error(message, flash_message=True)
                 self._logger.exception(
@@ -1958,7 +1958,7 @@ class AdsbIm:
         # All aggregators need the enabled arg, which is always called
         # {agg_key}-is-enabled.
         kwargs = {
-            "enabled": utils.util.parse_post_bool(
+            "enabled": util.parse_post_bool(
                 form.get(f"{agg_key}-is-enabled"))}
         if agg_key in ["planewatch", "planefinder", "adsbhub", "radarvirtuel",
                        "1090uk"]:
@@ -2422,8 +2422,8 @@ class AdsbIm:
 
     def set_secure_image(self):
         self._conf.set("secure_image", True)
-        if not utils.data.SECURE_IMAGE_FILE.exists():
-            utils.data.SECURE_IMAGE_FILE.touch()
+        if not data.SECURE_IMAGE_FILE.exists():
+            data.SECURE_IMAGE_FILE.touch()
             self._logger.info("Created secure_image file.")
         return redirect(url_for("systemmgmt"))
 
@@ -2466,7 +2466,7 @@ class AdsbIm:
         # Submit the update script as a transient systemd unit, so the
         # process is independent from us and can shut us down.
         try:
-            utils.system.systemctl().run_transient(
+            system.systemctl().run_transient(
                 "adsb-feeder-update",
                 ["/opt/adsb/scripts/update-feeder.bash", tag])
         except:
@@ -2499,7 +2499,7 @@ class AdsbIm:
         if "enabled" in request.form and "zerotierid" in request.form:
             zerotier_id = request.form["zerotierid"]
             try:
-                utils.system.systemctl().run(
+                system.systemctl().run(
                     ["unmask", "enable --now"], ["zerotier-one"])
                 # Wait for the service to get ready...
                 sleep(5.0)
@@ -2655,7 +2655,7 @@ class Manager:
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
-    def __init__(self, conf: utils.data.Config):
+    def __init__(self, conf: data.Config):
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
@@ -2830,16 +2830,16 @@ class Manager:
 
 
 def main():
-    if not utils.data.CONFIG_DIR.exists():
+    if not data.CONFIG_DIR.exists():
         logger.info("Config directory doesn't exist, creating an empty one.")
-        utils.data.CONFIG_DIR.mkdir()
-    if not utils.data.CONFIG_FILE.exists():
+        data.CONFIG_DIR.mkdir()
+    if not data.CONFIG_FILE.exists():
         logger.info("Config file doesn't exist, creating a default one.")
-        conf = utils.data.Config.create_default()
+        conf = data.Config.create_default()
         conf.write_to_file()
     else:
-        conf = utils.data.Config.load_from_file()
-    if not utils.data.ENV_FILE.exists():
+        conf = data.Config.load_from_file()
+    if not data.ENV_FILE.exists():
         logger.info("Env file doesn't exist, writing one based on the config.")
         conf.write_env_file()
     if "--update-config" in sys.argv:

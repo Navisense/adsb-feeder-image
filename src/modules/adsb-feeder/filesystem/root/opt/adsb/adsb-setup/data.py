@@ -12,9 +12,9 @@ import threading
 import typing as t
 from typing import Optional
 
-from .environment import Env
-from .util import is_true, print_err
-from utils.config import read_values_from_env_file
+from environment import Env
+from util import is_true, print_err
+from config import read_values_from_env_file
 
 APP_DIR = pathlib.Path("/opt/adsb")
 METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
@@ -1977,23 +1977,23 @@ class Data:
         "SDRMAP_CONTAINER": "sdrmap",
         "SHIPFEEDER_CONTAINER": "shipfeeder",
     }
-    with open(APP_DIR / "docker.image.versions", "r") as file:
-        for line in file:
-            if line.startswith("#"):
-                continue
-            items = line.replace("\n", "").split("=")
-            if len(items) != 2:
-                print_err(f"docker.image.versions check line: {line}")
-                continue
-            key = items[0]
-            value = items[1]
-            # .get(key, key) defaults to key for key DOZZLE_CONTAINER / ALPINE_CONTAINER, that's fine as we never need
-            # to check if they are enabled as they are always enabled
-            # this also defaults to key for the airspy and sdrplay container
-            tag = tag_for_name.get(key, key)
-            entry = Env(key, tags=[tag, "container", "norestore"])
-            entry.value = value  # always use value from docker.image.versions as definitive source
-            _env.add(entry)  # add to _env set
+    # with open(APP_DIR / "docker.image.versions", "r") as file:
+    #     for line in file:
+    #         if line.startswith("#"):
+    #             continue
+    #         items = line.replace("\n", "").split("=")
+    #         if len(items) != 2:
+    #             print_err(f"docker.image.versions check line: {line}")
+    #             continue
+    #         key = items[0]
+    #         value = items[1]
+    #         # .get(key, key) defaults to key for key DOZZLE_CONTAINER / ALPINE_CONTAINER, that's fine as we never need
+    #         # to check if they are enabled as they are always enabled
+    #         # this also defaults to key for the airspy and sdrplay container
+    #         tag = tag_for_name.get(key, key)
+    #         entry = Env(key, tags=[tag, "container", "norestore"])
+    #         entry.value = value  # always use value from docker.image.versions as definitive source
+    #         _env.add(entry)  # add to _env set
 
     def __init__(self):
         self.previous_version = self._read_previous_version()
@@ -2098,6 +2098,7 @@ class Data:
     def env_values(self):
         return {e.name: e._value for e in self._env}
 
+    # TODO the whole list stuff for envs is only for stage2. remove?++++++++++
     @property
     def stage2_envs(self):
         return [e for e in self._env if e.is_list]
@@ -2188,3 +2189,5 @@ class Data:
         ret = is_true(e.list_get(idx)) if e else False
         print_err(f"list_is_enabled: {e}[{idx}] = {ret}", level=8)
         return ret
+
+
