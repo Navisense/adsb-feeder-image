@@ -102,20 +102,21 @@ install_files ${staging_dir} ${distro}
 write_install_metadata ${REF} "fresh install"
 
 mkdir -p /etc/adsb
-{
-    cat ${APP_DIR}/docker.image.versions
-    echo "_ADSBIM_BASE_VERSION=$(cat ${METADATA_DIR}/version.txt)"
-    echo "_ADSBIM_CONTAINER_VERSION=$(cat ${METADATA_DIR}/version.txt)"
-    echo "AF_WEBPORT=${WEB_PORT}"
-    echo "AF_TAR1090_PORT=1090"
-    echo "AF_UAT978_PORT=1091"
-    echo "AF_PIAWAREMAP_PORT=1092"
-    echo "AF_PIAWARESTAT_PORT=1093"
-    echo "AF_DAZZLE_PORT=1094"
-    echo "AF_IS_MDNS_ENABLED=${ENABLE_MDNS}"
- } >> /etc/adsb/.env
+if [ -f /etc/adsb/config.json ] ; then
+    backup_file="/etc/adsb/config.json.backup.install.$(date -Is)"
+    echo "A config file already exists. Moving it to ${backup_file}."
+    mv /etc/adsb/config.json $backup_file
+fi
 
-# run the final steps of the setup and then enable the service
+echo "Creating a default config at /etc/adsb/config.json."
+/opt/adsb/adsb-setup/config.py ensure_config_exists
+/opt/adsb/adsb-setup/config.py set ports.web ${WEB_PORT}
+/opt/adsb/adsb-setup/config.py set mdns.is_enabled ${ENABLE_MDNS}
+# Call ensure_config_exists again, which writes the env file with our updated
+# values.
+/opt/adsb/adsb-setup/config.py ensure_config_exists
+
+# Run the final steps of the setup and then enable the service.
 systemctl daemon-reload
 systemctl enable adsb-setup
 systemctl start adsb-setup

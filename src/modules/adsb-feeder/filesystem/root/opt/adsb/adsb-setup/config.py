@@ -1304,12 +1304,36 @@ def ensure_config_exists() -> Config:
     return conf
 
 
+def _set(key_path: str, value: t.Any) -> None:
+    conf = Config.load_from_file()
+    setting = conf.get_setting(key_path)
+    if isinstance(setting, BoolSetting):
+        if value not in ["True", "False"]:
+            raise ValueError("Value must be True or False.")
+        value = value == "True"
+    elif isinstance(setting, RealNumberSetting):
+        value = float(value)
+    elif isinstance(setting, IntSetting):
+        value = int(value)
+    setting.set("", value)
+
+
 def _main():
     parser = argparse.ArgumentParser(description="Access the config file.")
-    parser.add_argument("command")
+    subparsers = parser.add_subparsers(dest="command")
+    subparsers.add_parser("ensure_config_exists")
+    get_parser = subparsers.add_parser("get")
+    get_parser.add_argument("key_path")
+    set_parser = subparsers.add_parser("set")
+    set_parser.add_argument("key_path")
+    set_parser.add_argument("value")
     args = parser.parse_args()
     if args.command == "ensure_config_exists":
         ensure_config_exists()
+    elif args.command == "get":
+        print(Config.load_from_file().get(args.key_path))
+    elif args.command == "set":
+        _set(args.key_path, args.value)
     else:
         logger.error(f"Unknown command {args.command}.")
         sys.exit(1)
