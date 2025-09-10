@@ -32,6 +32,38 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
+  <div class="card">
+    <div class="card-body">
+      <h5 class="card-title">Device info</h5>
+      This is {{ get_conf("site_name") }},
+      {% if system_info.network_device_infos or get_conf('mdns.domains') %}
+        reachable as
+        <ul>
+          {% for device_info in system_info.network_device_infos %}
+            <li>
+              <a href="http://{{ device_info.ip }}">{{ device_info.ip }}</a>
+              (device {{ device_info.device }} via {{ device_info.gateway }}):
+              <span id="feeder-reachability-{{ device_info.ip }}">checking reachability...</span>
+            </li>
+          {% endfor %}
+          {% for domain in get_conf('mdns.domains') %}
+            <li>
+              <a href="http://{{ domain }}">{{ domain }}</a>:
+              <span id="feeder-reachability-{{ domain }}">checking reachability...</span>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if system_info.external_ip %}
+          The external IP (on the public internet) is {{ system_info.external_ip }}
+          <span id="feeder-external-ip-comment"></span>
+        {% else %}
+          Unfortunately, we have no information on the device's external IP (on the public internet).
+        {% endif %}
+      {% else %}
+        unfortunately, we have no information on how to reach this device.
+      {% endif %}
+    </div>
+  </div>
   <div id="ais-stats" class="col-12 mb-3">AIS: No information</div>
   <div id="adsb-stats" class="col-12 mb-3">ADS-B: No information</div>
   <div id="chart-wrapper"
@@ -269,10 +301,6 @@
   </div>
   <div class="col-12">
     <dl>
-      <dt>Hostname</dt>
-      <dd>
-        {{ get_conf("site_name") }}
-      </dd>
       {% with current_version = get_conf("base_version") %}
         <dt>Current version</dt>
         <dd>
@@ -285,28 +313,6 @@
           {% endif %}
         </dd>
       {% endwith %}
-      <dt>Feeder external IP (on the public internet)</dt>
-      <dd>
-        <span id="feeder-external-ip">{{ system_info.external_ip }}</span><span id="feeder-external-ip-comment"></span>
-      </dd>
-      <dt>How to reach this feeder when connected to the same network</dt>
-      <dd id="feeder-reachability">
-        <ul>
-          {% for device_info in system_info.network_device_infos %}
-            <li>
-              <a href="http://{{ device_info.ip }}">{{ device_info.ip }}</a>
-              (device {{ device_info.device }} via {{ device_info.gateway }}):
-              <span id="feeder-reachability-{{ device_info.ip }}">checking...</span>
-            </li>
-          {% endfor %}
-          {% for domain in get_conf('mdns.domains') %}
-            <li>
-              <a href="http://{{ domain }}">{{ domain }}</a>:
-              <span id="feeder-reachability-{{ domain }}">checking...</span>
-            </li>
-          {% endfor %}
-        </ul>
-      </dd>
       <dt>{{ sdrs | length }} SDR device(s) connected</dt>
       <dd>
         {% if sdrs %}
