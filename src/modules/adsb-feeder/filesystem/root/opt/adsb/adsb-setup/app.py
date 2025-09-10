@@ -1143,20 +1143,12 @@ class AdsbIm:
         return any(agg.enabled() for agg in self._all_aggregators().values())
 
     def connectivity_info(self):
-        try:
-            external_ip = self._system.get_external_ip()
-        except:
-            self._logger.exception("Error getting external IP.")
-            external_ip = ""
-        try:
-            device_infos = [{
-                "gateway": di.gateway,
-                "device": di.device,
-                "ip": di.ip,}
-                            for di in self._system.get_network_device_infos()]
-        except:
-            self._logger.exception("Error getting network device infos.")
-            device_infos = []
+        external_ip = self._system.system_info.external_ip
+        device_infos = [{
+            "gateway": di.gateway,
+            "device": di.device,
+            "ip": di.ip,
+        } for di in self._system.system_info.network_device_infos]
         return {
             "external_ip": external_ip, "device_infos": device_infos,
             "mdns_domains": self._conf.get("mdns.domains")}

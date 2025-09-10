@@ -19,6 +19,12 @@ class NetworkDeviceInfo:
     ip: str
 
 
+@dc.dataclass
+class SystemInfo:
+    external_ip: Optional[str]
+    network_device_infos: list[NetworkDeviceInfo]
+
+
 class Systemctl:
     """Serialized access to systemctl."""
     def __init__(self):
@@ -111,10 +117,57 @@ class Restart:
 
 class System:
     def __init__(self):
+        self._logger = logging.getLogger(type(self).__name__)
         self._restart = Restart()
         self.containerCheckLock = threading.RLock()
         self.lastContainerCheck = 0
         self.dockerPsCache = dict()
+
+    @property
+    def system_info(self) -> SystemInfo:
+        try:
+            external_ip = self._get_external_ip()
+        except:
+            self._logger.exception("Error getting external IP.")
+            external_ip = None
+        try:
+            network_device_infos = self._get_network_device_infos()
+        except:
+            self._logger.exception("Error getting network device infos.")
+            network_device_infos = []
+        return SystemInfo(
+            external_ip=external_ip, network_device_infos=network_device_infos)
+
+    def _get_external_ip(self) -> Optional[str]:
+        """Get our external IP in the public internet."""
+        # Force IPv4, so we don't get an IPv6 back.
+        requests.packages.urllib3.util.connection.HAS_IPV6 = False
+        headers = {
+            "User-Agent": "Python3/requests/adsb.im", "Accept": "text/plain"}
+        response = requests.get(
+            "http://v4.ipv6-test.com/api/myip.php", headers=headers)
+        response.raise_for_status()
+        return response.text or None
+
+    def _get_network_device_infos(self) -> list[NetworkDeviceInfo]:
+        """Get information about network devices."""
+        proc = shell_with_combined_output("ip --json route show")
+        proc.check_returncode()
+        route_infos = json.loads(proc.stdout)
+        device_infos = []
+        for route_info in route_infos:
+            try:
+                if route_info["dst"] != "default":
+                    continue
+                device_infos.append(
+                    NetworkDeviceInfo(
+                        gateway=route_info["gateway"],
+                        device=route_info["dev"],
+                        ip=route_info["prefsrc"],
+                    ))
+            except KeyError:
+                continue
+        return device_infos
 
     @property
     def is_restarting(self):
@@ -183,37 +236,6 @@ class System:
 
         # we have an ipv6 address but curl -6 isn't working
         return True
-
-    def get_external_ip(self) -> Optional[str]:
-        """Get our external IP in the public internet."""
-        # Force IPv4, so we don't get an IPv6 back.
-        requests.packages.urllib3.util.connection.HAS_IPV6 = False
-        headers = {
-            "User-Agent": "Python3/requests/adsb.im", "Accept": "text/plain"}
-        response = requests.get(
-            "http://v4.ipv6-test.com/api/myip.php", headers=headers)
-        response.raise_for_status()
-        return response.text or None
-
-    def get_network_device_infos(self) -> list[NetworkDeviceInfo]:
-        """Get information about network devices."""
-        proc = shell_with_combined_output("ip --json route show")
-        proc.check_returncode()
-        route_infos = json.loads(proc.stdout)
-        device_infos = []
-        for route_info in route_infos:
-            try:
-                if route_info["dst"] != "default":
-                    continue
-                device_infos.append(
-                    NetworkDeviceInfo(
-                        gateway=route_info["gateway"],
-                        device=route_info["dev"],
-                        ip=route_info["prefsrc"],
-                    ))
-            except KeyError:
-                continue
-        return device_infos
 
     def list_containers(self):
         containers = []
