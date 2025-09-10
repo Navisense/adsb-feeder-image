@@ -233,21 +233,18 @@ class TypeConstrainedScalarSetting(ScalarSetting):
             self, required_type: type, config: "Config", value: Any, *args,
             default: Optional[Any] = None, **kwargs):
         self._required_type = required_type
-        self._check_correct_type(value)
-        if not isinstance(default, (self._required_type, type(None))):
-            raise ValueError(
-                f"Default value must be a {self._required_type}, but is "
-                f"{type(default)}.")
+        self._check_correct_type(value, "value")
+        self._check_correct_type(default, "default value")
         super().__init__(config, value, *args, default=default, **kwargs)
 
-    def _check_correct_type(self, value):
+    def _check_correct_type(self, value, value_name):
         if not isinstance(value, (self._required_type, type(None))):
             raise ValueError(
-                f"Value must be a {self._required_type}, but is {type(value)}."
-            )
+                f"{value_name} must be a {self._required_type}, but is "
+                f"{type(value)}")
 
-    def set(self, key_path: str, value: Any) -> None:
-        self._check_correct_type(value)
+    def set(self, key_path: str, value: Optional[Any]) -> None:
+        self._check_correct_type(value, "value")
         super().set(key_path, value)
 
 
@@ -281,6 +278,40 @@ class RealNumberSetting(TypeConstrainedScalarSetting):
 class IntSetting(TypeConstrainedScalarSetting):
     def __init__(self, *args, **kwargs):
         super().__init__(int, *args, **kwargs)
+
+
+class ListSetting(ScalarSetting):
+    """
+    A scalar setting that is a list of values of the same type.
+
+    Lists can not be represented as environment variables.
+    """
+    def __init__(
+            self, config: "Config", value: list[Any], *,
+            required_value_type: type, default: Optional[list[Any]] = None,
+            norestore: bool = False):
+        self._required_value_type = required_value_type
+        self._check_correct_type(value, "value")
+        self._check_correct_type(default, "default value")
+        super().__init__(
+            config, value, default=default, env_variable_name=None,
+            norestore=norestore)
+
+    def _check_correct_type(self, value, value_name):
+        if value is None:
+            return
+        if not isinstance(value, list):
+            raise ValueError(
+                f"{value_name} must be a list, but is {type(value)}")
+        if any(not isinstance(e, self._required_value_type) for e in value):
+            raise ValueError(
+                f"elements of {value_name} must be of type "
+                f"{self._required_value_type}, but at least one is "
+                f"{type(value)}")
+
+    def set(self, key_path: str, value: Optional[list[Any]]) -> None:
+        self._check_correct_type(value, "value")
+        super().set(key_path, value)
 
 
 class CompoundSetting(Setting):
@@ -857,10 +888,10 @@ class Config(CompoundSetting):
         "board_name": ft.partial(
             CachedGeneratedSetting, value_generator=_get_boardname),
         "mdns": ft.partial(
-            CompoundSetting,
-            schema={
+            CompoundSetting, schema={
                 "is_enabled": ft.partial(BoolSetting, default=True),
-                "domains": ft.partial(StringSetting, default=""),}),
+                "domains": ft.partial(
+                    ListSetting, required_value_type=str, default=[]),}),
         "prometheus": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(BoolSetting, default=False),
@@ -1314,6 +1345,9 @@ class Config(CompoundSetting):
         del config_dict["image_name"]
         del config_dict["board_name"]
         del config_dict["base_version"]
+        # mDNS domains are now represented as an actual list.
+        config_dict["mdns"]["domains"] = (
+            config_dict["mdns"]["domains"].split(";"))
         return config_dict
 
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,

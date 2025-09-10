@@ -758,7 +758,7 @@ class AdsbIm:
             # If we have a hostname, make the mDNS script create an alias for
             # it as well.
             mdns_domains.append(f"{self.hostname}.local")
-        self._conf.set("mdns.domains", ";".join(mdns_domains))
+        self._conf.set("mdns.domains", mdns_domains)
         subprocess.run(args + mdns_domains)
 
     def set_tz(self, timezone):
@@ -1153,10 +1153,9 @@ class AdsbIm:
         except:
             self._logger.exception("Error getting network device infos.")
             device_infos = []
-        mdns_domains = self._conf.get("mdns.domains").split(";")
         return {
             "external_ip": external_ip, "device_infos": device_infos,
-            "mdns_domains": mdns_domains}
+            "mdns_domains": self._conf.get("mdns.domains")}
 
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
