@@ -12,6 +12,7 @@ import numbers
 import pathlib
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -93,6 +94,34 @@ def _get_boardname(config: "Config") -> str:
     elif board == "Libre Computer AML-S905X-CC":
         return "Libre Computer Le Potato (AML-S905X-CC)"
     return board or f"Unknown {platform.machine()} system"
+
+
+def _has_gpsd(config: "Config"):
+    """Check whether gpsd is running."""
+    # Find host address on the docker network.
+    proc = util.shell_with_combined_output(
+        "docker exec adsb-setup-proxy ip route | mawk '/default/{ print($3) }'",
+        timeout=5)
+    try:
+        proc.check_returncode()
+        assert len(proc.stdout.strip()) > 4
+        gateway_ips = [proc.stdout.strip()]
+    except:
+        logger.exception(
+            f"Finding the host address failed with output: {proc.stdout}")
+        gateway_ips = ["172.17.0.1", "172.18.0.1"]
+
+    logger.info(f"gpsd check checking ips: {gateway_ips}.")
+    for ip in gateway_ips:
+        try:
+            with socket.socket() as s:
+                s.settimeout(2)
+                s.connect((ip, 2947))
+                logger.info(f"Found gpsd on {ip}:2947.")
+                return True
+        except socket.error:
+            logger.info(f"No gpsd on {ip}:2947 detected.")
+    return False
 
 
 class Setting(abc.ABC):
@@ -641,7 +670,8 @@ class Config(CompoundSetting):
             RealNumberSetting, default=300,
             env_variable_name="FEEDER_MAX_RANGE"),
         "use_gpsd": ft.partial(BoolSetting, default=False),
-        "has_gpsd": ft.partial(BoolSetting, default=False),
+        "has_gpsd": ft.partial(
+            CachedGeneratedSetting, value_generator=_has_gpsd),
         "docker_concurrent": ft.partial(BoolSetting, default=True),
         "temperature_block": ft.partial(BoolSetting, default=False),
         # Ultrafeeder config, used for all 4 types of Ultrafeeder instances
@@ -1345,6 +1375,7 @@ class Config(CompoundSetting):
         del config_dict["image_name"]
         del config_dict["board_name"]
         del config_dict["base_version"]
+        del config_dict["has_gpsd"]
         # mDNS domains are now represented as an actual list.
         config_dict["mdns"]["domains"] = (
             config_dict["mdns"]["domains"].split(";"))

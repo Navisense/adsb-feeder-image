@@ -104,9 +104,6 @@ class Restart:
 class System:
     def __init__(self):
         self._restart = Restart()
-
-        self.gateway_ips = None
-
         self.containerCheckLock = threading.RLock()
         self.lastContainerCheck = 0
         self.dockerPsCache = dict()
@@ -207,40 +204,6 @@ class System:
             except KeyError:
                 continue
         return device_infos
-
-    def check_gpsd(self):
-        # gateway IP shouldn't change on a system, buffer it for the duration the program runs
-        if self.gateway_ips:
-            gateway_ips = self.gateway_ips
-        else:
-            # find host address on the docker network
-            command = "docker exec adsb-setup-proxy ip route | mawk '/default/{ print($3) }'"
-            success, output = run_shell_captured(
-                command=command,
-                timeout=5,
-            )
-            if success and len(output.strip()) > 4:
-                self.gateway_ips = gateway_ips = [output.strip()]
-            else:
-                gateway_ips = ["172.17.0.1", "172.18.0.1"]
-                print_err(f"ERROR: command: {command} failed with output: {output}")
-
-        print_err(f"gpsd check: checking ips: {gateway_ips}")
-
-        for ip in gateway_ips:
-            # Create a TCP socket
-            # print_err(f"Checking for gpsd: {ip}:2947")
-            s = socket.socket()
-            s.settimeout(2)
-            try:
-                s.connect((ip, 2947))
-                print_err(f"Connected to gpsd on {ip}:2947")
-                return True
-            except socket.error as e:
-                print_err(f"No gpsd on {ip}:2947 detected")
-            finally:
-                s.close()
-        return False
 
     def list_containers(self):
         containers = []

@@ -1780,8 +1780,6 @@ class AdsbIm:
     def expert(self):
         if request.method == "POST":
             return self.update()
-        # make sure we only show the gpsd option if gpsd is correctly configured and running
-        self._conf.set("has_gpsd", self._system.check_gpsd())
         return render_template("expert.html")
 
     @check_restart_lock
