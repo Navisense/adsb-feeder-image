@@ -304,50 +304,50 @@
       <a href="{{ url_for('aggregators') }}">Data Sharing</a>
     </div>
   </div>
-  <div class="col-12">
-    <dl>
-      {% with current_version = get_conf("base_version") %}
-        <dt>Current version</dt>
-        <dd>
-          <strong>{{ current_version }}</strong>
-          {% if current_version == tags[0] %}
-            (this is the latest stable version)
-          {% else %}
-            (latest stable version is <strong>{{ tags[0] }}</strong>, see
-            <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
-          {% endif %}
-        </dd>
-      {% endwith %}
-      <dt>{{ sdrs | length }} SDR device(s) connected</dt>
-      <dd>
-        {% if sdrs %}
-          <ul>
-            {% for sdr in sdrs %}
-              <li>
-                {{ sdr.vendor }} {{ sdr.product }} ({{ sdr.type }} device with serial {{ sdr.serial }}):
-                {% with assignment = sdr_assignment(sdr) %}
-                  {% if assignment == 'ais' %}
-                    currently handling AIS
-                  {% elif assignment in ['1090', '978'] %}
-                    currently handling ADS-B ({{ assignment }}MHz)
-                  {% else %}
-                    currently unused
-                  {% endif %}
-                {% endwith %}
-              </li>
-            {% endfor %}
-          </ul>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Version</h5>
+      <p>
+        This device is currently running <strong>{{ get_conf("base_version") }}</strong>
+        {% if get_conf("base_version") == tags[0] %}
+          (this is the latest stable version)
         {% else %}
-          no SDR devices connected
+          (the latest stable version is <strong>{{ tags[0] }}</strong>, see
+          <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
         {% endif %}
-      </dd>
-      <dt>Containers:</dt>
-      <dd>
-        <ul>
-          {% for container in containers %}<li>{{ container }}</li>{% endfor %}
-        </ul>
-      </dd>
-    </dl>
+      </p>
+      Containers:
+      <ul>
+        {% for container in containers %}<li>{{ container }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Available SDR devices</h5>
+      {% if sdrs %}
+        {{ sdrs | length }} SDR device(s) are connected:
+        {% for sdr in sdrs %}
+          <div class="col-12 col-md-6">
+            <div class="card my-2">
+              <div class="card-body">
+                <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
+                This is a {{ sdr.vendor }} {{ sdr.product }} which is
+                {% if sdr_assignment(sdr) == 'ais' %}
+                  currently handling AIS.
+                {% elif sdr_assignment(sdr) in ['1090', '978'] %}
+                  currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
+                {% else %}
+                  currently unused.
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        There are no SDR devices connected.
+      {% endif %}
+    </div>
   </div>
   <script src="{{ url_for('static', filename='js/chart.js') }}"
           integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
