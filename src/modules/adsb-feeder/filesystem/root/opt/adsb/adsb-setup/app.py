@@ -6,7 +6,6 @@ import logging.config
 import os
 import os.path
 import pathlib
-import platform
 import queue
 import re
 import shlex
@@ -56,7 +55,6 @@ import stats
 import system
 import util
 from util import (
-    cleanup_str,
     create_fake_info,
     is_true,
     make_int,
@@ -562,8 +560,6 @@ class AdsbIm:
             view_func=self._decide_route_hotspot_mode(None),
             methods=["GET", "POST"],
         )
-        self.update_boardname()
-        self.update_version()
         self.update_meminfo()
         self.update_journal_state()
 
@@ -690,60 +686,6 @@ class AdsbIm:
                 "continue.")
         self._server.server_close()
         self._server = self._server_thread = None
-
-    def update_boardname(self):
-        board = ""
-        if pathlib.Path("/sys/firmware/devicetree/base/model").exists():
-            # that's some kind of SBC most likely
-            with open("/sys/firmware/devicetree/base/model", "r") as model:
-                board = cleanup_str(model.read().strip())
-        else:
-            # are we virtualized?
-            try:
-                output = subprocess.run(
-                    "systemd-detect-virt",
-                    timeout=2.0,
-                    shell=True,
-                    capture_output=True,
-                )
-            except subprocess.SubprocessError:
-                pass  # whatever
-            else:
-                virt = output.stdout.decode().strip()
-                if virt and virt != "none":
-                    board = f"Virtualized {platform.machine()} environment under {virt}"
-                else:
-                    prod = ""
-                    manufacturer = ""
-                    try:
-                        prod = subprocess.run(
-                            "dmidecode -s system-product-name",
-                            shell=True,
-                            capture_output=True,
-                            text=True,
-                        )
-                        manufacturer = subprocess.run(
-                            "dmidecode -s system-manufacturer",
-                            shell=True,
-                            capture_output=True,
-                            text=True,
-                        )
-                    except:
-                        pass
-                    if prod or manufacturer:
-                        board = f"Native on {manufacturer.stdout.strip()} {prod.stdout.strip()} {platform.machine()} system"
-                    else:
-                        board = f"Native on {platform.machine()} system"
-        if board == "":
-            board = f"Unknown {platform.machine()} system"
-        if board == "Firefly roc-rk3328-cc":
-            board = f"Libre Computer Renegade ({board})"
-        elif board == "Libre Computer AML-S905X-CC":
-            board = "Libre Computer Le Potato (AML-S905X-CC)"
-        self._conf.set("board_name", board)
-
-    def update_version(self):
-        self._conf.set("base_version", config.read_version())
 
     def update_meminfo(self):
         self._memtotal = 0
@@ -1161,10 +1103,6 @@ class AdsbIm:
         for e in self._d._env:
             e._reconcile(e._value, pull=("norestore" not in e.tags))
             print_err(f"{'wrote out' if 'norestore' in e.tags else 'read in'} {e.name}: {e.value}")
-
-        # finally make sure that a couple of the key settings are up to date
-        self.update_boardname()
-        self.update_version()
 
         self.set_tz(self._conf.get("tz"))
 
@@ -2185,9 +2123,6 @@ class AdsbIm:
         # refresh docker ps cache so the aggregator status is nicely up to date
         self._executor.submit(self._system.refreshDockerPs)
 
-        board = self._conf.get("board_name")
-        base = self._conf.get("image_name")
-        version = self._conf.get("base_version")
         containers = [
             image_setting.get("")
             for _, image_setting in self._conf.get_setting("images")]
@@ -2206,9 +2141,6 @@ class AdsbIm:
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
-            board=board,
-            base=base,
-            version=version,
             containers=containers,
             sdrs=self._sdrdevices.sdrs,
             sdr_assignment=sdr_assignment,

@@ -10,11 +10,15 @@ import json
 import logging
 import numbers
 import pathlib
+import platform
 import shutil
+import subprocess
 import sys
 import threading
 import typing as t
 from typing import Optional
+
+import util
 
 
 APP_DIR = pathlib.Path("/opt/adsb")
@@ -31,17 +35,66 @@ FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
 logger = logging.getLogger(__name__)
 
 
-def read_version():
-    """Read the version string from the version file."""
-    return _read_file(VERSION_FILE)
-
-
-def _read_file(file: pathlib.Path) -> str:
+def _read_file(config: "Config", *, file: pathlib.Path) -> str:
     try:
         with file.open() as f:
             return f.read().strip()
     except FileNotFoundError:
         return "unknown"
+
+
+def _get_boardname(config: "Config") -> str:
+    board = ""
+    if pathlib.Path("/sys/firmware/devicetree/base/model").exists():
+        # that's some kind of SBC most likely
+        with open("/sys/firmware/devicetree/base/model", "r") as model:
+            board = util.cleanup_str(model.read().strip())
+    else:
+        # are we virtualized?
+        try:
+            output = subprocess.run(
+                "systemd-detect-virt",
+                timeout=2.0,
+                shell=True,
+                capture_output=True,
+            )
+        except subprocess.SubprocessError:
+            pass  # whatever
+        else:
+            virt = output.stdout.decode().strip()
+            if virt and virt != "none":
+                board = (
+                    f"Virtualized {platform.machine()} environment under "
+                    f"{virt}")
+            else:
+                prod = ""
+                manufacturer = ""
+                try:
+                    prod = subprocess.run(
+                        "dmidecode -s system-product-name",
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                    manufacturer = subprocess.run(
+                        "dmidecode -s system-manufacturer",
+                        shell=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                except:
+                    pass
+                if prod or manufacturer:
+                    board = (
+                        f"Native on {manufacturer.stdout.strip()} "
+                        f"{prod.stdout.strip()} {platform.machine()} system")
+                else:
+                    board = f"Native on {platform.machine()} system"
+    if board == "Firefly roc-rk3328-cc":
+        return f"Libre Computer Renegade ({board})"
+    elif board == "Libre Computer AML-S905X-CC":
+        return "Libre Computer Le Potato (AML-S905X-CC)"
+    return board or f"Unknown {platform.machine()} system"
 
 
 class Setting(abc.ABC):
@@ -410,6 +463,32 @@ class GeneratedSetting(TransientSetting):
         raise ValueError("Generated settings can't be set.")
 
 
+class CachedGeneratedSetting(GeneratedSetting):
+    """A generated setting that only calculates its value once."""
+    def __init__(
+            self, config: "Config", _: t.Any, *,
+            value_generator: cl_abc.Callable[["Config"], t.Any],
+            default: Optional[t.Any] = None,
+            env_variable_name: Optional[str] = None):
+        super().__init__(
+            config, value_generator, default=default,
+            env_variable_name=env_variable_name)
+        self._has_cache = False
+        self._cached_value = None
+
+    def get(
+            self, key_path: t.Literal[""], *, default: t.Any = None,
+            use_setting_level_default: bool = True) -> t.Any:
+        if key_path != "":
+            raise ValueError("Scalar settings have no subkeys.")
+        if not self._has_cache:
+            self._cached_value = super().get(
+                key_path, default=default,
+                use_setting_level_default=use_setting_level_default)
+            self._has_cache = True
+        return self._cached_value
+
+
 class SwitchedGeneratedSetting(GeneratedSetting):
     """
     A generated setting that takes one of 2 values based on a switch.
@@ -480,7 +559,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 1
+    CONFIG_VERSION = 2
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -771,8 +850,15 @@ class Config(CompoundSetting):
         # ADSB.im specific
         "aggregator_choice": ft.partial(
             StringSetting, env_variable_name="_ADSBIM_AGGREGATORS_SELECTION"),
-        "base_version": ft.partial(StringSetting, norestore=True),
-        "board_name": ft.partial(StringSetting, norestore=True),
+        "base_version": ft.partial(
+            CachedGeneratedSetting,
+            value_generator=ft.partial(_read_file, file=VERSION_FILE)),
+        "previous_version": ft.partial(
+            CachedGeneratedSetting,
+            value_generator=ft.partial(_read_file,
+                                       file=PREVIOUS_VERSION_FILE)),
+        "board_name": ft.partial(
+            CachedGeneratedSetting, value_generator=_get_boardname),
         "mdns": ft.partial(
             CompoundSetting,
             schema={
@@ -817,7 +903,9 @@ class Config(CompoundSetting):
                 "aiscatcher": ft.partial(
                     IntSetting, default=41580,
                     env_variable_name="AF_AIS_CATCHER_PORT"),}),
-        "image_name": ft.partial(StringSetting, norestore=True),
+        "image_name": ft.partial(
+            CachedGeneratedSetting,
+            value_generator=ft.partial(_read_file, file=FRIENDLY_NAME_FILE)),
         "secure_image": ft.partial(BoolSetting, default=False, norestore=True),
         "airspy": BoolSetting,
         "sdrplay": BoolSetting,
@@ -1224,7 +1312,19 @@ class Config(CompoundSetting):
                 config_dict["AF_NANO_BEASTREDUCE_PORT"]),
             "num_micro_sites": config_dict["AF_NUM_MICRO_SITES"],}
 
-    _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1}
+    @staticmethod
+    def _upgrade_config_dict_from_1_to_2(
+            config_dict: dict[str, t.Any]) -> dict[str, t.Any]:
+        config_dict = config_dict.copy()
+        # These are generated now.
+        del config_dict["image_name"]
+        del config_dict["board_name"]
+        del config_dict["base_version"]
+        return config_dict
+
+    _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
+                         (1, 2): _upgrade_config_dict_from_1_to_2}
+
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
         # where the _config_upgraders dict maps tuples of
