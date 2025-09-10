@@ -564,11 +564,11 @@
     if (feederConnectivity["external_ip"] && browserIp) {
       if (feederConnectivity["external_ip"] == browserIp) {
         $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-        $("#ip-mismatch").hide();
+        $("#ip-mismatch").addClass("d-none");
       } else {
         $("#feeder-external-ip-comment").text(
           ` (that's a different one than the one of this browser, which has ${browserIp})`);
-        $("#ip-mismatch").show();
+        $("#ip-mismatch").removeClass("d-none");
       }
     }
 
