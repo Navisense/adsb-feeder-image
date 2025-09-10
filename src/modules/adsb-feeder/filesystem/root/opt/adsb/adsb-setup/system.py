@@ -9,6 +9,7 @@ from typing import Optional
 
 import requests
 
+import util
 from util import print_err, run_shell_captured, shell_with_combined_output
 
 
@@ -116,27 +117,55 @@ class Restart:
 
 
 class System:
+    """
+    Access to system functions.
+
+    Provides a property with system info that is regularly refreshed in a
+    background task. In order to access it, the task must be started with
+    start_info_refresh() (and should be stopped on shutdown with
+    stop_info_refresh()).
+    """
+    INFO_REFRESH_INTERVAL = 300
+
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self._restart = Restart()
         self.containerCheckLock = threading.RLock()
         self.lastContainerCheck = 0
         self.dockerPsCache = dict()
+        self._system_info = None
+        self._system_info_lock = threading.Lock()
+        self._info_refresh_task = util.RepeatingTask(
+            self.INFO_REFRESH_INTERVAL, self._update_system_info)
+
+    def start_info_refresh(self):
+        self._info_refresh_task.start(execute_now=True)
+
+    def stop_info_refresh(self):
+        self._info_refresh_task.stop_and_wait()
 
     @property
     def system_info(self) -> SystemInfo:
-        try:
-            external_ip = self._get_external_ip()
-        except:
-            self._logger.exception("Error getting external IP.")
-            external_ip = None
-        try:
-            network_device_infos = self._get_network_device_infos()
-        except:
-            self._logger.exception("Error getting network device infos.")
-            network_device_infos = []
-        return SystemInfo(
-            external_ip=external_ip, network_device_infos=network_device_infos)
+        if not self._info_refresh_task.running:
+            raise ValueError("System info refresh task is not running.")
+        with self._system_info_lock:
+            return self._system_info
+
+    def _update_system_info(self) -> SystemInfo:
+        with self._system_info_lock:
+            try:
+                external_ip = self._get_external_ip()
+            except:
+                self._logger.exception("Error getting external IP.")
+                external_ip = None
+            try:
+                network_device_infos = self._get_network_device_infos()
+            except:
+                self._logger.exception("Error getting network device infos.")
+                network_device_infos = []
+            self._system_info = SystemInfo(
+                external_ip=external_ip,
+                network_device_infos=network_device_infos)
 
     def _get_external_ip(self) -> Optional[str]:
         """Get our external IP in the public internet."""

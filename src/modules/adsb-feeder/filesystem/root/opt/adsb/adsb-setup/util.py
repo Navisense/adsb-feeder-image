@@ -364,6 +364,10 @@ class RepeatingTask:
         self._timer = None
         self._lock = threading.Lock()
 
+    @property
+    def running(self) -> bool:
+        return bool(self._timer)
+
     def start(self, *, execute_now=False):
         with self._lock:
             if self._timer:

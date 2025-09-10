@@ -627,6 +627,7 @@ class AdsbIm:
             raise RuntimeError("already started")
         assert self._server_thread is None
         self.update_config()
+        self._system.start_info_refresh()
 
         # if using gpsd, try to update the location
         if self._conf.get("use_gpsd"):
@@ -673,6 +674,7 @@ class AdsbIm:
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
+        self._system.stop_info_refresh()
         self._server.shutdown()
         self._server_thread.join(timeout=10)
         if self._server_thread.is_alive():
