@@ -287,11 +287,25 @@
       {% endwith %}
       <dt>Feeder external IP (on the public internet)</dt>
       <dd>
-        <span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span>
+        <span id="feeder-external-ip">{{ system_info.external_ip }}</span><span id="feeder-external-ip-comment"></span>
       </dd>
       <dt>How to reach this feeder when connected to the same network</dt>
       <dd id="feeder-reachability">
-        checking...
+        <ul>
+          {% for device_info in system_info.network_device_infos %}
+            <li>
+              <a href="http://{{ device_info.ip }}">{{ device_info.ip }}</a>
+              (device {{ device_info.device }} via {{ device_info.gateway }}):
+              <span id="feeder-reachability-{{ device_info.ip }}">checking...</span>
+            </li>
+          {% endfor %}
+          {% for domain in get_conf('mdns.domains') %}
+            <li>
+              <a href="http://{{ domain }}">{{ domain }}</a>:
+              <span id="feeder-reachability-{{ domain }}">checking...</span>
+            </li>
+          {% endfor %}
+        </ul>
       </dd>
       <dt>{{ sdrs | length }} SDR device(s) connected</dt>
       <dd>
@@ -550,47 +564,27 @@
   }
 
   async function updateConnectivityInfo() {
-    let feederConnData = fetch("/api/connectivity_info", { signal: AbortSignal.timeout(15000) })
-      .then(response => response.json());
     let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
       .then(response => response.json());
-    const feederConnectivity = await feederConnData;
     const browserIp = (await browserIpData)["ip"];
 
     // Internal vs. external IP.
-    if (feederConnectivity["external_ip"]) {
-      $("#feeder-external-ip").text(feederConnectivity["external_ip"]);
-    }
-    if (feederConnectivity["external_ip"] && browserIp) {
-      if (feederConnectivity["external_ip"] == browserIp) {
-        $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-        $("#ip-mismatch").addClass("d-none");
-      } else {
-        $("#feeder-external-ip-comment").text(
-          ` (that's a different one than the one of this browser, which has ${browserIp})`);
-        $("#ip-mismatch").removeClass("d-none");
+    {% if system_info.external_ip %}
+      if (browserIp) {
+        if ("{{ system_info.external_ip }}" == browserIp) {
+          $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
+          $("#ip-mismatch").addClass("d-none");
+        } else {
+          $("#feeder-external-ip-comment").text(
+            ` (that's a different one than the one of this browser, which has ${browserIp})`);
+          $("#ip-mismatch").removeClass("d-none");
+        }
       }
-    }
+    {% endif %}
 
     // Reachability (mDNS and IP).
-    $("#feeder-reachability").html("<ul></ul>");
-    for (const deviceInfo of feederConnectivity["device_infos"]) {
-      $("#feeder-reachability ul").append(`
-        <li>
-          <a href="http://${deviceInfo.ip}">${deviceInfo.ip}</a>
-          (device ${deviceInfo.device} via ${deviceInfo.gateway}):
-          <span id="feeder-reachability-${deviceInfo.ip}">checking...</span>
-        </li>`);
-    }
-    for (const domain of feederConnectivity["mdns_domains"]) {
-      $("#feeder-reachability ul").append(
-        `<li>
-          <a href="http://${domain}">${domain}</a>:
-          <span id="feeder-reachability-${domain}">checking...</span>
-        </li>`);
-    }
-    const hosts = feederConnectivity["device_infos"].map(di => di["ip"]).concat(feederConnectivity["mdns_domains"]);
-    const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 50 * 1000, 3000);
+    const connectivityChecker = new FeederConnectivityChecker(
+      {{ device_hosts | tojson }}, updateReachabilityInfo, 50 * 1000, 3000);
     connectivityChecker.start();
   }
 

@@ -454,11 +454,6 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/api/connectivity_info",
-            "connectivity_info",
-            self._decide_route_hotspot_mode(self.connectivity_info),
-        )
-        self.app.add_url_rule(
             "/api/sdr_info",
             "sdr_info",
             self._decide_route_hotspot_mode(self.sdr_info),
@@ -1141,17 +1136,6 @@ class AdsbIm:
 
     def at_least_one_aggregator(self) -> bool:
         return any(agg.enabled() for agg in self._all_aggregators().values())
-
-    def connectivity_info(self):
-        external_ip = self._system.system_info.external_ip
-        device_infos = [{
-            "gateway": di.gateway,
-            "device": di.device,
-            "ip": di.ip,
-        } for di in self._system.system_info.network_device_infos]
-        return {
-            "external_ip": external_ip, "device_infos": device_infos,
-            "mdns_domains": self._conf.get("mdns.domains")}
 
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
@@ -2127,6 +2111,9 @@ class AdsbIm:
             return None
 
         available_tags = gitlab.gitlab_repo().get_tags()
+        device_hosts = (
+            [di.ip for di in self._system.system_info.network_device_infos]
+            + self._conf.get("mdns.domains"))
         return render_template(
             "overview.html",
             enabled_aggregators=enabled_aggregators,
@@ -2138,6 +2125,8 @@ class AdsbIm:
             sdrs=self._sdrdevices.sdrs,
             sdr_assignment=sdr_assignment,
             tags=available_tags,
+            system_info=self._system.system_info,
+            device_hosts=device_hosts,
         )
 
     @check_restart_lock
@@ -2268,19 +2257,15 @@ class AdsbIm:
             for _, image_setting in self._conf.get_setting("images")]
         return render_template(
             "info.html",
-            board=self._conf.get("board_name"),
+            system_info=self._system.system_info,
             memory=memory,
             top=top,
             storage=storage,
-            base=self._conf.get("image_name"),
             kernel=kernel,
             journal=journal,
             ipv6=ipv6,
-            current=self._conf.get("base_version"),
             containers=containers,
             sdrs=sdrs,
-            ufargs=self._conf.get("ultrafeeder_extra_args"),
-            envvars=self._conf.get("ultrafeeder_extra_env"),
             netdog=netdog,
         )
 
@@ -2314,7 +2299,7 @@ class AdsbIm:
         ssh_dir = pathlib.Path("/root/.ssh")
         ssh_dir.mkdir(mode=0o700, exist_ok=True)
         with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
-            authorized_keys.write(f"{request.form["ssh-public-key"]}\n")
+            authorized_keys.write(f"{request.form['ssh-public-key']}\n")
         self._conf.set("ssh_configured", True)
         success, output = run_shell_captured(
             "systemctl is-enabled ssh || systemctl is-enabled dropbear || "

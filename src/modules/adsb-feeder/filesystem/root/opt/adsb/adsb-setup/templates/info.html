@@ -4,9 +4,9 @@
 {% block content %}
 <p>Please cut and paste (or provide a screenshot of) this data when asking for help.</p>
 <ul>
-  <li><span style="display: inline-block; width: 6em;"><strong>Current:</strong></span> {{ current }}</li>
-  <li><span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ board }}</li>
-  <li><span style="display: inline-block; width: 6em;"><strong>Base:</strong></span> {{ base }}</li>
+  <li><span style="display: inline-block; width: 6em;"><strong>Current version:</strong></span> {{ get_conf('base_version') }}</li>
+  <li><span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ get_conf('board_name') }}</li>
+  <li><span style="display: inline-block; width: 6em;"><strong>Base image:</strong></span> {{ get_conf('image_name') }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Kernel:</strong></span> {{ kernel }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Power:</strong></span> Undervoltage
     {% if not get_conf('under_voltage') %}not{% endif %} reported</li>
@@ -34,10 +34,10 @@
       </li>{% endfor %}</ul>
   </li>
   <li><strong>Ultrafeeder args:</strong><br />
-    <pre>{{ ufargs }}</pre>
+    <pre>{{ get_conf('ultrafeeder_extra_args') }}</pre>
   </li>
   <li><strong>Env variables:</strong><br />
-    <pre>{{ envvars }}</pre>
+    <pre>{{ get_conf('ultrafeeder_extra_env') }}</pre>
   </li>
   <li><strong>Memory:</strong><br />
     <pre>{{ memory }}</pre>
@@ -51,7 +51,11 @@
 </ul>
 <script>
   let browser_ip = null;
-  let feeder_ip = null;
+  {% if system_info.external_ip %}
+    const feeder_ip = "{{ system_info.external_ip }}";
+  {% else %}
+    const feeder_ip = null;
+  {% endif %}
   function compareIps() {
     if (feeder_ip == null || browser_ip == null) {
       return;
@@ -67,12 +71,6 @@
     .then(response => response.json())
     .then(data => {
       browser_ip = data["ip"];
-      compareIps();
-    });
-  fetch("/api/connectivity_info", { signal: AbortSignal.timeout(15000) })
-    .then(response => response.json())
-    .then(data => {
-      feeder_ip = data["external_ip"];
       compareIps();
     });
 </script>
