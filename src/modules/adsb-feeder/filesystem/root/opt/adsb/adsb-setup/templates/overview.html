@@ -32,7 +32,7 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
-  <div class="card">
+  <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Device info</h5>
       This is {{ get_conf("site_name") }},
@@ -53,25 +53,30 @@
             </li>
           {% endfor %}
         </ul>
-        {% if system_info.external_ip %}
-          The external IP (on the public internet) is {{ system_info.external_ip }}
-          <span id="feeder-external-ip-comment"></span>
-        {% else %}
-          Unfortunately, we have no information on the device's external IP (on the public internet).
-        {% endif %}
       {% else %}
         unfortunately, we have no information on how to reach this device.
       {% endif %}
+      {% if system_info.external_ip %}
+        The external IP (on the public internet) is {{ system_info.external_ip }}
+        <span id="feeder-external-ip-comment"></span>
+      {% else %}
+        Unfortunately, we have no information on the device's external IP (on the public internet).
+      {% endif %}
     </div>
   </div>
-  <div id="ais-stats" class="col-12 mb-3">AIS: No information</div>
-  <div id="adsb-stats" class="col-12 mb-3">ADS-B: No information</div>
-  <div id="chart-wrapper"
-       class="col-md-10 col-12"
-       style="position: relative;
-              width: 100%;
-              height: 100%">
-    <canvas id="reception-history-chart"></canvas>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Data reception</h5>
+      <div class="row">
+        <div class="col-6">
+          <div id="ais-stats" class="alert">AIS: No information (checking...)</div>
+        </div>
+        <div class="col-6">
+          <div id="adsb-stats" class="alert">ADS-B: No information (checking...)</div>
+        </div>
+      </div>
+    </div>
+    <div id="chart-wrapper" class="m-5 d-none d-md-block"><canvas id="reception-history-chart"></canvas></div>
   </div>
   <div class="col-12 {% if (enabled_aggregators | length) == 0 %}d-none{% endif %}">
     <h4>You are feeding</h4>
@@ -454,21 +459,21 @@
   }
 
   function updateCurrentCraftStats(type, craftName, craftStats, element) {
-    element.removeClass("text-danger text-success text-warning");
+    element.removeClass("alert-danger alert-success alert-warning");
     if (!craftStats.enabled) {
-      element.addClass("text-warning");
+      element.addClass("alert-warning");
       element.html(`${type} reception is disabled.`);
     } else if (craftStats.current.pps > 0) {
-      element.addClass("text-success");
+      element.addClass("alert-success");
       element.html(
         `${type}: ${craftStats.current.pps.toFixed(1)} positions per second — `
         + `${craftStats.current.num} ${craftName} visible`);
     } else if (craftStats.uptime < 60) {
-      element.addClass("text-warning");
+      element.addClass("alert-warning");
       element.html(
         `${type} reception has just been enabled, and we've not seen data arriving yet (let's wait a bit...)`);
     } else {
-      element.addClass("text-danger");
+      element.addClass("alert-danger");
       element.html(`${type} reception is enabled, but no data is arriving.`);
     }
   }
