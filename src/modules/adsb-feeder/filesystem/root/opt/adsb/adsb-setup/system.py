@@ -1,3 +1,4 @@
+import dataclasses as dc
 import json
 import logging
 import socket
@@ -9,6 +10,13 @@ from typing import Optional
 import requests
 
 from util import print_err, run_shell_captured, shell_with_combined_output
+
+
+@dc.dataclass
+class NetworkDeviceInfo:
+    gateway: str
+    device: str
+    ip: str
 
 
 class Systemctl:
@@ -187,7 +195,7 @@ class System:
         response.raise_for_status()
         return response.text or None
 
-    def get_network_device_infos(self) -> list[dict]:
+    def get_network_device_infos(self) -> list[NetworkDeviceInfo]:
         """Get information about network devices."""
         proc = shell_with_combined_output("ip --json route show")
         proc.check_returncode()
@@ -197,10 +205,12 @@ class System:
             try:
                 if route_info["dst"] != "default":
                     continue
-                device_infos.append({
-                    "gateway": route_info["gateway"],
-                    "device": route_info["dev"],
-                    "ip": route_info["prefsrc"],})
+                device_infos.append(
+                    NetworkDeviceInfo(
+                        gateway=route_info["gateway"],
+                        device=route_info["dev"],
+                        ip=route_info["prefsrc"],
+                    ))
             except KeyError:
                 continue
         return device_infos

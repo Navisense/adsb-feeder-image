@@ -1149,7 +1149,11 @@ class AdsbIm:
             self._logger.exception("Error getting external IP.")
             external_ip = ""
         try:
-            device_infos = self._system.get_network_device_infos()
+            device_infos = [{
+                "gateway": di.gateway,
+                "device": di.device,
+                "ip": di.ip,}
+                            for di in self._system.get_network_device_infos()]
         except:
             self._logger.exception("Error getting network device infos.")
             device_infos = []
