@@ -32,285 +32,310 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
-  <div id="ais-stats" class="col-12 mb-3">AIS: No information  </div>
+  <div id="ais-stats" class="col-12 mb-3">AIS: No information</div>
   <div id="adsb-stats" class="col-12 mb-3">ADS-B: No information</div>
-<div id="chart-wrapper"
-     class="col-md-10 col-12"
-     style="position: relative;
-            width: 100%;
-            height: 100%">
-  <canvas id="reception-history-chart"></canvas>
-</div>
-<div class="col-12 {% if (enabled_aggregators | length) == 0 %}d-none{% endif %}">
-  <h4>You are feeding</h4>
-  <div class="row small">
-    <div class="col-12 col-md-6" style="overflow-x: auto">
-      <h5>AIS</h5>
-      <table class="table table-bordered table-sm lh-1 table-striped">
-        <thead>
-          <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
-          <td class="text-center" colspan="1">Enabled</td>
-          <td class="text-center" colspan="1">Data</td>
-          <td class="text-center" colspan="1">Status</td>
-        </thead>
-        <tbody>
-          {% for agg in enabled_aggregators.values() %}
-            {% if not agg.enabled('ais') %}
-              {% continue %}
-            {% endif %}
-            <tr>
-              <td style="position: -webkit-sticky; position: sticky; left: 0px;">
-                {% if agg.map_url %}
-                  <a href="{{ agg.map_url }}">{{ agg.name }}</a>
-                {% else %}
-                  {{ agg.name }}
-                {% endif %}
-              </td>
-              <td class="text-center">
-                <span id="{{ agg.agg_key }}-ais-enabled" width="3em" class="text-muted">✓</span>
-              </td>
-              <td class="text-center">
-                <span id="{{ agg.agg_key }}-ais-data-status" width="3em">.</span>
-              </td>
-              <td class="text-center">
-                {% if agg.status_url %}
-                  <a href="{{ agg.status_url }}">🔗</a>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="col-12 col-md-6" style="overflow-x: auto">
-      <h5>ADS-B</h5>
-      <table class="table table-bordered table-sm lh-1 table-striped">
-        <thead>
-          <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
-          <td class="text-center" colspan="1">Enabled</td>
-          <td class="text-center" colspan="1">Data</td>
-          <td class="text-center" colspan="1">MLAT</td>
-          <td class="text-center" colspan="1">Status</td>
-        </thead>
-        <tbody>
-          {% for agg in enabled_aggregators.values() %}
-            {% if not agg.enabled('adsb') %}
-              {% continue %}
-            {% endif %}
-            <tr>
-              <td style="position: -webkit-sticky; position: sticky; left: 0px;">
-                {% if agg.map_url %}
-                  <a href="{{ agg.map_url }}">{{ agg.name }}</a>
-                {% else %}
-                  {{ agg.name }}
-                {% endif %}
-              </td>
-              <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-enabled" width="3em" class="text-muted">✓</span>
-              </td>
-              <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-data-status" width="3em">.</span>
-              </td>
-              <td class="text-center">
-                <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em">.</span>
-              </td>
-              <td class="text-center">
-                {% if agg.status_url %}
-                  <a href="{{ agg.status_url }}">🔗</a>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    <div class="col-12 mb-4">
-      Enabled indicates feeding the aggregator. <span class="text-success">✓</span> feed is in good state,
-      <span class="text-danger">✓</span> feed is down,
-      <span class="text-warning">✓</span> feed is degraded,
-      <span class="text-muted">✓</span> feed state is not supported
-      <br />
-      <span onclick="$('#extra-legend').toggleClass('d-none'); return false;">
-        <a href="">Toggle detailed legend</a>
-      </span>
-      <span>| Last status update: <span id="last-aggregator-status-update"></span></span>
-      <br />
-      <span class="d-none" id="extra-legend">
-        '+': feed/mlat is connected; '☒': feed/mlat is not connected
-        <br />
-        '☹': mlat sync errors (if this persists for hours, check <a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)
-        <br />
-        '⚠': feed is intermittent / degraded
-        <br />
-        '⚠': mlat sync warning (intermittent sync issue / lack of traffic / no other receivers in the area)
-        <br />
-        '⟳': container is up for less than a 30 seconds, not checking status
-        <br />
-        '☈': container is down
-        <br />
-        '.': status information is not available at this time or not supported
-      </span>
-    </div>
+  <div id="chart-wrapper"
+       class="col-md-10 col-12"
+       style="position: relative;
+              width: 100%;
+              height: 100%">
+    <canvas id="reception-history-chart"></canvas>
   </div>
-  {% if enabled_aggregators | select('in', ['adsblol', 'flightradar', 'planefinder', 'adsbx', 'alive', 'flightaware']) | list %}
-    <div class="row">
-      <button class="btn btn-secondary small"
-              type="button"
-              data-mdb-toggle="collapse"
-              data-mdb-target="#additional-aggregator-links"
-              aria-expanded="false"
-              aria-controls="additional-aggregator-links">
-        Show additional aggregator links
-      </button>
+  <div class="col-12 {% if (enabled_aggregators | length) == 0 %}d-none{% endif %}">
+    <h4>You are feeding</h4>
+    <div class="row small">
+      <div class="col-12 col-md-6" style="overflow-x: auto">
+        <h5>AIS</h5>
+        <table class="table table-bordered table-sm lh-1 table-striped">
+          <thead>
+            <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
+            <td class="text-center" colspan="1">Enabled</td>
+            <td class="text-center" colspan="1">Data</td>
+            <td class="text-center" colspan="1">Status</td>
+          </thead>
+          <tbody>
+            {% for agg in enabled_aggregators.values() %}
+              {% if not agg.enabled('ais') %}
+                {% continue %}
+              {% endif %}
+              <tr>
+                <td style="position: -webkit-sticky; position: sticky; left: 0px;">
+                  {% if agg.map_url %}
+                    <a href="{{ agg.map_url }}">{{ agg.name }}</a>
+                  {% else %}
+                    {{ agg.name }}
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <span id="{{ agg.agg_key }}-ais-enabled" width="3em" class="text-muted">✓</span>
+                </td>
+                <td class="text-center">
+                  <span id="{{ agg.agg_key }}-ais-data-status" width="3em">.</span>
+                </td>
+                <td class="text-center">
+                  {% if agg.status_url %}<a href="{{ agg.status_url }}">🔗</a>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="col-12 col-md-6" style="overflow-x: auto">
+        <h5>ADS-B</h5>
+        <table class="table table-bordered table-sm lh-1 table-striped">
+          <thead>
+            <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
+            <td class="text-center" colspan="1">Enabled</td>
+            <td class="text-center" colspan="1">Data</td>
+            <td class="text-center" colspan="1">MLAT</td>
+            <td class="text-center" colspan="1">Status</td>
+          </thead>
+          <tbody>
+            {% for agg in enabled_aggregators.values() %}
+              {% if not agg.enabled('adsb') %}
+                {% continue %}
+              {% endif %}
+              <tr>
+                <td style="position: -webkit-sticky; position: sticky; left: 0px;">
+                  {% if agg.map_url %}
+                    <a href="{{ agg.map_url }}">{{ agg.name }}</a>
+                  {% else %}
+                    {{ agg.name }}
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <span id="{{ agg.agg_key }}-adsb-enabled" width="3em" class="text-muted">✓</span>
+                </td>
+                <td class="text-center">
+                  <span id="{{ agg.agg_key }}-adsb-data-status" width="3em">.</span>
+                </td>
+                <td class="text-center">
+                  <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em">.</span>
+                </td>
+                <td class="text-center">
+                  {% if agg.status_url %}<a href="{{ agg.status_url }}">🔗</a>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="col-12 mb-4">
+        Enabled indicates feeding the aggregator. <span class="text-success">✓</span> feed is in good state,
+        <span class="text-danger">✓</span> feed is down,
+        <span class="text-warning">✓</span> feed is degraded,
+        <span class="text-muted">✓</span> feed state is not supported
+        <br />
+        <span onclick="$('#extra-legend').toggleClass('d-none'); return false;">
+          <a href="">Toggle detailed legend</a>
+        </span>
+        <span>| Last status update: <span id="last-aggregator-status-update"></span></span>
+        <br />
+        <span class="d-none" id="extra-legend">
+          '+': feed/mlat is connected; '☒': feed/mlat is not connected
+          <br />
+          '☹': mlat sync errors (if this persists for hours, check
+          <a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)
+          <br />
+          '⚠': feed is intermittent / degraded
+          <br />
+          '⚠': mlat sync warning (intermittent sync issue / lack of traffic / no other receivers in the area)
+          <br />
+          '⟳': container is up for less than a 30 seconds, not checking status
+          <br />
+          '☈': container is down
+          <br />
+          '.': status information is not available at this time or not supported
+        </span>
+      </div>
     </div>
-    <div id="additional-aggregator-links" class="row mt-3 collapse">
-      <h5>Additional aggregator links</h5>
-      {% if 'adsblol' in enabled_aggregators %}
-        <div class="col-12 mb-2">
-          <div class="lead">ADSB.lol</div>
-          <ul class="mb-0">
-            <li><a href="https://status.adsb.lol/">ADSB.lol status</a></li>
-            <li><a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a></li>
-            <li>
-              <a id="adsblol-link" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are sending</a>
-            </li>
-            <li>
-              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
-                ADSB.lol MLAT feeder map for the area around {{ get_conf('site_name') }}
-              </a>
-            </li>
-          </ul>
-          {% if get_conf("mlat_privacy") %}
-            (since you have MLAT privacy enabled, your feeder won't be shown)
-          {% else %}
-            (your feeder will be at an approximate location as {{ get_conf('site_name') }})
-          {% endif %}
-        </div>
-      {% endif %}
-      {% if 'flightradar' in enabled_aggregators %}
-        <div class="col-12">
-          <div class="lead">FlightRadar 24</div>
-          <ul class="mb-0">
-            <li><a href="{{ url_for('/fr24/') }}">FR24 status</a></li>
-          </ul>
-        </div>
-      {% endif %}
-      {% if 'flightaware' in enabled_aggregators %}
-        <div class="col-12">
-          <div class="lead">FlightAware</div>
-          <div class="small text-muted">
-            Note: The SkyAware map on the status page does not work, it's not needed to supply data to FA<br>
-            (You can re-enable that map at the cost of increased cpu / memory consumption by adding PIAWARE_MINIMAL=false
-            to the environment variables on the expert page)
+    {% if enabled_aggregators | select('in', ['adsblol', 'flightradar', 'planefinder', 'adsbx', 'alive', 'flightaware']) | list %}
+      <div class="row">
+        <button class="btn btn-secondary small"
+                type="button"
+                data-mdb-toggle="collapse"
+                data-mdb-target="#additional-aggregator-links"
+                aria-expanded="false"
+                aria-controls="additional-aggregator-links">Show additional aggregator links</button>
+      </div>
+      <div id="additional-aggregator-links" class="row mt-3 collapse">
+        <h5>Additional aggregator links</h5>
+        {% if 'adsblol' in enabled_aggregators %}
+          <div class="col-12 mb-2">
+            <div class="lead">ADSB.lol</div>
+            <ul class="mb-0">
+              <li>
+                <a href="https://status.adsb.lol/">ADSB.lol status</a>
+              </li>
+              <li>
+                <a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a>
+              </li>
+              <li>
+                <a id="adsblol-link" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are sending</a>
+              </li>
+              <li>
+                <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
+                  ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}
+                </a>
+              </li>
+            </ul>
+            {% if get_conf("mlat_privacy") %}
+              (since you have MLAT privacy enabled, your feeder won't be shown)
+            {% else %}
+              (your feeder will be at an approximate location as {{ get_conf("site_name") }})
+            {% endif %}
           </div>
-          <ul class="mb-0">
-            <li><a href="{{ url_for('/fa-status/') }}">FlightAware status</a></li>
-            <li class="d-none"><a href="{{ url_for('/fa/') }}">FlightAware map</a></li>
-          </ul>
-        </div>
-      {% endif %}
-      {% if 'planefinder' in enabled_aggregators %}
-        <div class="col-12">
-          <div class="lead">PlaneFinder</div>
-          <ul class="mb-0">
-            <li><a href="{{ url_for('/planefinder/') }}">Planefinder map</a></li>
-            <li><a href="{{ url_for('/planefinder-stat/') }}">Planefinder stats</a></li>
-          </ul>
-        </div>
-      {% endif %}
-      {% if 'adsbx' in enabled_aggregators %}
-        <div class="col-12">
-          <div class="lead">ADSBExchange</div>
-          <ul class="mb-0">
-            <li><a id="adsbx-stat-link" href="">ADSBx Anywhere Stats</a></li>
-            <li><a id="adsbx-map-link" href="">ADSBx Anywhere Map</a></li>
-          </ul>
-        </div>
-      {% endif %}
-      {% if 'alive' in enabled_aggregators %}
-        <div class="col-12">
-          <div class="lead">airplanes.live</div>
-          <ul class="mb-0">
-            <li><a id="alivestatus" href="https://airplanes.live/myfeed/">Status</a></li>
-            <li><a id="alive-map-link" href="">Map</a></li>
-          </ul>
-        </div>
-      {% endif %}
-    </div>
+        {% endif %}
+        {% if 'flightradar' in enabled_aggregators %}
+          <div class="col-12">
+            <div class="lead">FlightRadar 24</div>
+            <ul class="mb-0">
+              <li>
+                <a href="{{ url_for('/fr24/') }}">FR24 status</a>
+              </li>
+            </ul>
+          </div>
+        {% endif %}
+        {% if 'flightaware' in enabled_aggregators %}
+          <div class="col-12">
+            <div class="lead">FlightAware</div>
+            <div class="small text-muted">
+              Note: The SkyAware map on the status page does not work, it's not needed to supply data to FA
+              <br>
+              (You can re-enable that map at the cost of increased cpu / memory consumption by adding
+              PIAWARE_MINIMAL=false to the environment variables on the expert page)
+            </div>
+            <ul class="mb-0">
+              <li>
+                <a href="{{ url_for('/fa-status/') }}">FlightAware status</a>
+              </li>
+              <li class="d-none">
+                <a href="{{ url_for('/fa/') }}">FlightAware map</a>
+              </li>
+            </ul>
+          </div>
+        {% endif %}
+        {% if 'planefinder' in enabled_aggregators %}
+          <div class="col-12">
+            <div class="lead">PlaneFinder</div>
+            <ul class="mb-0">
+              <li>
+                <a href="{{ url_for('/planefinder/') }}">Planefinder map</a>
+              </li>
+              <li>
+                <a href="{{ url_for('/planefinder-stat/') }}">Planefinder stats</a>
+              </li>
+            </ul>
+          </div>
+        {% endif %}
+        {% if 'adsbx' in enabled_aggregators %}
+          <div class="col-12">
+            <div class="lead">ADSBExchange</div>
+            <ul class="mb-0">
+              <li>
+                <a id="adsbx-stat-link" href="">ADSBx Anywhere Stats</a>
+              </li>
+              <li>
+                <a id="adsbx-map-link" href="">ADSBx Anywhere Map</a>
+              </li>
+            </ul>
+          </div>
+        {% endif %}
+        {% if 'alive' in enabled_aggregators %}
+          <div class="col-12">
+            <div class="lead">airplanes.live</div>
+            <ul class="mb-0">
+              <li>
+                <a id="alivestatus" href="https://airplanes.live/myfeed/">Status</a>
+              </li>
+              <li>
+                <a id="alive-map-link" href="">Map</a>
+              </li>
+            </ul>
+          </div>
+        {% endif %}
+      </div>
     {% endif %}
-</div>
-<div class="col-12 mb-4">
-  <div class="small">
-    {% if (enabled_aggregators | length) == 0 %}
-      No aggregators configured. Add aggregators:
-    {% else %}
-      Add or remove aggregators:
-    {% endif %}
-    <a href="{{ url_for('aggregators') }}">Data Sharing</a>
   </div>
-</div>
-<div class="col-12">
-  <dl>
-    <dt>Hostname</dt><dd>{{ get_conf('site_name') }}</dd>
-    {% with current_version = get_conf("base_version") %}
-      <dt>Current version</dt>
+  <div class="col-12 mb-4">
+    <div class="small">
+      {% if (enabled_aggregators | length) == 0 %}
+        No aggregators configured. Add aggregators:
+      {% else %}
+        Add or remove aggregators:
+      {% endif %}
+      <a href="{{ url_for('aggregators') }}">Data Sharing</a>
+    </div>
+  </div>
+  <div class="col-12">
+    <dl>
+      <dt>Hostname</dt>
       <dd>
-        <strong>{{ current_version }}</strong>
-        {% if current_version == tags[0] %}
-          (this is the latest stable version)
+        {{ get_conf("site_name") }}
+      </dd>
+      {% with current_version = get_conf("base_version") %}
+        <dt>Current version</dt>
+        <dd>
+          <strong>{{ current_version }}</strong>
+          {% if current_version == tags[0] %}
+            (this is the latest stable version)
+          {% else %}
+            (latest stable version is <strong>{{ tags[0] }}</strong>, see
+            <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
+          {% endif %}
+        </dd>
+      {% endwith %}
+      <dt>Feeder external IP (on the public internet)</dt>
+      <dd>
+        <span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span>
+      </dd>
+      <dt>How to reach this feeder when connected to the same network</dt>
+      <dd id="feeder-reachability">
+        checking...
+      </dd>
+      <dt>{{ sdrs | length }} SDR device(s) connected</dt>
+      <dd>
+        {% if sdrs %}
+          <ul>
+            {% for sdr in sdrs %}
+              <li>
+                {{ sdr.vendor }} {{ sdr.product }} ({{ sdr.type }} device with serial {{ sdr.serial }}):
+                {% with assignment = sdr_assignment(sdr) %}
+                  {% if assignment == 'ais' %}
+                    currently handling AIS
+                  {% elif assignment in ['1090', '978'] %}
+                    currently handling ADS-B ({{ assignment }}MHz)
+                  {% else %}
+                    currently unused
+                  {% endif %}
+                {% endwith %}
+              </li>
+            {% endfor %}
+          </ul>
         {% else %}
-          (latest stable version is <strong>{{ tags[0] }}</strong>, see
-          <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
+          no SDR devices connected
         {% endif %}
       </dd>
-    {% endwith %}
-    <dt>Feeder external IP (on the public internet)</dt>
-    <dd><span id="feeder-external-ip">checking...</span><span id="feeder-external-ip-comment"></span></dd>
-    <dt>How to reach this feeder when connected to the same network</dt><dd id="feeder-reachability">checking...</dd>
-    <dt>{{ sdrs | length }} SDR device(s) connected</dt>
-    <dd>
-      {% if sdrs %}
+      <dt>Containers:</dt>
+      <dd>
         <ul>
-          {% for sdr in sdrs %}
-            <li>
-              {{ sdr.vendor }} {{ sdr.product }} ({{ sdr.type }} device with serial {{ sdr.serial }}):
-              {% with assignment = sdr_assignment(sdr) %}
-                {% if assignment == 'ais' %}
-                  currently handling AIS
-                {% elif assignment in ['1090', '978'] %}
-                  currently handling ADS-B ({{ assignment }}MHz)
-                {% else %}
-                  currently unused
-                {% endif %}
-              {% endwith %}
-            </li>
-          {% endfor %}
+          {% for container in containers %}<li>{{ container }}</li>{% endfor %}
         </ul>
-      {% else %}
-        no SDR devices connected
-      {% endif %}
-    </dd>
-    <dt>Containers:</dt>
-    <dd>
-      <ul>
-        {% for container in containers %}
-          <li>{{ container }}</li>
-        {% endfor %}
-      </ul>
-    </dd>
-  </dl>
-</div>
-<script src="{{ url_for('static', filename='js/chart.js') }}"
-        integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
-        crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/moment.min.js') }}"
-        integrity="sha256-Wz7vWK+PBRpzNQ+1MMzRgm5qIeqECmDVqbgay204I6A="
-        crossorigin="anonymous"></script>
-<script src="{{ url_for('static', filename='js/chartjs-adapter-moment.js') }}"
-        integrity="sha256-p6tY88yPX1/I2nC4PfLYbXO21Y6CV+3eOsWtOdkHt3Y="
-        crossorigin="anonymous"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
-<script>
+      </dd>
+    </dl>
+  </div>
+  <script src="{{ url_for('static', filename='js/chart.js') }}"
+          integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
+          crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/moment.min.js') }}"
+          integrity="sha256-Wz7vWK+PBRpzNQ+1MMzRgm5qIeqECmDVqbgay204I6A="
+          crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/chartjs-adapter-moment.js') }}"
+          integrity="sha256-p6tY88yPX1/I2nC4PfLYbXO21Y6CV+3eOsWtOdkHt3Y="
+          crossorigin="anonymous"></script>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
+  <script>
   function createReceptionHistoryChart() {
     let context = document.getElementById("reception-history-chart");
     let chart = new Chart(context, {
@@ -607,5 +632,5 @@
   );
 
   registerTask("Update connectivity info", 60000, updateConnectivityInfo);
-</script>
+  </script>
 {% endblock content %}
