@@ -15,11 +15,9 @@ import shutil
 import subprocess
 import sys
 import threading
-import typing as t
-from typing import Optional
+from typing import Any, Literal, Optional
 
 import util
-
 
 APP_DIR = pathlib.Path("/opt/adsb")
 METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
@@ -119,12 +117,12 @@ class Setting(abc.ABC):
 
     @abc.abstractmethod
     def get(
-            self, key_path: str, *, default: t.Any = None,
-            use_setting_level_default: bool = True) -> t.Any:
+            self, key_path: str, *, default: Any = None,
+            use_setting_level_default: bool = True) -> Any:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def set(self, key_path: str, value: t.Any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -145,8 +143,8 @@ class ScalarSetting(Setting):
     Scalar settings contain values directly, e.g. strings or numbers.
     """
     def __init__(
-            self, config: "Config", value: t.Any, *,
-            default: Optional[t.Any] = None,
+            self, config: "Config", value: Any, *,
+            default: Optional[Any] = None,
             env_variable_name: Optional[str] = None, norestore: bool = False):
         """
         :param default: A default value to use if no value is set explicitly
@@ -174,8 +172,8 @@ class ScalarSetting(Setting):
         return {self._env_variable_name: self.env_value_string}
 
     def get(
-            self, key_path: t.Literal[""], *, default: t.Any = None,
-            use_setting_level_default: bool = True) -> t.Any:
+            self, key_path: Literal[""], *, default: Any = None,
+            use_setting_level_default: bool = True) -> Any:
         """
         Get the value.
 
@@ -207,7 +205,7 @@ class ScalarSetting(Setting):
             return self._default
         return None
 
-    def set(self, key_path: str, value: t.Any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         """
         Set the value.
 
@@ -232,8 +230,8 @@ class ScalarSetting(Setting):
 class TypeConstrainedScalarSetting(ScalarSetting):
     """A scalar setting enforcing type constraints."""
     def __init__(
-            self, required_type: type, config: "Config", value: t.Any, *args,
-            default: Optional[t.Any] = None, **kwargs):
+            self, required_type: type, config: "Config", value: Any, *args,
+            default: Optional[Any] = None, **kwargs):
         self._required_type = required_type
         self._check_correct_type(value)
         if not isinstance(default, (self._required_type, type(None))):
@@ -248,7 +246,7 @@ class TypeConstrainedScalarSetting(ScalarSetting):
                 f"Value must be a {self._required_type}, but is {type(value)}."
             )
 
-    def set(self, key_path: str, value: t.Any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         self._check_correct_type(value)
         super().set(key_path, value)
 
@@ -295,8 +293,8 @@ class CompoundSetting(Setting):
     via period-delimited paths.
     """
     def __init__(
-            self, config: "Config", settings_dict: Optional[dict[str, t.Any]],
-            *, schema: dict[str, type[Setting]]):
+            self, config: "Config", settings_dict: Optional[dict[str, Any]], *,
+            schema: dict[str, type[Setting]]):
         super().__init__(config)
         self._settings = {}
         if settings_dict is None:
@@ -349,8 +347,8 @@ class CompoundSetting(Setting):
         return settings
 
     def get(
-            self, key_path: str, *, default: t.Any = None,
-            use_setting_level_default: bool = True) -> t.Any:
+            self, key_path: str, *, default: Any = None,
+            use_setting_level_default: bool = True) -> Any:
         """
         Get the scalar setting's value at the given path.
 
@@ -385,7 +383,7 @@ class CompoundSetting(Setting):
             return setting.get_setting(key_path_tail)
         return setting
 
-    def set(self, key_path: str, value: t.Any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         """Set the value at the given path."""
         key, key_path_tail = self._extract_key_head_and_tail(key_path)
         self._settings[key].set(key_path_tail, value)
@@ -397,7 +395,7 @@ class CompoundSetting(Setting):
 
 class TransientSetting(ScalarSetting):
     """A setting that doesn't get written to the config file."""
-    def __init__(self, config: "Config", value: t.Any, *args, **kwargs):
+    def __init__(self, config: "Config", value: Any, *args, **kwargs):
         super().__init__(config, value, *args, **kwargs, norestore=True)
 
     @property
@@ -417,8 +415,8 @@ class ConstantSetting(TransientSetting):
     load).
     """
     def __init__(
-            self, config: "Config", unused_value: t.Any, *,
-            constant_value: t.Any, env_variable_name: Optional[str] = None):
+            self, config: "Config", unused_value: Any, *, constant_value: Any,
+            env_variable_name: Optional[str] = None):
         # unused_value is what CompoungSetting will automatically give us,
         # extracted from the config file. We want to use the constant value
         # instead.
@@ -440,8 +438,8 @@ class GeneratedSetting(TransientSetting):
     """
     def __init__(
             self, config: "Config",
-            value_generator: cl_abc.Callable[["Config"], t.Any], *,
-            default: Optional[t.Any] = None,
+            value_generator: cl_abc.Callable[["Config"], Any], *,
+            default: Optional[Any] = None,
             env_variable_name: Optional[str] = None):
         """
         :param value_generator: A function that takes the config as single
@@ -452,23 +450,23 @@ class GeneratedSetting(TransientSetting):
         self._value_generator = value_generator
 
     def get(
-            self, key_path: t.Literal[""], *, default: t.Any = None,
-            use_setting_level_default: bool = True) -> t.Any:
+            self, key_path: Literal[""], *, default: Any = None,
+            use_setting_level_default: bool = True) -> Any:
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
         value = self._value_generator(self._config)
         return self._coalesce_value(value, default, use_setting_level_default)
 
-    def set(self, key_path: str, value: t.Any) -> None:
+    def set(self, key_path: str, value: Any) -> None:
         raise ValueError("Generated settings can't be set.")
 
 
 class CachedGeneratedSetting(GeneratedSetting):
     """A generated setting that only calculates its value once."""
     def __init__(
-            self, config: "Config", _: t.Any, *,
-            value_generator: cl_abc.Callable[["Config"], t.Any],
-            default: Optional[t.Any] = None,
+            self, config: "Config", _: Any, *,
+            value_generator: cl_abc.Callable[["Config"], Any],
+            default: Optional[Any] = None,
             env_variable_name: Optional[str] = None):
         super().__init__(
             config, value_generator, default=default,
@@ -477,8 +475,8 @@ class CachedGeneratedSetting(GeneratedSetting):
         self._cached_value = None
 
     def get(
-            self, key_path: t.Literal[""], *, default: t.Any = None,
-            use_setting_level_default: bool = True) -> t.Any:
+            self, key_path: Literal[""], *, default: Any = None,
+            use_setting_level_default: bool = True) -> Any:
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
         if not self._has_cache:
@@ -500,9 +498,9 @@ class SwitchedGeneratedSetting(GeneratedSetting):
     setting.
     """
     def __init__(
-            self, config: "Config", _: t.Any, *, switch_path: str,
-            true_value: t.Any = None, true_value_path: str = None,
-            false_value: t.Any = None, false_value_path: str = None,
+            self, config: "Config", _: Any, *, switch_path: str,
+            true_value: Any = None, true_value_path: str = None,
+            false_value: Any = None, false_value_path: str = None,
             env_variable_name: Optional[str] = None):
         """
         :param switch_path: Path to a setting that is used as the switch. If no
@@ -757,8 +755,7 @@ class Config(CompoundSetting):
                             env_variable_name="FEEDER_RV_FEEDER_KEY"),}),
                 "planewatch": ft.partial(
                     CompoundSetting, schema={
-                        "is_enabled": ft.partial(
-                            BoolSetting, default=False),
+                        "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": ft.partial(
                             StringSetting,
                             env_variable_name="FEEDER_PLANEWATCH_API_KEY"),}),
@@ -871,8 +868,7 @@ class Config(CompoundSetting):
                     StringSetting, default="/var/lib/prometheus/node-exporter",
                     env_variable_name="AF_PROMETHEUS_TEXTFILE_DIR"),}),
         "ports": ft.partial(
-            CompoundSetting,
-            schema={
+            CompoundSetting, schema={
                 "web": ft.partial(
                     IntSetting, default=80, env_variable_name="AF_WEBPORT",
                     norestore=True),
@@ -936,8 +932,7 @@ class Config(CompoundSetting):
         "under_voltage": ft.partial(BoolSetting, norestore=True),
         "low_disk": ft.partial(BoolSetting, norestore=True),
         "images": ft.partial(
-            CompoundSetting,
-            schema={
+            CompoundSetting, schema={
                 "dozzle": ft.partial(
                     ConstantSetting,
                     constant_value="ghcr.io/amir20/dozzle:v8.11.7",
@@ -1010,7 +1005,7 @@ class Config(CompoundSetting):
                     "ghcr.io/sdr-enthusiasts/docker-shipfeeder:latest-build-1731",
                     env_variable_name="DOCKER_IMAGE_SHIPFEEDER"),}),}
 
-    def __init__(self, settings_dict: dict[str, t.Any]):
+    def __init__(self, settings_dict: dict[str, Any]):
         if Config._has_instance:
             raise ValueError("Config has already been instantiated.")
         Config._has_instance = True
@@ -1053,7 +1048,7 @@ class Config(CompoundSetting):
             return Config(config_dict)
 
     @staticmethod
-    def _load_and_maybe_upgrade_config_dict() -> dict[str, t.Any]:
+    def _load_and_maybe_upgrade_config_dict() -> dict[str, Any]:
         with CONFIG_FILE.open() as f:
             config_dict = json.load(f)
         version = config_dict.pop("config_version", 0)
@@ -1062,9 +1057,8 @@ class Config(CompoundSetting):
         return config_dict
 
     @staticmethod
-    def _upgraded_config_dict(
-            config_dict: dict[str, t.Any],
-            from_version: int) -> dict[str, t.Any]:
+    def _upgraded_config_dict(config_dict: dict[str, Any],
+                              from_version: int) -> dict[str, Any]:
         if from_version > Config.CONFIG_VERSION:
             raise ValueError(
                 f"Found config with unknown higher version {from_version} "
@@ -1080,7 +1074,7 @@ class Config(CompoundSetting):
 
     @staticmethod
     def _upgrade_config_file(from_version: int,
-                             to_version: int) -> dict[str, t.Any]:
+                             to_version: int) -> dict[str, Any]:
         upgrader = Config._config_upgraders[(from_version, to_version)]
         with CONFIG_FILE.open() as f:
             config_dict = json.load(f)
@@ -1107,7 +1101,7 @@ class Config(CompoundSetting):
 
     @staticmethod
     def _upgrade_config_dict_from_legacy_to_1(
-            config_dict: dict[str, t.Any]) -> dict[str, t.Any]:
+            config_dict: dict[str, Any]) -> dict[str, Any]:
         return {
             "lat": float(config_dict["FEEDER_LAT"][0]),
             "lon": float(config_dict["FEEDER_LONG"][0]),
@@ -1314,7 +1308,7 @@ class Config(CompoundSetting):
 
     @staticmethod
     def _upgrade_config_dict_from_1_to_2(
-            config_dict: dict[str, t.Any]) -> dict[str, t.Any]:
+            config_dict: dict[str, Any]) -> dict[str, Any]:
         config_dict = config_dict.copy()
         # These are generated now.
         del config_dict["image_name"]
@@ -1347,11 +1341,11 @@ def ensure_config_exists() -> Config:
     return conf
 
 
-def _get(key_path: str, default: t.Any):
-        print(Config.load_from_file().get(key_path, default=default))
+def _get(key_path: str, default: Any):
+    print(Config.load_from_file().get(key_path, default=default))
 
 
-def _set(key_path: str, value: t.Any) -> None:
+def _set(key_path: str, value: Any) -> None:
     conf = Config.load_from_file()
     setting = conf.get_setting(key_path)
     if isinstance(setting, BoolSetting):
