@@ -18,12 +18,20 @@ import system
 import util
 
 
-class Status(enum.StrEnum):
+class DataStatus(enum.StrEnum):
+    UNKNOWN = "unknown"
+    DISCONNECTED = "disconnected"
+    CONTAINER_DOWN = "container_down"
+    STARTING = "starting"
+    BAD = "bad"
+    WARNING = "warning"
+    GOOD = "good"
+
+
+class MlatStatus(enum.StrEnum):
     UNKNOWN = "unknown"
     DISCONNECTED = "disconnected"
     DISABLED = "disabled"
-    CONTAINER_DOWN = "container_down"
-    STARTING = "starting"
     BAD = "bad"
     WARNING = "warning"
     GOOD = "good"
@@ -35,12 +43,12 @@ class MessageType(enum.StrEnum):
 
 
 class AisStatus(t.TypedDict):
-    data_status: Status
+    data_status: DataStatus
 
 
 class AdsbStatus(t.TypedDict):
-    data_status: Status
-    mlat_status: Status
+    data_status: DataStatus
+    mlat_status: MlatStatus
 
 
 class AggregatorStatus(t.TypedDict):
@@ -257,22 +265,22 @@ class Aggregator(abc.ABC):
                 c for c in self._system.containers
                 if c.name == self._container_name)
             if container.up_less_than(30):
-                data_status = Status.STARTING
+                data_status = DataStatus.STARTING
         except StopIteration:
-            data_status = Status.CONTAINER_DOWN
+            data_status = DataStatus.CONTAINER_DOWN
         if data_status and container.state != "running":
             return AggregatorStatus(
                 ais=None if MessageType.AIS not in self.capable_message_types
                 else AisStatus(data_status=data_status),
                 adsb=None if MessageType.ADSB not in self.capable_message_types
                 else AdsbStatus(
-                    data_status=data_status, mlat_status=Status.DISABLED),
+                    data_status=data_status, mlat_status=MlatStatus.DISABLED),
             )
 
         status = self._check_aggregator_status()
         if not self._conf.get("mlat_enable") and status["adsb"]:
             # If mlat isn't enabled, ignore status check results.
-            status["adsb"]["mlat_status"] = Status.DISABLED
+            status["adsb"]["mlat_status"] = MlatStatus.DISABLED
         return status
 
     @abc.abstractmethod
@@ -322,14 +330,14 @@ class UltrafeederAggregator(Aggregator):
             ais=None,
             adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status))
 
-    def _get_data_status(self) -> Status:
+    def _get_data_status(self) -> DataStatus:
         bconf = self._netconfig.adsb_config
         # example adsb_config:
         # "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
         if not bconf:
             self._logger.error(
                 f"No adsb_config in netconfig for {self.agg_key}.")
-            return Status.UNKNOWN
+            return DataStatus.UNKNOWN
         pattern = (
             'readsb_net_connector_status{{host="{host}",port="{port}"}} (\\d+)'
             .format(host=bconf.split(',')[1], port=bconf.split(',')[2]))
@@ -338,25 +346,25 @@ class UltrafeederAggregator(Aggregator):
             with stats_file.open() as f:
                 readsb_status = f.read()
         except:
-            return Status.DISCONNECTED
+            return DataStatus.DISCONNECTED
         match = re.search(pattern, readsb_status)
         if match:
             status = int(match.group(1))
             # this status is the time in seconds the connection has been
             # established
             if status <= 0:
-                return Status.DISCONNECTED
+                return DataStatus.DISCONNECTED
             elif status > 20:
-                return Status.GOOD
+                return DataStatus.GOOD
             else:
-                return Status.WARNING
+                return DataStatus.WARNING
         self._logger.error(f"No match checking data status for {pattern}.")
-        return Status.UNKNOWN
+        return DataStatus.UNKNOWN
 
-    def _get_mlat_status(self) -> Status:
+    def _get_mlat_status(self) -> MlatStatus:
         mconf = self._netconfig.mlat_config
         if not mconf:
-            return Status.DISABLED
+            return MlatStatus.DISABLED
         # example mlat_config: "mlat,dati.flyitalyadsb.com,30100,39002",
         filename = f"{mconf.split(',')[1]}:{mconf.split(',')[2]}.json"
         path = self.ULTRAFEEDER_PATH / "mlat-client" / filename
@@ -367,16 +375,16 @@ class UltrafeederAggregator(Aggregator):
             percent_bad = mlat_json.get("bad_sync_percentage_last_hour", 0)
             now = mlat_json.get("now")
         except:
-            return Status.DISCONNECTED
+            return MlatStatus.DISCONNECTED
         if time.time() - now > 60:
             # that's more than a minute old... probably not connected
-            return Status.DISCONNECTED
+            return MlatStatus.DISCONNECTED
         elif percent_good > 10 and percent_bad <= 5:
-            return Status.GOOD
+            return MlatStatus.GOOD
         elif percent_bad > 15:
-            return Status.BAD
+            return MlatStatus.BAD
         else:
-            return Status.WARNING
+            return MlatStatus.WARNING
 
 
 class AirplanesLiveAggregator(UltrafeederAggregator):
@@ -570,7 +578,8 @@ class AccountBasedAggregator(Aggregator):
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(
-                data_status=Status.UNKNOWN, mlat_status=Status.DISABLED),
+                data_status=DataStatus.UNKNOWN,
+                mlat_status=MlatStatus.DISABLED),
         )
 
 
@@ -722,13 +731,13 @@ class PorttrackerAggregator(AccountBasedAggregator):
             past5m = resp_dict["ais"]["past5m"]
             assert isinstance(past5m, numbers.Real)
             if past5m >= 100:
-                data_status = Status.GOOD
+                data_status = DataStatus.GOOD
             elif past5m > 0:
-                data_status = Status.WARNING
+                data_status = DataStatus.WARNING
             else:
-                data_status = Status.BAD
+                data_status = DataStatus.BAD
         except (KeyError, AssertionError):
-            data_status = Status.UNKNOWN
+            data_status = DataStatus.UNKNOWN
         return AggregatorStatus(
             ais=AisStatus(data_status=data_status), adsb=None)
 
@@ -832,8 +841,8 @@ class AirnavRadarAggregator(AccountBasedAggregator):
                 "Unable to find station in radarbox response.")
         online = station.get("online")
         mlat_online = station.get("mlat_online")
-        data_status = Status.GOOD if online else Status.DISCONNECTED
-        mlat_status = Status.GOOD if mlat_online else Status.DISCONNECTED
+        data_status = DataStatus.GOOD if online else DataStatus.DISCONNECTED
+        mlat_status = MlatStatus.GOOD if mlat_online else MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
@@ -889,25 +898,25 @@ class FlightAwareAggregator(AccountBasedAggregator):
                 f"Flightaware at {json_url} returned {status}.")
         if fa_dict.get("adept") and fa_dict.get("adept").get(
                 "status") == "green":
-            data_status = Status.GOOD
+            data_status = DataStatus.GOOD
         else:
-            data_status = Status.DISCONNECTED
+            data_status = DataStatus.DISCONNECTED
 
         if fa_dict.get("mlat"):
             if fa_dict.get("mlat").get("status") == "green":
-                mlat_status = Status.GOOD
+                mlat_status = MlatStatus.GOOD
             elif fa_dict.get("mlat").get("status") == "amber":
                 message = fa_dict.get("mlat").get("message").lower()
                 if "unstable" in message:
-                    mlat_status = Status.BAD
+                    mlat_status = MlatStatus.BAD
                 elif "initializing" in message:
-                    mlat_status = Status.UNKNOWN
+                    mlat_status = MlatStatus.UNKNOWN
                 elif "no clock sync" in message:
-                    mlat_status = Status.WARNING
+                    mlat_status = MlatStatus.WARNING
                 else:
-                    mlat_status = Status.UNKNOWN
+                    mlat_status = MlatStatus.UNKNOWN
             else:
-                mlat_status = Status.DISCONNECTED
+                mlat_status = MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
@@ -933,7 +942,8 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(
-                data_status=Status.UNKNOWN, mlat_status=Status.DISABLED),
+                data_status=DataStatus.UNKNOWN,
+                mlat_status=MlatStatus.DISABLED),
         )
         # TODO This unreachable code was in here from upstream. Not sure why
         # it's been disabled, but I'm leaving it here in case it becomes
@@ -944,13 +954,14 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
             tn_dict, status = util.generic_get_json(json_url)
             if tn_dict and status == 200:
                 online = tn_dict.get("online", False)
-                data_status = Status.GOOD if online else Status.DISCONNECTED
+                data_status = (
+                    DataStatus.GOOD if online else DataStatus.DISCONNECTED)
             else:
-                data_status = Status.UNKNOWN
+                data_status = DataStatus.UNKNOWN
             return AggregatorStatus(
                 ais=None,
                 adsb=AdsbStatus(
-                    data_status=data_status, mlat_status=Status.DISABLED),
+                    data_status=data_status, mlat_status=MlatStatus.DISABLED),
             )
 
 
@@ -973,8 +984,8 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             raise ConfigureError("No sharing key or email provided.")
         uat_sharing_key_or_email = uat_sharing_key_or_email or ""
         self._logger.info(
-            f"FR_activate adsb |{adsb_sharing_key_or_email}| uat |{uat_sharing_key_or_email}|"
-        )
+            f"FR_activate adsb |{adsb_sharing_key_or_email}| uat "
+            f"|{uat_sharing_key_or_email}|")
 
         if util.is_email(adsb_sharing_key_or_email):
             # that's an email address, so we are looking to get a sharing key
@@ -1028,8 +1039,10 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
                 "FR24 cannot handle 'null island'", flash_message=True)
             return None
 
-        # so this signup doesn't work for latitude / longitude <0.1, work around that by just setting longitude 0.11 in that case
-        # we don't do FR24 mlat anyhow ... if people want to fix it they can do so on the fr24 homepage
+        # so this signup doesn't work for latitude / longitude <0.1, work
+        # around that by just setting longitude 0.11 in that case we don't do
+        # FR24 mlat anyhow ... if people want to fix it they can do so on the
+        # fr24 homepage
         if abs(lat) < 0.11:
             lat = 0.11
         if abs(lon) < 0.11:
@@ -1134,13 +1147,13 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             raise StatusCheckError(
                 f"Flightradar at {json_url} returned {status}.")
         if fr_dict.get("feed_status") == "connected":
-            data_status = Status.GOOD
+            data_status = DataStatus.GOOD
         else:
-            data_status = Status.DISCONNECTED
+            data_status = DataStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(
-                data_status=data_status, mlat_status=Status.DISABLED),
+                data_status=data_status, mlat_status=MlatStatus.DISABLED),
         )
 
 
@@ -1170,10 +1183,10 @@ class PlaneWatchAggregator(AccountBasedAggregator):
         if not status or not adsb or not mlat:
             raise StatusCheckError(
                 f"Unable to parse planewatch status {pw_dict}.")
-        data_status = Status.GOOD if adsb.get(
-            "connected") else Status.DISCONNECTED
-        mlat_status = Status.GOOD if mlat.get(
-            "connected") else Status.DISCONNECTED
+        data_status = DataStatus.GOOD if adsb.get(
+            "connected") else DataStatus.DISCONNECTED
+        mlat_status = MlatStatus.GOOD if mlat.get(
+            "connected") else MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
@@ -1204,13 +1217,13 @@ class SdrMapAggregator(AccountBasedAggregator):
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         if self.FEED_OK_FILE.exists():
-            data_status = Status.GOOD
+            data_status = DataStatus.GOOD
         else:
-            data_status = Status.DISCONNECTED
+            data_status = DataStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
             adsb=AdsbStatus(
-                data_status=data_status, mlat_status=Status.UNKNOWN),
+                data_status=data_status, mlat_status=MlatStatus.UNKNOWN),
         )
 
 
@@ -1242,7 +1255,7 @@ class AiscatcherAggregator(AccountBasedAggregator):
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         return AggregatorStatus(
-            ais=AisStatus(data_status=Status.UNKNOWN), adsb=None)
+            ais=AisStatus(data_status=DataStatus.UNKNOWN), adsb=None)
 
 
 class AishubAggregator(AccountBasedAggregator):
@@ -1292,8 +1305,8 @@ class AishubAggregator(AccountBasedAggregator):
         # have been any vessels at the latest measurement, we assume data is
         # arriving.
         if not vessel_counts or not vessel_counts[-1]:
-            data_status = Status.BAD
+            data_status = DataStatus.BAD
         else:
-            data_status = Status.GOOD
+            data_status = DataStatus.GOOD
         return AggregatorStatus(
             ais=AisStatus(data_status=data_status), adsb=None)
