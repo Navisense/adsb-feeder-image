@@ -26,6 +26,32 @@ class SystemInfo:
     network_device_infos: list[NetworkDeviceInfo]
 
 
+@dc.dataclass
+class ContainerInfo:
+    id: str
+    name: str
+    state: str
+    status: str
+    base_image: str
+    tag: Optional[str]
+
+    @property
+    def image(self) -> str:
+        return f"{self.base_image}:{self.tag}"
+
+    def up_less_than(self, seconds: float) -> bool:
+        if not self.status.startswith("Up"):
+            return False
+        try:
+            _, number, unit = self.status.split(" ")
+            return unit == "seconds" and int(number) < seconds
+        except:
+            if "second" in self.status:
+                # Handle status "Up Less than a second".
+                return True
+        return False
+
+
 class Systemctl:
     """Serialized access to systemctl."""
     def __init__(self):
@@ -120,12 +146,14 @@ class System:
     """
     Access to system functions.
 
-    Provides a property with system info that is regularly refreshed in a
-    background task. In order to access it, the task must be started with
-    start_info_refresh() (and should be stopped on shutdown with
-    stop_info_refresh()).
+    Provides properties for system info and Docker containers belonging to the
+    application. Both are regularly refreshed in a
+    background task. In order to access them, the task must be started with
+    start_refresh_tasks() (and should be stopped on shutdown with
+    stop_refresh_tasks()).
     """
     INFO_REFRESH_INTERVAL = 300
+    CONTAINERS_REFRESH_INTERVAL = 10
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
@@ -135,18 +163,29 @@ class System:
         self.dockerPsCache = dict()
         self._system_info = None
         self._system_info_lock = threading.Lock()
-        self._info_refresh_task = util.RepeatingTask(
-            self.INFO_REFRESH_INTERVAL, self._update_system_info)
+        self._containers = None
+        self._containers_lock = threading.Lock()
+        self._refresh_tasks = {
+            "system_info": util.RepeatingTask(
+                self.INFO_REFRESH_INTERVAL, self._update_system_info),
+            "containers": util.RepeatingTask(
+                self.CONTAINERS_REFRESH_INTERVAL,
+                self._update_docker_containers)}
 
-    def start_info_refresh(self):
-        self._info_refresh_task.start(execute_now=True)
+    def start_refresh_tasks(self):
+        for task in self._refresh_tasks.values():
+            task.start(execute_now=True)
 
-    def stop_info_refresh(self):
-        self._info_refresh_task.stop_and_wait()
+    def stop_refresh_tasks(self):
+        for task in self._refresh_tasks.values():
+            try:
+                task.stop_and_wait()
+            except:
+                self._logger.exception("Error stopping refresh task.")
 
     @property
     def system_info(self) -> SystemInfo:
-        if not self._info_refresh_task.running:
+        if not self._refresh_tasks["system_info"].running:
             raise ValueError("System info refresh task is not running.")
         # If we don't have a cached info, wait for it, otherwise return
         # whatever we have now.
@@ -157,7 +196,7 @@ class System:
         with lock:
             return self._system_info
 
-    def _update_system_info(self) -> SystemInfo:
+    def _update_system_info(self):
         with self._system_info_lock:
             try:
                 external_ip = self._get_external_ip()
@@ -172,6 +211,48 @@ class System:
             self._system_info = SystemInfo(
                 external_ip=external_ip,
                 network_device_infos=network_device_infos)
+
+    @property
+    def containers(self) -> list[ContainerInfo]:
+        if not self._refresh_tasks["containers"].running:
+            raise ValueError("Container info refresh task is not running.")
+        # If we don't have a cached info, wait for it, otherwise return
+        # whatever we have now.
+        if not self._containers:
+            lock = self._containers_lock
+        else:
+            lock = threading.Lock()
+        with lock:
+            return self._containers
+
+    def _update_docker_containers(self):
+        with self._containers_lock:
+            proc = util.shell_with_combined_output(
+                "docker ps -a "
+                "--filter 'label=de.navisense/part-of=adsb-feeder' "
+                "--format json")
+            try:
+                proc.check_returncode()
+            except:
+                self._logger.exception(
+                    "Error checking Docker container status.")
+            container_infos = []
+            for line in proc.stdout.splitlines():
+                container_dict = json.loads(line)
+                try:
+                    base_image, tag = container_dict["Image"].split(":")
+                except ValueError:
+                    base_image, tag = container_dict["Image"], None
+                container_infos.append(
+                    ContainerInfo(
+                        id=container_dict["ID"],
+                        name=container_dict["Names"],
+                        state=container_dict["State"],
+                        status=container_dict["Status"],
+                        base_image=base_image,
+                        tag=tag,
+                    ))
+            self._containers = container_infos
 
     def _get_external_ip(self) -> Optional[str]:
         """Get our external IP in the public internet."""
@@ -272,23 +353,6 @@ class System:
         # we have an ipv6 address but curl -6 isn't working
         return True
 
-    def list_containers(self):
-        containers = []
-        try:
-            result = subprocess.run(
-                ["docker", "ps", "--format='{{json .Names}}'"],
-                capture_output=True,
-                timeout=5,
-            )
-            output = result.stdout.decode("utf-8")
-            for line in output.split("\n"):
-                if line and line[1] == '"' and line[-2] == '"':
-                    # the names show up as '"ultrafeeder"'
-                    containers.append(line[2:-2])
-        except subprocess.SubprocessError as e:
-            print_err(f"docker ps failed {e}")
-        return containers
-
     def restart_containers(self, containers):
         print_err(f"restarting {containers}")
         try:
@@ -303,52 +367,6 @@ class System:
             subprocess.run(["/opt/adsb/docker-compose-adsb", "up", "-d", "--force-recreate", "--remove-orphans"] + containers)
         except:
             print_err("docker compose recreate failed")
-
-    def refreshDockerPs(self):
-        with self.containerCheckLock:
-            now = time.time()
-            if now - self.lastContainerCheck < 10:
-                # still fresh, do nothing
-                return
-
-            self.lastContainerCheck = now
-            self.dockerPsCache = dict()
-            cmdline = "docker ps --filter status=running --format '{{.Names}};{{.Status}}'"
-            success, output = run_shell_captured(cmdline, timeout=5)
-            if not success:
-                print_err(f"Error: cmdline: {cmdline} output: {output}")
-                return
-
-            for line in output.split("\n"):
-                if ";" in line:
-                    name, status = line.split(";")
-                    self.dockerPsCache[name] = status
-
-    def getContainerStatus(self, name):
-        with self.containerCheckLock:
-
-            self.refreshDockerPs()
-
-            status = self.dockerPsCache.get(name)
-            # print_err(f"{name}: {status}")
-            if not status:
-                # assume down
-                return "down"
-
-            if not status.startswith("Up"):
-                return "down"
-
-            try:
-                up, number, unit = status.split(" ")
-                if unit == "seconds" and int(number) < 30:
-                    # container up for less than 30 seconds, show 'starting'
-                    return "starting"
-            except:
-                if "second" in status:
-                    # handle status "Up Less than a second"
-                    return "starting"
-
-            return "up"
 
 
 _systemctl: Systemctl = None

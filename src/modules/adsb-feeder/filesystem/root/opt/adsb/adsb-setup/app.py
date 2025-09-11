@@ -627,7 +627,7 @@ class AdsbIm:
             raise RuntimeError("already started")
         assert self._server_thread is None
         self.update_config()
-        self._system.start_info_refresh()
+        self._system.start_refresh_tasks()
 
         # if using gpsd, try to update the location
         if self._conf.get("use_gpsd"):
@@ -674,7 +674,7 @@ class AdsbIm:
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
-        self._system.stop_info_refresh()
+        self._system.stop_refresh_tasks()
         self._server.shutdown()
         self._server_thread.join(timeout=10)
         if self._server_thread.is_alive():
@@ -1807,7 +1807,7 @@ class AdsbIm:
             zerotier_running=zerotier_running,
             rpw=self.rpw,
             available_versions=available_versions,
-            containers=self._system.list_containers(),
+            containers=self._system.containers,
             persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
             is_semver=util.is_semver,
@@ -2099,9 +2099,6 @@ class AdsbIm:
             if ipv6_broken:
                 print_err("ERROR: broken IPv6 state detected")
 
-        # refresh docker ps cache so the aggregator status is nicely up to date
-        self._executor.submit(self._system.refreshDockerPs)
-
         containers = [
             image_setting.get("")
             for _, image_setting in self._conf.get_setting("images")]
@@ -2379,12 +2376,11 @@ class AdsbIm:
         return render_template("/restarting.html")
 
     def restart_containers(self):
-        containers = self._system.list_containers()
         containers_to_restart = []
-        for container in containers:
+        for container in self._system.containers:
             # Only restart the ones that have been checked.
-            if container in request.form:
-                containers_to_restart.append(container)
+            if container.name in request.form:
+                containers_to_restart.append(container.name)
         self._conf.write_env_file()
         if "recreate" in request.form:
             self._system.recreate_containers(containers_to_restart)

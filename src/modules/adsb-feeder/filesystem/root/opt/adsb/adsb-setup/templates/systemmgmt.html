@@ -210,9 +210,9 @@
                 {% for container in containers %}
                   <input type="checkbox"
                          class="col-1"
-                         name="{{ container }}"
-                         id="restart-{{ container }}">
-                  <label for="restart-{{ container }}" class="col-11">{{ container }}</label>
+                         name="{{ container.name }}"
+                         id="restart-{{ container.name }}">
+                  <label for="restart-{{ container.name }}" class="col-11">{{ container.name }}</label>
                 {% endfor %}
               </div>
             </div>
