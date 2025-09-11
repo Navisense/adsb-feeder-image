@@ -1,9 +1,11 @@
 services:
   adsbhub:
+    container_name: adsbhub
     image: ${DOCKER_IMAGE_ADSBHUB}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: adsbhub
     restart: unless-stopped
     cpu_period: 50000
     cpu_quota: 7500

@@ -1,7 +1,9 @@
 services:
   shipfeeder:
-    image: ${DOCKER_IMAGE_SHIPFEEDER}
     container_name: shipfeeder
+    image: ${DOCKER_IMAGE_SHIPFEEDER}
+    labels:
+      de.navisense/part-of: adsb-feeder
     hostname: shipfeeder
     restart: unless-stopped
     environment:

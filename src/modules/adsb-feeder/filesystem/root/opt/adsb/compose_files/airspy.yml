@@ -1,9 +1,11 @@
 services:
   airspy_adsb:
+    container_name: airspy_adsb
     image: ${DOCKER_IMAGE_AIRSPY}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: airspy_adsb
     hostname: airspy_adsb
     restart: unless-stopped
     device_cgroup_rules:

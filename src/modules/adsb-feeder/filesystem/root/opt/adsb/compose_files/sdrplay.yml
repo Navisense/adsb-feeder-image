@@ -1,9 +1,11 @@
 services:
   sdrplay-beast1090:
+    container_name: sdrplay-beast1090
     image: ${DOCKER_IMAGE_SDRPLAY}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: sdrplay-beast1090
     hostname: sdrplay-beast1090
     restart: unless-stopped
     device_cgroup_rules:

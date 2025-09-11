@@ -1,9 +1,11 @@
 services:
   planewatch:
+    container_name: planewatch
     image: ${DOCKER_IMAGE_PLANEWATCH}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: planewatch
     restart: unless-stopped
     cpu_period: 50000
     cpu_quota: 7500

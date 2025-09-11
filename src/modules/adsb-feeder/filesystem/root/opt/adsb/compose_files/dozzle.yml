@@ -2,6 +2,8 @@ services:
   dozzle:
     container_name: dozzle
     image: ${DOCKER_IMAGE_DOZZLE}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
     restart: unless-stopped
@@ -17,6 +19,8 @@ services:
   adsb-setup-proxy:
     container_name: adsb-setup-proxy
     image: ${DOCKER_IMAGE_ALPINE}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
     stop_signal: SIGKILL

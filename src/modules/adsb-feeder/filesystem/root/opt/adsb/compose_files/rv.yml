@@ -1,9 +1,11 @@
 services:
   radarvirtuel:
+    container_name: radarvirtuel
     image: ${DOCKER_IMAGE_RADARVIRTUEL}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: radarvirtuel
     hostname: radarvirtuel
     restart: unless-stopped
     cpu_period: 50000

@@ -1,10 +1,12 @@
 services:
   fr24feed:
+    container_name: fr24feed
     image: ${DOCKER_IMAGE_FLIGHTRADAR}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
     dns_search: . # Ensures unified DNS config.
-    container_name: fr24feed
     restart: unless-stopped
     cpu_period: 50000
     cpu_quota: 7500

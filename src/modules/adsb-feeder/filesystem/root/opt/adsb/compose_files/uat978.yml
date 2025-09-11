@@ -1,9 +1,11 @@
 services:
   dump978:
+    container_name: dump978
     image: ${DOCKER_IMAGE_UAT978}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: dump978
     hostname: dump978
     restart: unless-stopped
     tty: false # work-around for /dev read-only mount + /dev/console error

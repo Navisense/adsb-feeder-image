@@ -1,9 +1,11 @@
 services:
   ultrafeeder:
+    container_name: ultrafeeder
     image: ${DOCKER_IMAGE_ULTRAFEEDER}
+    labels:
+      de.navisense/part-of: adsb-feeder
     healthcheck:
       disable: true
-    container_name: ultrafeeder
     hostname: ultrafeeder
     restart: unless-stopped
     cap_add:

@@ -1,8 +1,10 @@
 services:
   webproxy:
     container_name: webproxy
-    hostname: webproxy
     image: ${DOCKER_IMAGE_WEBPROXY}
+    labels:
+      de.navisense/part-of: adsb-feeder
+    hostname: webproxy
     healthcheck:
       disable: true
     restart: unless-stopped
