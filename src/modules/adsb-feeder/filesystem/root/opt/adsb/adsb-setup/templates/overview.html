@@ -316,10 +316,30 @@
           <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
         {% endif %}
       </p>
-      Containers:
-      <ul>
-        {% for container in containers %}<li>{{ container }}</li>{% endfor %}
-      </ul>
+      These Docker containers belong to the application (see <a href="{{ url_for('/logs/') }}">Dozzle</a> for details):
+      <div class="row">
+        {% for container in containers %}
+          {% with %}
+            {% set color_class = 'bg-success' %}
+            {% if container.state in ['created', 'paused', 'exited'] %}
+              {% set color_class = 'bg-secondary' %}
+            {% elif container.state == 'restarting' %}
+              {% set color_class = 'bg-warning' %}
+            {% elif container.state == 'dead' or 'unhealthy' in container.status %}
+              {% set color_class = 'bg-danger' %}
+            {% endif %}
+            <div class="col-12 col-md-6">
+              <div class="card my-2 {{ color_class }}">
+                <div class="card-body">
+                  <h5 class="card-title">{{ container.name }}</h5>
+                  {{ container.status }}
+                </div>
+                <div class="card-footer text-muted">{{ container.image }}</div>
+              </div>
+            </div>
+          {% endwith %}
+        {% endfor %}
+      </div>
     </div>
   </div>
   <div class="card my-2">
@@ -327,23 +347,25 @@
       <h5 class="card-title">Available SDR devices</h5>
       {% if sdrs %}
         {{ sdrs | length }} SDR device(s) are connected:
-        {% for sdr in sdrs %}
-          <div class="col-12 col-md-6">
-            <div class="card my-2">
-              <div class="card-body">
-                <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
-                This is a {{ sdr.vendor }} {{ sdr.product }} which is
-                {% if sdr_assignment(sdr) == 'ais' %}
-                  currently handling AIS.
-                {% elif sdr_assignment(sdr) in ['1090', '978'] %}
-                  currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
-                {% else %}
-                  currently unused.
-                {% endif %}
+        <div class="row">
+          {% for sdr in sdrs %}
+            <div class="col-12 col-lg-6 col-xl-4">
+              <div class="card my-2">
+                <div class="card-body">
+                  <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
+                  This is a {{ sdr.vendor }} {{ sdr.product }} which is
+                  {% if sdr_assignment(sdr) == 'ais' %}
+                    currently handling AIS.
+                  {% elif sdr_assignment(sdr) in ['1090', '978'] %}
+                    currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
+                  {% else %}
+                    currently unused.
+                  {% endif %}
+                </div>
               </div>
             </div>
-          </div>
-        {% endfor %}
+          {% endfor %}
+        </div>
       {% else %}
         There are no SDR devices connected.
       {% endif %}

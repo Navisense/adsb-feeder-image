@@ -2101,10 +2101,6 @@ class AdsbIm:
             if ipv6_broken:
                 print_err("ERROR: broken IPv6 state detected")
 
-        containers = [
-            image_setting.get("")
-            for _, image_setting in self._conf.get_setting("images")]
-
         def sdr_assignment(sdr):
             for purpose in ["1090", "978", "ais"]:
                 if self._conf.get(f"serial_devices.{purpose}") == sdr.serial:
@@ -2122,7 +2118,7 @@ class AdsbIm:
             tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
-            containers=containers,
+            containers=self._system.containers,
             sdrs=self._sdrdevices.sdrs,
             sdr_assignment=sdr_assignment,
             tags=available_tags,
@@ -2253,7 +2249,7 @@ class AdsbIm:
 
         netdog = simple_cmd_result("tail -n 10 /opt/adsb/logs/netdog.log 2>/dev/null")
 
-        containers = [
+        images = [
             image_setting.get("")
             for _, image_setting in self._conf.get_setting("images")]
         return render_template(
@@ -2265,7 +2261,7 @@ class AdsbIm:
             kernel=kernel,
             journal=journal,
             ipv6=ipv6,
-            containers=containers,
+            images=images,
             sdrs=sdrs,
             netdog=netdog,
         )

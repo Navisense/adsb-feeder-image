@@ -25,8 +25,8 @@
   <li id="ip-match" class="d-none"><span style="display: inline-block; width: 6em;"><strong>Network/IP:</strong></span>
     Your browser and the feeder have the same external IP address.
   </li>
-  <li><strong>Containers:</strong>
-    <ul>{% for container in containers %}<li>{{ container }}</li>{% endfor %}</ul>
+  <li><strong>Configured images:</strong>
+    <ul>{% for image in images %}<li>{{ image }}</li>{% endfor %}</ul>
   </li>
   <li><strong>SDR(s):</strong>
     <ul>{% for sdr in sdrs %}<li>
