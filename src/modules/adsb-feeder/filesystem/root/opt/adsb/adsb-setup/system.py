@@ -10,7 +10,6 @@ from typing import Optional
 import requests
 
 import util
-from util import print_err, run_shell_captured, shell_with_combined_output
 
 
 @dc.dataclass
@@ -74,7 +73,7 @@ class Systemctl:
             procs = []
             units_str = " ".join(units)
             for command in commands:
-                proc = shell_with_combined_output(
+                proc = util.shell_with_combined_output(
                     f"systemctl {command} {units_str}")
                 if proc.returncode and log_errors:
                     self._logger.error(f"systemctl failed: {proc.stdout}")
@@ -85,25 +84,26 @@ class Systemctl:
         """Run a command using systemd-run."""
         if not arguments:
             raise ValueError("no arguments given")
-        shell_with_combined_output(
+        util.shell_with_combined_output(
             f"systemd-run -u {unit_name} " + " ".join(arguments), check=True)
 
 
 class Restart:
     def __init__(self):
+        self._logger = logging.getLogger(type(self).__name__)
         self.lock = threading.Lock()
 
     def bg_run(self, cmdline=None, func=None, silent=False):
 
         if not cmdline and not func:
-            print_err(f"WARNING: bg_run called without something to do")
+            self._logger.warning("bg_run called without something to do.")
             return False
 
         gotLock = self.lock.acquire(blocking=False)
 
         if not gotLock:
             # we could not acquire the lock
-            print_err(f"restart locked, couldn't run: {cmdline}")
+            self._logger.error(f"Restart locked, couldn't run: {cmdline}")
             return False
 
         # we have acquired the lock
@@ -111,7 +111,7 @@ class Restart:
         def do_restart():
             try:
                 if cmdline:
-                    print_err(f"Calling {cmdline}")
+                    self._logger.info(f"Calling {cmdline}")
                     subprocess.run(
                         cmdline,
                         shell=True,
@@ -267,7 +267,7 @@ class System:
 
     def _get_network_device_infos(self) -> list[NetworkDeviceInfo]:
         """Get information about network devices."""
-        proc = shell_with_combined_output("ip --json route show")
+        proc = util.shell_with_combined_output("ip --json route show")
         proc.check_returncode()
         route_infos = json.loads(proc.stdout)
         device_infos = []
@@ -295,10 +295,10 @@ class System:
         elif (action == "reboot"):
             cmd = "reboot"
         else:
-            print_err(f"unknown shutdown action: {action}")
+            self._logger.error(f"Unknown shutdown action: {action}")
             return
 
-        print_err(f"shutdown action: {action}")
+        self._logger.info(f"Shutdown action: {action}")
 
         # best effort: allow reboot / shutdown even if lock is held
         gotLock = self._restart.lock.acquire(blocking=False)
@@ -321,7 +321,9 @@ class System:
         self.shutdown_action(action="reboot", delay=delay)
 
     def os_update(self) -> None:
-        subprocess.call("systemd-run --wait -u adsb-feeder-update-os /bin/bash /opt/adsb/scripts/update-os", shell=True)
+        util.shell_with_combined_output(
+            "systemd-run --wait -u adsb-feeder-update-os "
+            "/bin/bash /opt/adsb/scripts/update-os")
 
     def check_dns(self):
         try:
@@ -336,17 +338,21 @@ class System:
         return responses != list()
 
     def is_ipv6_broken(self):
-        success, output = run_shell_captured(
-            "ip -6 addr show scope global $(ip -j route get 1.2.3.4 | jq '.[0].dev' -r) | grep inet6 | grep -v 'inet6 f'",
+        proc = util.shell_with_combined_output(
+            "ip -6 addr show scope global "
+            "$(ip -j route get 1.2.3.4 | jq '.[0].dev' -r) "
+            "| grep inet6 | grep -v 'inet6 f'",
             timeout=2,
         )
-        if not success:
-            # no global ipv6 addresses assigned, this means we don't have ipv6 so it can't be broken
+        if proc.returncode != 0:
+            # no global ipv6 addresses assigned, this means we don't have ipv6
+            # so it can't be broken
             return False
         # we have at least one global ipv6 address, check if it works:
-        success, output = run_shell_captured("curl -o /dev/null -6 https://google.com", timeout=2)
+        proc = util.shell_with_combined_output(
+            "curl -o /dev/null -6 https://google.com", timeout=2)
 
-        if success:
+        if proc.returncode == 0:
             # it's working, so it's not broken
             return False
 
@@ -354,19 +360,24 @@ class System:
         return True
 
     def restart_containers(self, containers):
-        print_err(f"restarting {containers}")
+        self._logger.info(f"Restarting docker containers {containers}")
         try:
-            subprocess.run(["/opt/adsb/docker-compose-adsb", "restart"] + containers)
+            subprocess.run(["/opt/adsb/docker-compose-adsb", "restart"]
+                           + containers)
         except:
-            print_err("docker compose restart failed")
+            self._logger.exception("docker compose restart failed")
 
     def recreate_containers(self, containers):
-        print_err(f"recreating {containers}")
+        self._logger.info(f"Recreating docker containers {containers}")
         try:
-            subprocess.run(["/opt/adsb/docker-compose-adsb", "down", "--remove-orphans"] + containers)
-            subprocess.run(["/opt/adsb/docker-compose-adsb", "up", "-d", "--force-recreate", "--remove-orphans"] + containers)
+            subprocess.run(
+                ["/opt/adsb/docker-compose-adsb", "down", "--remove-orphans"]
+                + containers)
+            subprocess.run([
+                "/opt/adsb/docker-compose-adsb", "up", "-d",
+                "--force-recreate", "--remove-orphans"] + containers)
         except:
-            print_err("docker compose recreate failed")
+            self._logger.exception("docker compose recreate failed")
 
 
 _systemctl: Systemctl = None
