@@ -56,7 +56,6 @@ import system
 import util
 from util import (
     create_fake_info,
-    is_true,
     make_int,
     print_err,
     run_shell_captured,
@@ -1623,10 +1622,10 @@ class AdsbIm:
                     self._next_url_from_director = request.url
                     return render_template("/restarting.html")
             # now handle other form input
-            if key == "clear_range" and value == "1":
+            if key == "clear_range" and util.checkbox_checked(value):
                 self.clear_range_outline()
                 continue
-            if key == "resetgain" and value == "1":
+            if key == "resetgain" and util.checkbox_checked(value):
                 # tell the ultrafeeder container to restart the autogain processing
                 cmdline = "docker exec ultrafeeder /usr/local/bin/autogain1090 reset"
                 try:
@@ -1636,7 +1635,7 @@ class AdsbIm:
                         "Error running Ultrafeeder autogain reset",
                         flash_message=True)
                 continue
-            if key == "resetuatgain" and value == "1":
+            if key == "resetuatgain" and util.checkbox_checked(value):
                 # tell the dump978 container to restart the autogain processing
                 cmdline = "docker exec dump978 /usr/local/bin/autogain978 reset"
                 try:
@@ -1646,7 +1645,8 @@ class AdsbIm:
                         "Error running UAT autogain reset", flash_message=True)
                 continue
             if key == "enable-prometheus-metrics":
-                self._ensure_prometheus_metrics_state(is_true(value))
+                self._ensure_prometheus_metrics_state(
+                    util.checkbox_checked(value))
                 continue
             if key == "tz":
                 self.set_tz(value)
@@ -1663,9 +1663,12 @@ class AdsbIm:
                 key_path = set_config_match.group("key_path")
                 try:
                     if data_type == "bool":
-                        # The form will set the value to on if a checkbox is
-                        # checked, but we need a bool.
-                        value = value == "on"
+                        # Only checkboxes can be used as bool inputs. There is
+                        # a small script hooking into any form submit that sets
+                        # enabled checkboxes' values to "1", and disabled ones'
+                        # to "0" (rather than leaving them out of the form
+                        # altogether).
+                        value = util.checkbox_checked(value)
                     elif data_type == "float":
                         # Remove letters, spaces, degree symbols before
                         # parsing.
@@ -1865,8 +1868,7 @@ class AdsbIm:
         # All aggregators need the enabled arg, which is always called
         # {agg_key}-is-enabled.
         kwargs = {
-            "enabled": util.parse_post_bool(
-                form.get(f"{agg_key}-is-enabled"))}
+            "enabled": util.checkbox_checked(form[f"{agg_key}-is-enabled"])}
         if agg_key in ["planewatch", "planefinder", "adsbhub", "radarvirtuel",
                        "1090uk"]:
             # These are the simple cases of account-based aggregators which
@@ -2379,7 +2381,7 @@ class AdsbIm:
         containers_to_restart = []
         for container in self._system.containers:
             # Only restart the ones that have been checked.
-            if container.name in request.form:
+            if util.checkbox_checked(request.form[container.name]):
                 containers_to_restart.append(container.name)
         self._conf.write_env_file()
         if "recreate" in request.form:
@@ -2391,121 +2393,122 @@ class AdsbIm:
     def configure_zerotier(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot configure zerotier.", 400
-        if "enabled" in request.form and "zerotierid" in request.form:
-            zerotier_id = request.form["zerotierid"]
-            try:
-                system.systemctl().run(
-                    ["unmask", "enable --now"], ["zerotier-one"])
-                # Wait for the service to get ready...
-                sleep(5.0)
-                subprocess.call([
-                    "/usr/sbin/zerotier-cli", "join", zerotier_id])
-            except:
-                self._logger.exception(
-                    "Exception trying to set up zerotier - giving up",
-                    flash_message=True)
-        else:
+        if (not util.checkbox_checked(request.form["enabled"])
+                or "zerotierid" not in request.form):
             self._conf.set("zerotierid", "")
             success, output = run_shell_captured(
                 "systemctl disable --now zerotier-one && systemctl mask zerotier-one", timeout=30
             )
+            return redirect(url_for("systemmgmt"))
+        zerotier_id = request.form["zerotierid"]
+        try:
+            system.systemctl().run(["unmask", "enable --now"],
+                                    ["zerotier-one"])
+            # Wait for the service to get ready...
+            sleep(5.0)
+            subprocess.call([
+                "/usr/sbin/zerotier-cli", "join", zerotier_id])
+        except:
+            self._logger.exception(
+                "Exception trying to set up zerotier - giving up",
+                flash_message=True)
         return redirect(url_for("systemmgmt"))
 
     def configure_tailscale(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot configure tailscale.", 400
-        if "enabled" not in request.form:
+        if not util.checkbox_checked(request.form["enabled"]):
             success, output = run_shell_captured(
                 "systemctl disable --now tailscaled && systemctl mask tailscaled",
                 timeout=30)
             self._logger.info("Disabled Tailscale.")
-        else:
-            ts_args = request.form.get("tailscale_extras", "")
-            if ts_args:
-                # right now we really only want to allow the login server arg
-                try:
-                    ts_cli_switch, ts_cli_value = ts_args.split("=")
-                except:
-                    ts_cli_switch, ts_cli_value = ["", ""]
-                if ts_cli_switch != "--login-server":
-                    self._logger.warning(
-                        "At this point we only allow the "
-                        "--login-server=<server> argument.",
-                    flash_message=True)
-                    return f"Unsupported switch {ts_cli_switch}.", 400
-                match = re.match(
-                    r"^https?://[-a-zA-Z0-9._\+~=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?::[0-9]{1,5})?(?:[-a-zA-Z0-9()_\+.~/=]*)$",
-                    ts_cli_value,
-                )
-                if not match:
-                    self._logger.error(
-                        "The login server URL didn't make sense "
-                        f"{ts_cli_value}", flash_message=True)
-                    return f"Invalid login server URL {ts_cli_value}.", 400
-            self._logger.info(f"Starting tailscale (args='{ts_args}')")
+            return redirect(url_for("systemmgmt"))
+        ts_args = request.form.get("tailscale_extras", "")
+        if ts_args:
+            # right now we really only want to allow the login server arg
             try:
-                subprocess.run(
-                    ["/usr/bin/systemctl", "unmask", "tailscaled"],
-                    timeout=20.0,
-                )
-                subprocess.run(
-                    ["/usr/bin/systemctl", "enable", "--now", "tailscaled"],
-                    timeout=20.0,
-                )
-                cmd = ["/usr/bin/tailscale", "up"]
-
-                # due to the following error, we just add --reset to the options
-                # Error: changing settings via 'tailscale up' requires mentioning all
-                # non-default flags. To proceed, either re-run your command with --reset or
-                # use the command below to explicitly mention the current value of
-                # all non-default settings:
-                cmd += ["--reset"]
-                cmd += [f"--hostname={self.hostname}"]
-
-                if ts_args:
-                    cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
-                cmd += ["--accept-dns=false"]
-                proc = subprocess.Popen(
-                    cmd,
-                    stderr=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
-                    text=True,
-                )
-                os.set_blocking(proc.stderr.fileno(), False)
+                ts_cli_switch, ts_cli_value = ts_args.split("=")
             except:
-                self._logger.exception(
-                    "Exception trying to set up tailscale - giving up",
-                    flash_message=True)
-                return "Error setting up Tailscale.", 500
-            start_time = time.time()
-            match = None
-            while time.time() - start_time < 30:
-                output = proc.stderr.readline()
-                if not output:
-                    if proc.poll() != None:
-                        break
-                    time.sleep(0.1)
-                    continue
-                # standard tailscale result
-                match = re.search(r"(https://login\.tailscale.*)", output)
-                if match:
-                    break
-                # when using a login-server
-                match = re.search(r"(https://.*/register/nodekey.*)", output)
-                if match:
-                    break
-
-            proc.terminate()
-
-            if match:
-                login_link = match.group(1)
-                self._logger.debug(f"Found Tailscale login link {login_link}")
-                self._conf.set("tailscale_ll", login_link)
-            else:
+                ts_cli_switch, ts_cli_value = ["", ""]
+            if ts_cli_switch != "--login-server":
+                self._logger.warning(
+                    "At this point we only allow the "
+                    "--login-server=<server> argument.",
+                flash_message=True)
+                return f"Unsupported switch {ts_cli_switch}.", 400
+            match = re.match(
+                r"^https?://[-a-zA-Z0-9._\+~=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?::[0-9]{1,5})?(?:[-a-zA-Z0-9()_\+.~/=]*)$",
+                ts_cli_value,
+            )
+            if not match:
                 self._logger.error(
-                    "ERROR: tailscale didn't provide a login link "
-                    "within 30 seconds", flash_message=True)
-                return "Unable to get a login link", 500
+                    "The login server URL didn't make sense "
+                    f"{ts_cli_value}", flash_message=True)
+                return f"Invalid login server URL {ts_cli_value}.", 400
+        self._logger.info(f"Starting tailscale (args='{ts_args}')")
+        try:
+            subprocess.run(
+                ["/usr/bin/systemctl", "unmask", "tailscaled"],
+                timeout=20.0,
+            )
+            subprocess.run(
+                ["/usr/bin/systemctl", "enable", "--now", "tailscaled"],
+                timeout=20.0,
+            )
+            cmd = ["/usr/bin/tailscale", "up"]
+
+            # due to the following error, we just add --reset to the options
+            # Error: changing settings via 'tailscale up' requires mentioning all
+            # non-default flags. To proceed, either re-run your command with --reset or
+            # use the command below to explicitly mention the current value of
+            # all non-default settings:
+            cmd += ["--reset"]
+            cmd += [f"--hostname={self.hostname}"]
+
+            if ts_args:
+                cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
+            cmd += ["--accept-dns=false"]
+            proc = subprocess.Popen(
+                cmd,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                text=True,
+            )
+            os.set_blocking(proc.stderr.fileno(), False)
+        except:
+            self._logger.exception(
+                "Exception trying to set up tailscale - giving up",
+                flash_message=True)
+            return "Error setting up Tailscale.", 500
+        start_time = time.time()
+        match = None
+        while time.time() - start_time < 30:
+            output = proc.stderr.readline()
+            if not output:
+                if proc.poll() != None:
+                    break
+                time.sleep(0.1)
+                continue
+            # standard tailscale result
+            match = re.search(r"(https://login\.tailscale.*)", output)
+            if match:
+                break
+            # when using a login-server
+            match = re.search(r"(https://.*/register/nodekey.*)", output)
+            if match:
+                break
+
+        proc.terminate()
+
+        if match:
+            login_link = match.group(1)
+            self._logger.debug(f"Found Tailscale login link {login_link}")
+            self._conf.set("tailscale_ll", login_link)
+        else:
+            self._logger.error(
+                "ERROR: tailscale didn't provide a login link "
+                "within 30 seconds", flash_message=True)
+            return "Unable to get a login link", 500
         return redirect(url_for("systemmgmt"))
 
     @check_restart_lock

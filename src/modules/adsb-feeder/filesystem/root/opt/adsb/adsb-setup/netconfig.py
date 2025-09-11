@@ -2,7 +2,7 @@ import uuid
 
 import aggregators
 import config
-from util import is_true, print_err
+from util import print_err
 
 
 class UltrafeederConfig:

@@ -17,6 +17,8 @@ from typing import Optional
 
 import flask
 
+logger = logging.getLogger(__name__)
+
 verbose = (
     0 if not os.path.exists("/etc/adsb/verbose") else int(open("/etc/adsb/verbose", "r").read().strip())
 )
@@ -65,16 +67,24 @@ def is_email(text: str):
     return re.match(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, flags=re.IGNORECASE)
 
 
-# extend the truthy concept to exclude all non-empty string except a few specific ones ([Tt]rue, [Oo]n, 1)
-def is_true(value):
-    if type(value) == str:
-        return value.lower() in ["true", "on", "1"]
-    return bool(value)
+def checkbox_checked(value: Optional[str]) -> bool:
+    """
+    Parse a POST form checkbox as a bool.
 
-
-def parse_post_bool(value: Optional[str]) -> bool:
-    """Parse a POST form checkbox as a bool."""
-    return bool(value and value.lower() not in ["false", "off", "0"])
+    This relies on a small Javascript snippet that rewrites the value of any
+    checked checkbox to "1", and of any unchecked one to "0". Normally,
+    unchecked checkboxes don't appear in the form at all. If any values other
+    than "0" or "1" are encountered, a warning is logged and False returned.
+    """
+    if value == "0":
+        return False
+    elif value == "1":
+        return True
+    logger.warning(
+        f"Encountered unexpected value {value} when parsing a checkbox value. "
+        "These should only ever contain the strings \"0\" or \"1\", as set by "
+        "a necessary Javascript hook. This indicates a serious problem.")
+    return False
 
 
 def make_int(value):

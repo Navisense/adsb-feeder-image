@@ -129,3 +129,9 @@ host using the `HOST` environment variable, e.g.
 HOST=porttracker-feeder.local make sync-and-update
 ```
 
+### Checkboxes in form data
+
+Normally, when an HTML form is submitted, any checkboxes that are unchecked are
+simply omitted. In this application, there is a small Javascript hook executed
+on every sumbit that ensures each checkbox is contained, with the value "0" for
+unchecked ones and "1" for checked ones.
