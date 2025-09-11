@@ -78,221 +78,31 @@
     </div>
     <div id="chart-wrapper" class="m-5 d-none d-md-block"><canvas id="reception-history-chart"></canvas></div>
   </div>
-  <div class="col-12 {% if (enabled_aggregators | length) == 0 %}d-none{% endif %}">
-    <h4>You are feeding</h4>
-    <div class="row small">
-      <div class="col-12 col-md-6" style="overflow-x: auto">
-        <h5>AIS</h5>
-        <table class="table table-bordered table-sm lh-1 table-striped">
-          <thead>
-            <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
-            <td class="text-center" colspan="1">Enabled</td>
-            <td class="text-center" colspan="1">Data</td>
-            <td class="text-center" colspan="1">Status</td>
-          </thead>
-          <tbody>
-            {% for agg in enabled_aggregators.values() %}
-              {% if not agg.enabled('ais') %}
-                {% continue %}
-              {% endif %}
-              <tr>
-                <td style="position: -webkit-sticky; position: sticky; left: 0px;">
-                  {% if agg.map_url %}
-                    <a href="{{ agg.map_url }}">{{ agg.name }}</a>
-                  {% else %}
-                    {{ agg.name }}
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Data sharing</h5>
+      <div class="row">
+        {% for type, type_key in [('AIS', 'ais'), ('ADS-B', 'adsb')] %}
+          {% for agg in enabled_aggregators.values() %}
+            {% if not agg.enabled(type_key) %}
+              {% continue %}
+            {% endif %}
+            <div class="col-12 col-md-6">
+              <div class="card my-2 bg-info" id="{{ agg.agg_key }}-{{ type_key }}-status">
+                <div class="card-header">{{ type }}</div>
+                <div class="card-body">
+                  <h5 class="card-title">{{ agg.name }}</h5>
+                  <span id="{{ agg.agg_key }}-{{ type_key }}-data-status">Checking status...</span>
+                  {% if type_key == 'adsb' and get_conf('mlat_enable') %}
+                    <span id="{{ agg.agg_key }}-{{ type_key }}-mlat-status"></span>
                   {% endif %}
-                </td>
-                <td class="text-center">
-                  <span id="{{ agg.agg_key }}-ais-enabled" width="3em" class="text-muted">✓</span>
-                </td>
-                <td class="text-center">
-                  <span id="{{ agg.agg_key }}-ais-data-status" width="3em">.</span>
-                </td>
-                <td class="text-center">
-                  {% if agg.status_url %}<a href="{{ agg.status_url }}">🔗</a>{% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="col-12 col-md-6" style="overflow-x: auto">
-        <h5>ADS-B</h5>
-        <table class="table table-bordered table-sm lh-1 table-striped">
-          <thead>
-            <td style="position: -webkit-sticky; position: sticky; left: 0px;">Aggregator</td>
-            <td class="text-center" colspan="1">Enabled</td>
-            <td class="text-center" colspan="1">Data</td>
-            <td class="text-center" colspan="1">MLAT</td>
-            <td class="text-center" colspan="1">Status</td>
-          </thead>
-          <tbody>
-            {% for agg in enabled_aggregators.values() %}
-              {% if not agg.enabled('adsb') %}
-                {% continue %}
-              {% endif %}
-              <tr>
-                <td style="position: -webkit-sticky; position: sticky; left: 0px;">
-                  {% if agg.map_url %}
-                    <a href="{{ agg.map_url }}">{{ agg.name }}</a>
-                  {% else %}
-                    {{ agg.name }}
-                  {% endif %}
-                </td>
-                <td class="text-center">
-                  <span id="{{ agg.agg_key }}-adsb-enabled" width="3em" class="text-muted">✓</span>
-                </td>
-                <td class="text-center">
-                  <span id="{{ agg.agg_key }}-adsb-data-status" width="3em">.</span>
-                </td>
-                <td class="text-center">
-                  <span id="{{ agg.agg_key }}-adsb-mlat-status" width="3em">.</span>
-                </td>
-                <td class="text-center">
-                  {% if agg.status_url %}<a href="{{ agg.status_url }}">🔗</a>{% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      <div class="col-12 mb-4">
-        Enabled indicates feeding the aggregator. <span class="text-success">✓</span> feed is in good state,
-        <span class="text-danger">✓</span> feed is down,
-        <span class="text-warning">✓</span> feed is degraded,
-        <span class="text-muted">✓</span> feed state is not supported
-        <br />
-        <span onclick="$('#extra-legend').toggleClass('d-none'); return false;">
-          <a href="">Toggle detailed legend</a>
-        </span>
-        <span>| Last status update: <span id="last-aggregator-status-update"></span></span>
-        <br />
-        <span class="d-none" id="extra-legend">
-          '+': feed/mlat is connected; '☒': feed/mlat is not connected
-          <br />
-          '☹': mlat sync errors (if this persists for hours, check
-          <a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)
-          <br />
-          '⚠': feed is intermittent / degraded
-          <br />
-          '⚠': mlat sync warning (intermittent sync issue / lack of traffic / no other receivers in the area)
-          <br />
-          '⟳': container is up for less than a 30 seconds, not checking status
-          <br />
-          '☈': container is down
-          <br />
-          '.': status information is not available at this time or not supported
-        </span>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        {% endfor %}
       </div>
     </div>
-    {% if enabled_aggregators | select('in', ['adsblol', 'flightradar', 'planefinder', 'adsbx', 'alive', 'flightaware']) | list %}
-      <div class="row">
-        <button class="btn btn-secondary small"
-                type="button"
-                data-mdb-toggle="collapse"
-                data-mdb-target="#additional-aggregator-links"
-                aria-expanded="false"
-                aria-controls="additional-aggregator-links">Show additional aggregator links</button>
-      </div>
-      <div id="additional-aggregator-links" class="row mt-3 collapse">
-        <h5>Additional aggregator links</h5>
-        {% if 'adsblol' in enabled_aggregators %}
-          <div class="col-12 mb-2">
-            <div class="lead">ADSB.lol</div>
-            <ul class="mb-0">
-              <li>
-                <a href="https://status.adsb.lol/">ADSB.lol status</a>
-              </li>
-              <li>
-                <a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a>
-              </li>
-              <li>
-                <a id="adsblol-link" href="https://my.adsb.lol/">personal ADSB.lol URL with the planes you are sending</a>
-              </li>
-              <li>
-                <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
-                  ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}
-                </a>
-              </li>
-            </ul>
-            {% if get_conf("mlat_privacy") %}
-              (since you have MLAT privacy enabled, your feeder won't be shown)
-            {% else %}
-              (your feeder will be at an approximate location as {{ get_conf("site_name") }})
-            {% endif %}
-          </div>
-        {% endif %}
-        {% if 'flightradar' in enabled_aggregators %}
-          <div class="col-12">
-            <div class="lead">FlightRadar 24</div>
-            <ul class="mb-0">
-              <li>
-                <a href="{{ url_for('/fr24/') }}">FR24 status</a>
-              </li>
-            </ul>
-          </div>
-        {% endif %}
-        {% if 'flightaware' in enabled_aggregators %}
-          <div class="col-12">
-            <div class="lead">FlightAware</div>
-            <div class="small text-muted">
-              Note: The SkyAware map on the status page does not work, it's not needed to supply data to FA
-              <br>
-              (You can re-enable that map at the cost of increased cpu / memory consumption by adding
-              PIAWARE_MINIMAL=false to the environment variables on the expert page)
-            </div>
-            <ul class="mb-0">
-              <li>
-                <a href="{{ url_for('/fa-status/') }}">FlightAware status</a>
-              </li>
-              <li class="d-none">
-                <a href="{{ url_for('/fa/') }}">FlightAware map</a>
-              </li>
-            </ul>
-          </div>
-        {% endif %}
-        {% if 'planefinder' in enabled_aggregators %}
-          <div class="col-12">
-            <div class="lead">PlaneFinder</div>
-            <ul class="mb-0">
-              <li>
-                <a href="{{ url_for('/planefinder/') }}">Planefinder map</a>
-              </li>
-              <li>
-                <a href="{{ url_for('/planefinder-stat/') }}">Planefinder stats</a>
-              </li>
-            </ul>
-          </div>
-        {% endif %}
-        {% if 'adsbx' in enabled_aggregators %}
-          <div class="col-12">
-            <div class="lead">ADSBExchange</div>
-            <ul class="mb-0">
-              <li>
-                <a id="adsbx-stat-link" href="">ADSBx Anywhere Stats</a>
-              </li>
-              <li>
-                <a id="adsbx-map-link" href="">ADSBx Anywhere Map</a>
-              </li>
-            </ul>
-          </div>
-        {% endif %}
-        {% if 'alive' in enabled_aggregators %}
-          <div class="col-12">
-            <div class="lead">airplanes.live</div>
-            <ul class="mb-0">
-              <li>
-                <a id="alivestatus" href="https://airplanes.live/myfeed/">Status</a>
-              </li>
-              <li>
-                <a id="alive-map-link" href="">Map</a>
-              </li>
-            </ul>
-          </div>
-        {% endif %}
-      </div>
-    {% endif %}
   </div>
   <div class="col-12 mb-4">
     <div class="small">
@@ -322,7 +132,7 @@
           {% with %}
             {% set color_class = 'bg-success' %}
             {% if container.state in ['created', 'paused', 'exited'] %}
-              {% set color_class = 'bg-secondary' %}
+              {% set color_class = 'bg-info' %}
             {% elif container.state == 'restarting' %}
               {% set color_class = 'bg-warning' %}
             {% elif container.state == 'dead' or 'unhealthy' in container.status %}
@@ -546,52 +356,65 @@
   }
 
   function refreshAggregatorStatus(aggKey) {
-    const statusSymbols = {
-      unknown: ".",
-      disconnected: String.fromCodePoint(0x2612),
-      disabled: " ",
-      container_down: String.fromCodePoint(0x2608),
-      starting: String.fromCodePoint(0x27f3),
-      bad: String.fromCodePoint(0x2639),
-      warning: String.fromCodePoint(0x26a0),
-      good: "+",
-    };
     fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(resp => {
         for (const messageType of ["ais", "adsb"]) {
           const status = resp[messageType];
-          if (!status) continue;
-          $(`#${aggKey}-${messageType}-data-status`).text(statusSymbols[status.data_status]);
-          let broken = !(["unknown", "disabled", "good"].includes(status.data_status));
-          if (status.mlat_status) {
-            broken ||= !(["unknown", "disabled", "good"].includes(status.mlat_status));
-            $(`#${aggKey}-${messageType}-mlat-status`).text(statusSymbols[status.mlat_status]);
+          let dataStatus = "unknown";
+          let mlatStatus = null;
+          if (status) {
+            dataStatus = status.data_status;
+            mlatStatus = status.mlat_status;
           }
-          let checkMarkElement = $(`#${aggKey}-${messageType}-enabled`);
-          if (status.data_status == "good" && !broken) {
-            checkMarkElement.attr("class", "text-success");
-          } else if (status.data_status == "disconnected") {
-            checkMarkElement.attr("class", "text-danger");
-          } else if (broken) {
-            checkMarkElement.attr("class", "text-warning");
+          let aggCard = $(`#${aggKey}-${messageType}-status`);
+          let dataStatusSpan = $(`#${aggKey}-${messageType}-data-status`);
+          if (aggCard.length == 0 || dataStatusSpan.length == 0) continue;
+          aggCard.removeClass("bg-success bg-warning bg-danger bg-info");
+          if (dataStatus == "good") {
+            aggCard.addClass("bg-success");
+            dataStatusSpan.text("Data is arriving at the aggregator.");
+          } else if (dataStatus == "warning") {
+            aggCard.addClass("bg-warning");
+            dataStatusSpan.text("Data is arriving at the aggregator, but it doesn't seem to be a lot.");
+          } else if (dataStatus == "bad") {
+            aggCard.addClass("bg-danger");
+            dataStatusSpan.text("No data is arriving at the aggregator.");
+          } else if (dataStatus == "starting") {
+            aggCard.addClass("bg-info");
+            dataStatusSpan.text("We've only just started sending data...");
+          } else if (dataStatus == "container_down") {
+            aggCard.addClass("bg-danger");
+            dataStatusSpan.text("The container sending data is down.");
+          } else if (dataStatus == "disconnected") {
+            aggCard.addClass("bg-danger");
+            dataStatusSpan.text("We're disconnected from the aggregator.");
           } else {
-            checkMarkElement.attr("class", "text-muted");
+            aggCard.addClass("bg-info");
+            dataStatusSpan.text("We have no information whether data is arriving.");
           }
-          // Extra data for adsb.lol.
-          if (status.adsblol_link) {
-            $("#adsblol-link").attr("href", status.adsblol_link);
-          }
-          // Extra data for airplanes.live.
-          if (status.alive_map_link) {
-            $("#alive-map-link").attr("href", status.alive_map_link);
-          }
-          // Extra data for ADSBExchange.
-          if (status.adsbx_feeder_id) {
-            $("#adsbx-stat-link").attr(
-              "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
-            $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
-          }
+          {% if get_conf('mlat_enable') %}
+            if (mlatStatus) {
+              let mlatStatusSpan = $(`#${aggKey}-${messageType}-mlat-status`);
+              if (mlatStatus == "good") {
+                mlatStatusSpan.text("MLAT is working.");
+              } else if (mlatStatus == "warning") {
+                mlatStatusSpan.text(
+                  "There are issues with MLAT (intermittent sync issue / lack of traffic / no other receivers in the "
+                  + "area)");
+              } else if (mlatStatus == "bad") {
+                mlatStatusSpan.html(
+                  `MLAT is not working (if this persists for hours, check `
+                  + `<a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)`);
+              } else if (mlatStatus == "disconnected") {
+                mlatStatusSpan.text("MLAT is not connected.");
+              } else if (mlatStatus == "disabled") {
+                mlatStatusSpan.text("MLAT is disabled.");
+              } else {
+                mlatStatusSpan.text("We have no information whether MLAT is working.");
+              }
+            }
+          {% endif %}
         }
       });
   }
