@@ -259,22 +259,23 @@ class Aggregator(abc.ABC):
         self._last_check = time.time()
 
     def _get_status_locked(self) -> AggregatorStatus:
-        data_status = None
+        data_status_based_on_container = None
         try:
             container = next(
                 c for c in self._system.containers
                 if c.name == self._container_name)
             if container.up_less_than(30):
-                data_status = DataStatus.STARTING
+                data_status_based_on_container = DataStatus.STARTING
         except StopIteration:
-            data_status = DataStatus.CONTAINER_DOWN
-        if data_status and container.state != "running":
+            data_status_based_on_container = DataStatus.CONTAINER_DOWN
+        if data_status_based_on_container:
             return AggregatorStatus(
                 ais=None if MessageType.AIS not in self.capable_message_types
-                else AisStatus(data_status=data_status),
+                else AisStatus(data_status=data_status_based_on_container),
                 adsb=None if MessageType.ADSB not in self.capable_message_types
                 else AdsbStatus(
-                    data_status=data_status, mlat_status=MlatStatus.DISABLED),
+                    data_status=data_status_based_on_container,
+                    mlat_status=MlatStatus.DISABLED),
             )
 
         status = self._check_aggregator_status()

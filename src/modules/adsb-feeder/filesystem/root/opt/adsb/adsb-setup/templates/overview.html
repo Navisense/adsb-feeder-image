@@ -94,6 +94,7 @@
                   <h5 class="card-title">{{ agg.name }}</h5>
                   <span id="{{ agg.agg_key }}-{{ type_key }}-data-status">Checking status...</span>
                   {% if type_key == 'adsb' and get_conf('mlat_enable') %}
+                    <br>
                     <span id="{{ agg.agg_key }}-{{ type_key }}-mlat-status"></span>
                   {% endif %}
                 </div>
