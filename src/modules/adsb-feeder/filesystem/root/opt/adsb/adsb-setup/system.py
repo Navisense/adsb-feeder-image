@@ -148,7 +148,13 @@ class System:
     def system_info(self) -> SystemInfo:
         if not self._info_refresh_task.running:
             raise ValueError("System info refresh task is not running.")
-        with self._system_info_lock:
+        # If we don't have a cached info, wait for it, otherwise return
+        # whatever we have now.
+        if not self._system_info:
+            lock = self._system_info_lock
+        else:
+            lock = threading.Lock()
+        with lock:
             return self._system_info
 
     def _update_system_info(self) -> SystemInfo:
