@@ -1769,44 +1769,22 @@ class AdsbIm:
 
     @check_restart_lock
     def systemmgmt(self):
-        tailscale_running = False
+        tailscale_info = self._system.get_tailscale_info()
+        if tailscale_info.status in [system.TailscaleStatus.ERROR,
+                                     system.TailscaleStatus.NOT_INSTALLED,
+                                     system.TailscaleStatus.DISABLED]:
+            # Reset the login link in the config if Tailscale is not running.
+            self._conf.set("tailscale.login_link", None)
         zerotier_running = False
         success, output = run_shell_captured("ps -e", timeout=2)
         zerotier_running = "zerotier-one" in output
-        tailscale_running = "tailscaled" in output
-        # is tailscale set up?
-        try:
-            if not tailscale_running:
-                raise ProcessLookupError
-            result = subprocess.run(
-                "tailscale status --json 2>/dev/null",
-                shell=True,
-                check=True,
-                capture_output=True,
-            )
-        except:
-            # a non-zero return value means tailscale isn't configured or tailscale is disabled
-            # reset both associated env vars
-            # if tailscale recovers / is re-enabled and the system management page is visited,
-            # the code below will set the appropriate tailscale_name once more.
-            self._conf.set("tailscale_name", "")
-            self._conf.set("tailscale_ll", "")
-        else:
-            ts_status = json.loads(result.stdout.decode())
-            if ts_status.get("BackendState") == "Running" and ts_status.get("Self"):
-                tailscale_name = ts_status.get("Self").get("HostName")
-                print_err(f"configured as {tailscale_name} on tailscale")
-                self._conf.set("tailscale_name", tailscale_name)
-                self._conf.set("tailscale_ll", "")
-            else:
-                self._conf.set("tailscale_name", "")
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
         available_versions = gitlab.gitlab_repo().get_semver_tags()
         return render_template(
             "systemmgmt.html",
-            tailscale_running=tailscale_running,
+            tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
             rpw=self.rpw,
             available_versions=available_versions,
@@ -2019,21 +1997,6 @@ class AdsbIm:
 
         self.update_net_dev()
 
-        if self._conf.get("tailscale_name"):
-            try:
-                result = subprocess.run(
-                    "tailscale ip -4 2>/dev/null",
-                    shell=True,
-                    capture_output=True,
-                    timeout=2.0,
-                ).stdout
-            except:
-                result = ""
-            else:
-                result = result.decode().strip()
-            self.tailscale_address = result
-        else:
-            self.tailscale_address = ""
         zt_network = self._conf.get("zerotierid")
         if zt_network:
             try:
@@ -2115,7 +2078,6 @@ class AdsbIm:
             "overview.html",
             enabled_aggregators=enabled_aggregators,
             local_address=local_address,
-            tailscale_address=self.tailscale_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
             containers=self._system.containers,
@@ -2413,13 +2375,33 @@ class AdsbIm:
     def configure_tailscale(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot configure tailscale.", 400
+        if self._system.get_tailscale_info().status in [
+                system.TailscaleStatus.NOT_INSTALLED,
+                system.TailscaleStatus.ERROR]:
+            self._conf.set("tailscale.is_enabled", False)
+            return "Tailscale is not installed (properly)", 500
         if not util.checkbox_checked(request.form["enabled"]):
-            success, output = run_shell_captured(
-                "systemctl disable --now tailscaled && systemctl mask tailscaled",
-                timeout=30)
+            system.systemctl().run(["disable --now", "mask"],
+                                   ["tailscaled.service"])
+            self._conf.set("tailscale.is_enabled", False)
             self._logger.info("Disabled Tailscale.")
             return redirect(url_for("systemmgmt"))
-        ts_args = request.form.get("tailscale_extras", "")
+        self._conf.set("tailscale.is_enabled", True)
+        try:
+            system.systemctl().run(["unmask", "enable --now"],
+                                   ["tailscaled.service"])
+        except:
+            self._logger.exception(
+                "Error starting Tailscale daemon.", flash_message=True)
+            return "Error starting Tailscale.", 500
+        for _ in range(5):
+            info = self._system.get_tailscale_info()
+            if info.status == system.TailscaleStatus.LOGGED_IN:
+                self._logger.info(
+                    "Started Tailscale (was already logged in).")
+                return redirect(url_for("systemmgmt"))
+            time.sleep(0.2)
+        ts_args = request.form.get("tailscale-extras", "")
         if ts_args:
             # right now we really only want to allow the login server arg
             try:
@@ -2441,29 +2423,22 @@ class AdsbIm:
                     "The login server URL didn't make sense "
                     f"{ts_cli_value}", flash_message=True)
                 return f"Invalid login server URL {ts_cli_value}.", 400
+        self._conf.set("tailscale.extras", ts_args)
         self._logger.info(f"Starting tailscale (args='{ts_args}')")
         try:
-            subprocess.run(
-                ["/usr/bin/systemctl", "unmask", "tailscaled"],
-                timeout=20.0,
-            )
-            subprocess.run(
-                ["/usr/bin/systemctl", "enable", "--now", "tailscaled"],
-                timeout=20.0,
-            )
-            cmd = ["/usr/bin/tailscale", "up"]
-
             # due to the following error, we just add --reset to the options
-            # Error: changing settings via 'tailscale up' requires mentioning all
-            # non-default flags. To proceed, either re-run your command with --reset or
-            # use the command below to explicitly mention the current value of
-            # all non-default settings:
-            cmd += ["--reset"]
-            cmd += [f"--hostname={self.hostname}"]
-
+            # Error: changing settings via 'tailscale up' requires mentioning
+            # all non-default flags. To proceed, either re-run your command
+            # with --reset or use the command below to explicitly mention the
+            # current value of all non-default settings:
+            cmd = [
+                "/usr/bin/tailscale",
+                "up",
+                "--reset",
+                f"--hostname={self.hostname}",
+                "--accept-dns=false",]
             if ts_args:
                 cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
-            cmd += ["--accept-dns=false"]
             proc = subprocess.Popen(
                 cmd,
                 stderr=subprocess.PIPE,
@@ -2499,7 +2474,7 @@ class AdsbIm:
         if match:
             login_link = match.group(1)
             self._logger.debug(f"Found Tailscale login link {login_link}")
-            self._conf.set("tailscale_ll", login_link)
+            self._conf.set("tailscale.login_link", login_link)
         else:
             self._logger.error(
                 "ERROR: tailscale didn't provide a login link "

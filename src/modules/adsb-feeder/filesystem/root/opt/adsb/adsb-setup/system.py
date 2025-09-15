@@ -1,4 +1,6 @@
 import dataclasses as dc
+import enum
+import ipaddress
 import json
 import logging
 import socket
@@ -49,6 +51,33 @@ class ContainerInfo:
                 # Handle status "Up Less than a second".
                 return True
         return False
+
+
+class TailscaleStatus(enum.StrEnum):
+    NO_STATE = "no_state"
+    ERROR = "error"
+    NOT_INSTALLED = "not_installed"
+    DISABLED = "disabled"
+    LOGGED_OUT = "logged_out"
+    LOGGED_IN = "logged_in"
+
+
+@dc.dataclass
+class TailscaleInfo:
+    status: TailscaleStatus
+    ips: list[str] = dc.field(default_factory=list)
+    hostname: Optional[str] = None
+    dns_name: Optional[str] = None
+
+    @property
+    def ipv4s(self) -> list[ipaddress.IPv4Address]:
+        ipv4s = []
+        for ip in self.ips:
+            try:
+                ipv4s.append(ipaddress.IPv4Address(ip))
+            except ValueError:
+                pass
+        return ipv4s
 
 
 class Systemctl:
@@ -378,6 +407,36 @@ class System:
                 "--force-recreate", "--remove-orphans"] + containers)
         except:
             self._logger.exception("docker compose recreate failed")
+
+    def get_tailscale_info(self) -> TailscaleInfo:
+        try:
+            proc = util.shell_with_combined_output("which tailscale")
+            if proc.returncode != 0:
+                return TailscaleInfo(status=TailscaleStatus.NOT_INSTALLED)
+            proc, = systemctl().run(["status"], ["tailscaled"],
+                                    log_errors=False)
+            if proc.returncode != 0:
+                return TailscaleInfo(status=TailscaleStatus.DISABLED)
+            proc = util.shell_with_combined_output("tailscale status --json")
+            if proc.returncode != 0:
+                self._logger.error(
+                    f"tailscale status --json returned an error: {proc.stdout}"
+                )
+                return TailscaleInfo(status=TailscaleStatus.ERROR)
+            status_json = json.loads(proc.stdout)
+            if status_json["BackendState"] == "NeedsLogin":
+                return TailscaleInfo(status=TailscaleStatus.LOGGED_OUT)
+            if status_json["BackendState"] == "Running":
+                return TailscaleInfo(
+                    status=TailscaleStatus.LOGGED_IN,
+                    ips=status_json["Self"]["TailscaleIPs"],
+                    hostname=status_json["Self"]["HostName"],
+                    dns_name=status_json["Self"]["DNSName"],
+                )
+            return TailscaleInfo(status=TailscaleStatus.NO_STATE)
+        except:
+            self._logger.exception("Error getting Tailscale info.")
+            return TailscaleInfo(status=TailscaleStatus.ERROR)
 
 
 _systemctl: Systemctl = None

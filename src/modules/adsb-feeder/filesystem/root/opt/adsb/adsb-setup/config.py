@@ -617,7 +617,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 2
+    CONFIG_VERSION = 3
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -974,9 +974,11 @@ class Config(CompoundSetting):
         "nightly_base_update": ft.partial(BoolSetting, default=False),
         "nightly_feeder_update": ft.partial(BoolSetting, default=False),
         "zerotierid": StringSetting,
-        "tailscale_ll": StringSetting,
-        "tailscale_name": StringSetting,
-        "tailscale_extras": StringSetting,
+        "tailscale": ft.partial(
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(BoolSetting, default=False),
+                "login_link": StringSetting,
+                "extras": StringSetting,}),
         "ultrafeeder_extra_env": StringSetting,
         "ultrafeeder_extra_args": StringSetting,
         "tar1090_ac_db": ft.partial(
@@ -1381,8 +1383,22 @@ class Config(CompoundSetting):
             config_dict["mdns"]["domains"].split(";"))
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_2_to_3(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        config_dict["tailscale"] = {
+            "is_enabled": bool(config_dict["tailscale_name"]),
+            "login_link": config_dict["tailscale_ll"],
+            "extras": config_dict["tailscale_extras"]}
+        del config_dict["tailscale_ll"]
+        del config_dict["tailscale_name"]
+        del config_dict["tailscale_extras"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
-                         (1, 2): _upgrade_config_dict_from_1_to_2}
+                         (1, 2): _upgrade_config_dict_from_1_to_2,
+                         (2, 3): _upgrade_config_dict_from_2_to_3}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

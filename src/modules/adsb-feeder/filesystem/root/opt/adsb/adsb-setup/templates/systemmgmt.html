@@ -295,37 +295,37 @@
                        class="form-check-input"
                        name="enabled"
                        type="checkbox"
-                       {% if tailscale_running -%}checked{%- endif %}>
+                       {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
                 <label for="tailscale-enabled" class="form-check-label">Enabled</label>
               </div>
               <label for="tailscale">
                 Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
                 <br />
-                {% if not get_conf("tailscale_name") %}
+                {% if not get_conf("tailscale.is_enabled") %}
                   In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
                   redirect you back here and add a link to the login page so you can authenticate the device on your
                   tailnet.
                 {% endif %}
-                {% if get_conf("tailscale_ll") %}
-                  Click this <a href="{{ get_conf('tailscale_ll') }}" target="_blank">link to open
-                  {{ get_conf("tailscale_ll") }}</a>. After you have logged in, please come back to this tab and reload
-                  this page.
+                {% if tailscale_info.status == "logged_out" %}
+                  Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
+                  {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this tab and
+                  reload this page.
                 {% endif %}
-                {% if get_conf("tailscale_name") %}
-                  This device should now be on your tailnet as '{{ get_conf("tailscale_name") }}'.
-                {% elif not get_conf("tailscale_ll") %}
+                {% if tailscale_info.status == "logged_in" %}
+                  This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
+                {% elif not get_conf("tailscale.login_link") %}
                   You can add options like a specific <code>--login-server</code> below. But please note that
                   <code>--authkey</code> isn't supported at this point.
                 {% endif %}
               </label>
             </div>
-            {% if not tailscale_running %}
+            {% if not get_conf('tailscale.is_enabled') %}
               <div class="col-8">
                 <input class="mx-auto w-100"
-                       id="tailscale_extras"
-                       name="tailscale_extras"
+                       id="tailscale-extras"
+                       name="tailscale-extras"
                        type="text"
-                       value="{{ get_conf('tailscale_extras', default='') }}"
+                       value="{{ get_conf('tailscale.extras', default='') }}"
                        placeholder="Enter additional tailscale options you need">
               </div>
             {% else %}
