@@ -292,6 +292,15 @@ def shell_with_combined_output(args, **kwargs):
         stderr=subprocess.STDOUT)
 
 
+def shell_with_separate_output(args, **kwargs):
+    """Execute in shell, capture stdout and stderr, return text."""
+    for key in ["shell", "text", "stdout", "stderr", "capture_output"]:
+        if key in kwargs:
+            raise ValueError(f"Argument {key} must not be used.")
+    return subprocess.run(
+        args, **kwargs, shell=True, text=True, capture_output=True)
+
+
 def is_semver(s: str) -> bool:
     """Check whether the string represents a semver."""
     return bool(re.match(r'^v[0-9]+\.[0-9]+\.[0-9]$', s))

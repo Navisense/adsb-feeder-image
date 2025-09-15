@@ -417,7 +417,7 @@ class System:
                                     log_errors=False)
             if proc.returncode != 0:
                 return TailscaleInfo(status=TailscaleStatus.DISABLED)
-            proc = util.shell_with_combined_output("tailscale status --json")
+            proc = util.shell_with_separate_output("tailscale status --json")
             if proc.returncode != 0:
                 self._logger.error(
                     f"tailscale status --json returned an error: {proc.stdout}"
