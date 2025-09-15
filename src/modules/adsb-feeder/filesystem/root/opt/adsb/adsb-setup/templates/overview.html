@@ -49,7 +49,7 @@
                    aria-disabled="true"
                    role="button">
                   {{- device_host['host'] -}}
-                  {%- if device_host['comment'] -%} ({{ device_host["comment"] }}){% endif %}
+                  {%- if device_host['comment'] %} ({{ device_host["comment"] }}){% endif %}
                 </a>
                 <span id="feeder-reachability-description-{{ device_host['host'] }}"
                       class="small">(checking reachability...)</span>
