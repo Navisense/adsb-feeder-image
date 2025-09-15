@@ -35,7 +35,7 @@
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Device info</h5>
-      This is {{ get_conf("site_name") }},
+      This is <strong>{{ get_conf("site_name") }}</strong>,
       {% if system_info.network_device_infos or get_conf('mdns.domains') %}
         reachable as
         <ul>
@@ -76,7 +76,9 @@
         </div>
       </div>
     </div>
-    <div id="chart-wrapper" class="m-5 d-none d-md-block"><canvas id="reception-history-chart"></canvas></div>
+    <div id="chart-wrapper" class="m-5 d-none d-md-block">
+      <canvas id="reception-history-chart"></canvas>
+    </div>
   </div>
   <div class="card my-2">
     <div class="card-body">
@@ -94,7 +96,8 @@
               {% continue %}
             {% endif %}
             <div class="col-12 col-md-6">
-              <div class="card my-2 bg-info" id="{{ agg.agg_key }}-{{ type_key }}-status">
+              <div class="card my-2 bg-info"
+                   id="{{ agg.agg_key }}-{{ type_key }}-status">
                 <div class="card-header">{{ type }}</div>
                 <div class="card-body">
                   <h5 class="card-title">{{ agg.name }}</h5>
@@ -107,15 +110,19 @@
                   {% if agg.agg_key == 'adsblol' %}
                     <hr class="hr">
                     <div>
-                      <a href="https://status.adsb.lol/" class="btn btn-secondary m-1" role="button">ADSB.lol status</a>
-                      <a href="https://www.adsb.lol/docs/feeders-only/introduction/" class="btn btn-secondary m-1" role="button">
-                        ADSB.lol feeder introduction</a>
-                      <a id="adsblol-link" href="https://my.adsb.lol/" class="btn btn-secondary m-1" role="button">
-                        personal ADSB.lol URL with the planes you are sending
-                      </a>
-                      <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10" class="btn btn-secondary m-1" role="button">
-                        ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}
-                      </a>
+                      <a href="https://status.adsb.lol/"
+                         class="btn btn-secondary m-1"
+                         role="button">ADSB.lol status</a>
+                      <a href="https://www.adsb.lol/docs/feeders-only/introduction/"
+                         class="btn btn-secondary m-1"
+                         role="button">ADSB.lol feeder introduction</a>
+                      <a id="adsblol-link"
+                         href="https://my.adsb.lol/"
+                         class="btn btn-secondary m-1"
+                         role="button">personal ADSB.lol URL with the planes you are sending</a>
+                      <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10"
+                         class="btn btn-secondary m-1"
+                         role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
                       {% if get_conf("mlat_privacy") %}
                         (since you have MLAT privacy enabled, your feeder won't be shown)
                       {% else %}
@@ -126,44 +133,53 @@
                   {% if agg.agg_key == 'flightradar' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/fr24/') }}" class="btn btn-secondary m-1" role="button">FR24 status</a>
+                      <a href="{{ url_for('/fr24/') }}"
+                         class="btn btn-secondary m-1"
+                         role="button">FR24 status</a>
                     </div>
                   {% endif %}
                   {% if agg.agg_key == 'flightaware' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/fa-status/') }}" class="btn btn-secondary m-1" role="button">
-                        FlightAware status
-                      </a>
+                      <a href="{{ url_for('/fa-status/') }}"
+                         class="btn btn-secondary m-1"
+                         role="button">FlightAware status</a>
                     </div>
                   {% endif %}
                   {% if agg.agg_key == 'planefinder' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/planefinder/') }}" class="btn btn-secondary m-1" role="button">
-                        Planefinder map
-                      </a>
-                      <a href="{{ url_for('/planefinder-stat/') }}" class="btn btn-secondary m-1" role="button">
-                        Planefinder stats
-                      </a>
+                      <a href="{{ url_for('/planefinder/') }}"
+                         class="btn btn-secondary m-1"
+                         role="button">Planefinder map</a>
+                      <a href="{{ url_for('/planefinder-stat/') }}"
+                         class="btn btn-secondary m-1"
+                         role="button">Planefinder stats</a>
                     </div>
                   {% endif %}
                   {% if agg.agg_key == 'adsbx' %}
                     <hr class="hr">
                     <div>
-                      <a id="adsbx-stat-link" href="" class="btn btn-secondary m-1" role="button">
-                        ADSBx Anywhere Stats
-                      </a>
-                      <a id="adsbx-map-link" href="" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Map</a>
+                      <a id="adsbx-stat-link"
+                         href=""
+                         class="btn btn-secondary m-1"
+                         role="button">ADSBx Anywhere Stats</a>
+                      <a id="adsbx-map-link"
+                         href=""
+                         class="btn btn-secondary m-1"
+                         role="button">ADSBx Anywhere Map</a>
                     </div>
                   {% endif %}
                   {% if agg.agg_key == 'alive' %}
                     <hr class="hr">
                     <div>
-                      <a href="https://airplanes.live/myfeed/" class="btn btn-secondary m-1" role="button">
-                        Status
-                      </a>
-                      <a id="alive-map-link" href="" class="btn btn-secondary m-1" role="button">Map</a>
+                      <a href="https://airplanes.live/myfeed/"
+                         class="btn btn-secondary m-1"
+                         role="button">Status</a>
+                      <a id="alive-map-link"
+                         href=""
+                         class="btn btn-secondary m-1"
+                         role="button">Map</a>
                     </div>
                   {% endif %}
                 </div>
@@ -171,14 +187,18 @@
                   {% if agg.map_url %}
                     <a href="{{ agg.map_url }}" class="btn btn-secondary m-1" role="button">Aggregator map</a>
                   {% else %}
-                    <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator map</a>
+                    <a class="btn btn-secondary disabled m-1"
+                       role="button"
+                       aria-disabled="true">No aggregator map</a>
                   {% endif %}
                   {% if agg.status_url %}
-                    <a href="{{ agg.status_url }}" class="btn btn-secondary m-1" role="button">Aggregator status</a>
+                    <a href="{{ agg.status_url }}"
+                       class="btn btn-secondary m-1"
+                       role="button">Aggregator status</a>
                   {% else %}
-                    <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">
-                      No aggregator status map
-                    </a>
+                    <a class="btn btn-secondary disabled m-1"
+                       role="button"
+                       aria-disabled="true">No aggregator status map</a>
                   {% endif %}
                 </div>
               </div>
@@ -204,13 +224,13 @@
       <div class="row">
         {% for container in containers %}
           {% with %}
-            {% set color_class = 'bg-success' %}
+            {% set color_class = "bg-success" %}
             {% if container.state in ['created', 'paused', 'exited'] %}
-              {% set color_class = 'bg-info' %}
+              {% set color_class = "bg-info" %}
             {% elif container.state == 'restarting' %}
-              {% set color_class = 'bg-warning' %}
+              {% set color_class = "bg-warning" %}
             {% elif container.state == 'dead' or 'unhealthy' in container.status %}
-              {% set color_class = 'bg-danger' %}
+              {% set color_class = "bg-danger" %}
             {% endif %}
             <div class="col-12 col-md-6">
               <div class="card my-2 {{ color_class }}">
@@ -573,5 +593,5 @@
   );
 
   registerTask("Update connectivity info", 60000, updateConnectivityInfo);
-  </script>
+</script>
 {% endblock content %}
