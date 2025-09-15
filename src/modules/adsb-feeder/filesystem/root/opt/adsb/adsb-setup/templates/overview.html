@@ -97,6 +97,69 @@
                     <br>
                     <span id="{{ agg.agg_key }}-{{ type_key }}-mlat-status"></span>
                   {% endif %}
+                  {# Some extra info and links for particular aggregators. #}
+                  {% if agg.agg_key == 'adsblol' %}
+                    <hr class="hr">
+                    <div>
+                      <a href="https://status.adsb.lol/" class="btn btn-secondary m-1" role="button">ADSB.lol status</a>
+                      <a href="https://www.adsb.lol/docs/feeders-only/introduction/" class="btn btn-secondary m-1" role="button">
+                        ADSB.lol feeder introduction</a>
+                      <a id="adsblol-link" href="https://my.adsb.lol/" class="btn btn-secondary m-1" role="button">
+                        personal ADSB.lol URL with the planes you are sending
+                      </a>
+                      <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10" class="btn btn-secondary m-1" role="button">
+                        ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}
+                      </a>
+                      {% if get_conf("mlat_privacy") %}
+                        (since you have MLAT privacy enabled, your feeder won't be shown)
+                      {% else %}
+                        (your feeder will be at an approximate location as {{ get_conf("site_name") }})
+                      {% endif %}
+                    </div>
+                  {% endif %}
+                  {% if agg.agg_key == 'flightradar' %}
+                    <hr class="hr">
+                    <div>
+                      <a href="{{ url_for('/fr24/') }}" class="btn btn-secondary m-1" role="button">FR24 status</a>
+                    </div>
+                  {% endif %}
+                  {% if agg.agg_key == 'flightaware' %}
+                    <hr class="hr">
+                    <div>
+                      <a href="{{ url_for('/fa-status/') }}" class="btn btn-secondary m-1" role="button">
+                        FlightAware status
+                      </a>
+                    </div>
+                  {% endif %}
+                  {% if agg.agg_key == 'planefinder' %}
+                    <hr class="hr">
+                    <div>
+                      <a href="{{ url_for('/planefinder/') }}" class="btn btn-secondary m-1" role="button">
+                        Planefinder map
+                      </a>
+                      <a href="{{ url_for('/planefinder-stat/') }}" class="btn btn-secondary m-1" role="button">
+                        Planefinder stats
+                      </a>
+                    </div>
+                  {% endif %}
+                  {% if agg.agg_key == 'adsbx' %}
+                    <hr class="hr">
+                    <div>
+                      <a id="adsbx-stat-link" href="" class="btn btn-secondary m-1" role="button">
+                        ADSBx Anywhere Stats
+                      </a>
+                      <a id="adsbx-map-link" href="" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Map</a>
+                    </div>
+                  {% endif %}
+                  {% if agg.agg_key == 'alive' %}
+                    <hr class="hr">
+                    <div>
+                      <a href="https://airplanes.live/myfeed/" class="btn btn-secondary m-1" role="button">
+                        Status
+                      </a>
+                      <a id="alive-map-link" href="" class="btn btn-secondary m-1" role="button">Map</a>
+                    </div>
+                  {% endif %}
                 </div>
                 <div class="card-footer">
                   {% if agg.map_url %}
@@ -430,6 +493,20 @@
               }
             }
           {% endif %}
+          // Extra data for adsb.lol.
+          if (status && status.adsblol_link) {
+            $("#adsblol-link").attr("href", status.adsblol_link);
+          }
+          // Extra data for airplanes.live.
+          if (status && status.alive_map_link) {
+            $("#alive-map-link").attr("href", status.alive_map_link);
+          }
+          // Extra data for ADSBExchange.
+          if (status && status.adsbx_feeder_id) {
+            $("#adsbx-stat-link").attr(
+              "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
+            $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
+          }
         }
       });
   }
