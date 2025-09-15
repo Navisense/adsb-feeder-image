@@ -1,0 +1,15 @@
+[Unit]
+Description=Tailscale daemon
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+# Alpine uses the nf_tables backend by default (see #14058). The "auto"
+# heuristic doesn't work correctly, it prefers iptables (and fails due to
+# missing modules) even when nftables are in use. See
+# https://tailscale.com/kb/1294/firewall-mode
+Environment="TS_DEBUG_FIREWALL_MODE=nftables"
+ExecStart=/usr/sbin/tailscaled
+
+[Install]
+WantedBy=multi-user.target
