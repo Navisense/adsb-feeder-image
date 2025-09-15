@@ -2394,13 +2394,6 @@ class AdsbIm:
             self._logger.exception(
                 "Error starting Tailscale daemon.", flash_message=True)
             return "Error starting Tailscale.", 500
-        for _ in range(5):
-            info = self._system.get_tailscale_info()
-            if info.status == system.TailscaleStatus.LOGGED_IN:
-                self._logger.info(
-                    "Started Tailscale (was already logged in).")
-                return redirect(url_for("systemmgmt"))
-            time.sleep(0.2)
         ts_args = request.form.get("tailscale-extras", "")
         if ts_args:
             # right now we really only want to allow the login server arg
@@ -2424,7 +2417,7 @@ class AdsbIm:
                     f"{ts_cli_value}", flash_message=True)
                 return f"Invalid login server URL {ts_cli_value}.", 400
         self._conf.set("tailscale.extras", ts_args)
-        self._logger.info(f"Starting tailscale (args='{ts_args}')")
+        self._logger.info(f"Starting Tailscale with args {ts_args}")
         try:
             # due to the following error, we just add --reset to the options
             # Error: changing settings via 'tailscale up' requires mentioning
@@ -2456,7 +2449,7 @@ class AdsbIm:
         while time.time() - start_time < 30:
             output = proc.stderr.readline()
             if not output:
-                if proc.poll() != None:
+                if proc.poll() is not None:
                     break
                 time.sleep(0.1)
                 continue
@@ -2473,8 +2466,16 @@ class AdsbIm:
 
         if match:
             login_link = match.group(1)
-            self._logger.debug(f"Found Tailscale login link {login_link}")
+            self._logger.info(f"Found Tailscale login link {login_link}")
             self._conf.set("tailscale.login_link", login_link)
+        elif proc.returncode == 0:
+            # tailscale up will return immediately with successful return if
+            # it's already logged in.
+            info = self._system.get_tailscale_info()
+            if info.status == system.TailscaleStatus.LOGGED_IN:
+                self._logger.info(
+                    "Started Tailscale (was already logged in).")
+                return redirect(url_for("systemmgmt"))
         else:
             self._logger.error(
                 "ERROR: tailscale didn't provide a login link "
