@@ -81,6 +81,12 @@
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Data sharing</h5>
+      {% if enabled_aggregators %}
+        You are sharing data with {{ enabled_aggregators | length }} aggregator(s).
+      {% else %}
+        You are not sharing data with any aggregators.
+      {% endif %}
+      You can add or remove aggregators on the <a href="{{ url_for('aggregators') }}">data sharing setup page</a>.
       <div class="row">
         {% for type, type_key in [('AIS', 'ais'), ('ADS-B', 'adsb')] %}
           {% for agg in enabled_aggregators.values() %}
@@ -182,16 +188,6 @@
       </div>
     </div>
   </div>
-  <div class="col-12 mb-4">
-    <div class="small">
-      {% if (enabled_aggregators | length) == 0 %}
-        No aggregators configured. Add aggregators:
-      {% else %}
-        Add or remove aggregators:
-      {% endif %}
-      <a href="{{ url_for('aggregators') }}">Data Sharing</a>
-    </div>
-  </div>
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Version</h5>
@@ -234,7 +230,12 @@
     <div class="card-body">
       <h5 class="card-title">Available SDR devices</h5>
       {% if sdrs %}
-        {{ sdrs | length }} SDR device(s) are connected:
+        {{ sdrs | length }} SDR device(s) are connected.
+      {% else %}
+        There are no SDR devices connected.
+      {% endif %}
+      You can configure SDR devices on the <a href="{{ url_for('sdr_setup') }}">SDR setup page</a>.
+      {% if sdrs %}
         <div class="row">
           {% for sdr in sdrs %}
             <div class="col-12 col-lg-6 col-xl-4">
@@ -254,8 +255,6 @@
             </div>
           {% endfor %}
         </div>
-      {% else %}
-        There are no SDR devices connected.
       {% endif %}
     </div>
   </div>
