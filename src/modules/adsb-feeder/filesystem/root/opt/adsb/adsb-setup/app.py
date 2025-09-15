@@ -2071,9 +2071,21 @@ class AdsbIm:
             return None
 
         available_tags = gitlab.gitlab_repo().get_tags()
-        device_hosts = (
-            [di.ip for di in self._system.system_info.network_device_infos]
-            + self._conf.get("mdns.domains"))
+        # Prepare dicts describing all the different ways of reaching this
+        # feeder.
+        tailscale_info = self._system.get_tailscale_info()
+        device_hosts = []
+        device_hosts += [{
+            "host": di.ip,
+            "comment": f"device { di.device } via { di.gateway }"
+        } for di in self._system.system_info.network_device_infos]
+        device_hosts += [{"host": domain, "comment": None}
+                         for domain in self._conf.get("mdns.domains")]
+        if tailscale_info.dns_name:
+            device_hosts.append({
+                "host": tailscale_info.dns_name, "comment": "via Tailscale"})
+        device_hosts += [{"host": str(ip), "comment": "via Tailscale"}
+                         for ip in tailscale_info.ipv4s]
         return render_template(
             "overview.html",
             enabled_aggregators=enabled_aggregators,

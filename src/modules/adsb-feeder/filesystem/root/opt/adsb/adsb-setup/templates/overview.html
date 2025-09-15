@@ -39,31 +39,20 @@
       {% if system_info.network_device_infos or get_conf('mdns.domains') %}
         reachable as
         <div class="row">
-          {% for device_info in system_info.network_device_infos %}
+          {% for device_host in device_hosts %}
             <div class="col-12 col-lg-6 col-xl-4">
-              <div id="feeder-reachability-alert-{{ device_info.ip }}"
+              <div id="feeder-reachability-alert-{{ device_host['host'] }}"
                    class="alert alert-primary">
-                <a href="http://{{ device_info.ip }}"
-                   id="feeder-reachability-button-{{ device_info.ip }}"
+                <a href="http://{{ device_host['host'] }}"
+                   id="feeder-reachability-button-{{ device_host['host'] }}"
                    class="btn btn-secondary m-1 disabled"
                    aria-disabled="true"
-                   role="button">{{ device_info.ip }}
-                (device {{ device_info.device }} via {{ device_info.gateway }})</a>
-                <span id="feeder-reachability-description-{{ device_info.ip }}"
+                   role="button">
+                  {{- device_host['host'] -}}
+                  {%- if device_host['comment'] -%} ({{ device_host["comment"] }}){% endif %}
+                </a>
+                <span id="feeder-reachability-description-{{ device_host['host'] }}"
                       class="small">(checking reachability...)</span>
-              </div>
-            </div>
-          {% endfor %}
-          {% for domain in get_conf('mdns.domains') %}
-            <div class="col-12 col-lg-6 col-xl-4">
-              <div id="feeder-reachability-alert-{{ domain }}"
-                   class="alert alert-primary">
-                <a href="http://{{ domain }}"
-                   id="feeder-reachability-button-{{ domain }}"
-                   class="btn btn-secondary m-1 disabled"
-                   aria-disabled="true"
-                   role="button">{{ domain }}</a>
-                <span id="feeder-reachability-description-{{ domain }}" class="small">(checking reachability...)</span>
               </div>
             </div>
           {% endfor %}
@@ -564,9 +553,9 @@
       }
     {% endif %}
 
-    // Reachability (mDNS and IP).
+    // Reachability of all the device's hosts.
     const connectivityChecker = new FeederConnectivityChecker(
-      {{ device_hosts | tojson }}, updateReachabilityInfo, 50 * 1000, 3000);
+      {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000, 3000);
     connectivityChecker.start();
   }
 
