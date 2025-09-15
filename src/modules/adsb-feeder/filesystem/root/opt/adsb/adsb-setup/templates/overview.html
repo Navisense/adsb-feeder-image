@@ -36,7 +36,7 @@
     <div class="card-body">
       <h5 class="card-title">Device info</h5>
       This is <strong>{{ get_conf("site_name") }}</strong>,
-      {% if system_info.network_device_infos or get_conf('mdns.domains') %}
+      {% if device_hosts %}
         reachable as
         <div class="row">
           {% for device_host in device_hosts %}
