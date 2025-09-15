@@ -269,7 +269,7 @@
                        placeholder="Enter your Zerotier Network ID"
                        required>
               {% else %}
-                <div class="col-12 text-danger">
+                <div class="alert alert-danger">
                   Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the Zerotier
                   network to connect to it.
                 </div>
@@ -285,60 +285,67 @@
     {% if not get_conf('secure_image') %}
       <div class="col-12 col-lg-6">
         <h5 class="mt-3">Add Tailscale</h5>
-        <form method="post"
-              action="{{ url_for('configure-tailscale') }}"
-              onsubmit="show_spinner(); return true;">
-          <div class="row align-items-center">
-            <div class="col-12 mb-2">
-              <div class="col-8">
-                <input id="tailscale-enabled"
-                       class="form-check-input"
-                       name="enabled"
-                       type="checkbox"
-                       {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
-                <label for="tailscale-enabled" class="form-check-label">Enabled</label>
-              </div>
-              <label for="tailscale">
-                Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
-                <br />
-                {% if not get_conf("tailscale.is_enabled") %}
-                  In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
-                  redirect you back here and add a link to the login page so you can authenticate the device on your
-                  tailnet.
-                {% endif %}
-                {% if tailscale_info.status == "logged_out" %}
-                  Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
-                  {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this tab and
-                  reload this page.
-                {% endif %}
-                {% if tailscale_info.status == "logged_in" %}
-                  This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
-                {% elif not get_conf("tailscale.login_link") %}
-                  You can add options like a specific <code>--login-server</code> below. But please note that
-                  <code>--authkey</code> isn't supported at this point.
-                {% endif %}
-              </label>
-            </div>
-            {% if not get_conf('tailscale.is_enabled') %}
-              <div class="col-8">
-                <input class="mx-auto w-100"
-                       id="tailscale-extras"
-                       name="tailscale-extras"
-                       type="text"
-                       value="{{ get_conf('tailscale.extras', default='') }}"
-                       placeholder="Enter additional tailscale options you need">
-              </div>
-            {% else %}
-              <div class="col-12 text-danger">
-                Tailscale is enabled. Disabling it will prevent you from accessing this feeder if you use the Tailscale
-                network to connect to it.
-              </div>
-            {% endif %}
-            <div class="col-4">
-              <button type="submit" class="btn btn-primary mx-auto w-100">Submit</button>
-            </div>
+        {% if tailscale_info.status in ["not_installed", "error"] %}
+          <div class="alert alert-warning">
+            The image can establish and manage a Tailscale connection, but Tailscale is not installed or there is an
+            error with it (check the logs). You have to install it manually using <code>apk add tailscale</code>.
           </div>
-        </form>
+        {% else %}
+          <form method="post"
+                action="{{ url_for('configure-tailscale') }}"
+                onsubmit="show_spinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 mb-2">
+                <div class="col-8">
+                  <input id="tailscale-enabled"
+                         class="form-check-input"
+                         name="enabled"
+                         type="checkbox"
+                         {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
+                  <label for="tailscale-enabled" class="form-check-label">Enabled</label>
+                </div>
+                <label for="tailscale">
+                  Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
+                  <br />
+                  {% if not get_conf("tailscale.is_enabled") %}
+                    In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
+                    redirect you back here and add a link to the login page so you can authenticate the device on your
+                    tailnet.
+                  {% endif %}
+                  {% if tailscale_info.status == "logged_out" %}
+                    Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
+                    {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this tab and
+                    reload this page.
+                  {% endif %}
+                  {% if tailscale_info.status == "logged_in" %}
+                    This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
+                  {% elif not get_conf("tailscale.login_link") %}
+                    You can add options like a specific <code>--login-server</code> below. But please note that
+                    <code>--authkey</code> isn't supported at this point.
+                  {% endif %}
+                </label>
+              </div>
+              {% if not get_conf('tailscale.is_enabled') %}
+                <div class="col-8">
+                  <input class="mx-auto w-100"
+                         id="tailscale-extras"
+                         name="tailscale-extras"
+                         type="text"
+                         value="{{ get_conf('tailscale.extras', default='') }}"
+                         placeholder="Enter additional tailscale options you need">
+                </div>
+              {% else %}
+                <div class="alert alert-danger">
+                  Tailscale is enabled. Disabling it will prevent you from accessing this feeder if you use the Tailscale
+                  network to connect to it.
+                </div>
+              {% endif %}
+              <div class="col-4">
+                <button type="submit" class="btn btn-primary mx-auto w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        {% endif %}
       </div>
     {% endif %}
     {% if not get_conf('secure_image') %}
