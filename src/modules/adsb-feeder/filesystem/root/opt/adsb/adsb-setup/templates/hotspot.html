@@ -93,7 +93,7 @@
         "mDNS is disabled in this installation. The feeder will not be reachable as porttracker-feeder.local.");
     } else {
       const checkDomains = ["example.org", "porttracker-feeder.local"];
-      const connectivityChecker = new FeederConnectivityChecker(checkDomains, updateMdnsStatusDiv, 300 * 1000, 3000);
+      const connectivityChecker = new FeederConnectivityChecker(checkDomains, updateMdnsStatusDiv, 300 * 1000);
       connectivityChecker.start();
     }
   </script>

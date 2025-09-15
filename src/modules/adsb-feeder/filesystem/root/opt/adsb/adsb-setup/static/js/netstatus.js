@@ -8,18 +8,18 @@ class FeederConnectivityChecker {
     domains,
     onStatusUpdate,
     checkTimeout = 300 * 1000,
-    recheckInterval = 3000
+    recheckIntervals = [[1000, 200], [3000, 500], [Infinity, 3000]],
   ) {
     this.stati = new Map(domains.map((d) => [d, null]));
     this.onStatusUpdate = onStatusUpdate;
     this.checkTimeout = checkTimeout;
-    this.recheckInterval = recheckInterval;
-    this.checkUntil = Date.now();
+    this.recheckIntervals = recheckIntervals;
+    this.checkStart = Date.now();
     this.hasTimedOut = false;
   }
 
   start() {
-    this.checkUntil = Date.now() + this.checkTimeout;
+    this.checkStart = Date.now();
     this.sendCheckRequests();
   }
 
@@ -38,15 +38,23 @@ class FeederConnectivityChecker {
       req.open("GET", `http://${domain}/healthz`);
       req.send();
     }
+    let recheckInterval = 1000;
+    const timeSinceStart = Date.now() - this.checkStart;
+    for (const [threshold, interval] of this.recheckIntervals) {
+      if (timeSinceStart <= threshold) {
+        recheckInterval = interval;
+        break;
+      }
+    }
     if (!this.hasTimedOut && checkAgain) {
-      setTimeout(this.sendCheckRequests.bind(this), this.recheckInterval);
+      setTimeout(this.sendCheckRequests.bind(this), recheckInterval);
     }
   }
 
   maybeUpdateStatus(domain, previousStatus, status) {
     return (_) => {
       this.stati.set(domain, status);
-      this.hasTimedOut = Date.now() > this.checkUntil;
+      this.hasTimedOut = Date.now() > this.checkStart + this.checkTimeout;
       if (this.hasTimedOut || status != previousStatus) {
         this.onStatusUpdate(this.stati, this.hasTimedOut);
       }
