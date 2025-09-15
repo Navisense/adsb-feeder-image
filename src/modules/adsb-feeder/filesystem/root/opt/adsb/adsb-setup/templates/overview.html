@@ -98,6 +98,20 @@
                     <span id="{{ agg.agg_key }}-{{ type_key }}-mlat-status"></span>
                   {% endif %}
                 </div>
+                <div class="card-footer">
+                  {% if agg.map_url %}
+                    <a href="{{ agg.map_url }}" class="btn btn-secondary m-1" role="button">Aggregator map</a>
+                  {% else %}
+                    <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator map</a>
+                  {% endif %}
+                  {% if agg.status_url %}
+                    <a href="{{ agg.status_url }}" class="btn btn-secondary m-1" role="button">Aggregator status</a>
+                  {% else %}
+                    <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">
+                      No aggregator status map
+                    </a>
+                  {% endif %}
+                </div>
               </div>
             </div>
           {% endfor %}
