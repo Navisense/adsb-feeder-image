@@ -80,7 +80,7 @@
         </div>
       </div>
     </div>
-    <div id="chart-wrapper" class="m-5 d-none d-sm-block">
+    <div id="chart-wrapper" class="m-2 m-lg-5 d-none d-sm-block">
       <canvas id="reception-history-chart"></canvas>
     </div>
   </div>
@@ -305,6 +305,17 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        onResize: function(chart, size) {
+          const enoughHeight = size.height >= 250;
+          const enoughWidth = size.width >= 768;
+          chart.options.plugins.legend.display = enoughHeight;
+          chart.options.scales.x.ticks.display = enoughHeight;
+          chart.options.scales.x.grid.drawOnChartArea = enoughHeight;
+          chart.options.scales.pps.ticks.display = enoughWidth;
+          chart.options.scales.pps.title.display = enoughWidth;
+          chart.options.scales.num.ticks.display = enoughWidth;
+          chart.options.scales.num.title.display = enoughWidth;
+        },
         plugins: {
           title: {
             display: true,
