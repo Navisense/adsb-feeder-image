@@ -70,6 +70,38 @@
   </div>
   <div class="card my-2">
     <div class="card-body">
+      <h5 class="card-title">Available SDR devices</h5>
+      {% if sdrs %}
+        {{ sdrs | length }} SDR device(s) are connected.
+      {% else %}
+        There are no SDR devices connected.
+      {% endif %}
+      You can configure SDR devices on the <a href="{{ url_for('sdr_setup') }}">SDR setup page</a>.
+      {% if sdrs %}
+        <div class="row">
+          {% for sdr in sdrs %}
+            <div class="col-12 col-lg-6 col-xl-4">
+              <div class="card my-2">
+                <div class="card-body">
+                  <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
+                  This is a {{ sdr.vendor }} {{ sdr.product }} which is
+                  {% if sdr_assignment(sdr) == 'ais' %}
+                    currently handling AIS.
+                  {% elif sdr_assignment(sdr) in ['1090', '978'] %}
+                    currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
+                  {% else %}
+                    currently unused.
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card my-2">
+    <div class="card-body">
       <h5 class="card-title">Data reception</h5>
       <div class="row">
         <div class="col-12 col-lg-6">
@@ -248,38 +280,6 @@
           {% endwith %}
         {% endfor %}
       </div>
-    </div>
-  </div>
-  <div class="card my-2">
-    <div class="card-body">
-      <h5 class="card-title">Available SDR devices</h5>
-      {% if sdrs %}
-        {{ sdrs | length }} SDR device(s) are connected.
-      {% else %}
-        There are no SDR devices connected.
-      {% endif %}
-      You can configure SDR devices on the <a href="{{ url_for('sdr_setup') }}">SDR setup page</a>.
-      {% if sdrs %}
-        <div class="row">
-          {% for sdr in sdrs %}
-            <div class="col-12 col-lg-6 col-xl-4">
-              <div class="card my-2">
-                <div class="card-body">
-                  <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
-                  This is a {{ sdr.vendor }} {{ sdr.product }} which is
-                  {% if sdr_assignment(sdr) == 'ais' %}
-                    currently handling AIS.
-                  {% elif sdr_assignment(sdr) in ['1090', '978'] %}
-                    currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
-                  {% else %}
-                    currently unused.
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/chart.js') }}"
