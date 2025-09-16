@@ -274,6 +274,8 @@ class AdsbIm:
         self._conf = conf
         self._hotspot_app = hotspot_app
         self._hotspot_mode = False
+        self._system = system.System()
+        aggregators.init_aggregators(conf, self._system)
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
@@ -296,7 +298,6 @@ class AdsbIm:
             }
 
         self._routemanager = RouteManager(self.app)
-        self._system = system.System()
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
@@ -618,9 +619,6 @@ class AdsbIm:
         else:
             raise ValueError(f"Unknown reception type {reception_type}.")
 
-    def _all_aggregators(self) -> dict[str, aggregators.Aggregator]:
-        return aggregators.all_aggregators(self._conf, self._system)
-
     def start(self):
         if self._server:
             raise RuntimeError("already started")
@@ -721,7 +719,7 @@ class AdsbIm:
         self._executor.submit(update_dns)
 
     def _setup_ultrafeeder_args(self):
-        for agg_key, aggregator in self._all_aggregators().items():
+        for agg_key, aggregator in aggregators.all_aggregators().items():
             try:
                 netconfig = aggregator.netconfig
             except AttributeError:
@@ -737,7 +735,7 @@ class AdsbIm:
                 is_enabled = netconfig.has_policy
             self._conf.set(f"aggregators.{agg_key}.is_enabled", is_enabled)
         ultrafeeder_config = netconfig_mod.UltrafeederConfig(
-            self._conf, self._all_aggregators())
+            self._conf, aggregators.all_aggregators())
         self._conf.set("ultrafeeder_config", ultrafeeder_config.generate())
 
     def set_hostname_and_enable_mdns(self):
@@ -1136,7 +1134,8 @@ class AdsbIm:
         return len(mandatory_setting_key_paths) == 0
 
     def at_least_one_aggregator(self) -> bool:
-        return any(agg.enabled() for agg in self._all_aggregators().values())
+        return any(
+            agg.enabled() for agg in aggregators.all_aggregators().values())
 
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
@@ -1216,7 +1215,7 @@ class AdsbIm:
 
     def agg_status(self, agg_key):
         try:
-            aggregator = self._all_aggregators()[agg_key]
+            aggregator = aggregators.all_aggregators()[agg_key]
         except KeyError:
             flask.abort(404)
         if not aggregator.enabled():
@@ -1379,7 +1378,7 @@ class AdsbIm:
         if not self._conf.get("ultrafeeder_uuid"):
             self._conf.set("ultrafeeder_uuid", str(uuid.uuid4()))
 
-        for agg in self._all_aggregators().values():
+        for agg in aggregators.all_aggregators().values():
             if (agg.enabled() and agg.needs_key
                     and not self._conf.get(f"aggregators.{agg.agg_key}.key")):
                 self._logger.warning(f"Empty key, disabling {agg}.")
@@ -1808,12 +1807,12 @@ class AdsbIm:
 
         any_non_adsblol_uf_aggregators = any(
             agg.enabled()
-            for agg in self._all_aggregators().values()
+            for agg in aggregators.all_aggregators().values()
             if isinstance(agg, aggregators.UltrafeederAggregator)
             and not isinstance(agg, aggregators.AdsbLolAggregator))
         return render_template(
             "aggregators.html",
-            aggregators=self._all_aggregators(),
+            aggregators=aggregators.all_aggregators(),
             any_non_adsblol_uf_aggregators=any_non_adsblol_uf_aggregators,
         )
 
@@ -1826,7 +1825,7 @@ class AdsbIm:
                 # (including making these special requests if necessary).
                 self._logger.info(
                     f"Aggregator form submitted from {agg_key} button.")
-        for aggregator in self._all_aggregators().values():
+        for aggregator in aggregators.all_aggregators().values():
             configure_kwargs = self._make_configure_kwargs(
                 aggregator.agg_key, form)
             self._logger.info(f"Configuring {aggregator}.")
@@ -2026,7 +2025,7 @@ class AdsbIm:
     def overview(self):
         enabled_aggregators = {
             k: a
-            for k, a in self._all_aggregators().items()
+            for k, a in aggregators.all_aggregators().items()
             if a.enabled()}
         for aggregator in enabled_aggregators.values():
             aggregator.refresh_status_cache()

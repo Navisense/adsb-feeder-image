@@ -67,78 +67,86 @@ class StatusCheckError(Exception):
 _aggregator_dict = None
 
 
-def all_aggregators(conf: config.Config,
-                    system: system.System) -> dict[str, "Aggregator"]:
+def init_aggregators(conf: config.Config, system: system.System) -> None:
+    """
+    Initialize all aggregators.
+
+    This populates the module's cache of all aggregators. This must be called
+    exactly once before the first call to all_aggregators().
+    """
+    global _aggregator_dict
+    if _aggregator_dict is not None:
+        raise ValueError("Aggregators have already been initialized.")
+    _aggregator_dict = {}
+    aggregators = [
+        AdsbLolAggregator(conf, system),
+        UltrafeederAggregator(
+            conf, system, agg_key="flyitaly", name="Fly Italy ADSB",
+            map_url="https://mappa.flyitalyadsb.com/",
+            status_url="https://my.flyitalyadsb.com/am_i_feeding",
+            netconfig=NetConfig(
+                "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
+                "mlat,dati.flyitalyadsb.com,30100,39002", has_policy=True)),
+        UltrafeederAggregator(
+            conf, system, agg_key="avdelphi", name="AVDelphi",
+            map_url="https://www.avdelphi.com/coverage.html", status_url=None,
+            netconfig=NetConfig(
+                "adsb,data.avdelphi.com,24999,beast_reduce_plus_out", "",
+                has_policy=True)),
+        UltrafeederAggregator(
+            conf, system, agg_key="planespotters", name="Planespotters",
+            map_url="https://radar.planespotters.net/",
+            status_url="https://www.planespotters.net/feed/status",
+            netconfig=NetConfig(
+                "adsb,feed.planespotters.net,30004,beast_reduce_plus_out",
+                "mlat,mlat.planespotters.net,31090,39005", has_policy=True)),
+        UltrafeederAggregator(
+            conf, system, agg_key="tat", name="TheAirTraffic",
+            map_url="https://globe.theairtraffic.com/",
+            status_url="https://theairtraffic.com/feed/myip/",
+            netconfig=NetConfig(
+                "adsb,feed.theairtraffic.com,30004,beast_reduce_plus_out",
+                "mlat,feed.theairtraffic.com,31090,39004", has_policy=False)),
+        UltrafeederAggregator(
+            conf, system, agg_key="adsbfi", name="adsb.fi",
+            map_url="https://globe.adsb.fi/",
+            status_url="https://api.adsb.fi/v1/myip", netconfig=NetConfig(
+                "adsb,feed.adsb.fi,30004,beast_reduce_plus_out",
+                "mlat,feed.adsb.fi,31090,39007", has_policy=True)),
+        AdsbxAggregator(conf, system),
+        UltrafeederAggregator(
+            conf, system, agg_key="hpradar", name="HPRadar",
+            map_url="https://skylink.hpradar.com/", status_url=None,
+            netconfig=NetConfig(
+                "adsb,skyfeed.hpradar.com,30004,beast_reduce_plus_out",
+                "mlat,skyfeed.hpradar.com,31090,39011", has_policy=False)),
+        AirplanesLiveAggregator(conf, system),
+        FlightRadar24Aggregator(conf, system),
+        PlaneWatchAggregator(conf, system),
+        FlightAwareAggregator(conf, system),
+        AirnavRadarAggregator(conf, system),
+        PlaneFinderAggregator(conf, system),
+        AdsbHubAggregator(conf, system),
+        OpenSkyAggregator(conf, system),
+        RadarVirtuelAggregator(conf, system),
+        TenNinetyUkAggregator(conf, system),
+        SdrMapAggregator(conf, system),
+        PorttrackerAggregator(conf, system),
+        AiscatcherAggregator(conf, system),
+        AishubAggregator(conf, system),]
+    for aggregator in aggregators:
+        assert aggregator.agg_key not in _aggregator_dict
+        _aggregator_dict[aggregator.agg_key] = aggregator
+
+
+def all_aggregators() -> dict[str, "Aggregator"]:
     """
     Get all aggregators.
 
     Returns a dict mapping each aggregator's key to its instance.
     """
-    global _aggregator_dict
     if _aggregator_dict is None:
-        _aggregator_dict = {}
-        aggregators = [
-            AdsbLolAggregator(conf, system),
-            UltrafeederAggregator(
-                conf, system, agg_key="flyitaly", name="Fly Italy ADSB",
-                map_url="https://mappa.flyitalyadsb.com/",
-                status_url="https://my.flyitalyadsb.com/am_i_feeding",
-                netconfig=NetConfig(
-                    "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
-                    "mlat,dati.flyitalyadsb.com,30100,39002",
-                    has_policy=True)),
-            UltrafeederAggregator(
-                conf, system, agg_key="avdelphi", name="AVDelphi",
-                map_url="https://www.avdelphi.com/coverage.html",
-                status_url=None, netconfig=NetConfig(
-                    "adsb,data.avdelphi.com,24999,beast_reduce_plus_out", "",
-                    has_policy=True)),
-            UltrafeederAggregator(
-                conf, system, agg_key="planespotters", name="Planespotters",
-                map_url="https://radar.planespotters.net/",
-                status_url="https://www.planespotters.net/feed/status",
-                netconfig=NetConfig(
-                    "adsb,feed.planespotters.net,30004,beast_reduce_plus_out",
-                    "mlat,mlat.planespotters.net,31090,39005",
-                    has_policy=True)),
-            UltrafeederAggregator(
-                conf, system, agg_key="tat", name="TheAirTraffic",
-                map_url="https://globe.theairtraffic.com/",
-                status_url="https://theairtraffic.com/feed/myip/",
-                netconfig=NetConfig(
-                    "adsb,feed.theairtraffic.com,30004,beast_reduce_plus_out",
-                    "mlat,feed.theairtraffic.com,31090,39004",
-                    has_policy=False)),
-            UltrafeederAggregator(
-                conf, system, agg_key="adsbfi", name="adsb.fi",
-                map_url="https://globe.adsb.fi/",
-                status_url="https://api.adsb.fi/v1/myip", netconfig=NetConfig(
-                    "adsb,feed.adsb.fi,30004,beast_reduce_plus_out",
-                    "mlat,feed.adsb.fi,31090,39007", has_policy=True)),
-            AdsbxAggregator(conf, system),
-            UltrafeederAggregator(
-                conf, system, agg_key="hpradar", name="HPRadar",
-                map_url="https://skylink.hpradar.com/", status_url=None,
-                netconfig=NetConfig(
-                    "adsb,skyfeed.hpradar.com,30004,beast_reduce_plus_out",
-                    "mlat,skyfeed.hpradar.com,31090,39011", has_policy=False)),
-            AirplanesLiveAggregator(conf, system),
-            FlightRadar24Aggregator(conf, system),
-            PlaneWatchAggregator(conf, system),
-            FlightAwareAggregator(conf, system),
-            AirnavRadarAggregator(conf, system),
-            PlaneFinderAggregator(conf, system),
-            AdsbHubAggregator(conf, system),
-            OpenSkyAggregator(conf, system),
-            RadarVirtuelAggregator(conf, system),
-            TenNinetyUkAggregator(conf, system),
-            SdrMapAggregator(conf, system),
-            PorttrackerAggregator(conf, system),
-            AiscatcherAggregator(conf, system),
-            AishubAggregator(conf, system),]
-        for aggregator in aggregators:
-            assert aggregator.agg_key not in _aggregator_dict
-            _aggregator_dict[aggregator.agg_key] = aggregator
+        raise ValueError("Aggregators have not been initialized.")
     return _aggregator_dict
 
 
