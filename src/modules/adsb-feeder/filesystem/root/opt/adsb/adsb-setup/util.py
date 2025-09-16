@@ -1,15 +1,11 @@
 import hashlib
-import inspect
 import itertools
 import logging
-import math
 import os
 import pathlib
 import re
 import secrets
 import requests
-import sys
-import time
 import subprocess
 import tempfile
 import threading
@@ -27,22 +23,6 @@ verbose = (
 idhash = hashlib.md5(pathlib.Path("/etc/machine-id").read_text().encode()).hexdigest()
 
 
-def stack_info(msg=""):
-    framenr = 0
-    for frame, filename, line_num, func, source_code, source_index in inspect.stack():
-        if framenr == 0:
-            framenr += 1
-            continue
-        print_err(f" .. [{framenr}] {filename}:{line_num}: in {func}()")
-        if framenr == 1:
-            fname = func
-        framenr += 1
-        if func.startswith("dispatch_request"):
-            break
-    if msg:
-        print_err(f" == {fname}: {msg}")
-
-
 # let's do this just once, not at every call
 _clean_control_chars = "".join(map(chr, itertools.chain(range(0x00, 0x20), range(0x7F, 0xA0))))
 _clean_control_char_re = re.compile("[%s]" % re.escape(_clean_control_chars))
@@ -50,16 +30,6 @@ _clean_control_char_re = re.compile("[%s]" % re.escape(_clean_control_chars))
 
 def cleanup_str(s):
     return _clean_control_char_re.sub("", s)
-
-
-def print_err(*args, **kwargs):
-    level = int(kwargs.pop("level", 0))
-    if level > 0 and int(verbose) & int(level) == 0:
-        return
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
-        math.modf(time.time())[0] * 1000
-    )
-    print(*((timestamp,) + args), file=sys.stderr, **kwargs)
 
 
 # this is based on https://www.regular-expressions.info/email.html
@@ -91,7 +61,7 @@ def make_int(value):
     try:
         return int(value)
     except:
-        stack_info(f"ERROR: make_int({value}) - returning 0")
+        logger.exception("Error parsing int, returning 0.")
         return 0
 
 
@@ -121,11 +91,10 @@ def generic_get_json(url: str, data=None, timeout=5.0):
         requests.Timeout,
         requests.RequestException,
     ) as err:
-        print_err(f"checking {url} failed: {err}")
+        logger.exception(f"Getting JSON from {url} failed.")
         status = err.errno
     except:
-        # for some reason this didn't work
-        print_err("checking {url} failed: reason unknown")
+        logger.exception(f"Getting JSON from {url} failed.")
     else:
         return json_response, response.status_code
     return None, status
@@ -208,11 +177,10 @@ def string2file(path=None, string=None, verbose=False):
             file.write(string)
         os.rename(tmp, path)
     except Exception as e:
-        #print_err(traceback.format_exc())
-        print_err(f'error writing "{string}" to {path} ({type(e).__name__})')
+        logger.exception(f'Error writing "{string}" to {path}.')
     else:
         if verbose:
-            print_err(f'wrote "{string}" to {path}')
+            logger.debug(f'Wrote "{string}" to {path}.')
 
 
 def get_plain_url(plain_url):
@@ -238,10 +206,10 @@ def get_plain_url(plain_url):
         requests.Timeout,
         requests.RequestException,
     ) as err:
-        print_err(f"checking {plain_url} failed: {err}")
+        logger.exception(f"Getting text from {plain_url} failed.")
         status = err.errno
     except:
-        print_err("checking {plain_url} failed: {traceback.format_exc()}")
+        logger.exception(f"Getting text from {plain_url} failed.")
     else:
         return response.text, response.status_code
     return None, status
@@ -261,14 +229,14 @@ def read_os_release():
     data = {}
     try:
         lines = pathlib.Path("/etc/os-release").read_text().split('\n')
-    except Exception as e:
-        print_err(f"Error reading /etc/os-release: {e}.")
+    except:
+        logger.exception("Error reading /etc/os-release.")
         return data
     for line in filter(None, lines):
         try:
             key, value = line.split("=", maxsplit=1)
         except ValueError:
-            print_err(f"Unexpected line in /etc/os-release: {line}.")
+            logger.exception(f"Unexpected line in /etc/os-release: {line}.")
             continue
         data[key] = _stripped_quotes(value)
     return data

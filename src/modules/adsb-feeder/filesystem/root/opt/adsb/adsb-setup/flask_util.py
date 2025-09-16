@@ -1,14 +1,15 @@
+import functools as ft
+import logging
 import re
-from functools import wraps
-
-import config
-from util import print_err
 
 from flask import Flask, redirect, request
+
+import config
 
 
 class RouteManager:
     def __init__(self, app: Flask):
+        self._logger = logging.getLogger(type(self).__name__)
         self.app = app
 
     def _make_proxy_route_specs(self, conf: config.Config):
@@ -34,9 +35,7 @@ class RouteManager:
             yield endpoint, port, path
 
     def add_proxy_routes(self, conf: config.Config):
-        # print_err(f"adding proxy_routes {proxy_routes}", level=2)
         for endpoint, port, url_path in self._make_proxy_route_specs(conf):
-            # print_err(f"add_proxy_route {endpoint} {port } {url_path}")
             r = self.function_factory(endpoint, port, url_path)
             self.app.add_url_rule(endpoint, endpoint, r)
 
@@ -61,12 +60,12 @@ class RouteManager:
         if request.query_string:
             q = f"?{request.query_string.decode()}"
         url = f"{host_url}:{new_port}{new_path}{q}"
-        print_err(f"redirecting {orig} to {url}", level=16)
+        self._logger.info(f"Redirecting {orig} to {url}.")
         return redirect(url)
 
 
 def check_restart_lock(f):
-    @wraps(f)
+    @ft.wraps(f)
     def decorated_function(self, *args, **kwargs):
         if self._system.is_restarting:
             return redirect("/restarting")

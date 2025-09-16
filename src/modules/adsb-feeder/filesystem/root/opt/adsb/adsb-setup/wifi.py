@@ -1,19 +1,18 @@
+import logging
 import os
 import subprocess
 import time
-import traceback
 
-from util import (
-    get_baseos, print_err, run_shell_captured, shell_with_combined_output)
+import util
 
 
 def make_wifi(wlan="wlan0"):
-    baseos = get_baseos()
+    baseos = util.get_baseos()
     if baseos == "dietpi":
         return WpaSupplicantWifi(wlan)
     elif baseos in ["raspbian", "postmarketos"]:
         return NetworkManagerWifi(wlan)
-    print_err(
+    logging.getLogger(__name__).warning(
         f"Unknown OS {baseos} - wifi will be unable to scan and connect.")
     return GenericWifi(wlan)
 
@@ -21,6 +20,7 @@ def make_wifi(wlan="wlan0"):
 class GenericWifi:
     """Generic wifi that can't scan or connect."""
     def __init__(self, wlan):
+        self._logger = logging.getLogger(type(self).__name__)
         self.wlan = wlan
         self.ssids = []
 
@@ -48,22 +48,25 @@ class GenericWifi:
 class WpaSupplicantWifi(GenericWifi):
     """Wifi using wpa_supplicant, for the DietPi."""
     def _wait_wpa_supplicant(self):
-        # wait for wpa_supplicant to be running
+        # Wait for wpa_supplicant to be running.
         startTime = time.time()
         success = False
         while time.time() - startTime < 45:
-            success, output = run_shell_captured("pgrep wpa_supplicant", timeout=5)
-            time.sleep(1)
-            if success:
+            proc = util.shell_with_combined_output(
+                "pgrep wpa_supplicant", timeout=1)
+            try:
+                proc.check_returncode()
                 break
-        if not success:
-            print_err("timeout while waiting for wpa_supplicant to start")
+            except:
+                pass
+        else:
+            self._logger.error(
+                "Timeout while waiting for wpa_supplicant to start.")
         return success
 
     def _wpa_cli_reconfigure(self):
         connected = False
         output = ""
-
         try:
             proc = subprocess.Popen(
                 ["wpa_cli", f"-i{self.wlan}"],
@@ -84,7 +87,6 @@ class WpaSupplicantWifi(GenericWifi):
                     continue
 
                 output += line
-                # print_err(f"wpa_cli: {line.rstrip()})")
                 if not reconfigureSent and line.startswith(">"):
                     proc.stdin.write("reconfigure\n")
                     proc.stdin.flush()
@@ -95,13 +97,14 @@ class WpaSupplicantWifi(GenericWifi):
                     connected = True
                     break
         except:
-            print_err(traceback.format_exc())
+            self._logger.exception("Error running wpa_cli.")
         finally:
             if proc:
                 proc.terminate()
 
         if not connected:
-            print_err(f"Couldn't connect after wpa_cli reconfigure: ouput: {output}")
+            self._logger.error(
+                f"Couldn't connect after wpa_cli reconfigure: {output}")
 
         return connected
 
@@ -117,17 +120,13 @@ class WpaSupplicantWifi(GenericWifi):
             )
             os.set_blocking(proc.stdout.fileno(), False)
 
-            output = ""
-
-            startTime = time.time()
-            while time.time() - startTime < 15:
+            start_time = time.time()
+            while time.time() - start_time < 15:
                 line = proc.stdout.readline()
                 if not line:
                     time.sleep(0.01)
                     continue
 
-                output += line
-                # print(line, end="")
                 if line.count("Interactive mode"):
                     proc.stdin.write("scan\n")
                     proc.stdin.flush()
@@ -136,28 +135,28 @@ class WpaSupplicantWifi(GenericWifi):
                     proc.stdin.flush()
                     break
 
-            startTime = time.time()
-            while time.time() - startTime < 1:
+            start_time = time.time()
+            while time.time() - start_time < 1:
                 line = proc.stdout.readline()
                 if not line:
                     time.sleep(0.01)
                     continue
 
-                output += line
                 if line.count("\t"):
                     fields = line.rstrip("\n").split("\t")
                     if len(fields) == 5:
                         ssids.append(fields[4])
 
         except:
-            print_err(f"ERROR in _wpa_cli_scan(), wpa_cli ouput: {output}")
+            self._logger.exception(f"Error in _wpa_cli_scan().")
         finally:
             if proc:
                 proc.terminate()
 
         return ssids
 
-    def _write_wpa_conf(self, ssid=None, passwd=None, path=None, country_code="00"):
+    def _write_wpa_conf(
+            self, ssid=None, passwd=None, path=None, country_code="00"):
         netblocks = {}
         try:
             # extract the existing network blocks from the config file
@@ -182,12 +181,14 @@ class WpaSupplicantWifi(GenericWifi):
                         netblock += line.rstrip() + "\n"
                     if "}" in line:
                         if not inBlock or not exist_ssid:
-                            raise SyntaxError("unexpected close of network block")
+                            raise SyntaxError(
+                                "unexpected close of network block")
                         inBlock = False
                         netblocks[exist_ssid] = netblock
         except:
-            print_err(traceback.format_exc())
-            print_err(f"ERROR when parsing existing wpa supplicant config, will DISCARD OLD CONFIG")
+            self._logger.exception(
+                "ERROR when parsing existing wpa supplicant config, will "
+                "DISCARD OLD CONFIG")
             netblocks = {}
 
         try:
@@ -209,34 +210,36 @@ ctrl_interface=DIR=/run/wpa_supplicant GROUP=netdev
 update_config=1
 # disable p2p as it can cause errors
 p2p_disabled=1
-"""
-                )
+""")
                 for k in netblocks.keys():
                     conf.write(netblocks[k])
         except:
-            print_err(traceback.format_exc())
-            print_err(f"ERROR when writing wpa supplicant config to {path}")
-            return False
-        print_err("wpa supplicant config written to " + path)
-        return True
+            self._logger.exception(
+                f"Error when writing wpa supplicant config to {path}.")
+            raise
+        self._logger.info(f"wpa supplicant config written to {path}.")
 
     def _restart_networking_noblock(self):
-        res, out = run_shell_captured("systemctl restart --no-block networking.service", timeout=5)
+        util.shell_with_combined_output(
+            "systemctl restart --no-block networking.service", timeout=5)
 
     def _add_wifi_hotplug(self):
         # enable dietpi wifi in case it is disabled
         changedInterfaces = False
-        with open("/etc/network/interfaces", "r") as current, open("/etc/network/interfaces.new", "w") as update:
+        with open("/etc/network/interfaces",
+                  "r") as current, open("/etc/network/interfaces.new",
+                                        "w") as update:
             lines = current.readlines()
             for line in lines:
-                if line.startswith("#") and "allow-hotplug" in line and self.wlan in line:
+                if line.startswith(
+                        "#") and "allow-hotplug" in line and self.wlan in line:
                     changedInterfaces = True
                     update.write(f"allow-hotplug {self.wlan}\n")
                 else:
                     update.write(f"{line}")
 
         if changedInterfaces:
-            print_err(f"uncommenting allow-hotplug for {self.wlan}")
+            self._logger.info(f"Uncommenting allow-hotplug for {self.wlan}.")
             os.rename("/etc/network/interfaces.new", "/etc/network/interfaces")
             self._restart_networking_noblock()
         else:
@@ -247,18 +250,23 @@ p2p_disabled=1
 
         self._add_wifi_hotplug()
 
-        # wpa_supplicant can take extremely long to start up as long as eth0 has allow-hotplug
-        # _wpa_cli_reconfigure will wait for that so this test can take up to 60 seconds
+        # wpa_supplicant can take extremely long to start up as long as eth0
+        # has allow-hotplug. _wpa_cli_reconfigure will wait for that so this
+        # test can take up to 60 seconds.
 
         # test wifi
-        success = self._write_wpa_conf(
-            ssid=ssid, passwd=passwd, path="/etc/wpa_supplicant/wpa_supplicant.conf", country_code=country_code
-        )
-        if success:
+        try:
+            self._write_wpa_conf(
+                ssid=ssid, passwd=passwd,
+                path="/etc/wpa_supplicant/wpa_supplicant.conf",
+                country_code=country_code)
+        except:
             # note to self: don't call ifup from within this
             # stopping adsb-setup service will terminate wpa_supplicant somehow
             if not self._wait_wpa_supplicant():
-                print_err("ERROR: _wait_wpa_supplicant didn't work, restarting networking and re-trying")
+                self._logger.exception(
+                    "_wait_wpa_supplicant didn't work, restarting networking"
+                    "and retrying.")
                 self._restart_networking_noblock()
                 self._wait_wpa_supplicant()
 
@@ -271,41 +279,42 @@ p2p_disabled=1
             ssids = self._wpa_cli_scan()
 
             if len(ssids) > 0:
-                print_err(f"found SSIDs: {ssids}")
+                self._logger.info(f"Found SSIDs: {ssids}")
                 self.ssids = ssids
             else:
-                print_err("no SSIDs found")
-
-        except Exception as e:
-            print_err(f"ERROR in scan_ssids(): {e}")
+                self._logger.error("No SSIDs found.")
+        except:
+            self._logger.exception("Error when scanning SSIDs.")
 
 
 class NetworkManagerWifi(GenericWifi):
     """Wifi using NetworkManager, e.g. for Raspbian."""
     def wifi_connect(self, ssid, passwd, country_code="00"):
-        # try for a while because it takes a bit for NetworkManager to come back up
+        # Try for a while because it takes a bit for NetworkManager to come
+        # back up.
         startTime = time.time()
         while time.time() - startTime < 20:
-            # do a wifi scan to ensure the following connect works
-            # this is apparently necessary for NetworkManager
+            # Do a wifi scan to ensure the following connect works. This is
+            # apparently necessary for NetworkManager.
             self.scan_ssids()
             # Before connecting, delete the connection if it exists.
             # Apparently, not doing this can cause problems with
             # NetworkManager. This will return an error if the connection
             # doesn't exist, which we can ignore.
-            shell_with_combined_output(f"nmcli connection delete {ssid}")
+            util.shell_with_combined_output(f"nmcli connection delete {ssid}")
             try:
-                proc = shell_with_combined_output(
+                proc = util.shell_with_combined_output(
                     f"nmcli dev wifi connect {ssid} password {passwd} "
                     f"ifname {self.wlan}", timeout=20.0)
             except subprocess.TimeoutExpired:
-                print_err("Timeout in process connecting to wifi.")
+                self._logger.exception(
+                    "Timeout in process connecting to wifi.")
                 continue
 
             if "successfully activated" in proc.stdout:
                 return True
-            # just to safeguard against super fast spin, sleep a bit
-            print_err(f"Failed to connect to '{ssid}': {proc.stdout}")
+            self._logger.error(f"Failed to connect to '{ssid}': {proc.stdout}")
+            # Just to safeguard against super fast spin, sleep a bit.
             time.sleep(2)
 
         return False
@@ -313,25 +322,22 @@ class NetworkManagerWifi(GenericWifi):
     def scan_ssids(self):
         try:
             try:
-                output = subprocess.run(
-                    "nmcli --terse --fields SSID dev wifi",
-                    shell=True,
-                    capture_output=True,
-                )
+                proc = util.shell_with_separate_output(
+                    "nmcli --terse --fields SSID dev wifi", check=True)
             except subprocess.CalledProcessError as e:
-                print_err(f"error scanning for SSIDs: {e}")
+                self._logger.exception("Error scanning for SSIDs.")
                 return
 
             ssids = []
-            for line in output.stdout.decode().split("\n"):
+            for line in proc.stdout.split("\n"):
                 if line and line != "--" and line not in ssids:
                     ssids.append(line)
 
             if len(ssids) > 0:
-                print_err(f"found SSIDs: {ssids}")
+                self._logger.info(f"Found SSIDs: {ssids}")
                 self.ssids = ssids
             else:
-                print_err("no SSIDs found")
+                self._logger.info("No SSIDs found.")
 
         except Exception as e:
-            print_err(f"ERROR in scan_ssids(): {e}")
+            self._logger.exception("Error scanning for SSIDs.")
