@@ -1520,28 +1520,12 @@ def ensure_config_exists() -> Config:
     return conf
 
 
-def _get(conf: Config, key_path: str, default: Any):
-    print(conf.get(key_path, default=default))
-
-
-def _set(conf: Config, key_path: str, value: Any) -> None:
-    setting = conf.get_setting(key_path)
-    if isinstance(setting, BoolSetting):
-        if value not in ["True", "False"]:
-            raise ValueError("Value must be True or False.")
-        value = value == "True"
-    elif isinstance(setting, RealNumberSetting):
-        value = float(value)
-    elif isinstance(setting, IntSetting):
-        value = int(value)
-    setting.set("", value)
-
-
 def _main():
     import aggregators
     parser = argparse.ArgumentParser(description="Access the config file.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("ensure_config_exists")
+    subparsers.add_parser("as_json")
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("key_path")
     get_parser.add_argument("--default")
@@ -1561,6 +1545,8 @@ def _run_command(conf: Config, args):
     if args.command == "ensure_config_exists":
         # The config must already exist, just write the env file.
         conf.write_env_file()
+    elif args.command == "as_json":
+        print(json.dumps(_compound_setting_as_dict(conf)))
     elif args.command == "get":
         _get(conf, args.key_path, args.default)
     elif args.command == "set":
@@ -1568,6 +1554,34 @@ def _run_command(conf: Config, args):
     else:
         logger.error(f"Unknown command {args.command}.")
         sys.exit(1)
+
+
+def _compound_setting_as_dict(
+        compound_setting: CompoundSetting) -> dict[str, Any]:
+    d = {}
+    for key, setting in compound_setting:
+        if isinstance(setting, CompoundSetting):
+            d[key] = _compound_setting_as_dict(setting)
+        else:
+            d[key] = setting.get("")
+    return d
+
+
+def _get(conf: Config, key_path: str, default: Any):
+    print(conf.get(key_path, default=default))
+
+
+def _set(conf: Config, key_path: str, value: Any) -> None:
+    setting = conf.get_setting(key_path)
+    if isinstance(setting, BoolSetting):
+        if value not in ["True", "False"]:
+            raise ValueError("Value must be True or False.")
+        value = value == "True"
+    elif isinstance(setting, RealNumberSetting):
+        value = float(value)
+    elif isinstance(setting, IntSetting):
+        value = int(value)
+    setting.set("", value)
 
 
 if __name__ == '__main__':
