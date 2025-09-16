@@ -1,4 +1,6 @@
 import concurrent.futures
+import copy
+from datetime import datetime
 import filecmp
 import json
 import logging
@@ -22,11 +24,6 @@ import uuid
 import re
 import sys
 import zipfile
-from datetime import datetime
-from os import urandom
-from time import sleep
-from typing import Dict, List
-from copy import deepcopy
 
 import flask
 from flask import (
@@ -40,12 +37,12 @@ from flask import (
     url_for,
 )
 import werkzeug.serving
-from werkzeug.utils import secure_filename
+import werkzeug.utils
 
 import hotspot
 import aggregators
 import config
-from flask_util import RouteManager, check_restart_lock
+import flask_util
 import gitlab
 import sdr
 import stats
@@ -263,7 +260,7 @@ class AdsbIm:
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
         self.app = Flask(__name__)
-        self.app.secret_key = urandom(16).hex()
+        self.app.secret_key = os.urandom(16).hex()
 
         # set Cache-Control max-age for static files served
         # cachebust.sh ensures that the browser doesn't get outdated files
@@ -280,7 +277,7 @@ class AdsbIm:
                 "is_reception_enabled": self.is_reception_enabled,
             }
 
-        self._routemanager = RouteManager(self.app)
+        self._routemanager = flask_util.RouteManager(self.app)
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
@@ -838,7 +835,7 @@ class AdsbIm:
                 # give up after 30 seconds
                 while count < 30:
                     count += increment
-                    sleep(increment)
+                    time.sleep(increment)
                     if timeSinceWrite(rrd_file) < 120:
                         self._logger.info(f"graphs1090 writeback: success")
                         return
@@ -931,7 +928,7 @@ class AdsbIm:
                 flash("No file selected")
                 return redirect(request.url)
             if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
-                filename = secure_filename(file.filename)
+                filename = werkzeug.utils.secure_filename(file.filename)
                 restore_path = config.CONFIG_DIR / "restore"
                 # clean up the restore path when saving a fresh zipfile
                 shutil.rmtree(restore_path, ignore_errors=True)
@@ -950,7 +947,7 @@ class AdsbIm:
         if request.method == "GET":
             return self.restore_get(request)
         if request.method == "POST":
-            form = deepcopy(request.form)
+            form = copy.deepcopy(request.form)
 
             def do_restore_post():
                 self.restore_post(form)
@@ -967,7 +964,7 @@ class AdsbIm:
         filename = request.args["zipfile"]
         restore_path = config.CONFIG_DIR / "restore"
         restore_path.mkdir(mode=0o755, exist_ok=True)
-        restored_files: List[str] = []
+        restored_files: list[str] = []
         with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
             for name in restore_zip.namelist():
                 print_err(f"found file {name} in archive")
@@ -981,8 +978,8 @@ class AdsbIm:
                 restore_zip.extract(name, restore_path)
                 restored_files.append(name)
         # now check which ones are different from the installed versions
-        changed: List[str] = []
-        unchanged: List[str] = []
+        changed: list[str] = []
+        unchanged: list[str] = []
         saw_globe_history = False
         saw_graphs = False
         uf_paths = set()
@@ -1187,7 +1184,7 @@ class AdsbIm:
             return {}
         return aggregator.status
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def sdr_setup(self):
         if request.method == "POST":
             return self.update()
@@ -1485,7 +1482,7 @@ class AdsbIm:
             except:
                 self._logger.exception("Failed to reload docker config.")
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def update(self, *, needs_docker_restart=False):
         """
         Update a bunch of stuff from various requests.
@@ -1493,13 +1490,11 @@ class AdsbIm:
         This big mess of a function processes POSTed forms from various pages
         and takes actions based on form keys and values.
         """
-        extra_args = ""
         self._logger.debug(
             f"Updating with input from {request.headers.get('referer')}.")
-        form: Dict = request.form
         seen_go = False
         next_url = None
-        for key, value in form.items():
+        for key, value in request.form.items():
             self._logger.debug(
                 f"Update: handling {key} -> {value if value else '\"\"'}")
             # this seems like cheating... let's capture all of the submit buttons
@@ -1661,7 +1656,7 @@ class AdsbIm:
             self._logger.debug("Base config is complete.")
             if self._conf.get("sdrplay") and not self._conf.get("sdrplay_license_accepted"):
                 return redirect(url_for("sdrplay_license"))
-            return render_template("/restarting.html", extra_args=extra_args)
+            return render_template("/restarting.html")
         self._logger.debug("Base config not complete.")
         return redirect(url_for("director"))
 
@@ -1681,13 +1676,13 @@ class AdsbIm:
             return
         self._conf.set("prometheus.is_enabled", should_be_enabled)
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def expert(self):
         if request.method == "POST":
             return self.update()
         return render_template("expert.html")
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def systemmgmt(self):
         tailscale_info = self._system.get_tailscale_info()
         if tailscale_info.status in [system.TailscaleStatus.ERROR,
@@ -1714,13 +1709,13 @@ class AdsbIm:
             is_semver=util.is_semver,
         )
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def sdrplay_license(self):
         if request.method == "POST":
             return self.update()
         return render_template("sdrplay_license.html")
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def aggregators(self):
         if request.method == "POST":
             self._configure_aggregators(request.form)
@@ -1812,7 +1807,7 @@ class AdsbIm:
             kwargs["udp_port"] = request.form.get("aishub-udp-port") or None
         return kwargs
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def director(self):
         # figure out where to go:
         if request.method == "POST":
@@ -1834,7 +1829,7 @@ class AdsbIm:
                 # but don't risk hanging out here forever
                 testurl = url + "/data/receiver.json"
                 for i in range(5):
-                    sleep(1.0)
+                    time.sleep(1.0)
                     try:
                         response = requests.get(testurl, timeout=2.0)
                         if response.status_code == 200:
@@ -1950,7 +1945,7 @@ class AdsbIm:
         self._conf.set(
             "low_disk", shutil.disk_usage("/").free < 1024 * 1024 * 1024)
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def overview(self):
         enabled_aggregators = {
             k: a
@@ -2028,7 +2023,7 @@ class AdsbIm:
             device_hosts=device_hosts,
         )
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def setup(self):
         if request.method == "POST" and request.form.get("submit") == "go":
             return self.update()
@@ -2218,7 +2213,7 @@ class AdsbIm:
         self._conf.set("secure_image", True)
         return redirect(url_for("systemmgmt"))
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def shutdown_reboot(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot shutdown or reboot.", 400
@@ -2250,7 +2245,7 @@ class AdsbIm:
             self._logger.exception("Error toggling log persistence.")
         return redirect(url_for("systemmgmt"))
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def feeder_update(self):
         tag = request.form["tag"]
         self._logger.info(f"Starting update to {tag}.")
@@ -2296,7 +2291,7 @@ class AdsbIm:
             system.systemctl().run(["unmask", "enable --now"],
                                     ["zerotier-one"])
             # Wait for the service to get ready...
-            sleep(5.0)
+            time.sleep(5.0)
             subprocess.call([
                 "/usr/sbin/zerotier-cli", "join", zerotier_id])
         except:
@@ -2416,7 +2411,7 @@ class AdsbIm:
             return "Unable to get a login link", 500
         return redirect(url_for("systemmgmt"))
 
-    @check_restart_lock
+    @flask_util.check_restart_lock
     def configure_wifi(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot configure wifi.", 400
