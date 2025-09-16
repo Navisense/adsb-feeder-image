@@ -1,62 +1,70 @@
 {% extends "base-regular.html" %}
 {% set active_page = "visualization" %}
-{% block title %}Setup Map Options{% endblock title %}
+{% block title %}
+  Setup Map Options
+{% endblock title %}
 {% block content %}
-{% if m == "0" %}{% set go = "go" %}{% else %}{% set go = "go-" ~ m %}{% endif %}
-<form class="row gy-2 gx-3 align-items-center" method="post">
-  <div class="col-12 col-sm-6">
-    <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="visualization"
-            value="go">apply settings - take me to the feeder homepage</button>
-  </div>
-  <div class="col-12 col-sm-6">
-    <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="showmap" value={{go}}>
-      apply settings - take me to this map</button>
-  </div>
-  <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="set_config--bool--route_api" id="route_api"
-           {% if get_conf("route_api") %}checked{% endif %} />
-    <label for="route_api" class="mb-3">
-      Use Route API to show flight routes when
-      known.
-    </label>
-  </div>
-  <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="set_config--bool--heywhatsthat" id="heywhatsthat"
-           {% if get_conf("heywhatsthat") %}checked{% endif %} />
-    <div>
-      <label class="form-check-label" for="heywhatsthat">
-        <a href="https://www.heywhatsthat.com/">HeyWhat'sThat</a> is an incredibly cool web service that allows
-        you to discover what you should be able to see from the location of your antenna - including estimates for
-        how far away you should be able to detect planes (depending on their altitude - and assuming there are no
-        other obstructions).
-        <span id="hwt-text"
-              {% if not get_conf('heywhatsthat') or get_conf('heywhatsthat_id') %}style="display: none;"
-              {% endif %}>
-          Click on the link, select "New Panorama" at the top, enter your address (or find the location
-          on the map), enter a title on the lower left and click "Submit request". After a couple of minutes
-          you'll be offered to look at your panorama. At the top left you'll see the title you just entered, the
-          latitude and longitude and elevation - and below that a link that ends with <code>/?view=CODE</code>.
-          Enter this code here to see the theoretical range information on your receiver map.
-        </span>
-        <input type="text" id="heywhatsthat_id" name="set_config--str--heywhatsthat_id" class="form-control col-6 ml-1 mb-2"
-               placeholder="HeyWhat'sThat Panorama ID" value="{{ get_conf('heywhatsthat_id', default='') }}">
+  <form class="row gy-2 gx-3 align-items-center" method="post">
+    <div class="col-12">
+      <button type="submit"
+              class="btn btn-primary btn-rounded btn-block btn-lg p-4 mb-3"
+              name="visualization"
+              value="go">apply settings - take me to the feeder homepage</button>
+    </div>
+    <div class="col-12 form-check">
+      <input class="form-check-input me-1"
+             type="checkbox"
+             name="set_config--bool--route_api"
+             id="route_api"
+             {% if get_conf("route_api") %}checked{% endif %} />
+      <label for="route_api" class="mb-3">Use Route API to show flight routes when known.</label>
+    </div>
+    <div class="col-12 form-check">
+      <input class="form-check-input me-1"
+             type="checkbox"
+             name="set_config--bool--heywhatsthat"
+             id="heywhatsthat"
+             {% if get_conf("heywhatsthat") %}checked{% endif %} />
+      <div>
+        <label class="form-check-label" for="heywhatsthat">
+          <a href="https://www.heywhatsthat.com/">HeyWhat'sThat</a> is an incredibly cool web service that allows
+          you to discover what you should be able to see from the location of your antenna - including estimates for
+          how far away you should be able to detect planes (depending on their altitude - and assuming there are no
+          other obstructions).
+          <span id="hwt-text"
+                {% if not get_conf('heywhatsthat') or get_conf('heywhatsthat_id') %}style="display: none;"{% endif %}>
+            Click on the link, select "New Panorama" at the top, enter your address (or find the location
+            on the map), enter a title on the lower left and click "Submit request". After a couple of minutes
+            you'll be offered to look at your panorama. At the top left you'll see the title you just entered, the
+            latitude and longitude and elevation - and below that a link that ends with <code>/?view=CODE</code>.
+            Enter this code here to see the theoretical range information on your receiver map.
+          </span>
+          <input type="text"
+                 id="heywhatsthat_id"
+                 name="set_config--str--heywhatsthat_id"
+                 class="form-control col-6 ml-1 mb-2"
+                 placeholder="HeyWhat'sThat Panorama ID"
+                 value="{{ get_conf('heywhatsthat_id', default='') }}">
+        </label>
+      </div>
+    </div>
+    <div class="col-12 form-check">
+      <input class="form-check-input me-1"
+             type="checkbox"
+             name="clear_range"
+             id="clear_range" />
+      <label for="clear_range" class="mb-3">
+        The tar1090 map maintains an outline for the area around your feeder where planes have been observed; sometimes
+        it may be desirable to reset that (for example after you changed location). Select the checkbox and submit below
+        to clear that range outline.
       </label>
     </div>
-  </div>
-  <div class="col-12 form-check">
-    <input class="form-check-input me-1" type="checkbox" name="clear_range" id="clear_range" />
-    <label for="clear_range" class="mb-3">
-      The tar1090 map maintains an outline for the area around your feeder where planes have been observed; sometimes it
-      may be desirable to reset that (for example after you changed location). Select the checkbox and submit below to
-      clear that range outline.
-    </label>
-  </div>
-
-  <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="visualization"
-          value="go">apply settings - take me to the feeder homepage</button>
-</form>
-<script>
-
+    <button type="submit"
+            class="btn btn-primary btn-rounded btn-block btn-lg p-4 mb-3"
+            name="visualization"
+            value="go">apply settings - take me to the feeder homepage</button>
+  </form>
+  <script>
   function show_or_hide(b, f) {
     if (b.checked) f.style.display = "block";
     else f.style.display = "none";
@@ -66,5 +74,5 @@
   hwt.addEventListener("change", function () {
     show_or_hide(hwt, hwttext);
   });
-</script>
-{% endblock %}
+  </script>
+{% endblock content %}

@@ -1193,7 +1193,7 @@ class AdsbIm:
     def visualization(self):
         if request.method == "POST":
             return self.update()
-        return render_template("visualization.html", site="", m=0)
+        return render_template("visualization.html")
 
     def clear_range_outline(self):
         self._logger.info("Resetting range outline for ultrafeeder.")
@@ -1501,12 +1501,6 @@ class AdsbIm:
             if value == "go" or value.startswith("go-"):
                 seen_go = True
             if value == "go" or value.startswith("go-") or value == "wait":
-                if key == "showmap" and value.startswith("go-"):
-                    idx = util.make_int(value[3:])
-                    self._next_url_from_director = f"/map_{idx}/"
-                    self._logger.debug(
-                        "After applying changes, go to map at "
-                        f"{self._next_url_from_director}")
                 if key == "sdrplay_license_accept":
                     self._conf.set("sdrplay_license_accepted", True)
                 if key == "sdrplay_license_reject":
