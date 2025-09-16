@@ -677,8 +677,7 @@ class Config(CompoundSetting):
         # Ultrafeeder config, used for all 4 types of Ultrafeeder instances
         "ultrafeeder_config": ft.partial(
             StringSetting, env_variable_name="FEEDER_ULTRAFEEDER_CONFIG"),
-        "adsblol_uuid": ft.partial(
-            StringSetting, env_variable_name="ADSBLOL_UUID"),
+        "adsblol_uuid": StringSetting,
         "ultrafeeder_uuid": ft.partial(
             StringSetting, env_variable_name="ULTRAFEEDER_UUID"),
         "mlat_privacy": ft.partial(
@@ -906,8 +905,7 @@ class Config(CompoundSetting):
         "rbthermalhack": ft.partial(
             StringSetting, env_variable_name="FEEDER_RB_THERMAL_HACK"),
         # ADSB.im specific
-        "aggregator_choice": ft.partial(
-            StringSetting, env_variable_name="_ADSBIM_AGGREGATORS_SELECTION"),
+        "aggregator_choice": StringSetting,
         "base_version": ft.partial(
             CachedGeneratedSetting,
             value_generator=ft.partial(_read_file, file=VERSION_FILE)),
