@@ -46,8 +46,9 @@ fi
 docker_compose="docker compose"
 $docker_compose version &> /dev/null || docker_compose="docker-compose"
 compose_file_args="-f /opt/adsb/compose_files/dozzle.yml"
+config_json=$(/opt/adsb/adsb-setup/config.py as_json 2>/dev/null)
 
-if [ "$(/opt/adsb/adsb-setup/config.py get base_config)" != True ] ; then
+if [ "$(echo $config_json | jq -r '.base_config')" != true ] ; then
     log $0 "Things aren't configured yet, only starting Dozzle and the logger container."
     if [[ "$1" == "pull" ]]; then
         log $0 "For argument pull we will also pull ultrafeeder."
@@ -55,54 +56,54 @@ if [ "$(/opt/adsb/adsb-setup/config.py get base_config)" != True ] ; then
     fi
 else
     # The base config is done, start all the compose files.
-    if [ "$(/opt/adsb/adsb-setup/config.py get airspy)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.airspy')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/airspy.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get sdrplay)" = True ] \
-        && [ "$(/opt/adsb/adsb-setup/config.py get sdrplay_license_accepted)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.sdrplay')" = true ] \
+        && [ "$(echo $config_json | jq -r '.sdrplay_license_accepted')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/sdrplay.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get uat978)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.uat978')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/uat978.yml"
     fi
-    if [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.1090 --default=)" ] \
-        || [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.978 --default=)" ] ; then
+    if [ -n "$(echo $config_json | jq -r '.serial_devices."1090" | select(. != null and . != "")')" ] \
+        || [ -n "$(echo $config_json | jq -r '.serial_devices."978" | select(. != null and . != "")')" ] ; then
         # Start ultrafeeder if a serial device for 978 or 1090 MHz is configured.
         compose_file_args+=" -f /opt/adsb/compose_files/ultrafeeder.yml"
     fi
-    if [ -n "$(/opt/adsb/adsb-setup/config.py get serial_devices.ais --default=)" ] ; then
+    if [ -n "$(echo $config_json | jq -r '.serial_devices.ais | select(. != null and . != "")')" ] ; then
     # Start shipfeeder if a serial device for AIS is configured.
         compose_file_args+=" -f /opt/adsb/compose_files/shipfeeder.yml"
     fi
     # For each of the yml snippets check if the aggregator is enabled.
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.flightradar.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.flightradar.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/fr24.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.planewatch.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.planewatch.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/pw.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.flightaware.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.flightaware.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/fa.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.radarbox.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.radarbox.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/rb.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.planefinder.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.planefinder.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/pf.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.adsbhub.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.adsbhub.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/ah.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.opensky.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.opensky.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/os.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.radarvirtuel.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.radarvirtuel.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/rv.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.1090uk.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators."1090uk".is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/1090uk.yml"
     fi
-    if [ "$(/opt/adsb/adsb-setup/config.py get aggregators.sdrmap.is_enabled)" = True ] ; then
+    if [ "$(echo $config_json | jq -r '.aggregators.sdrmap.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/sdrmap.yml"
     fi
     # Now inject the user env values.
