@@ -1571,5 +1571,5 @@ def _run_command(conf: Config, args):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     _main()
