@@ -51,14 +51,7 @@ import sdr
 import stats
 import system
 import util
-from util import (
-    create_fake_info,
-    make_int,
-    run_shell_captured,
-    string2file,
-    verbose,
-)
-from wifi import make_wifi
+import wifi
 
 logger = None
 
@@ -76,11 +69,9 @@ def setup_logging():
 
     class NoStatic(logging.Filter):
         def filter(self, record: logging.LogRecord):
-            """Filter GETs for static assets and maybe others."""
+            """Filter GETs for static assets."""
             msg = record.getMessage()
             if "GET /static/" in msg:
-                return False
-            if not (verbose & 8) and "GET /api/" in msg:
                 return False
 
             return True
@@ -308,9 +299,10 @@ class AdsbIm:
 
         self.lastSetGainWrite = 0
 
-        # no one should share a CPU serial with AirNav, so always create fake cpuinfo;
-        # also identify if we would use the thermal hack for RB and Ultrafeeder
-        if create_fake_info():
+        # No one should share a CPU serial with AirNav, so always create fake
+        # cpuinfo. Also identify if we would use the thermal hack for RB and
+        # Ultrafeeder.
+        if util.create_fake_cpu_info():
             self._conf.set("rbthermalhack", "/sys/class/thermal")
         else:
             self._conf.set("rbthermalhack", "")
@@ -677,7 +669,7 @@ class AdsbIm:
             with open("/proc/meminfo", "r") as f:
                 for line in f:
                     if line.startswith("MemTotal:"):
-                        self._memtotal = make_int(line.split()[1])
+                        self._memtotal = util.make_int(line.split()[1])
                         break
         except:
             pass
@@ -1211,7 +1203,8 @@ class AdsbIm:
         setGainPath = pathlib.Path(f"/run/adsb-feeder-ultrafeeder/readsb/setGain")
 
         self.waitSetGainRace()
-        string2file(path=setGainPath, string="resetRangeOutline", verbose=True)
+        util.string2file(
+            path=setGainPath, string="resetRangeOutline", verbose=True)
 
     def waitSetGainRace(self):
         # readsb checks this the setGain file every 0.2 seconds
@@ -1284,11 +1277,11 @@ class AdsbIm:
             (gaindir / "suspend").touch(exist_ok=True)
 
             # this file sets the gain on readsb start
-            string2file(path=(gaindir / "gain"), string=f"{gain}\n")
+            util.string2file(path=(gaindir / "gain"), string=f"{gain}\n")
 
             # this adjusts the gain while readsb is running
             self.waitSetGainRace()
-            string2file(path=setGainPath, string=f"{gain}\n")
+            util.string2file(path=setGainPath, string=f"{gain}\n")
 
     def handle_implied_settings(self):
         self._conf.set("mlathub_disable", False)
@@ -1427,23 +1420,22 @@ class AdsbIm:
                 gain = self._conf.get(["gain"])
                 if gain.startswith("auto"):
                     self._conf.set("gain_airspy", "auto")
-                elif make_int(gain) > 21:
+                elif util.make_int(gain) > 21:
                     self._conf.set("gain_airspy", "21")
                     self._conf.set("gain", "21")
-                elif make_int(gain) < 0:
+                elif util.make_int(gain) < 0:
                     self._conf.set("gain_airspy", "0")
                     self._conf.set("gain", "0")
                 else:
                     self._conf.set("gain_airspy", gain)
 
-            if verbose & 1:
-                self._logger.debug(f"in the end we have")
-                self._logger.debug(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
-                self._logger.debug(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
-                self._logger.debug(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
-                self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
-                self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
-                self._logger.debug(f"dump978 container {self._conf.get('uat978')}")
+            self._logger.debug(f"in the end we have")
+            self._logger.debug(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
+            self._logger.debug(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
+            self._logger.debug(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
+            self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
+            self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
+            self._logger.debug(f"dump978 container {self._conf.get('uat978')}")
 
             # if the base config is completed, lock down further SDR changes so they only happen on
             # user request
@@ -1515,7 +1507,7 @@ class AdsbIm:
                 seen_go = True
             if value == "go" or value.startswith("go-") or value == "wait":
                 if key == "showmap" and value.startswith("go-"):
-                    idx = make_int(value[3:])
+                    idx = util.make_int(value[3:])
                     self._next_url_from_director = f"/map_{idx}/"
                     self._logger.debug(
                         "After applying changes, go to map at "
@@ -1704,8 +1696,8 @@ class AdsbIm:
             # Reset the login link in the config if Tailscale is not running.
             self._conf.set("tailscale.login_link", None)
         zerotier_running = False
-        success, output = run_shell_captured("ps -e", timeout=2)
-        zerotier_running = "zerotier-one" in output
+        proc = util.shell_with_combined_output("ps -e", timeout=2)
+        zerotier_running = "zerotier-one" in proc.stdout
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
@@ -1919,7 +1911,7 @@ class AdsbIm:
 
         if self.local_dev.startswith("wlan"):
             if self.wifi is None:
-                self.wifi = make_wifi()
+                self.wifi = wifi.make_wifi()
             self.wifi_ssid = self.wifi.get_ssid()
         else:
             self.wifi_ssid = ""
@@ -2202,14 +2194,15 @@ class AdsbIm:
         with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
             authorized_keys.write(f"{request.form['ssh-public-key']}\n")
         self._conf.set("ssh_configured", True)
-        success, output = run_shell_captured(
+        proc = util.shell_with_combined_output(
             "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
             + "systemctl enable --now ssh || systemctl enable --now dropbear",
-            timeout=60,
-        )
-        if not success:
-            self._logger.error(
-                f"Failed to enable ssh: {output}",
+            timeout=60)
+        try:
+            proc.check_returncode()
+        except:
+            self._logger.exception(
+                f"Failed to enable ssh: {proc.stdout}",
                 flash_message="Failed to enable ssh - check the logs "
                 "for details.")
         return redirect(url_for("systemmgmt"))
@@ -2296,9 +2289,7 @@ class AdsbIm:
         if (not util.checkbox_checked(request.form["enabled"])
                 or "zerotierid" not in request.form):
             self._conf.set("zerotierid", "")
-            success, output = run_shell_captured(
-                "systemctl disable --now zerotier-one && systemctl mask zerotier-one", timeout=30
-            )
+            system.systemctl().run(["disable --now", "mask"], ["zerotier-one"])
             return redirect(url_for("systemmgmt"))
         zerotier_id = request.form["zerotierid"]
         try:
@@ -2434,7 +2425,7 @@ class AdsbIm:
 
         def connect_wifi():
             if self.wifi is None:
-                self.wifi = make_wifi()
+                self.wifi = wifi.make_wifi()
             status = self.wifi.wifi_connect(ssid, password)
             self._logger.debug(f"wifi_connect returned {status}")
             self.update_net_dev()

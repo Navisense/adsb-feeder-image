@@ -1,5 +1,4 @@
 import hashlib
-import itertools
 import logging
 import os
 import pathlib
@@ -15,26 +14,26 @@ import flask
 
 logger = logging.getLogger(__name__)
 
-verbose = (
-    0 if not os.path.exists("/etc/adsb/verbose") else int(open("/etc/adsb/verbose", "r").read().strip())
-)
 
-# create a board unique but otherwise random / anonymous ID
-idhash = hashlib.md5(pathlib.Path("/etc/machine-id").read_text().encode()).hexdigest()
+def get_device_id() -> str:
+    """
+    Create a unique device ID.
 
-
-# let's do this just once, not at every call
-_clean_control_chars = "".join(map(chr, itertools.chain(range(0x00, 0x20), range(0x7F, 0xA0))))
-_clean_control_char_re = re.compile("[%s]" % re.escape(_clean_control_chars))
+    This is based on /etc/machine-id and should be unique, but also anonymous.
+    """
+    machine_id_bytes = pathlib.Path("/etc/machine-id").read_bytes()
+    return hashlib.md5(machine_id_bytes).hexdigest()
 
 
-def cleanup_str(s):
-    return _clean_control_char_re.sub("", s)
+def cleanup_str(s: str) -> str:
+    """Remove non-printable characters."""
+    return "".join(c for c in s if c.isprintable())
 
 
-# this is based on https://www.regular-expressions.info/email.html
+# This is based on https://www.regular-expressions.info/email.html
 def is_email(text: str):
-    return re.match(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, flags=re.IGNORECASE)
+    return re.match(
+        r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, flags=re.IGNORECASE)
 
 
 def checkbox_checked(value: Optional[str]) -> bool:
@@ -71,7 +70,7 @@ def generic_get_json(url: str, data=None, timeout=5.0):
         url = url.replace("host.docker.internal", "localhost")
     # use image specific but random value for user agent to distinguish
     # between requests from the same IP but different feeders
-    agent = f"ADS-B Image-{idhash[:8]}"
+    agent = f"Porttracker Feeder {get_device_id()[:8]}"
     status = -1
     try:
         response = requests.request(
@@ -81,15 +80,14 @@ def generic_get_json(url: str, data=None, timeout=5.0):
             data=data,
             headers={
                 "Content-Type": "application/json",
-                "User-Agent": agent,
-            },
+                "User-Agent": agent,},
         )
         json_response = response.json()
     except (
-        requests.HTTPError,
-        requests.ConnectionError,
-        requests.Timeout,
-        requests.RequestException,
+            requests.HTTPError,
+            requests.ConnectionError,
+            requests.Timeout,
+            requests.RequestException,
     ) as err:
         logger.exception(f"Getting JSON from {url} failed.")
         status = err.errno
@@ -100,14 +98,11 @@ def generic_get_json(url: str, data=None, timeout=5.0):
     return None, status
 
 
-def create_fake_info():
-    # instead of trying to figure out if we need this and creating it only in that case,
-    # let's just make sure the fake files are there and move on
+def create_fake_cpu_info():
     os.makedirs("/opt/adsb/rb/thermal_zone0", exist_ok=True)
-
     cpuinfo = pathlib.Path("/opt/adsb/rb/cpuinfo")
-    # when docker tries to mount this file without it existing, it creates a directory
-    # in case that has happened, remove it
+    # When docker tries to mount this file without it existing, it creates a
+    # directory. If that has happened, remove it.
     if cpuinfo.is_dir():
         try:
             cpuinfo.rmdir()
@@ -125,49 +120,6 @@ def create_fake_info():
         with open("/opt/adsb/rb/thermal_zone0/temp", "w") as fake_temp:
             fake_temp.write("12345\n")
     return not pathlib.Path("/sys/class/thermal/thermal_zone0/temp").exists()
-
-
-def mf_get_ip_and_triplet(ip):
-    # mf_ip for microproxies can either be an IP or a triplet of ip,port,protocol
-    split = ip.split(",")
-    if len(split) != 1:
-        # the function was passed a triplet, set the ip to the first part
-        triplet = ip
-        ip = split[0]
-    else:
-        # the fucntion was passed an IP, port 30005 and protocol beast_in are implied
-        # unless we are a stage2 getting data from a nanofeeder on localhost
-        if ip == "local":
-            # container to container connections we do directly, use nanofeeder
-            triplet = f"nanofeeder,30005,beast_in"
-            # this ip is used to talk to the python running on the host, use host.docker.internal
-            ip = "host.docker.internal"
-        else:
-            triplet = f"{ip},30005,beast_in"
-
-    return (ip, triplet)
-
-
-def run_shell_captured(command="", timeout=1800):
-    try:
-        result = subprocess.run(
-            command,
-            shell=True,
-            capture_output=True,
-            check=True,
-            timeout=timeout,
-        )
-    except subprocess.SubprocessError as e:
-        # something went wrong
-        output = ""
-        if e.stdout:
-            output += e.stdout.decode()
-        if e.stderr:
-            output += e.stderr.decode()
-        return (False, output)
-
-    output = result.stdout.decode()
-    return (True, output)
 
 
 def string2file(path=None, string=None, verbose=False):
@@ -197,14 +149,13 @@ def get_plain_url(plain_url):
                 "Sec-Fetch-Dest": "document",
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
-            },
+                "Sec-Fetch-User": "?1",},
         )
     except (
-        requests.HTTPError,
-        requests.ConnectionError,
-        requests.Timeout,
-        requests.RequestException,
+            requests.HTTPError,
+            requests.ConnectionError,
+            requests.Timeout,
+            requests.RequestException,
     ) as err:
         logger.exception(f"Getting text from {plain_url} failed.")
         status = err.errno

@@ -3,11 +3,6 @@
 # this script can do some housekeeping tasks before the adsb-setup
 # is (re)started
 
-if [ -f /opt/adsb/verbose ] ; then
-    mkdir -p /etc/adsb
-    mv /opt/adsb/verbose /etc/adsb/verbose
-fi
-
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh"
 
 kill_wait_app() {
