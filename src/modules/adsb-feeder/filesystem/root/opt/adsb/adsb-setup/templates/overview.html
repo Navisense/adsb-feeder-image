@@ -80,7 +80,7 @@
         </div>
       </div>
     </div>
-    <div id="chart-wrapper" class="m-5 d-none d-md-block">
+    <div id="chart-wrapper" class="m-5 d-none d-sm-block">
       <canvas id="reception-history-chart"></canvas>
     </div>
   </div>
@@ -303,6 +303,8 @@
         datasets: []
       },
       options: {
+        responsive: true,
+        maintainAspectRatio: false,
         plugins: {
           title: {
             display: true,
