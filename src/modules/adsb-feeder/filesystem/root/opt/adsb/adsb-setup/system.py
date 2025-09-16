@@ -289,8 +289,7 @@ class System:
         requests.packages.urllib3.util.connection.HAS_IPV6 = False
         headers = {
             "User-Agent": "Python3/requests/adsb.im", "Accept": "text/plain"}
-        response = requests.get(
-            "http://v4.ipv6-test.com/api/myip.php", headers=headers)
+        response = requests.get("https://api.ipify.org", headers=headers)
         response.raise_for_status()
         return response.text or None
 
