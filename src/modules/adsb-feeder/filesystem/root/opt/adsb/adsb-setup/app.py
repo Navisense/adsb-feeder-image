@@ -16,10 +16,8 @@ import signal
 import shutil
 import string
 import subprocess
-import tempfile
 import threading
 import time
-import tempfile
 import uuid
 import re
 import sys
@@ -56,7 +54,6 @@ import util
 from util import (
     create_fake_info,
     make_int,
-    print_err,
     run_shell_captured,
     string2file,
     verbose,
@@ -267,7 +264,6 @@ class HotspotApp:
 class AdsbIm:
     def __init__(self, conf: config.Config, sys: system.System, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
-        print_err("starting AdsbIm.__init__", level=4)
         self._conf = conf
         self._system = sys
         self._hotspot_app = hotspot_app
@@ -707,7 +703,7 @@ class AdsbIm:
             dns_state = self._system.check_dns()
             self._conf.set("dns_state", dns_state)
             if not dns_state:
-                print_err("ERROR: we appear to have lost DNS")
+                self._logger.error("We appear to have lost DNS.")
 
         self.last_dns_check = time.time()
         self._executor.submit(update_dns)
@@ -748,14 +744,18 @@ class AdsbIm:
         # timedatectl can fail on dietpi installs (Failed to connect to bus: No such file or directory)
         # thus don't rely on timedatectl and just set environment for containers regardless of timedatectl working
         try:
-            print_err(f"calling timedatectl set-timezone {timezone}")
+            self._logger.info(f"Calling timedatectl set-timezone {timezone}")
             subprocess.run(["timedatectl", "set-timezone", f"{timezone}"], check=True)
         except subprocess.SubprocessError:
-            print_err(f"failed to set up timezone ({timezone}) using timedatectl, try dpkg-reconfigure instead")
+            self._logger.exception(
+                f"Failed to set up timezone ({timezone}) using timedatectl, "
+                "try dpkg-reconfigure instead")
             try:
                 subprocess.run(["test", "-f", f"/usr/share/zoneinfo/{timezone}"], check=True)
             except:
-                print_err(f"setting timezone: /usr/share/zoneinfo/{timezone} doesn't exist")
+                self._logger.exception(
+                    f"Setting timezone: /usr/share/zoneinfo/{timezone} "
+                    "doesn't exist")
                 return False
             try:
                 subprocess.run(["ln", "-sf", f"/usr/share/zoneinfo/{timezone}", "/etc/localtime"])
@@ -848,7 +848,7 @@ class AdsbIm:
                     count += increment
                     sleep(increment)
                     if timeSinceWrite(rrd_file) < 120:
-                        print_err(f"graphs1090 writeback: success")
+                        self._logger.info(f"graphs1090 writeback: success")
                         return
 
                 self._logger.error(
@@ -876,7 +876,6 @@ class AdsbIm:
                             if subpath.name == "tar1090-update":
                                 continue
 
-                            print_err(f"add: {pstring}")
                             for f in subpath.rglob("*"):
                                 backup_zip.write(
                                     f, arcname=f.relative_to(adsb_path))
@@ -946,7 +945,8 @@ class AdsbIm:
                 shutil.rmtree(restore_path, ignore_errors=True)
                 restore_path.mkdir(mode=0o644, exist_ok=True)
                 file.save(restore_path / filename)
-                print_err(f"saved restore file to {restore_path / filename}")
+                self._logger.info(
+                    f"Saved restore file to {restore_path / filename}.")
                 return redirect(url_for("executerestore", zipfile=filename))
             else:
                 flash("Please only submit ADS-B Feeder Image backup files")
@@ -1115,7 +1115,6 @@ class AdsbIm:
         # get our guess for the right SDR to frequency mapping
         # and then update with the actual settings
         serial_guess: dict[str, str] = self._sdrdevices.addresses_per_frequency
-        print_err(f"serial guess: {serial_guess}")
         serials: dict[str, str] = {
             purpose: self._conf.get(f"serial_devices.{purpose}")
             for purpose in ["978", "1090", "ais"]}
@@ -1130,7 +1129,7 @@ class AdsbIm:
                     and serial_guess[purpose] not in configured_serials):
                 serials[purpose] = serial_guess[purpose]
 
-        print_err(f"sdr_info->frequencies: {str(serials)}")
+        self._logger.info(f"SDR assignment: {serials}")
         jsonString = json.dumps(
             {
                 "sdrdevices": [sdr._json for sdr in self._sdrdevices.sdrs],
@@ -1226,80 +1225,39 @@ class AdsbIm:
 
     def set_rpw(self):
         issues_encountered = False
-        success, output = run_shell_captured(f"echo 'root:{self.rpw}' | chpasswd")
-        if not success:
-            print_err(f"failed to overwrite root password: {output}")
+        proc = util.shell_with_combined_output(
+            f"echo 'root:{self.rpw}' | chpasswd")
+        try:
+            proc.check_returncode()
+        except:
+            self._logger.exception("Failed to overwrite root password.")
             issues_encountered = True
 
         if os.path.exists("/etc/ssh/sshd_config"):
-            success, output = run_shell_captured(
+            proc = util.shell_with_combined_output(
                 "sed -i '/^PermitRootLogin.*/d' /etc/ssh/sshd_config &&"
                 + "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && "
-                + "systemctl restart sshd",
-                timeout=5,
-            )
-            if not success:
-                print_err(f"failed to allow root ssh login: {output}")
+                + "systemctl restart sshd", timeout=5)
+            try:
+                proc.check_returncode()
+            except:
+                self._logger.exception("Failed to allow root ssh login.")
                 issues_encountered = True
 
-        success, output = run_shell_captured(
+        proc = util.shell_with_combined_output(
             "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
             + "systemctl enable --now ssh || systemctl enable --now dropbear",
-            timeout=60,
-        )
-        if not success:
-            print_err(f"failed to enable ssh: {output}")
+            timeout=60)
+        try:
+            proc.check_returncode()
+        except:
+            self._logger.exception("Failed to enable ssh.")
             issues_encountered = True
 
         if issues_encountered:
             self._logger.error(
                 "Failure while setting root password, check logs for details",
                 flash_message=True)
-
-    def import_graphs_and_history_from_remote(self, ip, port):
-        print_err(f"importing graphs and history from {ip}")
-        # first make sure that there isn't any old data that needs to be moved
-        # out of the way
-        if pathlib.Path(config.CONFIG_DIR / "ultrafeeder" / ip).exists():
-            now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
-            shutil.move(
-                config.CONFIG_DIR / "ultrafeeder" / ip,
-                config.CONFIG_DIR / "ultrafeeder" / f"{ip}-{now}",
-            )
-
-        url = f"http://{ip}:{port}/backupexecutefull"
-        # make tmpfile
-        os.makedirs(config.CONFIG_DIR / "ultrafeeder", exist_ok=True)
-        fd, tmpfile = tempfile.mkstemp(
-            dir=config.CONFIG_DIR / "ultrafeeder")
-        os.close(fd)
-
-        # stream writing to a file with requests library is a pain so just use curl
-        try:
-            subprocess.run(
-                ["curl", "-o", f"{tmpfile}", f"{url}"],
-                check=True,
-            )
-
-            with zipfile.ZipFile(tmpfile) as zf:
-                zf.extractall(path=config.CONFIG_DIR / "ultrafeeder" / ip)
-            # deal with the duplicate "ultrafeeder in the path"
-            shutil.move(
-                config.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "globe_history",
-                config.CONFIG_DIR / "ultrafeeder" / ip / "globe_history",
-            )
-            shutil.move(
-                config.CONFIG_DIR / "ultrafeeder" / ip / "ultrafeeder" / "graphs1090",
-                config.CONFIG_DIR / "ultrafeeder" / ip / "graphs1090",
-            )
-
-            print_err(f"done importing graphs and history from {ip}")
-        except:
-            self._logger.exception(
-                f"ERROR when importing graphs and history from {ip}",
-                flash_message=True)
-        finally:
-            os.remove(tmpfile)
 
     def setRtlGain(self):
         gaindir = (
@@ -1479,13 +1437,13 @@ class AdsbIm:
                     self._conf.set("gain_airspy", gain)
 
             if verbose & 1:
-                print_err(f"in the end we have")
-                print_err(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
-                print_err(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
-                print_err(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
-                print_err(f"airspy container is {self._conf.get('airspy')}")
-                print_err(f"SDRplay container is {self._conf.get('sdrplay')}")
-                print_err(f"dump978 container {self._conf.get('uat978')}")
+                self._logger.debug(f"in the end we have")
+                self._logger.debug(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
+                self._logger.debug(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
+                self._logger.debug(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
+                self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
+                self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
+                self._logger.debug(f"dump978 container {self._conf.get('uat978')}")
 
             # if the base config is completed, lock down further SDR changes so they only happen on
             # user request
@@ -1501,9 +1459,9 @@ class AdsbIm:
 
             if not self._conf.get("journal_configured"):
                 try:
-                    cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
-                    print_err(cmd)
-                    subprocess.run(cmd, shell=True, timeout=5.0)
+                    subprocess.run(
+                        "/opt/adsb/scripts/journal-set-volatile.sh",
+                        shell=True, timeout=5.0)
                     self.update_journal_state()
                     self._conf.set("journal_configured", True)
                 except:
@@ -1525,34 +1483,33 @@ class AdsbIm:
         else:
             new_daemon_json["max-concurrent-downloads"] = 1
         if new_daemon_json != daemon_json:
-            print_err(f"set_docker_concurrent({value}): applying change")
             with open("/etc/docker/daemon.json", "w") as f:
                 json.dump(new_daemon_json, f, indent=2)
             # reload docker config (this is sufficient for the max-concurrent-downloads setting)
-            success, output = run_shell_captured("bash -c 'kill -s SIGHUP $(pidof dockerd)'", timeout=5)
-            if not success:
-                print_err(f"failed to reload docker config: {output}")
+            proc = util.shell_with_combined_output(
+                "bash -c 'kill -s SIGHUP $(pidof dockerd)'", timeout=5)
+            try:
+                proc.check_returncode()
+            except:
+                self._logger.exception("Failed to reload docker config.")
 
     @check_restart_lock
     def update(self, *, needs_docker_restart=False):
-        description = """
-            This is the one endpoint that handles all the updates coming in from the UI.
-            It walks through the form data and figures out what to do about the information provided.
         """
-        # let's try and figure out where we came from - for reasons I don't understand
-        # the regexp didn't capture the site number, so let's do this the hard way
-        site = ""
-        sitenum = 0
+        Update a bunch of stuff from various requests.
+
+        This big mess of a function processes POSTed forms from various pages
+        and takes actions based on form keys and values.
+        """
         extra_args = ""
-        referer = request.headers.get("referer")
-        allow_insecure = not self._conf.get("secure_image")
-        print_err(f"handling input from {referer} and site # {sitenum} / {site} (allow insecure is {allow_insecure})")
+        self._logger.debug(
+            f"Updating with input from {request.headers.get('referer')}.")
         form: Dict = request.form
         seen_go = False
         next_url = None
         for key, value in form.items():
-            emptyStringPrint = "''"
-            print_err(f"handling {key} -> {emptyStringPrint if value == '' else value}")
+            self._logger.debug(
+                f"Update: handling {key} -> {value if value else '\"\"'}")
             # this seems like cheating... let's capture all of the submit buttons
             if value == "go" or value.startswith("go-"):
                 seen_go = True
@@ -1560,7 +1517,9 @@ class AdsbIm:
                 if key == "showmap" and value.startswith("go-"):
                     idx = make_int(value[3:])
                     self._next_url_from_director = f"/map_{idx}/"
-                    print_err(f"after applying changes, go to map at {self._next_url_from_director}")
+                    self._logger.debug(
+                        "After applying changes, go to map at "
+                        f"{self._next_url_from_director}")
                 if key == "sdrplay_license_accept":
                     self._conf.set("sdrplay_license_accepted", True)
                 if key == "sdrplay_license_reject":
@@ -1701,18 +1660,17 @@ class AdsbIm:
 
         # if the button simply updated some field, stay on the same page
         if not seen_go:
-            print_err("no go button, so stay on the same page", level=2)
             return redirect(request.url)
 
         # where do we go from here?
         if next_url:  # we figured it out above
             return redirect(next_url)
         if self._conf.get("base_config"):
-            print_err("base config is completed", level=2)
+            self._logger.debug("Base config is complete.")
             if self._conf.get("sdrplay") and not self._conf.get("sdrplay_license_accepted"):
                 return redirect(url_for("sdrplay_license"))
             return render_template("/restarting.html", extra_args=extra_args)
-        print_err("base config not completed", level=2)
+        self._logger.debug("Base config not complete.")
         return redirect(url_for("director"))
 
     def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
@@ -1868,11 +1826,14 @@ class AdsbIm:
         if request.method == "POST":
             return self.update()
         if not self._conf.get("base_config"):
-            print_err(f"director redirecting to setup, base_config not completed")
+            self._logger.debug(
+                "Director redirecting to setup, base_config not complete.")
             return flask.redirect("/setup")
         # if we already figured out where to go next, let's just do that
         if self._next_url_from_director:
-            print_err(f"director redirecting to next_url_from_director: {self._next_url_from_director}")
+            self._logger.debug(
+                "Director redirecting to next_url_from_director: "
+                f"{self._next_url_from_director}")
             url = self._next_url_from_director
             self._next_url_from_director = ""
             if re.match(r"^http://\d+\.\d+\.\d+\.\d+:\d+$", url):
@@ -1895,7 +1856,7 @@ class AdsbIm:
 
         # do we have duplicate SDR serials?
         if len(self._sdrdevices.duplicates) > 0:
-            print_err("duplicate SDR serials detected")
+            self._logger.warning("Duplicate SDR serials detected.")
             # return self.sdr_setup()
 
         # check if any of the SDRs aren't configured
@@ -1906,25 +1867,30 @@ class AdsbIm:
             serial for serial in configured_serials if serial != ""]
         available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
         if any([serial not in configured_serials for serial in available_serials]):
-            print_err(f"configured serials: {configured_serials}")
-            print_err(f"available serials: {available_serials}")
-            print_err("director redirecting to sdr_setup: unconfigured devices present")
+            self._logger.info(f"Configured serials: {configured_serials}")
+            self._logger.info(f"Available serials: {available_serials}")
+            self._logger.info(
+                "Director redirecting to sdr_setup: unconfigured devices "
+                "present.")
             return flask.redirect("/sdr_setup")
 
         used_serials = [self._conf.get(f"serial_devices.{purpose}")
                         for purpose in ["978","1090","ais"]]
         used_serials = [serial for serial in used_serials if serial]
         if any([serial not in available_serials for serial in used_serials]):
-            print_err(f"used serials: {used_serials}")
-            print_err(f"available serials: {available_serials}")
-            print_err("director redirecting to sdr_setup: at least one used device is not present")
+            self._logger.info(f"Used serials: {used_serials}")
+            self._logger.info(f"Available serials: {available_serials}")
+            self._logger.info(
+                "Director redirecting to sdr_setup: at least one used device "
+                "is not present.")
             return flask.redirect("/sdr_setup")
 
         # if the user chose to individually pick aggregators but hasn't done so,
         # they need to go to the aggregator page
         if self.at_least_one_aggregator() or self._conf.get("aggregators_chosen"):
             return flask.redirect("/overview")
-        print_err("director redirecting to aggregators: to be configured")
+        self._logger.info(
+            "Director redirecting to aggregators: to be configured.")
         return flask.redirect("/aggregators")
 
     def update_net_dev(self):
@@ -2003,8 +1969,8 @@ class AdsbIm:
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
-            print_err(
-                "removing pre-installed ssh-keys, overwriting root password")
+            self._logger.info(
+                "Removing pre-installed ssh keys, overwriting root password.")
             authkeys = "/root/.ssh/authorized_keys"
             shutil.copyfile(authkeys, authkeys + ".bak")
             with open("/root/.ssh/adsb.im.installkey", "r") as installkey_file:
@@ -2032,7 +1998,7 @@ class AdsbIm:
         if compose_up_failed:
             ipv6_broken = self._system.is_ipv6_broken()
             if ipv6_broken:
-                print_err("ERROR: broken IPv6 state detected")
+                self._logger.error("Broken IPv6 state detected.")
 
         def sdr_assignment(sdr):
             for purpose in ["1090", "978", "ais"]:
@@ -2091,45 +2057,39 @@ class AdsbIm:
         return temperature_json
 
     def support(self):
-        print_err(f"support request, {request.form}")
+        self._logger.info(f"Support request {request.form}")
         if request.method != "POST":
             return render_template("support.html", url="")
 
         url = "Internal Error uploading logs"
 
         target = request.form.get("upload")
-        print_err(f'trying to upload the logs with target: "{target}"')
-
         if not target:
-            print_err(f"ERROR: support POST request without target")
+            self._logger.error("Support POST request without target.")
             return render_template("support.html", url="Error, unspecified upload target!")
-
+        self._logger.info(f'Trying to upload the logs with target: "{target}"')
         if target == "0x0.st":
-            success, output = run_shell_captured(
-                command="bash /opt/adsb/log-sanitizer.sh 2>&1 | curl -F'expires=168' -F'file=@-'  https://0x0.st",
-                timeout=60,
-            )
-            url = output.strip()
-            if success:
-                print_err(f"uploaded logs to {url}")
-            else:
-                print_err(f"failed to upload logs, output: {output}")
-                self._logger.error(
+            proc = util.shell_with_combined_output(
+                "bash /opt/adsb/log-sanitizer.sh 2>&1 | curl -F'expires=168' -F'file=@-'  https://0x0.st",
+                timeout=60)
+            try:
+                proc.check_returncode()
+                self._logger.info(f"Uploaded logs to {proc.stdout.strip()}")
+            except:
+                self._logger.exception(
                     "Failed to upload logs.", flash_message=True)
             return render_template("support.html", url=url)
 
         if target == "termbin.com":
-            success, output = run_shell_captured(
-                command="bash /opt/adsb/log-sanitizer.sh 2>&1 | nc termbin.com 9999",
-                timeout=60,
-            )
-            # strip extra chars for termbin
-            url = output.strip("\0\n").strip()
-            if success:
-                print_err(f"uploaded logs to {url}")
-            else:
-                print_err(f"failed to upload logs, output: {output}")
-                self._logger.error(
+            proc = util.shell_with_combined_output(
+                "bash /opt/adsb/log-sanitizer.sh 2>&1 | nc termbin.com 9999",
+                timeout=60)
+            try:
+                proc.check_returncode()
+                self._logger.info(
+                    f"Uploaded logs to {proc.stdout.strip('\0\n').strip()}")
+            except:
+                self._logger.exception(
                     "Failed to upload logs.", flash_message=True)
             return render_template("support.html", url=url)
 
