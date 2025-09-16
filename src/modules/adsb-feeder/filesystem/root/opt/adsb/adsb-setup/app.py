@@ -226,9 +226,7 @@ class HotspotApp:
 
     def hotspot(self):
         return flask.render_template(
-            "hotspot.html", version=self._conf.get("base_version"),
-            comment=self._message, ssids=self.ssids,
-            mdns_enabled=self._conf.get("mdns.is_enabled"))
+            "hotspot.html", comment=self._message, ssids=self.ssids)
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server

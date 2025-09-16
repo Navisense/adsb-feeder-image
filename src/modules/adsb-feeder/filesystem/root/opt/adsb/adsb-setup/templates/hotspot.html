@@ -87,7 +87,7 @@
       }
     }
 
-    if (!{{ mdns_enabled | tojson }}) {
+    if (!{{ get_conf('mdns.is_enabled') | tojson }}) {
       setMdnsStatusDivMessage(
         "text-bg-primary", "mDNS is disabled",
         "mDNS is disabled in this installation. The feeder will not be reachable as porttracker-feeder.local.");
