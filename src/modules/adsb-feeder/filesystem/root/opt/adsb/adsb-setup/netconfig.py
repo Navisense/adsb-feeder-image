@@ -16,6 +16,8 @@ class UltrafeederConfig:
         for agg_key, aggregator in self._all_aggregators.items():
             if not isinstance(aggregator, aggregators.UltrafeederAggregator):
                 continue
+            if not aggregator.enabled():
+                continue
             if agg_key == "adsblol":
                 uuid_setting_path = "adsblol_uuid"
             else:
