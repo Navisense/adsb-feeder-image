@@ -1247,7 +1247,7 @@ class Config(CompoundSetting):
             logger.exception(
                 f"Error upgrading config from {from_version} to {to_version}.")
             raise
-        config_dict["config_version"] = Config.CONFIG_VERSION
+        config_dict["config_version"] = to_version
         with CONFIG_FILE.open("w") as f:
             json.dump(config_dict, f)
         return config_dict
