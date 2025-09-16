@@ -151,6 +151,12 @@ def all_aggregators() -> dict[str, "Aggregator"]:
 
 
 class NetConfig:
+    """
+    Ultrafeeder network config.
+
+    This utility can generate part of the Ultrafeeder config string for a
+    particular aggregator.
+    """
     def __init__(self, adsb_config: str, mlat_config: str, has_policy: bool):
         self.adsb_config = adsb_config
         self.mlat_config = mlat_config
@@ -171,7 +177,7 @@ class NetConfig:
         if mlat_enable:
             return f"{adsb_line};{mlat_line}"
         else:
-            return f"{adsb_line}"
+            return adsb_line
 
     @property
     def has_policy(self):

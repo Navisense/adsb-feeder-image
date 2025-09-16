@@ -176,10 +176,8 @@ class System:
     Access to system functions.
 
     Provides properties for system info and Docker containers belonging to the
-    application. Both are regularly refreshed in a
-    background task. In order to access them, the task must be started with
-    start_refresh_tasks() (and should be stopped on shutdown with
-    stop_refresh_tasks()).
+    application. Both are regularly refreshed in background tasks that are
+    started and stopped by the class' context manager.
     """
     INFO_REFRESH_INTERVAL = 300
     CONTAINERS_REFRESH_INTERVAL = 10
@@ -201,16 +199,18 @@ class System:
                 self.CONTAINERS_REFRESH_INTERVAL,
                 self._update_docker_containers)}
 
-    def start_refresh_tasks(self):
+    def __enter__(self):
         for task in self._refresh_tasks.values():
             task.start(execute_now=True)
+        return self
 
-    def stop_refresh_tasks(self):
+    def __exit__(self, *_):
         for task in self._refresh_tasks.values():
             try:
                 task.stop_and_wait()
             except:
                 self._logger.exception("Error stopping refresh task.")
+        return False
 
     @property
     def system_info(self) -> SystemInfo:

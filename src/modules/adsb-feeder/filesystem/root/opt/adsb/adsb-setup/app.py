@@ -49,7 +49,6 @@ import aggregators
 import config
 from flask_util import RouteManager, check_restart_lock
 import gitlab
-import netconfig as netconfig_mod
 import sdr
 import stats
 import system
@@ -268,14 +267,13 @@ class HotspotApp:
 
 
 class AdsbIm:
-    def __init__(self, conf: config.Config, hotspot_app):
+    def __init__(self, conf: config.Config, sys: system.System, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         print_err("starting AdsbIm.__init__", level=4)
         self._conf = conf
+        self._system = sys
         self._hotspot_app = hotspot_app
         self._hotspot_mode = False
-        self._system = system.System()
-        aggregators.init_aggregators(conf, self._system)
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
@@ -624,7 +622,6 @@ class AdsbIm:
             raise RuntimeError("already started")
         assert self._server_thread is None
         self.update_config()
-        self._system.start_refresh_tasks()
 
         # if using gpsd, try to update the location
         if self._conf.get("use_gpsd"):
@@ -671,7 +668,6 @@ class AdsbIm:
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
-        self._system.stop_refresh_tasks()
         self._server.shutdown()
         self._server_thread.join(timeout=10)
         if self._server_thread.is_alive():
@@ -717,26 +713,6 @@ class AdsbIm:
 
         self.last_dns_check = time.time()
         self._executor.submit(update_dns)
-
-    def _setup_ultrafeeder_args(self):
-        for agg_key, aggregator in aggregators.all_aggregators().items():
-            try:
-                netconfig = aggregator.netconfig
-            except AttributeError:
-                # Not an Ultrafeedeer aggregator with a netconfig, ignore.
-                continue
-            if aggregator.enabled():
-                # Already enabled, nothing to do.
-                continue
-            is_enabled = False
-            if self._conf.get("aggregator_choice") == "all":
-                is_enabled = True
-            elif self._conf.get("aggregator_choice") == "privacy":
-                is_enabled = netconfig.has_policy
-            self._conf.set(f"aggregators.{agg_key}.is_enabled", is_enabled)
-        ultrafeeder_config = netconfig_mod.UltrafeederConfig(
-            self._conf, aggregators.all_aggregators())
-        self._conf.set("ultrafeeder_config", ultrafeeder_config.generate())
 
     def set_hostname_and_enable_mdns(self):
         if self.hostname:
@@ -1517,9 +1493,6 @@ class AdsbIm:
             # user request
             if self.base_is_configured():
                 self._conf.set("sdrs_locked", True)
-
-        # set all of the ultrafeeder config data up
-        self._setup_ultrafeeder_args()
 
         # finally, check if this has given us enough configuration info to
         # start the containers
@@ -2536,13 +2509,13 @@ class Manager:
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
-    def __init__(self, conf: config.Config):
+    def __init__(self, conf: config.Config, sys: system.System):
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
         self._hotspot_app = HotspotApp(conf, self._on_wifi_credentials)
         self._hotspot = hotspot.make_hotspot(conf, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(conf, self._hotspot_app)
+        self._adsb_im = AdsbIm(conf, sys, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
@@ -2711,12 +2684,18 @@ class Manager:
 
 
 def main():
-    conf = config.ensure_config_exists()
-    if "--update-config" in sys.argv:
-        # Just get AdsbIm to do some housekeeping and exit.
-        AdsbIm(conf, None).update_config()
-        sys.exit(0)
+    with system.System() as sys_:
+        conf = config.ensure_config_exists()
+        aggregators.init_aggregators(conf, sys_)
+        conf.write_env_file()
+        if "--update-config" in sys.argv:
+            # Just get AdsbIm to do some housekeeping and exit.
+            AdsbIm(conf, sys_, None).update_config()
+            sys.exit(0)
+        _run_app(conf, sys_)
 
+
+def _run_app(conf, sys_):
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
@@ -2728,7 +2707,7 @@ def main():
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    with PidFile(), Manager(conf):
+    with PidFile(), Manager(conf, sys_):
         shutdown_event.wait()
     logger.info("Shut down.")
 

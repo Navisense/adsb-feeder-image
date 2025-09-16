@@ -16,9 +16,15 @@ import socket
 import subprocess
 import sys
 import threading
+import typing as t
 from typing import Any, Literal, Optional
+import uuid
 
 import util
+import system
+
+if t.TYPE_CHECKING:
+    import aggregators
 
 APP_DIR = pathlib.Path("/opt/adsb")
 METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
@@ -34,7 +40,7 @@ FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
 logger = logging.getLogger(__name__)
 
 
-def _read_file(config: "Config", *, file: pathlib.Path) -> str:
+def _read_file(conf: "Config", *, file: pathlib.Path) -> str:
     try:
         with file.open() as f:
             return f.read().strip()
@@ -42,7 +48,7 @@ def _read_file(config: "Config", *, file: pathlib.Path) -> str:
         return "unknown"
 
 
-def _get_boardname(config: "Config") -> str:
+def _get_boardname(conf: "Config") -> str:
     board = ""
     if pathlib.Path("/sys/firmware/devicetree/base/model").exists():
         # that's some kind of SBC most likely
@@ -96,7 +102,7 @@ def _get_boardname(config: "Config") -> str:
     return board or f"Unknown {platform.machine()} system"
 
 
-def _has_gpsd(config: "Config"):
+def _has_gpsd(conf: "Config") -> bool:
     """Check whether gpsd is running."""
     # Find host address on the docker network.
     proc = util.shell_with_combined_output(
@@ -122,6 +128,89 @@ def _has_gpsd(config: "Config"):
         except socket.error:
             logger.info(f"No gpsd on {ip}:2947 detected.")
     return False
+
+
+def _get_enabled_ultrafeeder_aggregators(
+        conf: "Config"
+) -> cl_abc.Generator["aggregators.UltrafeederAggregator"]:
+    """
+    Generate all enabled Ultrafeeder aggregators.
+
+    Checks the aggregator_choice setting, and actively enables aggregators if
+    set to "all" or "privacy". Yields all enabled aggregators.
+    """
+    import aggregators
+    choice = conf.get("aggregator_choice")
+    for agg_key, aggregator in aggregators.all_aggregators().items():
+        try:
+            netconfig = aggregator.netconfig
+        except AttributeError:
+            # Not an Ultrafeedeer aggregator with a netconfig, ignore.
+            continue
+        assert isinstance(aggregator, aggregators.UltrafeederAggregator)
+        if aggregator.enabled():
+            yield aggregator
+            continue
+        should_be_enabled = (
+            choice == "all" or (choice == "privacy" and netconfig.has_policy))
+        if should_be_enabled:
+            logger.info(
+                f"Enabling {aggregator} because of aggregator_choice {choice}."
+            )
+            conf.set(f"aggregators.{agg_key}.is_enabled", True)
+            yield aggregator
+
+
+def _generate_ultrafeeder_config_string(conf: "Config") -> str:
+    """
+    Generate the string used to configure Ultrafeeder.
+
+    Concatenates all necessary settings into a string that can be fed to
+    Ultrafeeder. Generates UUIDs if necessary.
+    """
+    args = set()
+    for aggregator in _get_enabled_ultrafeeder_aggregators(conf):
+        if aggregator.agg_key == "adsblol":
+            uuid_setting_path = "adsblol_uuid"
+        else:
+            uuid_setting_path = "ultrafeeder_uuid"
+        agg_uuid = conf.get(uuid_setting_path)
+        if not agg_uuid:
+            agg_uuid = str(uuid.uuid4())
+            conf.set(uuid_setting_path, agg_uuid)
+        args.add(
+            aggregator.netconfig.generate(
+                mlat_privacy=conf.get("mlat_privacy"), uuid=agg_uuid,
+                mlat_enable=conf.get("mlat_enable")))
+
+    if conf.get("uat978"):
+        args.add("adsb,dump978,30978,uat_in")
+
+    # Make sure we only ever use 1 SDR / network input for Ultrafeeder.
+    if conf.get("readsb_device_type"):
+        pass
+    elif conf.get("airspy"):
+        args.add("adsb,airspy_adsb,30005,beast_in")
+    elif conf.get("sdrplay"):
+        args.add("adsb,sdrplay-beast1090,30005,beast_in")
+    elif (remote_sdr := conf.get("remote_sdr")):
+        if remote_sdr.find(",") == -1:
+            remote_sdr += ",30005"
+        args.add(f"adsb,{remote_sdr.replace(' ', '')},beast_in")
+
+    if conf.get("use_gpsd"):
+        args.add("gpsd,host.docker.internal,2947")
+
+    # Finally, add user provided things.
+    if (ultrafeeder_extra_args := conf.get("ultrafeeder_extra_args")):
+        args.add(ultrafeeder_extra_args)
+
+    # Sort the args to make the string deterministic (avoid unnecessary
+    # container recreation by docker compose).
+    args.discard("")
+    args = sorted(args)
+    logger.debug(f"Generated Ultrafeeder args {args}")
+    return ";".join(args)
 
 
 class Setting(abc.ABC):
@@ -497,8 +586,8 @@ class GeneratedSetting(TransientSetting):
     The default value semantics are unchanged.
     """
     def __init__(
-            self, config: "Config",
-            value_generator: cl_abc.Callable[["Config"], Any], *,
+            self, config: "Config", _: Any, *,
+            value_generator: cl_abc.Callable[["Config"], Any],
             default: Optional[Any] = None,
             env_variable_name: Optional[str] = None):
         """
@@ -529,7 +618,7 @@ class CachedGeneratedSetting(GeneratedSetting):
             default: Optional[Any] = None,
             env_variable_name: Optional[str] = None):
         super().__init__(
-            config, value_generator, default=default,
+            config, None, value_generator=value_generator, default=default,
             env_variable_name=env_variable_name)
         self._has_cache = False
         self._cached_value = None
@@ -602,7 +691,8 @@ class SwitchedGeneratedSetting(GeneratedSetting):
                 return get_false_value()
 
         super().__init__(
-            config, value_generator, env_variable_name=env_variable_name)
+            config, None, value_generator=value_generator,
+            env_variable_name=env_variable_name)
 
 
 class Config(CompoundSetting):
@@ -617,7 +707,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 3
+    CONFIG_VERSION = 4
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -676,7 +766,9 @@ class Config(CompoundSetting):
         "temperature_block": ft.partial(BoolSetting, default=False),
         # Ultrafeeder config, used for all 4 types of Ultrafeeder instances
         "ultrafeeder_config": ft.partial(
-            StringSetting, env_variable_name="FEEDER_ULTRAFEEDER_CONFIG"),
+            GeneratedSetting,
+            value_generator=_generate_ultrafeeder_config_string,
+            env_variable_name="FEEDER_ULTRAFEEDER_CONFIG"),
         "adsblol_uuid": StringSetting,
         "ultrafeeder_uuid": ft.partial(
             StringSetting, env_variable_name="ULTRAFEEDER_UUID"),
@@ -1394,9 +1486,18 @@ class Config(CompoundSetting):
         del config_dict["tailscale_extras"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_3_to_4(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is generated now.
+        del config_dict["ultrafeeder_config"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
-                         (2, 3): _upgrade_config_dict_from_2_to_3}
+                         (2, 3): _upgrade_config_dict_from_2_to_3,
+                         (3, 4): _upgrade_config_dict_from_3_to_4}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
@@ -1416,16 +1517,14 @@ def ensure_config_exists() -> Config:
         logger.info("Config file doesn't exist, creating a default one.")
         conf = Config.create_default()
         conf.write_to_file()
-    conf.write_env_file()
     return conf
 
 
-def _get(key_path: str, default: Any):
-    print(Config.load_from_file().get(key_path, default=default))
+def _get(conf: Config, key_path: str, default: Any):
+    print(conf.get(key_path, default=default))
 
 
-def _set(key_path: str, value: Any) -> None:
-    conf = Config.load_from_file()
+def _set(conf: Config, key_path: str, value: Any) -> None:
     setting = conf.get_setting(key_path)
     if isinstance(setting, BoolSetting):
         if value not in ["True", "False"]:
@@ -1439,6 +1538,7 @@ def _set(key_path: str, value: Any) -> None:
 
 
 def _main():
+    import aggregators
     parser = argparse.ArgumentParser(description="Access the config file.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("ensure_config_exists")
@@ -1449,12 +1549,22 @@ def _main():
     set_parser.add_argument("key_path")
     set_parser.add_argument("value")
     args = parser.parse_args()
+    with system.System() as sys_:
+        conf = ensure_config_exists()
+        # Init the aggregators, which are needed for the generated Ultrafeeder
+        # config setting.
+        aggregators.init_aggregators(conf, sys_)
+        _run_command(conf, args)
+
+
+def _run_command(conf: Config, args):
     if args.command == "ensure_config_exists":
-        ensure_config_exists()
+        # The config must already exist, just write the env file.
+        conf.write_env_file()
     elif args.command == "get":
-        _get(args.key_path, args.default)
+        _get(conf, args.key_path, args.default)
     elif args.command == "set":
-        _set(args.key_path, args.value)
+        _set(conf, args.key_path, args.value)
     else:
         logger.error(f"Unknown command {args.command}.")
         sys.exit(1)
