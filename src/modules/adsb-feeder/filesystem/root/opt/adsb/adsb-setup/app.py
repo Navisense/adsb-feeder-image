@@ -1492,25 +1492,26 @@ class AdsbIm:
         """
         self._logger.debug(
             f"Updating with input from {request.headers.get('referer')}.")
-        seen_go = False
-        next_url = None
+        # By default, redirect to the same page again. We can override this
+        # below.
+        next_url = request.url
         for key, value in request.form.items():
             self._logger.debug(
                 f"Update: handling {key} -> {value if value else '\"\"'}")
-            # this seems like cheating... let's capture all of the submit buttons
-            if value == "go":
-                seen_go = True
             # The following are keys of submit buttons, so we don't need to
             # check the value.
             if key == "sdrplay_license_accept":
                 self._logger.debug("sdrplay license accepted.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("sdrplay_license_accepted", True)
             elif key == "sdrplay_license_reject":
                 self._logger.debug("sdrplay license rejected.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("sdrplay_license_accepted", False)
             elif key == "aggregators":
                 self._logger.debug(
                     "User has chosen aggregators on the aggregators page.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("aggregators_chosen", True)
                 # Set aggregator_choice to individual so even users that have
                 # set "all" before can still deselect individual aggregators.
@@ -1519,29 +1520,36 @@ class AdsbIm:
                 self._logger.debug(
                     "User has chosen SDRs, unlocking SDR setup so the changes "
                     "can take effect.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("sdrs_locked", False)
             elif key == "no_config_link":
                 self._logger.debug("Disabled the tar1090 config link.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("tar1090_image_config_link", "")
             elif key == "allow_config_link":
                 self._logger.debug("Enabled the tar1090 config link.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set(
                     "tar1090_image_config_link",
                     "WILL_BE_SET_IN_IMPLIED_SETTINGS")
             elif key == "turn_on_gpsd":
                 self._logger.debug("Enabled gpsd.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("use_gpsd", True)
                 # Updates lat/lon/alt, in case there is a GPS fix.
                 self.get_lat_lon_alt()
             elif key == "turn_off_gpsd":
                 self._logger.debug("Disabled gpsd.")
+                needs_docker_restart, next_url = True, None
                 self._conf.set("use_gpsd", False)
             elif key == "enable_parallel_docker":
-                self.set_docker_concurrent(True)
                 self._logger.debug("Enabled parallel docker.")
+                needs_docker_restart, next_url = True, None
+                self.set_docker_concurrent(True)
             elif key == "disable_parallel_docker":
-                self.set_docker_concurrent(False)
                 self._logger.debug("Disabled parallel docker.")
+                needs_docker_restart, next_url = True, None
+                self.set_docker_concurrent(False)
             elif key == "os_update":
                 self._logger.debug("OS update requested.")
                 self._system._restart.bg_run(func=self._system.os_update)
@@ -1647,31 +1655,23 @@ class AdsbIm:
                         self._conf.set(other_purpose, "")
                 self._conf.set(key_path, value)
 
-        # done handling the input data
-        # what implied settings do we have (and could we simplify them?)
-
+        # Done handling form data. See if the new config implies any other
+        # settings.
         self.handle_implied_settings()
 
         # write all this out to the .env file so that a docker-compose run will find it
         self._conf.write_env_file()
 
-        if needs_docker_restart or seen_go:
-            # Restart (i.e. up) the compose files if we're changing the page
-            # via a "go" type submit button, or we've been explicitly told that
-            # it's needed.
+        if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
 
-        # if the button simply updated some field, stay on the same page
-        if not seen_go:
-            return redirect(request.url)
-
-        # where do we go from here?
-        if next_url:  # we figured it out above
+        if next_url:
             return redirect(next_url)
         if self._conf.get("base_config"):
             self._logger.debug("Base config is complete.")
-            if self._conf.get("sdrplay") and not self._conf.get("sdrplay_license_accepted"):
+            if (self._conf.get("sdrplay")
+                    and not self._conf.get("sdrplay_license_accepted")):
                 return redirect(url_for("sdrplay_license"))
             return render_template("/restarting.html")
         self._logger.debug("Base config not complete.")

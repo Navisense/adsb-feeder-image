@@ -9,8 +9,7 @@
         onsubmit="show_spinner(); return true;">
     <button type="submit"
             class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
-            name="aggregators"
-            value="go">apply settings - take me to the website</button>
+            name="aggregators">apply settings - take me to the website</button>
     <div class="accordion">
       <div class="accordion-item">
         <h2 class="accordion-header" id="aggregators-heading-ais">
@@ -312,8 +311,7 @@
                          value="{{ get_conf('aggregators.flightradar.uat_key', default='') }}" />
                   <button type="submit"
                           class="btn btn-primary mt-1"
-                          name="flightradar-request-key"
-                          value="stay">Request key</button>
+                          name="flightradar-request-key">Request key</button>
                 </div>
               </label>
             </div>
@@ -372,8 +370,7 @@
                          value="{{ get_conf('aggregators.flightaware.key', default='') }}" />
                   <button type="submit"
                           class="btn btn-primary mt-1"
-                          name="flightaware-request-key"
-                          value="stay">
+                          name="flightaware-request-key">
                     Request
                     key
                   </button>
@@ -405,8 +402,7 @@
                          value="{{ get_conf('aggregators.radarbox.key', default='') }}">
                   <button type="submit"
                           class="btn btn-primary mt-1"
-                          name="radarbox-request-key"
-                          value="stay">Request key</button>
+                          name="radarbox-request-key">Request key</button>
                 </div>
               </label>
             </div>
@@ -486,10 +482,7 @@
                          class="form-control w-75"
                          placeholder="OpenSky serial number"
                          value="{{ get_conf('aggregators.opensky.key', default='') }}" />
-                  <button type="submit"
-                          class="btn btn-primary mt-1"
-                          name="opensky-request-key"
-                          value="stay">Request key</button>
+                  <button type="submit" class="btn btn-primary mt-1" name="opensky-request-key">Request key</button>
                 </div>
               </label>
             </div>
@@ -577,8 +570,7 @@
     </div>
     <button type="submit"
             class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
-            name="aggregators"
-            value="go">apply settings - take me to the website</button>
+            name="aggregators">apply settings - take me to the website</button>
   </form>
   <script>
     function showOrHide(b, f) {
