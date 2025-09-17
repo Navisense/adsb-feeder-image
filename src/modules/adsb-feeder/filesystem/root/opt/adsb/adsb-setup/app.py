@@ -1498,69 +1498,92 @@ class AdsbIm:
             self._logger.debug(
                 f"Update: handling {key} -> {value if value else '\"\"'}")
             # this seems like cheating... let's capture all of the submit buttons
-            if value == "go" or value.startswith("go-"):
+            if value == "go":
                 seen_go = True
-            if value == "go" or value.startswith("go-") or value == "wait":
-                if key == "sdrplay_license_accept":
-                    self._conf.set("sdrplay_license_accepted", True)
-                if key == "sdrplay_license_reject":
-                    self._conf.set("sdrplay_license_accepted", False)
-                if key == "aggregators":
-                    # user has clicked Submit on Aggregator page
-                    self._conf.set("aggregators_chosen", True)
-                    # set this to individual so if people have set "all" before can still deselect individual aggregators
-                    self._conf.set("aggregator_choice", "individual")
-
-                if key == "sdr_setup" and value == "go":
-                    self._conf.set("sdrs_locked", False)
-                if key == "no_config_link":
-                    self._conf.set("tar1090_image_config_link", "")
-                if key == "allow_config_link":
-                    self._conf.set(
-                        "tar1090_image_config_link",
-                        "WILL_BE_SET_IN_IMPLIED_SETTINGS")
-                if key == "turn_on_gpsd":
-                    self._conf.set("use_gpsd", True)
-                    # this updates the lat/lon/alt env variables as side effect, if there is a GPS fix
-                    self.get_lat_lon_alt()
-                if key == "turn_off_gpsd":
-                    self._conf.set("use_gpsd", False)
-                if key in ["enable_parallel_docker", "disable_parallel_docker"]:
-                    self.set_docker_concurrent(key == "enable_parallel_docker")
-                if key == "os_update":
-                    self._system._restart.bg_run(func=self._system.os_update)
-                    self._next_url_from_director = request.url
-                    return render_template("/restarting.html")
-            # now handle other form input
+            # The following are keys of submit buttons, so we don't need to
+            # check the value.
+            if key == "sdrplay_license_accept":
+                self._logger.debug("sdrplay license accepted.")
+                self._conf.set("sdrplay_license_accepted", True)
+            elif key == "sdrplay_license_reject":
+                self._logger.debug("sdrplay license rejected.")
+                self._conf.set("sdrplay_license_accepted", False)
+            elif key == "aggregators":
+                self._logger.debug(
+                    "User has chosen aggregators on the aggregators page.")
+                self._conf.set("aggregators_chosen", True)
+                # Set aggregator_choice to individual so even users that have
+                # set "all" before can still deselect individual aggregators.
+                self._conf.set("aggregator_choice", "individual")
+            elif key == "sdr_setup":
+                self._logger.debug(
+                    "User has chosen SDRs, unlocking SDR setup so the changes "
+                    "can take effect.")
+                self._conf.set("sdrs_locked", False)
+            elif key == "no_config_link":
+                self._logger.debug("Disabled the tar1090 config link.")
+                self._conf.set("tar1090_image_config_link", "")
+            elif key == "allow_config_link":
+                self._logger.debug("Enabled the tar1090 config link.")
+                self._conf.set(
+                    "tar1090_image_config_link",
+                    "WILL_BE_SET_IN_IMPLIED_SETTINGS")
+            elif key == "turn_on_gpsd":
+                self._logger.debug("Enabled gpsd.")
+                self._conf.set("use_gpsd", True)
+                # Updates lat/lon/alt, in case there is a GPS fix.
+                self.get_lat_lon_alt()
+            elif key == "turn_off_gpsd":
+                self._logger.debug("Disabled gpsd.")
+                self._conf.set("use_gpsd", False)
+            elif key == "enable_parallel_docker":
+                self.set_docker_concurrent(True)
+                self._logger.debug("Enabled parallel docker.")
+            elif key == "disable_parallel_docker":
+                self.set_docker_concurrent(False)
+                self._logger.debug("Disabled parallel docker.")
+            elif key == "os_update":
+                self._logger.debug("OS update requested.")
+                self._system._restart.bg_run(func=self._system.os_update)
+                self._next_url_from_director = request.url
+                return render_template("/restarting.html")
+            # That's submit buttons done. Next are checkboxes where we check
+            # key and value. A lot of them just cause a one-time effect, where
+            # you check the box, submit the form, and something happens once.
+            # Pretty weird.
             if key == "clear_range" and util.checkbox_checked(value):
+                self._logger.debug("Clear range requested.")
                 self.clear_range_outline()
-                continue
-            if key == "resetgain" and util.checkbox_checked(value):
-                # tell the ultrafeeder container to restart the autogain processing
-                cmdline = "docker exec ultrafeeder /usr/local/bin/autogain1090 reset"
+            elif key == "resetgain" and util.checkbox_checked(value):
+                self._logger.debug("Gain reset requested.")
                 try:
-                    subprocess.run(cmdline, timeout=5.0, shell=True)
+                    util.shell_with_combined_output(
+                        "docker exec ultrafeeder /usr/local/bin/autogain1090 reset",
+                        timeout=5, check=True)
                 except:
                     self._logger.exception(
-                        "Error running Ultrafeeder autogain reset",
+                        "Error running Ultrafeeder autogain reset.",
                         flash_message=True)
-                continue
-            if key == "resetuatgain" and util.checkbox_checked(value):
-                # tell the dump978 container to restart the autogain processing
-                cmdline = "docker exec dump978 /usr/local/bin/autogain978 reset"
+            elif key == "resetuatgain" and util.checkbox_checked(value):
+                self._logger.debug("UAT gain reset requested.")
                 try:
-                    subprocess.run(cmdline, timeout=5.0, shell=True)
+                    util.shell_with_combined_output(
+                        "docker exec dump978 /usr/local/bin/autogain978 reset",
+                        timeout=5, check=True)
                 except:
                     self._logger.exception(
-                        "Error running UAT autogain reset", flash_message=True)
-                continue
-            if key == "enable-prometheus-metrics":
+                        "Error running UAT autogain reset.",
+                        flash_message=True)
+            elif key == "enable-prometheus-metrics":
+                self._logger.debug(
+                    "Prometheus metrics requested as "
+                    f"{util.checkbox_checked(value)}.")
                 self._ensure_prometheus_metrics_state(
                     util.checkbox_checked(value))
-                continue
+            # Next up are text fields.
             if key == "tz":
+                self._logger.debug(f"Time zone changed to {value}.")
                 self.set_tz(value)
-                continue
             # Form data can directly set config variables if the key has the
             # format set_config--<data_type>--<key_path>, where data_type is
             # one of str, bool, or float, and key_path is the one in the
@@ -2019,7 +2042,7 @@ class AdsbIm:
 
     @flask_util.check_restart_lock
     def setup(self):
-        if request.method == "POST" and request.form.get("submit") == "go":
+        if request.method == "POST":
             return self.update()
         # make sure DNS works
         self.update_dns_state()
