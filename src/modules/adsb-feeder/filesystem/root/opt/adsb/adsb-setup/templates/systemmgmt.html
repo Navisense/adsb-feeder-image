@@ -4,10 +4,10 @@
   System Management
 {% endblock title %}
 {% block content %}
-  <div class="row">
+  <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
     {% if get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
+      <div class="col">
+        <div class="card h-100">
           <div class="card-body">
             <h5 class="card-title m-1">The feeder system is secured</h5>
             If you're looking for missing options, this is likely the reason. To unlock the system and re-enable all
@@ -17,8 +17,8 @@
         </div>
       </div>
     {% else %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
+      <div class="col">
+        <div class="card h-100">
           <div class="card-body">
             <h5 class="card-title m-1">Secure feeder system</h5>
             <form method="post"
@@ -46,157 +46,8 @@
         </div>
       </div>
     {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
-          <div class="card-body">
-            <h5 class="card-title m-1">Install SSH credentials</h5>
-            <form method="post"
-                  action="{{ url_for('set-ssh-credentials') }}"
-                  onsubmit="show_spinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <label for="ssh-public-key" class="m-1">
-                    Enter or paste your public key below. This will allow you to then log in as root on the feeder SBC.
-                  </label>
-                </div>
-                <div class="col-12 col-md-8">
-                  <input class="m-1 w-100"
-                         id="ssh-public-key"
-                         name="ssh-public-key"
-                         type="text"
-                         placeholder="Enter your public key"
-                         required>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
-          <div class="card-body">
-            <h5 class="card-title m-1">Create new random root password</h5>
-            <form method="post"
-                  action="{{ url_for('create-root-password') }}"
-                  onsubmit="show_spinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <label for="root_password" class="m-1">
-                    If you need to be able to log into the image as root user (and really, you almost never should need
-                    to), click on 'Show New Random Password' below, copy the random password shown, and then click
-                    'Accept'.
-                    <br>
-                    After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
-                    macOS or Linux).
-                  </label>
-                </div>
-                <div class="row fw-light collapse align-right" id="show-root-password">
-                  <div class="col-12 col-sm-9">
-                    <pre class="align-middle m-1"><code class="text-light bg-danger">{{ rpw }}</code></pre>
-                  </div>
-                  <div class="col-12 col-sm-3">
-                    <button type="submit" class="align-middle btn btn-primary m-1">Accept</button>
-                  </div>
-                </div>
-              </div>
-              <button class="btn btn-secondary btn-rounded"
-                      type="button"
-                      data-mdb-toggle="collapse"
-                      data-mdb-target="#show-root-password"
-                      aria-expanded="false"
-                      aria-controls="show-root-password">Show New Random Password</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
-          <div class="card-body">
-            <h5 class="card-title m-1">Shutdown</h5>
-            <form method="post"
-                  action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="show_spinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12 col-md-8">
-                  <label for="shutdown" class="m-1">
-                    Shutdown the feeder. Most boards won't turn off power by themselves.
-                  </label>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100" name="shutdown">Shutdown</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
-          <div class="card-body">
-            <h5 class="card-title m-1">Reboot</h5>
-            <form method="post"
-                  action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="show_spinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12 col-md-8">
-                  <label for="reboot" class="m-1">
-                    Reboot the feeder. Please note that some boards are not able to reboot without manually power
-                    cycling.
-                  </label>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100" name="reboot">Reboot</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    <div class="col-12 col-xl-6">
-      <div class="card my-2">
-        <div class="card-body">
-          <h5 class="card-title m-1">System log persistence toggle</h5>
-          <form method="post"
-                action="{{ url_for('toggle-log-persistence') }}"
-                onsubmit="show_spinner(); return true;">
-            <div class="row align-items-center">
-              <div class="col-12 col-md-8">
-                <div class="row align-items-center">
-                  <label for="log_persistence_toggle" class="m-1">
-                    Currently the log is
-                    {% if not persistent_journal %}not{% endif %}
-                    written to disk.
-                  </label>
-                </div>
-              </div>
-              <div class="col-12 col-md-4">
-                <button type="submit" class="btn btn-primary m-1 w-100">
-                  {% if persistent_journal %}
-                    Disable
-                  {% else %}
-                    Enable
-                  {% endif %}
-                  persistent logging
-                </button>
-              </div>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-    <div class="col-12 col-xl-6">
-      <div class="card my-2">
+    <div class="col">
+      <div class="card h-100">
         <div class="card-body">
           <h5 class="card-title m-1">Update feeder application</h5>
           <form method="post"
@@ -239,8 +90,78 @@
         </div>
       </div>
     </div>
-    <div class="col-12 col-xl-6">
-      <div class="card my-2">
+    {% if not get_conf('secure_image') %}
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title m-1">Install SSH credentials</h5>
+            <form method="post"
+                  action="{{ url_for('set-ssh-credentials') }}"
+                  onsubmit="show_spinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <label for="ssh-public-key" class="m-1">
+                    Enter or paste your public key below. This will allow you to then log in as root on the feeder SBC.
+                  </label>
+                </div>
+                <div class="col-12 col-md-8">
+                  <input class="m-1 w-100"
+                         id="ssh-public-key"
+                         name="ssh-public-key"
+                         type="text"
+                         placeholder="Enter your public key"
+                         required>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    {% if not get_conf('secure_image') %}
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title m-1">Create new random root password</h5>
+            <form method="post"
+                  action="{{ url_for('create-root-password') }}"
+                  onsubmit="show_spinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <label for="root_password" class="m-1">
+                    If you need to be able to log into the image as root user (and really, you almost never should need
+                    to), click on 'Show New Random Password' below, copy the random password shown, and then click
+                    'Accept'.
+                    <br>
+                    After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
+                    macOS or Linux).
+                  </label>
+                </div>
+                <div class="row fw-light collapse align-right" id="show-root-password">
+                  <div class="col-12 col-sm-9">
+                    <pre class="align-middle m-1"><code class="text-light bg-danger">{{ rpw }}</code></pre>
+                  </div>
+                  <div class="col-12 col-sm-3">
+                    <button type="submit" class="align-middle btn btn-primary m-1">Accept</button>
+                  </div>
+                </div>
+              </div>
+              <button class="btn btn-secondary btn-rounded"
+                      type="button"
+                      data-mdb-toggle="collapse"
+                      data-mdb-target="#show-root-password"
+                      aria-expanded="false"
+                      aria-controls="show-root-password">Show New Random Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <div class="col">
+      <div class="card h-100">
         <div class="card-body">
           <h5 class="card-title m-1">Restart / recreate containers</h5>
           <form method="post"
@@ -281,70 +202,8 @@
       </div>
     </div>
     {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
-          <div class="card-body">
-            <h5 class="card-title m-1">Configure Zerotier VPN</h5>
-            <form method="post"
-                  action="{{ url_for('configure-zerotier') }}"
-                  onsubmit="show_spinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <label for="zerotierid" class="m-1">
-                    Zerotier support allows to connect your ADS-B Feeder to your own global area network.
-                    {% if not zerotier_running %}
-                      Please add your Zerotier Network ID below.
-                      <br>
-                      Once this process has completed, you need to accept the new device into the network on the
-                      Zerotier website.
-                    {% else %}
-                      <br>
-                      This device should now be on your Zerotier network.
-                    {% endif %}
-                  </label>
-                </div>
-                <div class="col-12 col-md-8">
-                  <div class="row">
-                    <div class="col-12">
-                      <div class="m-1">
-                        <input id="zerotier-enabled"
-                               class="form-check-input"
-                               name="enabled"
-                               type="checkbox"
-                               {% if zerotier_running -%}checked{%- endif %}>
-                        <label for="zerotier-enabled" class="form-check-label">Enable</label>
-                      </div>
-                      <div class="col-12">
-                        {% if not zerotier_running %}
-                          <input class="m-1 w-100"
-                                 id="zerotierid"
-                                 name="zerotierid"
-                                 type="text"
-                                 value="{{ get_conf('zerotierid', default='') }}"
-                                 placeholder="Enter your Zerotier Network ID"
-                                 required>
-                        {% else %}
-                          <div class="alert alert-danger m-1">
-                            Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the
-                            Zerotier network to connect to it.
-                          </div>
-                        {% endif %}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
+      <div class="col">
+        <div class="card h-100">
           <div class="card-body">
             <h5 class="card-title m-1">Configure Tailscale VPN</h5>
             {% if tailscale_info.status in ["not_installed", "error"] %}
@@ -419,8 +278,70 @@
       </div>
     {% endif %}
     {% if not get_conf('secure_image') %}
-      <div class="col-12 col-xl-6">
-        <div class="card my-2">
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title m-1">Configure Zerotier VPN</h5>
+            <form method="post"
+                  action="{{ url_for('configure-zerotier') }}"
+                  onsubmit="show_spinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <label for="zerotierid" class="m-1">
+                    Zerotier support allows to connect your ADS-B Feeder to your own global area network.
+                    {% if not zerotier_running %}
+                      Please add your Zerotier Network ID below.
+                      <br>
+                      Once this process has completed, you need to accept the new device into the network on the
+                      Zerotier website.
+                    {% else %}
+                      <br>
+                      This device should now be on your Zerotier network.
+                    {% endif %}
+                  </label>
+                </div>
+                <div class="col-12 col-md-8">
+                  <div class="row">
+                    <div class="col-12">
+                      <div class="m-1">
+                        <input id="zerotier-enabled"
+                               class="form-check-input"
+                               name="enabled"
+                               type="checkbox"
+                               {% if zerotier_running -%}checked{%- endif %}>
+                        <label for="zerotier-enabled" class="form-check-label">Enable</label>
+                      </div>
+                      <div class="col-12">
+                        {% if not zerotier_running %}
+                          <input class="m-1 w-100"
+                                 id="zerotierid"
+                                 name="zerotierid"
+                                 type="text"
+                                 value="{{ get_conf('zerotierid', default='') }}"
+                                 placeholder="Enter your Zerotier Network ID"
+                                 required>
+                        {% else %}
+                          <div class="alert alert-danger m-1">
+                            Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the
+                            Zerotier network to connect to it.
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    {% if not get_conf('secure_image') %}
+      <div class="col">
+        <div class="card h-100">
           <div class="card-body">
             <h5 class="card-title m-1">
               {% if wifi != "" %}
@@ -470,6 +391,85 @@
                 </div>
                 <div class="col-12 col-lg-4">
                   <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">System log persistence toggle</h5>
+          <form method="post"
+                action="{{ url_for('toggle-log-persistence') }}"
+                onsubmit="show_spinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <div class="row align-items-center">
+                  <label for="log_persistence_toggle" class="m-1">
+                    Currently the log is
+                    {% if not persistent_journal %}not{% endif %}
+                    written to disk.
+                  </label>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">
+                  {% if persistent_journal %}
+                    Disable
+                  {% else %}
+                    Enable
+                  {% endif %}
+                  persistent logging
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% if not get_conf('secure_image') %}
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title m-1">Reboot</h5>
+            <form method="post"
+                  action="{{ url_for('shutdown-reboot') }}"
+                  onsubmit="show_spinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12 col-md-8">
+                  <label for="reboot" class="m-1">
+                    Reboot the feeder. Please note that some boards are not able to reboot without manually power
+                    cycling.
+                  </label>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100" name="reboot">Reboot</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+    {% if not get_conf('secure_image') %}
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title m-1">Shutdown</h5>
+            <form method="post"
+                  action="{{ url_for('shutdown-reboot') }}"
+                  onsubmit="show_spinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12 col-md-8">
+                  <label for="shutdown" class="m-1">
+                    Shutdown the feeder. Most boards won't turn off power by themselves.
+                  </label>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100" name="shutdown">Shutdown</button>
                 </div>
               </div>
             </form>
