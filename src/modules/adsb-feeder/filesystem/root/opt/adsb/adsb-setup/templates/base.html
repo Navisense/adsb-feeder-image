@@ -36,10 +36,10 @@
     <link rel="stylesheet"
           href="{{ url_for('static', filename='css/style.css') }}" />
     <title>
-      {{ get_conf("site_name") }}{%- if get_conf('site_name') -%}:
-    {% endif %}
-    {% block title required -%}
-    {%- endblock title %}</title>
+      {% if get_conf('site_name') %}{{ get_conf("site_name") }}:{% endif %}
+      {% block title required %}
+      {% endblock title %}
+    </title>
     <nav class="navbar fixed-top navbar-expand-md">
       <div class="container-fluid">
         <a class="navbar-brand ms-0 me-1 me-sm-3"
