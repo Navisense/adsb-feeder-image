@@ -2046,7 +2046,7 @@ class AdsbIm:
             return self.update()
         # make sure DNS works
         self.update_dns_state()
-        return render_template("setup.html", mem=self._memtotal)
+        return render_template("setup.html")
 
     def temperatures(self):
         temperature_json = {}

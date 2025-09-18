@@ -1,201 +1,283 @@
 {% extends "base-regular.html" %}
 {% set active_page = "setup" %}
-{% block title %}Setup required parameters{% endblock title %}
+{% block title %}
+  Setup required parameters
+{% endblock title %}
 {% block content %}
-<div class="alert alert-danger" role="alert" {% if get_conf('dns_state') %} style="display: none;" {% endif %}>
-  The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
-</div>
-<p>
-  The data below should match the exact location of your antenna (for a normal feeder). You can use the
-  <a href="https://www.freemaptools.com/elevation-finder.htm" target="_blank">location and elevation finder tool</a>
-  to find your Latitude, Longitude, and Altitude based on your address.
-</p>
-<p>
-  For a <strong>Stage 2</strong> feeder that connects with already running micro feeder(s), the data here defines the
-  position you want to be the center of your combined map display. Make sure you select <strong>Stage 2 Setup</strong>
-  below.
-</p>
-<p class="row">
-  <span class="col-md">
-    If you are re-installing the ADS-B Feeder Image and have made a backup of your configuration, you can also simply
-    restore those settings
-  </span>
-  <span class="col-md">
-    <a class="btn btn-secondary" href="{{  url_for('restore') }}">restore previous backup</a>
-  </span>
-</p>
-<form method="post" onsubmit="show_spinner(); return true;" action="{{ url_for('setup') }}">
-  <div class="form-group row align-items-center mb-1">
-    <span class="col-md">
-      <label for="site_name">Station Name (shows up on public maps if enabled later)</label>
-    </span>
-    <span class="col-md">
-      <input type="text" id="site_name" name="set_config--str--site_name" required placeholder="my-awesome-antenna" class="form-control"
-             pattern="[\-_.a-zA-Z0-9 ]+" title="Letters, numbers, -, _, ."
-             value="{{ get_conf('site_name', default='') }}" />
-    </span>
-  </div>
-  <div class="form-group row align-items-center mb-1">
-    <span class="col-md">
-      <label for="lat">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
-    </span>
-    <span class="col-md">
-      <input type="text" id="lat" name="set_config--float--lat" required placeholder="Antenna latitude" class="form-control"
-             pattern="(?:\+|-|)(?:(?:[0-8]?\d)(?:\.\d+)?|90(?:\.0+)?)(,(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?))?"
-             title="Number between -90 and 90" value="{{ get_conf('lat', default='') }}" />
-    </span>
-  </div>
-  <div class="form-group row align-items-center mb-1">
-    <span class="col-md">
-      <label for="lon">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
-    </span>
-    <span class="col-md">
-      <input type="text" id="lon" name="set_config--float--lon" required placeholder="Antenna longitude" class="form-control"
-             pattern="(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?)" title="Number between -180 and 180"
-             value="{{ get_conf('lon', default='') }}" />
-    </span>
-  </div>
-  <div class="form-group row align-items-center mb-1">
-    <span class="col-md">
-      <label for="alt">Altitude above mean sealevel, rounded to whole meters</label>
-    </span>
-    <span class="col-md">
-      <input type="text" id="alt" name="set_config--float--alt" required placeholder="in m - or add 'ft' to enter in ft" class="form-control"
-             pattern="(?:\+|-|)\d+(?:m|ft)" value="{{ get_conf('alt', default='') }}" />
-    </span>
-  </div>
-  <div class="form-group row align-items-center mb-1">
-    <span class="col-md">
-      <label for="tz">Timezone</label>
-      <button class="pb-1 btn btn-secondary"
-              onclick="updateTimezone(); return false; // return false inhibits the form to be submitted">update
-        timezone</button>
-    </span>
-    <span class="col-md">
-      <input type="text" name="tz" id="tz" required
-             placeholder="populate from the browser timezone by clicking the 'update timezone' button"
-             class="form-control mt-2" value="{{ get_conf('tz', default='') }}" />
-    </span>
-  </div>
-  <div class="form-check-prepend row align-items-center mb-1">
-    <span class="col-md">
-      <label for="enable-prometheus-metrics" class="form-check-label">Send metrics to Porttracker</label>
-    </span>
-    <span class="col-md">
-      <input type="checkbox" id="enable-prometheus-metrics" name="enable-prometheus-metrics"
-             class="form-check-input mt-2 pull-right" {%- if get_conf("prometheus.is_enabled") -%}checked{%- endif -%}/>
-    </span>
-  </div>
-  <div class="form-group mt-3">
-    <label>
-      Which
-      <a href="#"
-         title="aggregators that don't require you to create an account or provide an email address">account-less
-      </a>
-      aggregators do you want to feed? There is a separate data sharing page for aggregators that require an account.
-    </label>
-    <br />
-    <div>
-      <input type="radio" name="set_config--str--aggregator_choice" id="all" value="all" required {% if get_conf("aggregator_choice")=="all"
-      %} checked {% endif %}>
-      <label class="form-check-label mr-3" for="all">All</label>
-      <input type="radio" name="set_config--str--aggregator_choice" id="privacy" value="privacy" {% if
-      get_conf("aggregator_choice")=="privacy" %} checked {% endif %}>
-      <label class="form-check-label mr-3" for="privacy">Aggregators with privacy policy</label>
-      <input type="radio" name="set_config--str--aggregator_choice" id="individual" value="individual" {% if
-      get_conf("aggregator_choice")=="individual" %} checked {% endif %}>
-      <label class="form-check-label" for="individual">Pick individually</label>
-    </div>
-    <br>
-    <div id="explain-all" style="display: {% if get_conf('aggregator_choice')=='all' %} block {% else %} none {%
-            endif %}; font-size: normal;">
-      With this option you will feed data to
-      <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
-      <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
-      <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
-      <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
-      <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>,
-      <a href="https://adsb.fi/privacy">adsb.fi</a>,
-      <a href="https://skydata.hpradar.com/">hpradar</a>,
-      <a href="https://airplanes.live/privacy">airplanes.live</a>,
-      <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
-    </div>
-    <div id="explain-privacy" style="display: {% if get_conf('aggregator_choice')=='privacy' %} block {% else %}
-            none {% endif %}; font-size: normal;">
-      With this option you will feed data to
-      <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
-      <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
-      <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
-      <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
-      <a href="https://adsb.fi/privacy">adsb.fi</a>
-      <a href="https://airplanes.live/privacy">airplanes.live</a>,
-      <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
-    </div>
-    <div id="explain-individual" style="display: {% if get_conf('aggregator_choice')=='individual' %} block {% else %}
-                none {% endif %}; font-size: normal;">
-      With this option you can make detailed selections on the Aggregator page.
+  <div class="m-1 {%- if get_conf('dns_state') %} d-none {%- endif -%}">
+    <div class="alert alert-danger" role="alert">
+      The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
     </div>
   </div>
-  <br>
-  <div class="form-group">
-    <button type="submit" name="submit" class="btn btn-primary">Submit</button>
+  <p class="m-1">
+    The data below should match the exact location of your antenna. You can use the
+    <a href="https://www.freemaptools.com/elevation-finder.htm"
+       target="_blank">location and elevation finder tool</a> to find your Latitude, Longitude, and Altitude based
+    on your address.
+  </p>
+  <div class="row">
+    <div class="col-12 col-lg-6">
+      <p class="m-1">
+        If you are re-installing the Porttracker feeder and have made a backup of your configuration, you can also
+        simply restore those settings.
+      </p>
+    </div>
+    <div class="col-12 col-lg-6">
+      <a class="btn btn-secondary" href="{{ url_for('restore') }}">restore previous backup</a>
+    </div>
   </div>
-  <p>{{ message }}</p>
-</form>
-<script>
-  $("#lat").on("blur", function () {
-    let lat_value = $("#lat").val();
-    let values = lat_value.split(",");
-    if (values.length > 1) {
-      $("#lat").val(values[0]);
-      $("#lon").val(values[1]);
+  <form method="post"
+        onsubmit="show_spinner(); return true;"
+        action="{{ url_for('setup') }}">
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="station-name" class="m-1">Station Name (shows up on public maps if enabled later)</label>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="text"
+                 id="station-name"
+                 name="set_config--str--site_name"
+                 required
+                 placeholder="my-awesome-antenna"
+                 class="form-control m-1"
+                 pattern="[\-_.a-zA-Z0-9 ]+"
+                 title="Letters, numbers, -, _, ."
+                 value="{{ get_conf('site_name', default='') }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="lat" class="m-1">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="text"
+                 id="lat"
+                 name="set_config--float--lat"
+                 required
+                 placeholder="Antenna latitude"
+                 class="form-control m-1"
+                 pattern="(?:\+|-|)(?:(?:[0-8]?\d)(?:\.\d+)?|90(?:\.0+)?)(,(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?))?"
+                 title="Number between -90 and 90"
+                 value="{{ get_conf('lat', default='') }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="lon" class="m-1">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="text"
+                 id="lon"
+                 name="set_config--float--lon"
+                 required
+                 placeholder="Antenna longitude"
+                 class="form-control m-1"
+                 pattern="(?:\+|-|)(:?(:?\d?\d|1[0-7]\d)(?:\.\d+)?|180(?:\.0+)?)"
+                 title="Number between -180 and 180"
+                 value="{{ get_conf('lon', default='') }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="alt" class="m-1">Altitude above mean sealevel, rounded to whole meters</label>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="text"
+                 id="alt"
+                 name="set_config--float--alt"
+                 required
+                 placeholder="in m - or add 'ft' to enter in ft"
+                 class="form-control m-1"
+                 pattern="(?:\+|-|)\d+(?:m|ft)"
+                 value="{{ get_conf('alt', default='') }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="tz" class="m-1">Timezone</label>
+          <button class="btn btn-secondary"
+                  onclick="useBrowserTimezone(); return false; // return false inhibits the form to be submitted">
+            update timezone
+          </button>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="text"
+                 name="tz"
+                 id="tz"
+                 required
+                 placeholder="populate from the browser timezone by clicking the 'update timezone' button"
+                 class="form-control  m-1"
+                 value="{{ get_conf('tz', default='') }}">
+        </div>
+      </div>
+    </div>
+    <div class="form-check-prepend align-items-center">
+      <div class="row">
+        <div class="col-12 col-lg-6">
+          <label for="enable-prometheus-metrics" class="form-check-label m-1">Send metrics to Porttracker</label>
+        </div>
+        <div class="col-12 col-lg-6">
+          <input type="checkbox"
+                 id="enable-prometheus-metrics"
+                 name="enable-prometheus-metrics"
+                 class="form-check-input pull-right m-1"
+                 {%- if get_conf("prometheus.is_enabled") -%}
+                 checked
+                 {%- endif -%}>
+        </div>
+      </div>
+    </div>
+    <div class="form-group align-items-center">
+      <div class="row">
+        <div class="col-12">
+          <p class="m-1">
+            Which
+            <a href="#"
+               data-mdb-tooltip-init
+               title="aggregators that don't require you to create an account or provide an email address">
+              account-less
+            </a>
+            aggregators do you want to feed? There is a <a href="{{ url_for('aggregators') }}">separate data sharing
+            page</a> for aggregators that require an account.
+          </p>
+        </div>
+        <div class="col-12">
+          <div class="m-1">
+            <input type="radio"
+                   name="set_config--str--aggregator_choice"
+                   id="aggregator-choice-all"
+                   value="all"
+                   required
+                   {%- if get_conf("aggregator_choice") == "all" -%}
+                   checked
+                   {%- endif -%}>
+            <label class="form-check-label" for="aggregator-choice-all">All</label>
+            <input type="radio"
+                   name="set_config--str--aggregator_choice"
+                   id="aggregator-choice-privacy"
+                   value="privacy"
+                   {%- if get_conf("aggregator_choice") == "privacy" -%}
+                   checked
+                   {%- endif -%}>
+            <label class="form-check-label" for="aggregator-choice-privacy">Aggregators with privacy policy</label>
+            <input type="radio"
+                   name="set_config--str--aggregator_choice"
+                   id="aggregator-choice-individual"
+                   value="individual"
+                   {%- if get_conf("aggregator_choice") == "individual" -%}
+                   checked
+                   {%- endif -%}>
+            <label class="form-check-label" for="aggregator-choice-individual">Pick individually</label>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="m-1">
+            <p id="explain-all"
+               {%- if get_conf('aggregator_choice') != 'all' -%}
+               class="d-none"
+               {%- endif -%}>
+              With this option you will feed data to
+              <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
+              <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
+              <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
+              <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
+              <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>,
+              <a href="https://adsb.fi/privacy">adsb.fi</a>,
+              <a href="https://skydata.hpradar.com/">hpradar</a>,
+              <a href="https://airplanes.live/privacy">airplanes.live</a>,
+              <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
+            </p>
+            <p id="explain-privacy"
+               {%- if get_conf('aggregator_choice') != 'privacy' -%}
+               class="d-none"
+               {%- endif -%}>
+              With this option you will feed data to
+              <a href="https://adsb.lol/privacy-license/">adsb.lol</a>,
+              <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>,
+              <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>,
+              <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>,
+              <a href="https://adsb.fi/privacy">adsb.fi</a>
+              <a href="https://airplanes.live/privacy">airplanes.live</a>,
+              <a href="https://www.adsbexchange.com/privacy-policy/">ADSBExchange</a>
+            </p>
+            <p id="explain-individual"
+               {%- if get_conf('aggregator_choice') != 'individual' -%}
+               class="d-none"
+               {%- endif -%}>With this option you can make detailed selections on the Aggregator page.</p>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="m-1">
+          <div class="form-group">
+            <button type="submit" name="submit" class="btn btn-primary">Submit</button>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+  <script>
+    function fixAlt() {
+      let altValue = $("#alt").val();
+      let factor = 1.0;
+      if (altValue.toLowerCase().includes("ft")) factor = 0.3048;
+      let fixedAlt = Math.round(parseFloat(altValue) * factor);
+      if (fixedAlt.toString() == "NaN") fixedAlt = "";
+      else fixedAlt = fixedAlt + "m";
+      $("#alt").val(fixedAlt);
     }
-  });
-  function fixAlt() {
-    let alt_value = $("#alt").val();
-    let factor = 1.0;
-    if (alt_value.toLowerCase().includes("ft")) factor = 0.3048;
-    let new_alt = Math.round(parseFloat(alt_value) * factor);
-    if (new_alt.toString() == "NaN") new_alt = ""; else new_alt = new_alt + "m";
-    $("#alt").val(new_alt);
-  }
-  fixAlt();
-  $("#alt").on("blur", fixAlt);
-  function browserTZ() {
-    let timezone = "";
-    try {
-      timezone = Intl.DateTimeFormat("en-US").resolvedOptions().timeZone;
-    } catch (error) {
-      console.error(error);
+    fixAlt();
+    $("#alt").on("blur", fixAlt);
+
+    function getBrowserTimezone() {
+      let timezone = "";
+      try {
+        timezone = Intl.DateTimeFormat("en-US").resolvedOptions().timeZone;
+      } catch (error) {
+        console.error(`Error finding the browser timezone: ${error}`);
+      }
+      return timezone;
     }
-    console.log("browser timezone: " + timezone);
-    return timezone;
-  }
-  function updateTimezone() {
-    $("#tz").val(browserTZ());
-  }
-  // set timezone field to browser tz on load if not set already
-  if (!$("#tz").val()) {
-    $("#tz").val(browserTZ());
-  }
-  const explainAll = document.getElementById("explain-all");
-  const explainPriv = document.getElementById("explain-privacy");
-  const explainInd = document.getElementById("explain-individual");
-  function aggregatorClick() {
-    explainAll.style.display = "none";
-    explainPriv.style.display = "none";
-    explainInd.style.display = "none";
-    if (document.getElementById("all").checked) {
-      explainAll.style.display = "block";
-    } else if (document.getElementById("privacy").checked) {
-      explainPriv.style.display = "block";
-    } else if (document.getElementById("individual").checked) {
-      explainInd.style.display = "block";
+
+    function useBrowserTimezone() {
+      $("#tz").val(getBrowserTimezone());
     }
-  }
-  const aggregatorBtns = document.querySelectorAll('input[name="aggregator_choice"]');
-  aggregatorBtns.forEach((radio) => {
-    radio.addEventListener("click", aggregatorClick);
-  });
-</script>
-{% endblock %}
+    // Set timezone field to browser timezone if not set already.
+    if (!$("#tz").val()) {
+      useBrowserTimezone();
+    }
+
+    // Always show only the relevant help text for aggregator selection.
+    $('input[name="set_config--str--aggregator_choice"]').on("click", function() {
+      const explainAll = $("#explain-all");
+      const explainPrivacy = $("#explain-privacy");
+      const explainIndividual = $("#explain-individual");
+      let explains = new Set([explainAll, explainPrivacy, explainIndividual]);
+      let activeExplain = null;
+      if (document.getElementById("aggregator-choice-all").checked) {
+        activeExplain = explainAll;
+      } else if (document.getElementById("aggregator-choice-privacy").checked) {
+        activeExplain = explainPrivacy;
+      } else if (document.getElementById("aggregator-choice-individual").checked) {
+        activeExplain = explainIndividual;
+      }
+      explains.forEach(function(explain) {
+        explain.removeClass("d-none d-block")
+      });
+      explains.delete(activeExplain);
+      explains.forEach(function(explain) {
+        explain.addClass("d-none")
+      });
+      activeExplain.addClass("d-block");
+    });
+  </script>
+{% endblock content %}
