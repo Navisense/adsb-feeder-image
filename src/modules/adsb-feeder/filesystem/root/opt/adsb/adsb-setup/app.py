@@ -659,11 +659,17 @@ class AdsbIm:
                 "continue.")
         self._server.server_close()
         self._server = self._server_thread = None
+        self._stop_dependencies()
 
     def _ensure_running_dependencies(self):
         self._maybe_enable_mdns()
         self._ensure_prometheus_metrics_state(
             self._conf.get("prometheus.is_enabled"))
+
+    def _stop_dependencies(self):
+        system.systemctl().run(
+            ["stop"],
+            ["adsb-avahi-alias*", "adsb-push-prometheus-metrics.timer"])
 
     def _maybe_enable_mdns(self):
         if not self._conf.get("mdns.is_enabled"):
