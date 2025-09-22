@@ -16,8 +16,8 @@ RestartSec=30
 TimeoutStartSec=10min
 TimeoutStopSec=2min
 Restart=always
-StandardOutput=append:/run/adsb-feeder-image.log
-StandardError=append:/run/adsb-feeder-image.log
+StandardOutput=append:/run/porttracker-feeder.log
+StandardError=append:/run/porttracker-feeder.log
 
 
 [Install]

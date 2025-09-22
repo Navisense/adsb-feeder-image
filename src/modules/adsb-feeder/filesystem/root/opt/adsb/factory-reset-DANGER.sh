@@ -1,14 +1,14 @@
 #!/bin/bash
 systemctl stop adsb-setup
 
-echo "FACTORY RESET" >> /run/adsb-feeder-image.log
+echo "FACTORY RESET" >> /run/porttracker-feeder.log
 
 /opt/adsb/docker-compose-adsb down
 rm -rf /etc/adsb
 rm -f /opt/adsb/init-complete
 [ "$1" = "-prune" ] && docker system prune -a -f
 
-echo "FACTORY RESET DONE" >> /run/adsb-feeder-image.log
+echo "FACTORY RESET DONE" >> /run/porttracker-feeder.log
 
 systemctl enable adsb-bootstrap.service
 systemctl stop adsb-docker

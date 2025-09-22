@@ -46,7 +46,7 @@ else
 fi
 
 NEW_VERSION=$(</opt/adsb/porttracker_feeder_install_metadata/version.txt)
-echo "$(date -u +"%FT%T.%3NZ") final housekeeping for the $ACTION $NEW_VERSION" >> /run/adsb-feeder-image.log
+echo "$(date -u +"%FT%T.%3NZ") final housekeeping for the $ACTION $NEW_VERSION" >> /run/porttracker-feeder.log
 
 # remove any left-over apps and files from previous versions
 USR_BIN_APPS=('docker-compose-start' 'docker-compose-adsb' 'docker-update-adsb-im' \

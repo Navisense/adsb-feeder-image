@@ -2190,7 +2190,7 @@ class AdsbIm:
         return render_template("waiting.html", title="ADS-B Feeder performing requested actions")
 
     def stream_log(self):
-        logfile = "/run/adsb-feeder-image.log"
+        logfile = "/run/porttracker-feeder.log"
 
         def tail():
             with open(logfile, "r") as file:

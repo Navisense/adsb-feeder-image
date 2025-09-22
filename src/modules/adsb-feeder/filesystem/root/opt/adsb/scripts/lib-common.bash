@@ -1,6 +1,6 @@
 # Common bash functions and constants.
 
-LOG_FILE="/run/adsb-feeder-image.log"
+LOG_FILE="/run/porttracker-feeder.log"
 
 # Log a message in a nice format.
 # log <logger_name> <message>...
