@@ -604,6 +604,7 @@ class AdsbIm:
         if self._server:
             raise RuntimeError("already started")
         assert self._server_thread is None
+        self._ensure_running_dependencies()
         self.update_config()
 
         # if using gpsd, try to update the location
@@ -619,7 +620,6 @@ class AdsbIm:
 
         self._dmesg_monitor.start()
         self._reception_monitor.start()
-        self._maybe_enable_mdns()
 
         self._server = werkzeug.serving.make_server(
             host="0.0.0.0", port=int(self._conf.get("ports.web")),
@@ -659,6 +659,23 @@ class AdsbIm:
                 "continue.")
         self._server.server_close()
         self._server = self._server_thread = None
+
+    def _ensure_running_dependencies(self):
+        self._maybe_enable_mdns()
+        self._ensure_prometheus_metrics_state(
+            self._conf.get("prometheus.is_enabled"))
+
+    def _maybe_enable_mdns(self):
+        if not self._conf.get("mdns.is_enabled"):
+            return
+        args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
+        mdns_domains = ["porttracker-feeder.local"]
+        if self.hostname:
+            # If we have a hostname, make the mDNS script create an alias for
+            # it as well.
+            mdns_domains.append(f"{self.hostname}.local")
+        self._conf.set("mdns.domains", mdns_domains)
+        subprocess.run(args + mdns_domains)
 
     def update_meminfo(self):
         self._memtotal = 0
@@ -701,18 +718,6 @@ class AdsbIm:
         if self.hostname:
             subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
         self._maybe_enable_mdns()
-
-    def _maybe_enable_mdns(self):
-        if not self._conf.get("mdns.is_enabled"):
-            return
-        args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
-        mdns_domains = ["porttracker-feeder.local"]
-        if self.hostname:
-            # If we have a hostname, make the mDNS script create an alias for
-            # it as well.
-            mdns_domains.append(f"{self.hostname}.local")
-        self._conf.set("mdns.domains", mdns_domains)
-        subprocess.run(args + mdns_domains)
 
     def set_tz(self, timezone):
         # timezones don't have spaces, only underscores
