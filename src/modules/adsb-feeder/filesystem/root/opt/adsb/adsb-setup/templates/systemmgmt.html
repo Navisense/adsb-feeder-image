@@ -90,6 +90,25 @@
         </div>
       </div>
     </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">System update</h5>
+          <form method="post"
+                action="{{ url_for('os-update') }}"
+                onsubmit="show_spinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8"></div>
+              <div class="col-12 col-md-4">
+                <button type="submit"
+                        class="btn btn-primary m-1 w-100"
+                        name="do-system-update-now">Do system update now</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
     {% if not get_conf('secure_image') %}
       <div class="col">
         <div class="card h-100">

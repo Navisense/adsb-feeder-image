@@ -351,7 +351,7 @@ class System:
     def os_update(self) -> None:
         util.shell_with_combined_output(
             "systemd-run --wait -u adsb-feeder-update-os "
-            "/bin/bash /opt/adsb/scripts/update-os")
+            "/bin/bash /opt/adsb/scripts/update-os.bash")
 
     def check_dns(self):
         try:

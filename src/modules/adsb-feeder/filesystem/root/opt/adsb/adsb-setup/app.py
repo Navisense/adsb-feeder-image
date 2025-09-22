@@ -491,6 +491,12 @@ class AdsbIm:
             methods=["POST"],
         )
         self.app.add_url_rule(
+            "/os-update",
+            "os-update",
+            self._decide_route_hotspot_mode(self.os_update),
+            methods=["POST"],
+        )
+        self.app.add_url_rule(
             "/restart-containers",
             "restart-containers",
             self._decide_route_hotspot_mode(self.restart_containers),
@@ -1561,11 +1567,6 @@ class AdsbIm:
                 self._logger.debug("Disabled parallel docker.")
                 needs_docker_restart, next_url = True, None
                 self.set_docker_concurrent(False)
-            elif key == "os_update":
-                self._logger.debug("OS update requested.")
-                self._system._restart.bg_run(func=self._system.os_update)
-                self._next_url_from_director = request.url
-                return render_template("/restarting.html")
             # That's submit buttons done. Next are checkboxes where we check
             # key and value. A lot of them just cause a one-time effect, where
             # you check the box, submit the form, and something happens once.
@@ -2292,6 +2293,14 @@ class AdsbIm:
         # version will then say that the restart is complete.
         self.exiting = True
         return render_template("/restarting.html")
+
+    @flask_util.check_restart_lock
+    def os_update(self):
+        if "do-system-update-now" in request.form:
+            self._logger.debug("OS update requested.")
+            self._system._restart.bg_run(func=self._system.os_update)
+            self._next_url_from_director = url_for("overview")
+            return render_template("/restarting.html")
 
     def restart_containers(self):
         containers_to_restart = []

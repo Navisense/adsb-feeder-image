@@ -21,7 +21,7 @@ currenttime=$(TZ=$(/opt/adsb/adsb-setup/config.py get tz) date '+%H:%M')
 if [[ "$currenttime" > "01:20" ]] && [[ "$currenttime" < "01:40" ]]; then
     if [ "$(/opt/adsb/adsb-setup/config.py get nightly_base_update)" = True ] ; then
         log $0 "Starting nightly OS update."
-        /opt/adsb/scripts/update-os
+        /opt/adsb/scripts/update-os.bash
         log $0 "Nightly OS update done."
     fi
     if [ "$(/opt/adsb/adsb-setup/config.py get nightly_feeder_update)" = True ] ; then
