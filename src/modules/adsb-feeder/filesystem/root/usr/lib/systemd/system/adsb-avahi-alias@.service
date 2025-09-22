@@ -1,7 +1,8 @@
 [Unit]
 Description=Add secondary mDNS entry %i as alias for %H.local
 Requires=avahi-daemon.service network-online.target
-After=avahi-daemon.service
+Requisite=adsb-setup.service
+After=avahi-daemon.service adsb-setup.service
 
 [Service]
 Type=simple
