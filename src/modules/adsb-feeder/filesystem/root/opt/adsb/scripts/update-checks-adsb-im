@@ -10,12 +10,6 @@ else
     logparent
 fi
 
-# we rotate hourly to reduce the risk of overflowing /run - but we only rotate log if longer than 2000 lines
-# at that point we copy the log to the on disk log directory
-if [[ -f /run/porttracker-feeder.log ]] && (( $(wc -l < /run/porttracker-feeder.log) > 2000 )); then
-    /opt/adsb/scripts/rotate-ramlog-to-file.bash
-fi
-
 # if this is the update check at 1:30am, do the updates if configured
 currenttime=$(TZ=$(/opt/adsb/adsb-setup/config.py get tz) date '+%H:%M')
 if [[ "$currenttime" > "01:20" ]] && [[ "$currenttime" < "01:40" ]]; then
