@@ -1,9 +1,0 @@
-# run the updates - this will be triggered by a timer
-[Unit]
-Description=ADS-B Feeder Image Update Service
-
-[Service]
-WorkingDirectory=/opt/adsb
-ExecStart=/bin/bash /opt/adsb/scripts/update-checks-adsb-im
-SyslogIdentifier=adsb-update
-

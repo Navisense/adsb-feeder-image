@@ -1,0 +1,10 @@
+[Unit]
+Description=Run OS updates every night
+Requisite=adsb-setup.service
+After=adsb-setup.service
+
+[Timer]
+OnCalendar=*-*-* 0:30:00
+
+[Install]
+WantedBy=timers.target

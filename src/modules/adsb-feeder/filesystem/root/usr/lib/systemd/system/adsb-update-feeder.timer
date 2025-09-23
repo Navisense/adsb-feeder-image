@@ -1,0 +1,10 @@
+[Unit]
+Description=Update Porttracker feeder every night
+Requisite=adsb-setup.service
+After=adsb-setup.service
+
+[Timer]
+OnCalendar=*-*-* 1:30:00
+
+[Install]
+WantedBy=timers.target
