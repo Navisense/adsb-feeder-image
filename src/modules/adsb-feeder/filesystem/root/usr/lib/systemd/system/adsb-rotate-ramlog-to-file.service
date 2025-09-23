@@ -4,5 +4,5 @@ Description=Copy log file contents in ram to disk
 [Service]
 Type=oneshot
 # Only rotate the log if there are more than 2000 lines (to avoid unnecessary
-disk writes).
+# disk writes).
 ExecStart=/opt/adsb/scripts/rotate-ramlog-to-file.bash 2000
