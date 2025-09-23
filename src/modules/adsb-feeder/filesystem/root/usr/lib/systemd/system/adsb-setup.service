@@ -5,6 +5,7 @@ Wants=adsb-docker.service
 After=network-online.target
 # The firewall gets in the way of serving the app.
 Conflicts=nftables.service
+Upholds=adsb-rotate-ramlog-to-file.timer
 
 [Service]
 SyslogIdentifier=adsb-setup
