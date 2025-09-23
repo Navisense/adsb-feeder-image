@@ -135,3 +135,10 @@ Normally, when an HTML form is submitted, any checkboxes that are unchecked are
 simply omitted. In this application, there is a small Javascript hook executed
 on every sumbit that ensures each checkbox is contained, with the value "0" for
 unchecked ones and "1" for checked ones.
+
+### Logging setup
+
+To save on unnecessary disk writes, all parts of the application log to
+`/run/porttracker-feeder.log` (`/run` is a tmpfs in memory). This file is
+regularly spilled over to the permanent log file
+`/var/log/porttracker-feeder.log`, which then gets rotated by logrotate.
