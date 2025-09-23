@@ -20,8 +20,8 @@ if [ ! -f "${LOG_FILE}" ] ; then
     exit 0
 fi
 
-if [ -n $min_lines_to_do_rotation ] \
-        && (( $(wc -l < "${LOG_FILE}") < "${min_lines_to_do_rotation}" )); then
+if [ -n $min_lines_to_do_rotation ] ; then min_lines_to_do_rotation=0 ; fi
+if (( $(wc -l < "${LOG_FILE}") < "${min_lines_to_do_rotation}" )); then
     echo "Not enough lines to rotate the log file."
     exit 0
 fi
