@@ -77,7 +77,7 @@ find_missing_packages() {
     which zstd &> /dev/null || missing+="${PKG_NAME_ZSTD} "
     which avahi-daemon &> /dev/null || missing+="${PKG_NAME_AVAHI} "
     which avahi-publish &> /dev/null || missing+="${PKG_NAME_AVAHI_TOOLS} "
-    which logrotate &> /dev/null || missing+="${PKG_NAME_LOGROTATE}"
+    which logrotate &> /dev/null || missing+="${PKG_NAME_LOGROTATE} "
 
     if [ "$distro" == "postmarketos" ]; then
         # PostmarketOS is based on Alpine, which is missing some tools and uses
