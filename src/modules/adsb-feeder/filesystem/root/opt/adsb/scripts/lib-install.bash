@@ -123,7 +123,9 @@ install_command () {
     elif [ "$distro" == "debian" ] ; then
         inst="apt-get install -y"
     elif [ "$distro" == "postmarketos" ] ; then
-        inst="apk add"
+        # We're using this to build images, so keep the footprint small with
+        # --no-cache.
+        inst="apk add --no-cache"
     else
         return 1
     fi
