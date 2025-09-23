@@ -1,5 +1,6 @@
 [Unit]
-Description=ADS-B Feeder Setup Service
+Description=Porttracker Feeder Setup
+Requires=adsb-rotate-ramlog-to-file.service
 Wants=adsb-docker.service
 After=network-online.target
 # The firewall gets in the way of serving the app.
@@ -11,7 +12,7 @@ WorkingDirectory=/opt/adsb/adsb-setup
 ExecStartPre=/bin/bash /opt/adsb/pre-start.sh
 ExecStart=/usr/bin/systemd-inhibit --what=idle:sleep --who=adsb-feeder --why="adsb-feeder needs to continue receiving messages" /usr/bin/python3 /opt/adsb/adsb-setup/app.py
 ExecStop=/bin/bash /opt/adsb/stop-adsb-setup.bash
-ExecStopPost=/opt/adsb/scripts/log2disk.sh
+ExecStopPost=/opt/adsb/scripts/rotate-ramlog-to-file.bash
 Restart=always
 Type=simple
 RestartSec=5

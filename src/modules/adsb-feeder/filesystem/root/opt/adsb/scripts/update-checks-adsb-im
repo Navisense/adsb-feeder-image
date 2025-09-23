@@ -13,7 +13,7 @@ fi
 # we rotate hourly to reduce the risk of overflowing /run - but we only rotate log if longer than 2000 lines
 # at that point we copy the log to the on disk log directory
 if [[ -f /run/porttracker-feeder.log ]] && (( $(wc -l < /run/porttracker-feeder.log) > 2000 )); then
-    bash /opt/adsb/scripts/log2disk.sh
+    /opt/adsb/scripts/rotate-ramlog-to-file.bash
 fi
 
 # if this is the update check at 1:30am, do the updates if configured

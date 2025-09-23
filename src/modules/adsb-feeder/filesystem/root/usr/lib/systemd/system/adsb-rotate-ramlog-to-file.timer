@@ -1,0 +1,11 @@
+[Unit]
+Description=Copy log file contents in ram to disk every 15 minutes
+Requisite=adsb-setup.service
+After=adsb-setup.service
+
+[Timer]
+OnCalendar=*-*-* *:0/15:0
+AccuracySec=5s
+
+[Install]
+WantedBy=multi-user.target
