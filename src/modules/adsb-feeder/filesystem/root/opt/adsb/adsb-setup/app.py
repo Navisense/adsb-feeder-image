@@ -2272,23 +2272,39 @@ class AdsbIm:
 
     @flask_util.check_restart_lock
     def feeder_update(self):
-        tag = request.form["tag"]
-        self._logger.info(f"Starting update to {tag}.")
-        # Submit the update script as a transient systemd unit, so the
-        # process is independent from us and can shut us down.
-        try:
-            system.systemctl().run_transient(
-                "adsb-feeder-update",
-                ["/opt/adsb/scripts/update-feeder.bash", tag])
-        except:
-            self._logger.exception(
-                "Error starting update. Trying to redirect to home.")
-            return flask.redirect("/")
-        # Set the exiting flag, so the /restart endpoint can tell the
-        # restarting page that this instance is still going down. The new
-        # version will then say that the restart is complete.
-        self.exiting = True
-        return render_template("/restarting.html")
+        if "do-feeder-update-now" in request.form:
+            tag = request.form["tag"]
+            self._logger.info(f"Starting update to {tag}.")
+            # Submit the update script as a transient systemd unit, so the
+            # process is independent from us and can shut us down.
+            try:
+                system.systemctl().run_transient(
+                    "adsb-feeder-update",
+                    ["/opt/adsb/scripts/update-feeder.bash", tag])
+            except:
+                self._logger.exception(
+                    "Error starting update. Trying to redirect to home.")
+                return flask.redirect("/")
+            # Set the exiting flag, so the /restart endpoint can tell the
+            # restarting page that this instance is still going down. The new
+            # version will then say that the restart is complete.
+            self.exiting = True
+            return render_template("/restarting.html")
+        elif "configure-feeder-update" in request.form:
+            should_be_enabled = util.checkbox_checked(
+                request.form["nightly-feeder-update-enabled"])
+            self._conf.set("nightly_feeder_update", should_be_enabled)
+            self._ensure_nightly_feeder_update_timer()
+            return redirect(url_for("systemmgmt"))
+        else:
+            return "Invalid form, missing submit button", 400
+
+    def _ensure_nightly_feeder_update_timer(self):
+        if self._conf.get("nightly_feeder_update"):
+            command = "start"
+        else:
+            command = "stop"
+        system.systemctl().run([command], ["adsb-update-feeder.timer"])
 
     @flask_util.check_restart_lock
     def os_update(self):
@@ -2297,6 +2313,18 @@ class AdsbIm:
             self._system._restart.bg_run(func=self._system.os_update)
             self._next_url_from_director = url_for("overview")
             return render_template("/restarting.html")
+        elif "configure-system-update" in request.form:
+            should_be_enabled = util.checkbox_checked(
+                request.form["nightly-system-update-enabled"])
+            self._conf.set("nightly_base_update", should_be_enabled)
+            self._ensure_nightly_os_update_timer()
+            return redirect(url_for("systemmgmt"))
+        else:
+            return "Invalid form, missing submit button", 400
+
+    def _ensure_nightly_os_update_timer(self):
+        command = "start" if self._conf.get("nightly_base_update") else "stop"
+        system.systemctl().run([command], ["adsb-update-os.timer"])
 
     def restart_containers(self):
         containers_to_restart = []

@@ -55,13 +55,13 @@
                 onsubmit="show_spinner(); return true;">
             {% with %}
               {% set current_version = get_conf("base_version") %}
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <div class="m-1">
-                    Currently running <strong>{{ current_version }}</strong>.
-                  </div>
-                </div>
-              </div>
+              <p class="m-1">
+                The device is currently running <strong>{{ current_version }}</strong>.
+              </p>
+              <p class="m-1">
+                You can manually install a newer version (downgrades to previous versions are not supported at the
+                moment). You can also configure the device to install the latest version automatically every night.
+              </p>
               <div class="row align-items-center">
                 <div class="col-12 col-md-8">
                   <div class="m-1">
@@ -82,7 +82,25 @@
                 <div class="col-12 col-md-4">
                   <button id="feeder-update-submit"
                           type="submit"
-                          class="btn btn-primary m-1 w-100">Update</button>
+                          class="btn btn-primary m-1 w-100"
+                          name="do-feeder-update-now">Update the feeder now</button>
+                </div>
+              </div>
+              <div class="row align-items-center">
+                <div class="col-12 col-md-8">
+                  <div class="m-1">
+                    <input id="nightly-feeder-update"
+                           class="form-check-input"
+                           name="nightly-feeder-update-enabled"
+                           type="checkbox"
+                           {% if get_conf('nightly_feeder_update') -%}checked{%- endif %}>
+                    <label for="nightly-feeder-update" class="form-check-label">Update every night</label>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit"
+                          class="btn btn-primary m-1 w-100"
+                          name="configure-feeder-update">Configure nightly update</button>
                 </div>
               </div>
             {% endwith %}
@@ -97,12 +115,32 @@
           <form method="post"
                 action="{{ url_for('os-update') }}"
                 onsubmit="show_spinner(); return true;">
+            <p class="m-1">
+              You can manually upgrade software packages installed via the operating system's package manager here. You
+              can also configure the system to do this automatically every night.
+            </p>
             <div class="row align-items-center">
-              <div class="col-12 col-md-8"></div>
-              <div class="col-12 col-md-4">
+              <div class="col-12">
                 <button type="submit"
                         class="btn btn-primary m-1 w-100"
                         name="do-system-update-now">Do system update now</button>
+              </div>
+            </div>
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <div class="m-1">
+                  <input id="nightly-system-update"
+                         class="form-check-input"
+                         name="nightly-system-update-enabled"
+                         type="checkbox"
+                         {% if get_conf('nightly_base_update') -%}checked{%- endif %}>
+                  <label for="nightly-system-update" class="form-check-label">Update every night</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit"
+                        class="btn btn-primary m-1 w-100"
+                        name="configure-system-update">Configure nightly update</button>
               </div>
             </div>
           </form>
