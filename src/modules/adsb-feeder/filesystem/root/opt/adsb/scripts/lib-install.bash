@@ -209,6 +209,7 @@ install_files() {
     local staging_root="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
     cp -a "${staging_root}${APP_DIR}/"* "${APP_DIR}/"
     cp -a "${staging_root}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
+    cp -a "${staging_root}/etc/logrotate.d/porttracker-feeder" /etc/logrotate.d/
     install_distro_specific_quirks ${staging_root} ${distro}
 }
 

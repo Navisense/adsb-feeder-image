@@ -1,0 +1,7 @@
+/var/log/porttracker-feeder.log {
+    size 10M
+    compress
+    missingok
+    notifempty
+    copytruncate
+}
