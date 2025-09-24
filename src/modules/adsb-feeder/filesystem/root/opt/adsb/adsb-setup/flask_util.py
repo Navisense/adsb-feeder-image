@@ -53,26 +53,19 @@ class App(flask.Flask):
             r = self._function_factory(endpoint, port, url_path)
             self.add_url_rule(endpoint, endpoint, view_func=r)
 
-    def _function_factory(self, orig_endpoint, new_port, new_path):
-        # inc_port / idx is the id of the stage2 microfeeder
-        def f(idx=0, inc_port=0, sub_path=""):
-            return self._my_redirect(orig_endpoint, new_port, new_path, idx=idx, inc_port=inc_port, sub_path=sub_path)
+    def _function_factory(self, orig_endpoint, port, new_path):
+        def f(sub_path=""):
+            return self._my_redirect(orig_endpoint, port, new_path, sub_path=sub_path)
 
         return f
 
-    def _my_redirect(self, orig, new_port, new_path, idx=0, inc_port=0, sub_path=""):
-        # inc_port / idx is the id of the stage2 microfeeder
-        # example endpoint: '/fa-status.json_<int:inc_port>/'
-        # example endpoint: '/map_<int:idx>/'
-        new_port += inc_port * 1000
+    def _my_redirect(self, orig, port, new_path, sub_path=""):
         host_url = request.host_url.rstrip("/ ")
         host_url = re.sub(":\\d+$", "", host_url)
         new_path += sub_path
-        if idx > 0:
-            new_path = f"/{idx}{new_path}"
         q: str = ""
         if request.query_string:
             q = f"?{request.query_string.decode()}"
-        url = f"{host_url}:{new_port}{new_path}{q}"
+        url = f"{host_url}:{port}{new_path}{q}"
         self._logger.info(f"Redirecting {orig} to {url}.")
         return redirect(url)
