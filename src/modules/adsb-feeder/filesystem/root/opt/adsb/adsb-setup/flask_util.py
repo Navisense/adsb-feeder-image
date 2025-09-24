@@ -20,6 +20,14 @@ class App(flask.Flask):
             view_func: flask.typing.RouteCallable, view_func_wrappers: list[
                 cl_abc.Callable[[flask.typing.RouteCallable],
                                 flask.typing.RouteCallable]] = None, **kwargs):
+        """
+        Add a url rule.
+
+        Extending Flask's functionality, a list of function wrappers can be
+        supplied. These must take a view_func and return a modified view_func.
+        They are applied starting with the last element, so that the first
+        wrapper specified is the outermost one.
+        """
         wrapped_view_func = view_func
         if view_func_wrappers:
             for wrapper in reversed(view_func_wrappers):
@@ -55,7 +63,8 @@ class App(flask.Flask):
 
     def _function_factory(self, orig_endpoint, port, new_path):
         def f(sub_path=""):
-            return self._my_redirect(orig_endpoint, port, new_path, sub_path=sub_path)
+            return self._my_redirect(
+                orig_endpoint, port, new_path, sub_path=sub_path)
 
         return f
 
@@ -63,7 +72,7 @@ class App(flask.Flask):
         host_url = request.host_url.rstrip("/ ")
         host_url = re.sub(":\\d+$", "", host_url)
         new_path += sub_path
-        q: str = ""
+        q = ""
         if request.query_string:
             q = f"?{request.query_string.decode()}"
         url = f"{host_url}:{port}{new_path}{q}"
