@@ -1721,17 +1721,17 @@ class AdsbIm:
         # create a potential new root password in case the user wants to change it
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
-        available_versions = gitlab.gitlab_repo().get_semver_tags()
+        stable_versions = gitlab.gitlab_repo().get_semver_tags()
         return render_template(
             "systemmgmt.html",
             tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
             rpw=self.rpw,
-            available_versions=available_versions,
+            stable_versions=stable_versions,
             containers=self._system.containers,
             persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
-            is_semver=util.is_semver,
+            is_semver=util.Semver.is_semver,
         )
 
     @flask_util.check_restart_lock
@@ -2018,7 +2018,7 @@ class AdsbIm:
                     return purpose
             return None
 
-        available_tags = gitlab.gitlab_repo().get_tags()
+        stable_versions = gitlab.gitlab_repo().get_semver_tags()
         # Prepare dicts describing all the different ways of reaching this
         # feeder.
         tailscale_info = self._system.get_tailscale_info()
@@ -2043,7 +2043,7 @@ class AdsbIm:
             containers=self._system.containers,
             sdrs=self._sdrdevices.sdrs,
             sdr_assignment=sdr_assignment,
-            tags=available_tags,
+            stable_versions=stable_versions,
             system_info=self._system.system_info,
             device_hosts=device_hosts,
         )

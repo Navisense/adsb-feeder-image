@@ -220,9 +220,53 @@ def shell_with_separate_output(args, **kwargs):
         args, **kwargs, shell=True, text=True, capture_output=True)
 
 
-def is_semver(s: str) -> bool:
-    """Check whether the string represents a semver."""
-    return bool(re.match(r'^v[0-9]+\.[0-9]+\.[0-9]$', s))
+class Semver:
+    """A semantic version, prefixed with 'v'."""
+    _regex = re.compile(r'^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$')
+
+    def __init__(self, major: int, minor: int, patch: int):
+        if any(p < 0 for p in [major, minor, patch]):
+            raise ValueError("Semver parts must be >= 0.")
+        self._major = major
+        self._minor = minor
+        self._patch = patch
+
+    def __str__(self) -> str:
+        return f"v{self._major}.{self._minor}.{self._patch}"
+
+    def __eq__(self, other: "Semver") -> bool:
+        if not isinstance(other, Semver):
+            return False
+        return (
+            self._major == other._major and self._minor == other._minor
+            and self._patch == other._patch)
+
+    def __lt__(self, other: "Semver") -> bool:
+        if not isinstance(other, Semver):
+            raise TypeError
+        if self._major != other._major:
+            return self._major < other._major
+        if self._minor != other._minor:
+            return self._minor < other._minor
+        return self._patch < other._patch
+
+    @staticmethod
+    def parse(s: str) -> "Semver":
+        match = Semver._regex.match(s)
+        if not match:
+            raise ValueError("Invalid format.")
+        return Semver(
+            int(match.group("major")), int(match.group("minor")),
+            int(match.group("patch")))
+
+    @staticmethod
+    def is_semver(s: str) -> bool:
+        """Check whether the string represents a semver."""
+        try:
+            Semver.parse(s)
+            return True
+        except ValueError:
+            return False
 
 
 class FlashingLogger(logging.getLoggerClass()):

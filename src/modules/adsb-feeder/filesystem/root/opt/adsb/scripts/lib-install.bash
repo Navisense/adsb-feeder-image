@@ -219,7 +219,7 @@ install_files() {
 find_latest_stable_version() {
     curl -s "${REPO_API_BASE_URL}/repository/tags" \
     | jq --raw-output '.[].name' \
-    | grep '^v[0-9]\.[0-9]\.[0-9]$' \
-    | sort -r \
+    | grep --extended-regex '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+    | sort --reverse --version-sort \
     | head -n 1
 }

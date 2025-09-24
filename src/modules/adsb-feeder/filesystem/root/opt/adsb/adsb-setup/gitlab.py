@@ -11,20 +11,25 @@ class GitlabRepo:
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
 
-    def get_semver_tags(self) -> list[str]:
+    def get_semver_tags(self) -> list[util.Semver]:
         """Get tags that are semvers, latest first."""
-        return [t for t in self.get_tags() if util.is_semver(t)]
+        semvers = []
+        for tag in self.get_tags():
+            try:
+                semvers.append(util.Semver.parse(tag))
+            except ValueError:
+                pass
+        return sorted(semvers, reverse=True)
 
     def get_tags(self) -> list[str]:
         url = self.API_BASE_URL + "/repository/tags"
         try:
             with urllib.request.urlopen(url) as response:
                 json_response = json.load(response)
-            tags = [tag["name"] for tag in json_response]
+            return [tag["name"] for tag in json_response]
         except:
             self._logger.exception("Error getting available tags.")
             return []
-        return sorted(tags, reverse=True)
 
 
 _gitlab_repo: GitlabRepo = None
