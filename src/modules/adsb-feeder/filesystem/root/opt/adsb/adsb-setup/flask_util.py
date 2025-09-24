@@ -1,16 +1,31 @@
+import collections.abc as cl_abc
 import functools as ft
 import logging
 import re
+from typing import Optional
 
-from flask import Flask, redirect, request
+import flask
+import flask.typing
+from flask import redirect, request
 
 import config
 
 
-class RouteManager:
-    def __init__(self, app: Flask):
+class App(flask.Flask):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self._logger = logging.getLogger(type(self).__name__)
-        self.app = app
+
+    def add_url_rule(
+            self, rule: str, endpoint: Optional[str], *,
+            view_func: flask.typing.RouteCallable, view_func_wrappers: list[
+                cl_abc.Callable[[flask.typing.RouteCallable],
+                                flask.typing.RouteCallable]] = None, **kwargs):
+        wrapped_view_func = view_func
+        if view_func_wrappers:
+            for wrapper in reversed(view_func_wrappers):
+                wrapped_view_func = wrapper(wrapped_view_func)
+        super().add_url_rule(rule, endpoint, wrapped_view_func, **kwargs)
 
     def _make_proxy_route_specs(self, conf: config.Config):
         for endpoint, port_key_path, path in [
@@ -36,17 +51,17 @@ class RouteManager:
 
     def add_proxy_routes(self, conf: config.Config):
         for endpoint, port, url_path in self._make_proxy_route_specs(conf):
-            r = self.function_factory(endpoint, port, url_path)
-            self.app.add_url_rule(endpoint, endpoint, r)
+            r = self._function_factory(endpoint, port, url_path)
+            self.add_url_rule(endpoint, endpoint, view_func=r)
 
-    def function_factory(self, orig_endpoint, new_port, new_path):
+    def _function_factory(self, orig_endpoint, new_port, new_path):
         # inc_port / idx is the id of the stage2 microfeeder
         def f(idx=0, inc_port=0, sub_path=""):
-            return self.my_redirect(orig_endpoint, new_port, new_path, idx=idx, inc_port=inc_port, sub_path=sub_path)
+            return self._my_redirect(orig_endpoint, new_port, new_path, idx=idx, inc_port=inc_port, sub_path=sub_path)
 
         return f
 
-    def my_redirect(self, orig, new_port, new_path, idx=0, inc_port=0, sub_path=""):
+    def _my_redirect(self, orig, new_port, new_path, idx=0, inc_port=0, sub_path=""):
         # inc_port / idx is the id of the stage2 microfeeder
         # example endpoint: '/fa-status.json_<int:inc_port>/'
         # example endpoint: '/map_<int:idx>/'

@@ -27,7 +27,6 @@ import zipfile
 
 import flask
 from flask import (
-    Flask,
     flash,
     redirect,
     render_template,
@@ -259,7 +258,7 @@ class AdsbIm:
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
-        self.app = Flask(__name__)
+        self.app = flask_util.App(__name__)
         self.app.secret_key = os.urandom(16).hex()
 
         # set Cache-Control max-age for static files served
@@ -277,7 +276,6 @@ class AdsbIm:
                 "is_reception_enabled": self.is_reception_enabled,
             }
 
-        self._routemanager = flask_util.RouteManager(self.app)
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
@@ -304,242 +302,284 @@ class AdsbIm:
         else:
             self._conf.set("rbthermalhack", "")
 
-        self._routemanager.add_proxy_routes(self._conf)
+        self.app.add_proxy_routes(self._conf)
         self.app.add_url_rule(
             "/healthz",
             "healthz",
-            self._decide_route_hotspot_mode(self.healthz),
+            view_func=self.healthz,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["OPTIONS", "GET"],
         )
         self.app.add_url_rule(
             "/restarting",
             "restarting",
-            self._decide_route_hotspot_mode(self.restarting),
+            view_func=self.restarting,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/shutdownpage",
             "shutdownpage",
-            self._decide_route_hotspot_mode(self.shutdownpage),
+            view_func=self.shutdownpage,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/restart",
             "restart",
-            self._decide_route_hotspot_mode(self.restart),
+            view_func=self.restart,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/waiting",
             "waiting",
-            self._decide_route_hotspot_mode(self.waiting),
+            view_func=self.waiting,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/stream-log",
             "stream_log",
-            self._decide_route_hotspot_mode(self.stream_log),
+            view_func=self.stream_log,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/backup",
             "backup",
-            self._decide_route_hotspot_mode(self.backup),
+            view_func=self.backup,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/backupexecutefull",
             "backupexecutefull",
-            self._decide_route_hotspot_mode(self.backup_execute_full),
+            view_func=self.backup_execute_full,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/backupexecutegraphs",
             "backupexecutegraphs",
-            self._decide_route_hotspot_mode(self.backup_execute_graphs),
+            view_func=self.backup_execute_graphs,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/backupexecuteconfig",
             "backupexecuteconfig",
-            self._decide_route_hotspot_mode(self.backup_execute_config),
+            view_func=self.backup_execute_config,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/restore",
             "restore",
-            self._decide_route_hotspot_mode(self.restore),
+            view_func=self.restore,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/executerestore",
             "executerestore",
-            self._decide_route_hotspot_mode(self.executerestore),
+            view_func=self.executerestore,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/sdr_setup",
             "sdr_setup",
-            self._decide_route_hotspot_mode(self.sdr_setup),
+            view_func=self.sdr_setup,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/visualization",
             "visualization",
-            self._decide_route_hotspot_mode(self.visualization),
+            view_func=self.visualization,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/expert",
             "expert",
-            self._decide_route_hotspot_mode(self.expert),
+            view_func=self.expert,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/systemmgmt",
             "systemmgmt",
-            self._decide_route_hotspot_mode(self.systemmgmt),
+            view_func=self.systemmgmt,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET"],
         )
         self.app.add_url_rule(
             "/aggregators",
             "aggregators",
-            self._decide_route_hotspot_mode(self.aggregators),
+            view_func=self.aggregators,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/",
             "director",
-            self._decide_route_hotspot_mode(self.director),
-            methods=["GET", "POST"],
+            view_func=self.director,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
+            methods=["GET"],
         )
         self.app.add_url_rule(
             "/info",
             "info",
-            self._decide_route_hotspot_mode(self.info),
+            view_func=self.info,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/overview",
             "overview",
-            self._decide_route_hotspot_mode(self.overview),
+            view_func=self.overview,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/support",
             "support",
-            self._decide_route_hotspot_mode(self.support),
+            view_func=self.support,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/setup",
             "setup",
-            self._decide_route_hotspot_mode(self.setup),
+            view_func=self.setup,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/sdplay_license",
             "sdrplay_license",
-            self._decide_route_hotspot_mode(self.sdrplay_license),
+            view_func=self.sdrplay_license,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/api/sdr_info",
             "sdr_info",
-            self._decide_route_hotspot_mode(self.sdr_info),
+            view_func=self.sdr_info,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/api/stats",
             "stats",
-            self._decide_route_hotspot_mode(self.get_stats),
+            view_func=self.get_stats,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/api/status/<agg_key>",
             "agg_status",
-            self._decide_route_hotspot_mode(self.agg_status),
+            view_func=self.agg_status,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/api/get_temperatures.json",
             "temperatures",
-            self._decide_route_hotspot_mode(self.temperatures),
+            view_func=self.temperatures,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/set-ssh-credentials",
             "set-ssh-credentials",
-            self._decide_route_hotspot_mode(self.set_ssh_credentials),
+            view_func=self.set_ssh_credentials,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/create-root-password",
             "create-root-password",
-            self._decide_route_hotspot_mode(self.create_root_password),
+            view_func=self.create_root_password,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/set-secure-image",
             "set-secure-image",
-            self._decide_route_hotspot_mode(self.set_secure_image),
+            view_func=self.set_secure_image,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/shutdown-reboot",
             "shutdown-reboot",
-            self._decide_route_hotspot_mode(self.shutdown_reboot),
+            view_func=self.shutdown_reboot,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/toggle-log-persistence",
             "toggle-log-persistence",
-            self._decide_route_hotspot_mode(self.toggle_log_persistence),
+            view_func=self.toggle_log_persistence,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/feeder-update",
             "feeder-update",
-            self._decide_route_hotspot_mode(self.feeder_update),
+            view_func=self.feeder_update,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/os-update",
             "os-update",
-            self._decide_route_hotspot_mode(self.os_update),
+            view_func=self.os_update,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/restart-containers",
             "restart-containers",
-            self._decide_route_hotspot_mode(self.restart_containers),
+            view_func=self.restart_containers,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/configure-zerotier",
             "configure-zerotier",
-            self._decide_route_hotspot_mode(self.configure_zerotier),
+            view_func=self.configure_zerotier,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/configure-tailscale",
             "configure-tailscale",
-            self._decide_route_hotspot_mode(self.configure_tailscale),
+            view_func=self.configure_tailscale,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/configure-wifi",
             "configure-wifi",
-            self._decide_route_hotspot_mode(self.configure_wifi),
+            view_func=self.configure_wifi,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/get-logs",
             "get-logs",
-            self._decide_route_hotspot_mode(self.get_logs),
+            view_func=self.get_logs,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         self.app.add_url_rule(
             "/view-logs",
             "view-logs",
-            self._decide_route_hotspot_mode(self.view_logs),
+            view_func=self.view_logs,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         # Catch-all rules for the hotspot app.
         self.app.add_url_rule(
             "/",
             "/",
-            view_func=self._decide_route_hotspot_mode(None),
+            view_func=None,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/<path:path>",
-            view_func=self._decide_route_hotspot_mode(None),
+            "/<path:path>", None,
+            view_func=None,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
         self.update_meminfo()
