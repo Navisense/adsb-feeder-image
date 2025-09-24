@@ -69,8 +69,8 @@
                     <select id="feeder-update-tag-select" name="tag">
                       {% for tag in stable_versions %}
                         {% set disabled = False %}
-                        {% if is_semver(current_version) %}
-                          {% set disabled = current_version >= tag %}
+                        {% if Semver.is_semver(current_version) %}
+                          {% set disabled = Semver.parse(current_version) >= tag %}
                         {% endif %}
                         <option value="{{ tag }}"
                                 {% if tag == stable_versions[0] %}selected{% endif %}

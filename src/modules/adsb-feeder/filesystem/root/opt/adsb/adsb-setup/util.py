@@ -1,3 +1,4 @@
+import functools as ft
 import hashlib
 import logging
 import os
@@ -220,6 +221,7 @@ def shell_with_separate_output(args, **kwargs):
         args, **kwargs, shell=True, text=True, capture_output=True)
 
 
+@ft.total_ordering
 class Semver:
     """A semantic version, prefixed with 'v'."""
     _regex = re.compile(r'^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$')

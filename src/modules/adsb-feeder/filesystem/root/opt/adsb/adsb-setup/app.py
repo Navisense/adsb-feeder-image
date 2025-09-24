@@ -1731,7 +1731,7 @@ class AdsbIm:
             containers=self._system.containers,
             persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
-            is_semver=util.Semver.is_semver,
+            Semver=util.Semver,
         )
 
     @flask_util.check_restart_lock
@@ -2046,6 +2046,7 @@ class AdsbIm:
             stable_versions=stable_versions,
             system_info=self._system.system_info,
             device_hosts=device_hosts,
+            str=str,
         )
 
     @flask_util.check_restart_lock

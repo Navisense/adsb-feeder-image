@@ -253,7 +253,7 @@
       <h5 class="card-title">Version</h5>
       <p>
         This device is currently running <strong>{{ get_conf("base_version") }}</strong>
-        {% if get_conf("base_version") == stable_versions[0] %}
+        {% if get_conf("base_version") == str(stable_versions[0]) %}
           (this is the latest stable version)
         {% else %}
           (the latest stable version is <strong>{{ stable_versions[0] }}</strong>, see
