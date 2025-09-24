@@ -36,6 +36,8 @@ ENV_FILE = CONFIG_DIR / ".env"
 VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
 FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
+DOCKER_COMPOSE_UP_FAILED_FILE = pathlib.Path(
+    "/run/porttracker-feeder-docker-compose-up-failed")
 
 logger = logging.getLogger(__name__)
 

@@ -12,7 +12,7 @@ log $0 "Pulling new container images and restarting docker."
 
 bash /opt/adsb/docker-compose-start
 # If something failed, run the docker pull for good measure:
-if [[ -f /opt/adsb/state/compose_up_failed ]]; then
+if [[ -f ${DOCKER_COMPOSE_UP_FAILED_MARKER_FILE} ]]; then
     bash /opt/adsb/docker-pull.sh
     bash /opt/adsb/docker-compose-start
 fi

@@ -2004,7 +2004,7 @@ class AdsbIm:
             local_address = request.host.split(":")[0]
 
         # this indicates that the last docker-compose-adsb up call failed
-        compose_up_failed = os.path.exists("/opt/adsb/state/compose_up_failed")
+        compose_up_failed = config.DOCKER_COMPOSE_UP_FAILED_FILE.exists()
 
         ipv6_broken = False
         if compose_up_failed:
