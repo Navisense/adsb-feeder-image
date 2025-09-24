@@ -383,7 +383,8 @@ class AdsbIm:
             "/sdr_setup",
             "sdr_setup",
             view_func=self.sdr_setup,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -397,28 +398,32 @@ class AdsbIm:
             "/expert",
             "expert",
             view_func=self.expert,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/systemmgmt",
             "systemmgmt",
             view_func=self.systemmgmt,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET"],
         )
         self.app.add_url_rule(
             "/aggregators",
             "aggregators",
             view_func=self.aggregators,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/",
             "director",
             view_func=self.director,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET"],
         )
         self.app.add_url_rule(
@@ -431,7 +436,8 @@ class AdsbIm:
             "/overview",
             "overview",
             view_func=self.overview,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -445,14 +451,16 @@ class AdsbIm:
             "/setup",
             "setup",
             view_func=self.setup,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/sdplay_license",
             "sdrplay_license",
             view_func=self.sdrplay_license,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -504,7 +512,8 @@ class AdsbIm:
             "/shutdown-reboot",
             "shutdown-reboot",
             view_func=self.shutdown_reboot,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
         self.app.add_url_rule(
@@ -518,14 +527,16 @@ class AdsbIm:
             "/feeder-update",
             "feeder-update",
             view_func=self.feeder_update,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
         self.app.add_url_rule(
             "/os-update",
             "os-update",
             view_func=self.os_update,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
         self.app.add_url_rule(
@@ -553,7 +564,8 @@ class AdsbIm:
             "/configure-wifi",
             "configure-wifi",
             view_func=self.configure_wifi,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
         self.app.add_url_rule(
@@ -577,7 +589,8 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
-            "/<path:path>", None,
+            "/<path:path>",
+            None,
             view_func=None,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
@@ -614,6 +627,15 @@ class AdsbIm:
                 # This must have been the catch-all we only need in hotspot
                 # mode.
                 flask.abort(404)
+
+        return handle_request
+
+    def _redirect_if_restarting(self, view_func):
+        """Redirect to the restarting page if necessary."""
+        def handle_request(*args, **kwargs):
+            if self._system.is_restarting:
+                return redirect("/restarting")
+            return view_func(*args, **kwargs)
 
         return handle_request
 
@@ -1237,7 +1259,6 @@ class AdsbIm:
             return {}
         return aggregator.status
 
-    @flask_util.check_restart_lock
     def sdr_setup(self):
         if request.method == "POST":
             return self.update()
@@ -1535,7 +1556,6 @@ class AdsbIm:
             except:
                 self._logger.exception("Failed to reload docker config.")
 
-    @flask_util.check_restart_lock
     def update(self, *, needs_docker_restart=False):
         """
         Update a bunch of stuff from various requests.
@@ -1741,13 +1761,11 @@ class AdsbIm:
             return
         self._conf.set("prometheus.is_enabled", should_be_enabled)
 
-    @flask_util.check_restart_lock
     def expert(self):
         if request.method == "POST":
             return self.update()
         return render_template("expert.html")
 
-    @flask_util.check_restart_lock
     def systemmgmt(self):
         tailscale_info = self._system.get_tailscale_info()
         if tailscale_info.status in [system.TailscaleStatus.ERROR,
@@ -1774,13 +1792,11 @@ class AdsbIm:
             Semver=util.Semver,
         )
 
-    @flask_util.check_restart_lock
     def sdrplay_license(self):
         if request.method == "POST":
             return self.update()
         return render_template("sdrplay_license.html")
 
-    @flask_util.check_restart_lock
     def aggregators(self):
         if request.method == "POST":
             self._configure_aggregators(request.form)
@@ -1872,7 +1888,6 @@ class AdsbIm:
             kwargs["udp_port"] = request.form.get("aishub-udp-port") or None
         return kwargs
 
-    @flask_util.check_restart_lock
     def director(self):
         # figure out where to go:
         if request.method == "POST":
@@ -2010,7 +2025,6 @@ class AdsbIm:
         self._conf.set(
             "low_disk", shutil.disk_usage("/").free < 1024 * 1024 * 1024)
 
-    @flask_util.check_restart_lock
     def overview(self):
         enabled_aggregators = {
             k: a
@@ -2089,7 +2103,6 @@ class AdsbIm:
             str=str,
         )
 
-    @flask_util.check_restart_lock
     def setup(self):
         if request.method == "POST":
             return self.update()
@@ -2279,7 +2292,6 @@ class AdsbIm:
         self._conf.set("secure_image", True)
         return redirect(url_for("systemmgmt"))
 
-    @flask_util.check_restart_lock
     def shutdown_reboot(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot shutdown or reboot.", 400
@@ -2311,7 +2323,6 @@ class AdsbIm:
             self._logger.exception("Error toggling log persistence.")
         return redirect(url_for("systemmgmt"))
 
-    @flask_util.check_restart_lock
     def feeder_update(self):
         if "do-feeder-update-now" in request.form:
             tag = request.form["tag"]
@@ -2347,7 +2358,6 @@ class AdsbIm:
             command = "stop"
         system.systemctl().run([command], ["adsb-update-feeder.timer"])
 
-    @flask_util.check_restart_lock
     def os_update(self):
         if "do-system-update-now" in request.form:
             self._logger.debug("OS update requested.")
@@ -2513,7 +2523,6 @@ class AdsbIm:
             return "Unable to get a login link", 500
         return redirect(url_for("systemmgmt"))
 
-    @flask_util.check_restart_lock
     def configure_wifi(self):
         if self._conf.get("secure_image"):
             return "Image is secured, cannot configure wifi.", 400

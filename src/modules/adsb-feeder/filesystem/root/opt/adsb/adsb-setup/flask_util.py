@@ -1,5 +1,4 @@
 import collections.abc as cl_abc
-import functools as ft
 import logging
 import re
 from typing import Optional
@@ -77,13 +76,3 @@ class App(flask.Flask):
         url = f"{host_url}:{new_port}{new_path}{q}"
         self._logger.info(f"Redirecting {orig} to {url}.")
         return redirect(url)
-
-
-def check_restart_lock(f):
-    @ft.wraps(f)
-    def decorated_function(self, *args, **kwargs):
-        if self._system.is_restarting:
-            return redirect("/restarting")
-        return f(self, *args, **kwargs)
-
-    return decorated_function
