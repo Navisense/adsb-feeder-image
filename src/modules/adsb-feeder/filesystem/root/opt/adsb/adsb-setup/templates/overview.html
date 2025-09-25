@@ -34,6 +34,12 @@
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.
   </div>
+  {% if not aggregators_chosen %}
+    <div class="alert alert-info">
+      You have not yet chosen which aggregators to share data with. You can do this on the
+      <a href="{{ url_for('aggregators') }}">data sharing page</a>.
+    </div>
+  {% endif %}
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Device info</h5>

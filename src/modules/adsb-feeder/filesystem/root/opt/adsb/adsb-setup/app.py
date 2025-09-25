@@ -1231,10 +1231,6 @@ class AdsbIm:
                 "Timeout expired re-starting docker... trying to continue...",
                 flash_message=True)
 
-    def at_least_one_aggregator(self) -> bool:
-        return any(
-            agg.enabled() for agg in aggregators.all_aggregators().values())
-
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
         # and then update with the actual settings
@@ -1568,9 +1564,6 @@ class AdsbIm:
         # finally, check if this has given us enough configuration info to
         # start the containers
         if self._conf.get("mandatory_config_is_complete"):
-            if self.at_least_one_aggregator():
-                self._conf.set("aggregators_chosen", True)
-
             if not self._conf.get("journal_configured"):
                 try:
                     subprocess.run(
@@ -2067,6 +2060,11 @@ class AdsbIm:
                 "host": tailscale_info.dns_name, "comment": "via Tailscale"})
         device_hosts += [{"host": str(ip), "comment": "via Tailscale"}
                          for ip in tailscale_info.ipv4s]
+        aggregators_chosen = (
+            any(
+                agg.enabled()
+                for agg in aggregators.all_aggregators().values())
+            or self._conf.get("aggregators_chosen"))
         return render_template(
             "overview.html",
             enabled_aggregators=enabled_aggregators,
@@ -2080,6 +2078,7 @@ class AdsbIm:
             system_info=self._system.system_info,
             device_hosts=device_hosts,
             str=str,
+            aggregators_chosen=aggregators_chosen,
         )
 
     def setup(self):
