@@ -42,6 +42,14 @@ DOCKER_COMPOSE_UP_FAILED_FILE = pathlib.Path(
 logger = logging.getLogger(__name__)
 
 
+def _mandatory_config_is_complete(conf: "Config") -> bool:
+    """Check whether all mandatory settings are set."""
+    mandatory_setting_key_paths = {"lon", "lat", "alt", "site_name"}
+    return all(
+        conf.get(key_path) is not None
+        for key_path in mandatory_setting_key_paths)
+
+
 def _read_file(conf: "Config", *, file: pathlib.Path) -> str:
     try:
         with file.open() as f:
@@ -709,7 +717,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 4
+    CONFIG_VERSION = 5
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1061,7 +1069,8 @@ class Config(CompoundSetting):
         "sdrplay_license_accepted": BoolSetting,
         "journal_configured": ft.partial(BoolSetting, default=False),
         "ssh_configured": BoolSetting,
-        "base_config": ft.partial(BoolSetting, default=False),
+        "mandatory_config_is_complete": ft.partial(
+            GeneratedSetting, value_generator=_mandatory_config_is_complete),
         "aggregators_chosen": ft.partial(BoolSetting, default=False),
         "nightly_base_update": ft.partial(BoolSetting, default=False),
         "nightly_feeder_update": ft.partial(BoolSetting, default=False),
@@ -1496,10 +1505,19 @@ class Config(CompoundSetting):
         del config_dict["ultrafeeder_config"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_4_to_5(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is generated now.
+        del config_dict["base_config"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
-                         (3, 4): _upgrade_config_dict_from_3_to_4}
+                         (3, 4): _upgrade_config_dict_from_3_to_4,
+                         (4, 5): _upgrade_config_dict_from_4_to_5}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

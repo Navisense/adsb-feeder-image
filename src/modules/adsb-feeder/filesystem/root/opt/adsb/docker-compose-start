@@ -8,7 +8,7 @@ else
     rootcheck
 fi
 
-if [ "$(/opt/adsb/adsb-setup/config.py get base_config)" != True ] ; then
+if [ "$(/opt/adsb/adsb-setup/config.py get mandatory_config_is_complete)" != True ] ; then
     log $0 "First time adsb-system-restart: stop bootstrap"
     systemctl disable adsb-bootstrap
     systemctl stop adsb-bootstrap

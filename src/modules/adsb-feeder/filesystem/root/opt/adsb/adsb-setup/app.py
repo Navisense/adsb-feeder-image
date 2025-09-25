@@ -660,10 +660,10 @@ class AdsbIm:
         """
         def handle_request(*args, **kwargs):
             # Check basic setup.
-            if not self._conf.get(
-                    "base_config") and request.endpoint != "setup":
+            if (not self._conf.get("mandatory_config_is_complete")
+                    and request.endpoint != "setup"):
                 self._logger.info(
-                    "Base config not complete, redirecting to setup.")
+                    "Mandatory config not complete, redirecting to setup.")
                 flash("Please complete the initial setup.")
                 return redirect(url_for("setup"))
 
@@ -1231,16 +1231,6 @@ class AdsbIm:
                 "Timeout expired re-starting docker... trying to continue...",
                 flash_message=True)
 
-    def base_is_configured(self):
-        mandatory_setting_key_paths = {"lon", "lat", "alt", "site_name"}
-        for key_path in list(mandatory_setting_key_paths):
-            if self._conf.get(key_path) is not None:
-                mandatory_setting_key_paths.discard(key_path)
-            else:
-                self._logger.info(
-                    f"Basic setup incomplete: {key_path} is missing.")
-        return len(mandatory_setting_key_paths) == 0
-
     def at_least_one_aggregator(self) -> bool:
         return any(
             agg.enabled() for agg in aggregators.all_aggregators().values())
@@ -1580,13 +1570,12 @@ class AdsbIm:
 
             # if the base config is completed, lock down further SDR changes so they only happen on
             # user request
-            if self.base_is_configured():
+            if self._conf.get("mandatory_config_is_complete"):
                 self._conf.set("sdrs_locked", True)
 
         # finally, check if this has given us enough configuration info to
         # start the containers
-        if self.base_is_configured():
-            self._conf.set("base_config", True)
+        if self._conf.get("mandatory_config_is_complete"):
             if self.at_least_one_aggregator():
                 self._conf.set("aggregators_chosen", True)
 
@@ -1806,7 +1795,7 @@ class AdsbIm:
 
         if next_url:
             return redirect(next_url)
-        if self._conf.get("base_config"):
+        if self._conf.get("mandatory_config_is_complete"):
             self._logger.debug("Base config is complete.")
             if (self._conf.get("sdrplay")
                     and not self._conf.get("sdrplay_license_accepted")):

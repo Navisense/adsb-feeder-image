@@ -48,7 +48,7 @@ $docker_compose version &> /dev/null || docker_compose="docker-compose"
 compose_file_args="-f /opt/adsb/compose_files/dozzle.yml"
 config_json=$(/opt/adsb/adsb-setup/config.py as_json 2>/dev/null)
 
-if [ "$(echo $config_json | jq -r '.base_config')" != true ] ; then
+if [ "$(echo $config_json | jq -r '.mandatory_config_is_complete')" != true ] ; then
     log $0 "Things aren't configured yet, only starting Dozzle and the logger container."
     if [[ "$1" == "pull" ]]; then
         log $0 "For argument pull we will also pull ultrafeeder."
