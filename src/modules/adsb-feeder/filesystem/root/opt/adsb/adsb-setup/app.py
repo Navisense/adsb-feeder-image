@@ -20,6 +20,7 @@ import string
 import subprocess
 import threading
 import time
+from typing import Optional
 import uuid
 import re
 import sys
@@ -2393,50 +2394,57 @@ class AdsbIm:
 
     def configure_tailscale(self):
         if self._conf.get("secure_image"):
-            return "Image is secured, cannot configure tailscale.", 400
+            flash(
+                "Image is secured, cannot configure tailscale.",
+                category="error")
+            return redirect(url_for("systemmgmt"))
+        try:
+            self._configure_tailscale(
+                util.checkbox_checked(request.form["enabled"]),
+                request.form.get("tailscale-extras", ""))
+        except ValueError as e:
+            flash(f"Error setting up Tailscale: {e}.", category="error")
+        return redirect(url_for("systemmgmt"))
+
+    def _configure_tailscale(self, enabled: bool, extra_args: Optional[str]):
         if self._system.get_tailscale_info().status in [
                 system.TailscaleStatus.NOT_INSTALLED,
                 system.TailscaleStatus.ERROR]:
             self._conf.set("tailscale.is_enabled", False)
-            return "Tailscale is not installed (properly)", 500
-        if not util.checkbox_checked(request.form["enabled"]):
+            raise ValueError("Tailscale is not installed (properly)")
+        if not enabled:
             system.systemctl().run(["disable --now", "mask"],
                                    ["tailscaled.service"])
             self._conf.set("tailscale.is_enabled", False)
             self._logger.info("Disabled Tailscale.")
-            return redirect(url_for("systemmgmt"))
+            return
         self._conf.set("tailscale.is_enabled", True)
         try:
             system.systemctl().run(["unmask", "enable --now"],
                                    ["tailscaled.service"])
         except:
-            self._logger.exception(
-                "Error starting Tailscale daemon.", flash_message=True)
-            return "Error starting Tailscale.", 500
-        ts_args = request.form.get("tailscale-extras", "")
-        if ts_args:
+            self._logger.exception("Error starting Tailscale daemon.")
+            raise ValueError("error starting the Tailscale daemon")
+        login_server_url = None
+        if extra_args:
             # right now we really only want to allow the login server arg
             try:
-                ts_cli_switch, ts_cli_value = ts_args.split("=")
+                ts_cli_switch, login_server_url = extra_args.split("=")
             except:
-                ts_cli_switch, ts_cli_value = ["", ""]
+                ts_cli_switch = None
             if ts_cli_switch != "--login-server":
-                self._logger.warning(
-                    "At this point we only allow the "
-                    "--login-server=<server> argument.",
-                flash_message=True)
-                return f"Unsupported switch {ts_cli_switch}.", 400
+                raise ValueError(
+                    f"invalid Tailscale args {extra_args} (at this point, we "
+                    "only allow the --login-server=<server> argument)")
             match = re.match(
                 r"^https?://[-a-zA-Z0-9._\+~=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?::[0-9]{1,5})?(?:[-a-zA-Z0-9()_\+.~/=]*)$",
-                ts_cli_value,
+                login_server_url,
             )
             if not match:
-                self._logger.error(
-                    "The login server URL didn't make sense "
-                    f"{ts_cli_value}", flash_message=True)
-                return f"Invalid login server URL {ts_cli_value}.", 400
-        self._conf.set("tailscale.extras", ts_args)
-        self._logger.info(f"Starting Tailscale with args {ts_args}")
+                raise ValueError(
+                    f"invalid login server URL {login_server_url}")
+        self._conf.set("tailscale.extras", extra_args)
+        self._logger.info(f"Starting Tailscale with args {extra_args}")
         try:
             # due to the following error, we just add --reset to the options
             # Error: changing settings via 'tailscale up' requires mentioning
@@ -2449,8 +2457,8 @@ class AdsbIm:
                 "--reset",
                 f"--hostname={self.hostname}",
                 "--accept-dns=false",]
-            if ts_args:
-                cmd += [f"--login-server={shlex.quote(ts_cli_value)}"]
+            if login_server_url:
+                cmd += [f"--login-server={shlex.quote(login_server_url)}"]
             proc = subprocess.Popen(
                 cmd,
                 stderr=subprocess.PIPE,
@@ -2460,9 +2468,8 @@ class AdsbIm:
             os.set_blocking(proc.stderr.fileno(), False)
         except:
             self._logger.exception(
-                "Exception trying to set up tailscale - giving up",
-                flash_message=True)
-            return "Error setting up Tailscale.", 500
+                "Exception trying to set up tailscale - giving up")
+            raise ValueError("error setting up Tailscale")
         start_time = time.time()
         match = None
         while time.time() - start_time < 30:
@@ -2488,19 +2495,13 @@ class AdsbIm:
             self._logger.info(f"Found Tailscale login link {login_link}")
             self._conf.set("tailscale.login_link", login_link)
         elif proc.returncode == 0:
-            # tailscale up will return immediately with successful return if
+            # Tailscale up will return immediately with successful return if
             # it's already logged in.
             info = self._system.get_tailscale_info()
             if info.status == system.TailscaleStatus.LOGGED_IN:
-                self._logger.info(
-                    "Started Tailscale (was already logged in).")
-                return redirect(url_for("systemmgmt"))
+                self._logger.info("Started Tailscale (was already logged in).")
         else:
-            self._logger.error(
-                "ERROR: tailscale didn't provide a login link "
-                "within 30 seconds", flash_message=True)
-            return "Unable to get a login link", 500
-        return redirect(url_for("systemmgmt"))
+            raise ValueError("unable to get a login link")
 
     def configure_wifi(self):
         if self._conf.get("secure_image"):
