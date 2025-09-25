@@ -1250,7 +1250,7 @@ class AdsbIm:
                 serials[purpose] = serial_guess[purpose]
         return {
             "sdr_devices": [sdr._json for sdr in self._sdrdevices.sdrs],
-            "frequencies": list(serials),
+            "frequencies": serials,
             "duplicate_serials": list(self._sdrdevices.duplicate_serials),
             "lsusb_output": self._sdrdevices.lsusb_output,}
 
