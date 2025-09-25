@@ -21,7 +21,7 @@ distro=$(get_distro)
 
 staging_dir=$(clone_staging_dir ${ref})
 if [ $? -ne 0 ] ; then
-    exit_message "Cannot check out repository ref ${ref}"
+    log_and_exit_sync 1 $0 "Cannot check out repository ref ${ref}"
 fi
 trap "rm -rf ${staging_dir}" EXIT
 log $0 "Downloaded version ${ref} to ${staging_dir}."

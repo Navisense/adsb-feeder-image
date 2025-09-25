@@ -141,8 +141,9 @@ clone_staging_dir() {
     local clone_dir=$(mktemp -d)
 
     git clone --branch ${ref} --depth 1 ${REPO_URL} ${clone_dir} > /dev/null 2>&1
-    if [ $? -ne 0 ] ; then
-        return $?
+    ret=$?
+    if [ $ret -ne 0 ] ; then
+        return $ret
     fi
     echo ${clone_dir}
 }
