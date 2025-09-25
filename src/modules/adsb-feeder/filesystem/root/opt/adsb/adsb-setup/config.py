@@ -1545,6 +1545,7 @@ def _main():
     parser = argparse.ArgumentParser(description="Access the config file.")
     subparsers = parser.add_subparsers(dest="command")
     subparsers.add_parser("ensure_config_exists")
+    subparsers.add_parser("write_env_file")
     subparsers.add_parser("as_json")
     get_parser = subparsers.add_parser("get")
     get_parser.add_argument("key_path")
@@ -1563,7 +1564,9 @@ def _main():
 
 def _run_command(conf: Config, args):
     if args.command == "ensure_config_exists":
-        # The config must already exist, just write the env file.
+        # This already happened in _main(), nothing to do.
+        pass
+    if args.command == "write_env_file":
         conf.write_env_file()
     elif args.command == "as_json":
         print(json.dumps(_compound_setting_as_dict(conf)))
