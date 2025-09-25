@@ -112,7 +112,6 @@ echo "Creating a default config at /etc/adsb/config.json."
 /opt/adsb/adsb-setup/config.py ensure_config_exists
 /opt/adsb/adsb-setup/config.py set ports.web ${WEB_PORT}
 /opt/adsb/adsb-setup/config.py set mdns.is_enabled ${ENABLE_MDNS}
-/opt/adsb/adsb-setup/config.py write_env_file
 
 # Run the final steps of the setup and then enable the service.
 systemctl daemon-reload

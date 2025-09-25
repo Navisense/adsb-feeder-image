@@ -286,9 +286,6 @@ class AdsbIm:
         self.update_meminfo()
         self.update_journal_state()
 
-        # Write out the env file in case anything has changed.
-        self._conf.write_env_file()
-
     def _make_app(self) -> flask.Flask:
         app = flask_util.App(__name__)
 
@@ -779,7 +776,6 @@ class AdsbIm:
                 "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64")
 
         self.handle_implied_settings()
-        self._conf.write_env_file()
 
     def stop(self):
         if not self._server:
@@ -1228,7 +1224,6 @@ class AdsbIm:
                     "continue...", flash_message=True)
 
         self.handle_implied_settings()
-        self._conf.write_env_file()
 
         try:
             subprocess.call("/opt/adsb/docker-compose-start", timeout=180.0, shell=True)
@@ -1777,9 +1772,6 @@ class AdsbIm:
         # settings.
         self.handle_implied_settings()
 
-        # write all this out to the .env file so that a docker-compose run will find it
-        self._conf.write_env_file()
-
         if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
@@ -1801,9 +1793,14 @@ class AdsbIm:
             self._logger.info(
                 f"Toggling Prometheus metrics state from {currently_enabled} "
                 f"to {should_be_enabled}.")
-        command = "enable" if should_be_enabled else "disable"
-        proc, = system.systemctl().run(
-            [f"{command} --now"], ["adsb-push-prometheus-metrics.timer"])
+        command = "disable"
+        if should_be_enabled:
+            command = "enable"
+            # The service pushing the metrics uses the env file for
+            # configuration. Let's make sure we have the current data in it.
+            self._conf.write_env_file()
+        proc, = system.systemctl().run([f"{command} --now"],
+                                       ["adsb-push-prometheus-metrics.timer"])
         if proc.returncode != 0:
             self._logger.error(
                 "Error enabling/disabling Prometheus metrics state: "
@@ -2366,7 +2363,6 @@ class AdsbIm:
             # Only restart the ones that have been checked.
             if util.checkbox_checked(request.form[container.name]):
                 containers_to_restart.append(container.name)
-        self._conf.write_env_file()
         if "recreate" in request.form:
             self._system.recreate_containers(containers_to_restart)
         else:
@@ -2725,7 +2721,6 @@ def main():
     with system.System() as sys_:
         conf = config.ensure_config_exists()
         aggregators.init_aggregators(conf, sys_)
-        conf.write_env_file()
         if "--update-config" in sys.argv:
             # Just get AdsbIm to do some housekeeping and exit.
             AdsbIm(conf, sys_, None).update_config()

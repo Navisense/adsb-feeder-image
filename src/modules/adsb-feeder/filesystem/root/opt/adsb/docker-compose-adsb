@@ -113,7 +113,10 @@ else
     fi
 fi
 
-docker_compose_command="$docker_compose --env-file /etc/adsb/.env ${compose_file_args} $@"
+# Write out the env file with the config's current values before we pass it to
+# docker compose.
+/opt/adsb/adsb-setup/config.py write_env_file
+docker_compose_command="$docker_compose --env-file ${ENV_FILE} ${compose_file_args} $@"
 log $0 "Running $docker_compose_command"
 success="false"
 # Try 3 times.

@@ -57,8 +57,6 @@ for app in "${USR_BIN_APPS[@]}"; do
     [[ -f "/opt/adsb/$app" ]] && rm -f "/usr/bin/$app"
 done
 
-/opt/adsb/adsb-setup/config.py ensure_config_exists
-
 # remember that we handled the housekeeping for this version
 cp /opt/adsb/porttracker_feeder_install_metadata/version.txt /opt/adsb/porttracker_feeder_install_metadata/finish-update.done
 
