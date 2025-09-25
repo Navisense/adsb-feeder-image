@@ -276,6 +276,11 @@ class AdsbIm:
                 "is_reception_enabled": self.is_reception_enabled,
             }
 
+        @self.app.after_request
+        def set_no_cache(response: Response):
+            response.cache_control.no_cache = True
+            return response
+
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
         # let's only instantiate the Wifi class if we are on WiFi
         self.wifi = None
