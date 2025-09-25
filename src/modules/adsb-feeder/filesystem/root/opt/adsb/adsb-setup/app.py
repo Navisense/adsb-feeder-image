@@ -98,6 +98,10 @@ def url_for_with_empty_parameters(*args, **kwargs):
     return f"{url}?{parameter_string}"
 
 
+class SystemOperationError(Exception):
+    pass
+
+
 class PidFile:
     PID_FILE = pathlib.Path("/run/adsb-feeder.pid")
 
@@ -800,8 +804,12 @@ class AdsbIm:
 
     def _ensure_running_dependencies(self):
         self._maybe_enable_mdns()
-        self._ensure_prometheus_metrics_state(
-            self._conf.get("prometheus.is_enabled"))
+        try:
+            self._ensure_prometheus_metrics_state(
+                self._conf.get("prometheus.is_enabled"))
+        except SystemOperationError:
+            self._logger.exception(
+                "Error enabling/disabling Prometheus metrics state")
         self._ensure_nightly_feeder_update_timer()
         self._ensure_nightly_os_update_timer()
         tailscale_is_running = (
@@ -1714,8 +1722,13 @@ class AdsbIm:
                 self._logger.debug(
                     "Prometheus metrics requested as "
                     f"{util.checkbox_checked(value)}.")
-                self._ensure_prometheus_metrics_state(
-                    util.checkbox_checked(value))
+                try:
+                    self._ensure_prometheus_metrics_state(
+                        util.checkbox_checked(value))
+                except SystemOperationError as e:
+                    self._logger.exception(
+                        "Error enabling/disabling Prometheus metrics state: "
+                        f"{e}", flash_message=True)
             # Next up are text fields.
             if key == "tz":
                 self._logger.debug(f"Time zone changed to {value}.")
@@ -1817,10 +1830,7 @@ class AdsbIm:
         proc, = system.systemctl().run([f"{command} --now"],
                                        ["adsb-push-prometheus-metrics.timer"])
         if proc.returncode != 0:
-            self._logger.error(
-                "Error enabling/disabling Prometheus metrics state: "
-                f"{proc.stdout}", flash_message=True)
-            return
+            raise SystemOperationError(f"systemctl call failed: {proc.stdout}")
         self._conf.set("prometheus.is_enabled", should_be_enabled)
 
     def expert(self):
