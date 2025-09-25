@@ -19,7 +19,6 @@ if [ "${current_version}" = "${latest_version}" ] ; then
 else
     log $0 "Starting nightly feeder update from ${current_version} " \
         "to ${latest_version}."
-    systemd-run -u nightly-adsb-feeder-update \
-        /opt/adsb/scripts/update-feeder.bash $latest_version
+    /opt/adsb/scripts/update-feeder.bash $latest_version
     log $0 "Nightly feeder update done."
 fi
