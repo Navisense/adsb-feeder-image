@@ -804,6 +804,20 @@ class AdsbIm:
             self._conf.get("prometheus.is_enabled"))
         self._ensure_nightly_feeder_update_timer()
         self._ensure_nightly_os_update_timer()
+        tailscale_is_running = (
+            self._system.get_tailscale_info().status in [
+                system.TailscaleStatus.LOGGED_IN,
+                system.TailscaleStatus.LOGGED_OUT])
+        if self._conf.get("tailscale.is_enabled") and not tailscale_is_running:
+            self._logger.warning(
+                "Tailscale is supposed to be enabled, but appears to be not "
+                "running. Trying to enable it.")
+            try:
+                self._configure_tailscale(
+                    True, self._conf.get("tailscale.extras"))
+            except:
+                self._logger.exception(
+                    "Error enabling Tailscale during startup.")
 
     def _maybe_enable_mdns(self):
         if not self._conf.get("mdns.is_enabled"):
