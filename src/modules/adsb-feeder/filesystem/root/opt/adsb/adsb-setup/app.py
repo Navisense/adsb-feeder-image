@@ -1247,23 +1247,15 @@ class AdsbIm:
             for purpose in self._sdrdevices.purposes()}
         available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
         for purpose in ["978", "1090", "ais"]:
-            if (
-                    (not serials[purpose]
-                    or serials[purpose] not in available_serials)
+            if ((not serials[purpose]
+                 or serials[purpose] not in available_serials)
                     and serial_guess[purpose] not in configured_serials):
                 serials[purpose] = serial_guess[purpose]
-
-        self._logger.info(f"SDR assignment: {serials}")
-        jsonString = json.dumps(
-            {
-                "sdrdevices": [sdr._json for sdr in self._sdrdevices.sdrs],
-                "frequencies": serials,
-                "duplicates": ", ".join(self._sdrdevices.duplicates),
-                "lsusb_output": self._sdrdevices.lsusb_output,
-            },
-            indent=2,
-        )
-        return Response(jsonString, mimetype="application/json")
+        return {
+            "sdr_devices": [sdr._json for sdr in self._sdrdevices.sdrs],
+            "frequencies": list(serials),
+            "duplicate_serials": list(self._sdrdevices.duplicate_serials),
+            "lsusb_output": self._sdrdevices.lsusb_output,}
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data

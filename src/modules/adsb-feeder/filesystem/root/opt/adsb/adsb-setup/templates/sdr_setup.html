@@ -2,8 +2,12 @@
 {% set active_page = "sdr_setup" %}
 {% block title %}SDR Setup{% endblock title %}
 {% block content %}
+<div id="duplicate-serials-alert" class="alert alert-danger d-none">
+  There are multiple SDRs with serial numbers <span id="duplicate-serials"></span>. This will not work correctly. Please
+  ensure that all SDRs have distinct serial numbers.
+</div>
 <form class="row gy-2 gx-3 align-items-center" method="post">
-  <button type="submit" class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3" name="sdr_setup">
+  <button type="submit" class="btn btn-primary btn-rounded btn-block btn-lg p-4 mb-3" name="sdr_setup">
     apply settings - take me to the feeder homepage
   </button>
   <div class="col-12 {% if not get_conf('serial_devices.1090') and not get_conf('airspy') %}d-none{% endif %}">
@@ -53,16 +57,9 @@
         <label for="uatbiast">Enable bias-T for UAT978 SDR.</label>
       </div>
     </div>
-    <div class="row" id="multipleSdrs">
-      <div class="col-sm-12 mt-5 mb-3 text-danger" style="display: none;" id="duptext">
-        There are multiple SDRs with serial number <span id="duplicates"></span>. This will not work correctly. Please
-        ensure that all SDRs have distinct serial numbers.
-      </div>
-      <div class="col-sm-12 mt-5 mb-3" style="display: block;" id="noduptext">
-        In most cases the assignment below is correct. If it isn't, please update.
-      </div>
+    <div class="row">
       <div class="col-sm-3 no-gutters">
-        <button class="btn btn-secondary btn-rounded" type="button" name="update_sdr_info" onclick="sdr_info()">Check
+        <button class="btn btn-secondary btn-rounded" type="button" name="update_sdr_info" onclick="updateSdrInfo()">Check
           SDRs</button>
       </div>
     </div>
@@ -112,7 +109,7 @@
       </div>
     </div>
   </div>
-  <div class="col-12 gy-2 gx-3 align-items-center" id="noSdrs" style="display: none;">
+  <div class="col-12 gy-2 gx-3 align-items-center" id="no-sdrs" style="display: none;">
     No SDRs found. If you have SDRs attached to the computer this software is running on, then a reboot may be
     required before the web UI can see the SDRs.
   </div>
@@ -134,51 +131,49 @@
 </form>
 <script>
 
-  function sdr_info() {
+  function updateSdrInfo() {
     fetch("/api/sdr_info", { signal: AbortSignal.timeout(15000) })
       .then(response => response.json())
       .then(data => {
-        let num = data['sdrdevices'].length;
+        let num = data["sdr_devices"].length;
         if (num == 0) {
-          document.getElementById('multipleSdrs').style.display = 'none';
-          document.getElementById('noSdrs').style.display = 'block';
-          document.getElementById('1090biast').style.display = 'none';
+          document.getElementById("no-sdrs").style.display = "block";
+          document.getElementById("1090biast").style.display = "none";
         }
         document.getElementById("lsusb_text").innerHTML = data.lsusb_output;
-        let sdrs = data['sdrdevices'];
-        let use = data['frequencies'];
+        let sdrs = data["sdr_devices"];
+        let use = data["frequencies"];
         let consumers = ["1090", "978", "ais", "other"]
         for (let i = 0; i < num; i++) {
-          let id = 'sdr' + i;
-          let serial = sdrs[i]['serial'];
-          let type = sdrs[i]['type'];
-          document.getElementById(id).style.display = 'flex';
+          let id = "sdr" + i;
+          let serial = sdrs[i]["serial"];
+          let type = sdrs[i]["type"];
+          document.getElementById(id).style.display = "flex";
           document.getElementById(id + "-serial").innerHTML = serial;
           document.getElementById(id + "-type").innerHTML = type;
           let used = false;
           for (const c of consumers) {
-            document.getElementById(c + '-' + i).value = serial;
-            document.getElementById(c + '-' + i).checked = (use[c] == serial);
+            document.getElementById(c + "-" + i).value = serial;
+            document.getElementById(c + "-" + i).checked = (use[c] == serial);
             used |= (use[c] == serial)
           }
           // if not explicitely used, check box for other
           if (!used) {
-            document.getElementById('other' + '-' + i).checked = true;
+            document.getElementById("other" + "-" + i).checked = true;
           }
           // don't show the 978 checkbox for non-rtlsdr SDRs as they can't be used for 978
           document.getElementById("978-" + i).parentNode.style.display = (type != "rtlsdr") ? "none" : "";
         }
         for (let i = num; i < 4; i++) {
-          let id = 'sdr' + i;
-          document.getElementById(id).style.display = 'none';
+          let id = "sdr" + i;
+          document.getElementById(id).style.display = "none";
         }
-        if (data['duplicates'] != '') {
-          document.getElementById('duplicates').innerText = data['duplicates'];
-          document.getElementById("duptext").style.display = 'block';
-          document.getElementById("noduptext").style.display = 'none';
+        $("#duplicate-serials").text(data["duplicate_serials"].join(", "));
+        let duplicateSerialsAlert = $("#duplicate-serials-alert");
+        if (data["duplicate_serials"].length) {
+          duplicateSerialsAlert.removeClass("d-none");
         } else {
-          document.getElementById("duptext").style.display = 'none';
-          document.getElementById("noduptext").style.display = 'block';
+          duplicateSerialsAlert.addClass("d-none");
         }
 
         $("input[type=radio]").click(function () {
@@ -194,6 +189,6 @@
       });
   }
 
-  sdr_info();
+  updateSdrInfo();
 </script>
 {% endblock %}

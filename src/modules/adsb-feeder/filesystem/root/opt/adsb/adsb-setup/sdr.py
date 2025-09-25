@@ -114,7 +114,7 @@ class SDRDevices:
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self.sdrs: list[SDR] = []
-        self.duplicates: set[str] = set()
+        self.duplicate_serials: set[str] = set()
         self.lsusb_output = ""
         self.last_probe = 0
         self.last_debug_out = ""
@@ -226,14 +226,17 @@ class SDRDevices:
         check_pidvid(pv_list=sdrplay_pv_list, sdr_type="sdrplay")
 
         found_serials = set()
-        self.duplicates = set()
+        self.duplicate_serials = set()
         for sdr in self.sdrs:
             self.lsusb_output += f"\nSDR detected with serial: {sdr.serial}\n"
             self.lsusb_output += sdr.lsusb_output
             if sdr.serial in found_serials:
-                self.duplicates.add(sdr.serial)
+                self.duplicate_serials.add(sdr.serial)
             else:
                 found_serials.add(sdr.serial)
+        if self.duplicate_serials:
+            self._logger.warning(
+                f"Duplicate SDR serials {self.duplicate_serials}.")
 
         if len(self.sdrs) == 0:
             self.debug_out = "_update_sdrs() could not find any SDRs"
