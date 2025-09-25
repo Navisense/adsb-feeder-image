@@ -290,8 +290,6 @@ class AdsbIm:
             on_usb_change=self._sdrdevices.ensure_populated,
             on_undervoltage=self._set_undervoltage)
 
-        self._next_url_from_director = ""
-
         self.lastSetGainWrite = 0
 
         # No one should share a CPU serial with AirNav, so always create fake
@@ -384,14 +382,17 @@ class AdsbIm:
             "sdr_setup",
             view_func=self.sdr_setup,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/visualization",
             "visualization",
             view_func=self.visualization,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -399,7 +400,8 @@ class AdsbIm:
             "expert",
             view_func=self.expert,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -407,7 +409,8 @@ class AdsbIm:
             "systemmgmt",
             view_func=self.systemmgmt,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET"],
         )
         self.app.add_url_rule(
@@ -415,13 +418,14 @@ class AdsbIm:
             "aggregators",
             view_func=self.aggregators,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/",
-            "director",
-            view_func=self.director,
+            "index",
+            view_func=self.index,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET"],
@@ -430,21 +434,26 @@ class AdsbIm:
             "/info",
             "info",
             view_func=self.info,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode,
+                self._redirect_for_incomplete_config],
         )
         self.app.add_url_rule(
             "/overview",
             "overview",
             view_func=self.overview,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
             "/support",
             "support",
             view_func=self.support,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -452,7 +461,8 @@ class AdsbIm:
             "setup",
             view_func=self.setup,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -460,7 +470,8 @@ class AdsbIm:
             "sdrplay_license",
             view_func=self.sdrplay_license,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
         self.app.add_url_rule(
@@ -635,6 +646,62 @@ class AdsbIm:
         def handle_request(*args, **kwargs):
             if self._system.is_restarting:
                 return redirect("/restarting")
+            return view_func(*args, **kwargs)
+
+        return handle_request
+
+    def _redirect_for_incomplete_config(self, view_func):
+        """
+        Redirect if necessary setup is missing.
+
+        Redirects the request to the basic setup page if that's not finished
+        yet. If there are any inconsistencies with the configuration of SDR
+        devices, redirects to the SDR setup page.
+        """
+        def handle_request(*args, **kwargs):
+            # Check basic setup.
+            if not self._conf.get(
+                    "base_config") and request.endpoint != "setup":
+                self._logger.info(
+                    "Base config not complete, redirecting to setup.")
+                flash("Please complete the initial setup.")
+                return redirect(url_for("setup"))
+
+            # Check for unconfigured SDR devices.
+            available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
+            configured_serials = {
+                self._conf.get(f"serial_devices.{purpose}")
+                for purpose in self._sdrdevices.purposes()}
+            configured_serials = {
+                serial
+                for serial in configured_serials
+                if serial}
+            unconfigured_serials = available_serials - configured_serials
+            if unconfigured_serials and request.endpoint != "sdr_setup":
+                self._logger.info(
+                    f"Unconfigured devices: {unconfigured_serials}, "
+                    "redirecting to SDR setup.")
+                flash(
+                    f"Please configure {len(unconfigured_serials)} "
+                    "unconfigured device(s).")
+                return redirect(url_for("sdr_setup"))
+
+            # Check if any configured SDR devices are missing.
+            used_serials = {
+                self._conf.get(f"serial_devices.{purpose}")
+                for purpose in self._sdrdevices.purposes()
+                if not purpose.startswith("other")}
+            used_serials = {serial for serial in used_serials if serial}
+            missing_serials = used_serials - available_serials
+            if missing_serials and request.endpoint != "sdr_setup":
+                self._logger.warning(
+                    f"Configured devices {missing_serials} appear to not be "
+                    "attached, redirecting to SDR setup.")
+                flash(
+                    f"{len(missing_serials)} device(s) are configured for "
+                    "some purpose, but aren't plugged in.", category="warning")
+                return redirect(url_for("sdr_setup"))
+
             return view_func(*args, **kwargs)
 
         return handle_request
@@ -828,6 +895,9 @@ class AdsbIm:
                 pass
 
         return True
+
+    def index(self):
+        return redirect(url_for("overview"))
 
     def healthz(self):
         if request.method == "OPTIONS":
@@ -1743,7 +1813,7 @@ class AdsbIm:
                 return redirect(url_for("sdrplay_license"))
             return render_template("/restarting.html")
         self._logger.debug("Base config not complete.")
-        return redirect(url_for("director"))
+        return redirect(url_for("index"))
 
     def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
         currently_enabled = self._conf.get("prometheus.is_enabled")
@@ -1887,78 +1957,6 @@ class AdsbIm:
         elif agg_key == "aishub":
             kwargs["udp_port"] = request.form.get("aishub-udp-port") or None
         return kwargs
-
-    def director(self):
-        # figure out where to go:
-        if request.method == "POST":
-            return self.update()
-        if not self._conf.get("base_config"):
-            self._logger.debug(
-                "Director redirecting to setup, base_config not complete.")
-            return flask.redirect("/setup")
-        # if we already figured out where to go next, let's just do that
-        if self._next_url_from_director:
-            self._logger.debug(
-                "Director redirecting to next_url_from_director: "
-                f"{self._next_url_from_director}")
-            url = self._next_url_from_director
-            self._next_url_from_director = ""
-            if re.match(r"^http://\d+\.\d+\.\d+\.\d+:\d+$", url):
-                # this looks like it could be a forward to a tar1090 map
-                # give it a few moments until this page is ready
-                # but don't risk hanging out here forever
-                testurl = url + "/data/receiver.json"
-                for i in range(5):
-                    time.sleep(1.0)
-                    try:
-                        response = requests.get(testurl, timeout=2.0)
-                        if response.status_code == 200:
-                            break
-                    except:
-                        pass
-            return redirect(url)
-        # If we have more than one SDR, or one of them is an airspy,
-        # we need to go to sdr_setup - unless we have at least one of the serials set up
-        # for 978 or 1090 reporting
-
-        # do we have duplicate SDR serials?
-        if len(self._sdrdevices.duplicates) > 0:
-            self._logger.warning("Duplicate SDR serials detected.")
-            # return self.sdr_setup()
-
-        # check if any of the SDRs aren't configured
-        configured_serials = [
-            self._conf.get(f"serial_devices.{purpose}")
-            for purpose in self._sdrdevices.purposes()]
-        configured_serials = [
-            serial for serial in configured_serials if serial != ""]
-        available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
-        if any([serial not in configured_serials for serial in available_serials]):
-            self._logger.info(f"Configured serials: {configured_serials}")
-            self._logger.info(f"Available serials: {available_serials}")
-            self._logger.info(
-                "Director redirecting to sdr_setup: unconfigured devices "
-                "present.")
-            return flask.redirect("/sdr_setup")
-
-        used_serials = [self._conf.get(f"serial_devices.{purpose}")
-                        for purpose in ["978","1090","ais"]]
-        used_serials = [serial for serial in used_serials if serial]
-        if any([serial not in available_serials for serial in used_serials]):
-            self._logger.info(f"Used serials: {used_serials}")
-            self._logger.info(f"Available serials: {available_serials}")
-            self._logger.info(
-                "Director redirecting to sdr_setup: at least one used device "
-                "is not present.")
-            return flask.redirect("/sdr_setup")
-
-        # if the user chose to individually pick aggregators but hasn't done so,
-        # they need to go to the aggregator page
-        if self.at_least_one_aggregator() or self._conf.get("aggregators_chosen"):
-            return flask.redirect("/overview")
-        self._logger.info(
-            "Director redirecting to aggregators: to be configured.")
-        return flask.redirect("/aggregators")
 
     def update_net_dev(self):
         try:
@@ -2362,7 +2360,6 @@ class AdsbIm:
         if "do-system-update-now" in request.form:
             self._logger.debug("OS update requested.")
             self._system._restart.bg_run(func=self._system.os_update)
-            self._next_url_from_director = url_for("overview")
             return render_template("/restarting.html")
         elif "configure-system-update" in request.form:
             should_be_enabled = util.checkbox_checked(
