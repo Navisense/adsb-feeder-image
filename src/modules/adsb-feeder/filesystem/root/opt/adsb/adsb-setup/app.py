@@ -258,44 +258,22 @@ class AdsbIm:
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
         self._background_tasks = {}
-        self.app = flask_util.App(__name__)
-        self.app.secret_key = os.urandom(16).hex()
-
-        # set Cache-Control max-age for static files served
-        # cachebust.sh ensures that the browser doesn't get outdated files
-        self.app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1209600
-        self.app.jinja_env.add_extension("jinja2.ext.loopcontrols")
-
-        self.exiting = False
-
-        @self.app.context_processor
-        def env_functions():
-            return {
-                "get_conf": self._conf.get,
-                "url_for": url_for_with_empty_parameters,
-                "is_reception_enabled": self.is_reception_enabled,
-            }
-
-        @self.app.after_request
-        def set_no_cache(response: Response):
-            response.cache_control.no_cache = True
-            return response
-
+        self._app = self._make_app()
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
-        # let's only instantiate the Wifi class if we are on WiFi
-        self.wifi = None
-        self.wifi_ssid = ""
-
         self._sdrdevices = sdr.SDRDevices()
 
         self.last_dns_check = 0
         self.undervoltage_epoch = 0
-
+        self.lastSetGainWrite = 0
         self._dmesg_monitor = DmesgMonitor(
             on_usb_change=self._sdrdevices.ensure_populated,
             on_undervoltage=self._set_undervoltage)
 
-        self.lastSetGainWrite = 0
+        self.exiting = False
+
+        # let's only instantiate the Wifi class if we are on WiFi
+        self.wifi = None
+        self.wifi_ssid = ""
 
         # No one should share a CPU serial with AirNav, so always create fake
         # cpuinfo. Also identify if we would use the thermal hack for RB and
@@ -305,84 +283,111 @@ class AdsbIm:
         else:
             self._conf.set("rbthermalhack", "")
 
-        self.app.add_proxy_routes(self._conf)
-        self.app.add_url_rule(
+        self.update_meminfo()
+        self.update_journal_state()
+
+        # Write out the env file in case anything has changed.
+        self._conf.write_env_file()
+
+    def _make_app(self) -> flask.Flask:
+        app = flask_util.App(__name__)
+
+        def env_functions():
+            return {
+                "get_conf": self._conf.get,
+                "url_for": url_for_with_empty_parameters,
+                "is_reception_enabled": self.is_reception_enabled,}
+
+        def set_no_cache(response: Response):
+            response.headers.setdefault("Cache-Control", "no-cache")
+            return response
+
+        app.secret_key = os.urandom(16).hex()
+        # set Cache-Control max-age for static files served
+        # cachebust.sh ensures that the browser doesn't get outdated files
+        app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1209600
+        app.jinja_env.add_extension("jinja2.ext.loopcontrols")
+        app.context_processor(env_functions)
+        app.after_request(set_no_cache)
+
+        app.add_proxy_routes(self._conf)
+        app.add_url_rule(
             "/healthz",
             "healthz",
             view_func=self.healthz,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["OPTIONS", "GET"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/restarting",
             "restarting",
             view_func=self.restarting,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/shutdownpage",
             "shutdownpage",
             view_func=self.shutdownpage,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/restart",
             "restart",
             view_func=self.restart,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/waiting",
             "waiting",
             view_func=self.waiting,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/stream-log",
             "stream_log",
             view_func=self.stream_log,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/backup",
             "backup",
             view_func=self.backup,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/backupexecutefull",
             "backupexecutefull",
             view_func=self.backup_execute_full,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/backupexecutegraphs",
             "backupexecutegraphs",
             view_func=self.backup_execute_graphs,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/backupexecuteconfig",
             "backupexecuteconfig",
             view_func=self.backup_execute_config,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/restore",
             "restore",
             view_func=self.restore,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/executerestore",
             "executerestore",
             view_func=self.executerestore,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/sdr_setup",
             "sdr_setup",
             view_func=self.sdr_setup,
@@ -391,7 +396,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/visualization",
             "visualization",
             view_func=self.visualization,
@@ -400,7 +405,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/expert",
             "expert",
             view_func=self.expert,
@@ -409,7 +414,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/systemmgmt",
             "systemmgmt",
             view_func=self.systemmgmt,
@@ -418,7 +423,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/aggregators",
             "aggregators",
             view_func=self.aggregators,
@@ -427,7 +432,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/",
             "index",
             view_func=self.index,
@@ -435,7 +440,7 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["GET"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/info",
             "info",
             view_func=self.info,
@@ -443,7 +448,7 @@ class AdsbIm:
                 self._decide_route_hotspot_mode,
                 self._redirect_for_incomplete_config],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/overview",
             "overview",
             view_func=self.overview,
@@ -452,7 +457,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/support",
             "support",
             view_func=self.support,
@@ -461,7 +466,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/setup",
             "setup",
             view_func=self.setup,
@@ -470,7 +475,7 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/sdplay_license",
             "sdrplay_license",
             view_func=self.sdrplay_license,
@@ -479,52 +484,52 @@ class AdsbIm:
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/api/sdr_info",
             "sdr_info",
             view_func=self.sdr_info,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/api/stats",
             "stats",
             view_func=self.get_stats,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/api/status/<agg_key>",
             "agg_status",
             view_func=self.agg_status,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/api/get_temperatures.json",
             "temperatures",
             view_func=self.temperatures,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/set-ssh-credentials",
             "set-ssh-credentials",
             view_func=self.set_ssh_credentials,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/create-root-password",
             "create-root-password",
             view_func=self.create_root_password,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/set-secure-image",
             "set-secure-image",
             view_func=self.set_secure_image,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/shutdown-reboot",
             "shutdown-reboot",
             view_func=self.shutdown_reboot,
@@ -532,14 +537,14 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/toggle-log-persistence",
             "toggle-log-persistence",
             view_func=self.toggle_log_persistence,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/feeder-update",
             "feeder-update",
             view_func=self.feeder_update,
@@ -547,7 +552,7 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/os-update",
             "os-update",
             view_func=self.os_update,
@@ -555,28 +560,28 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/restart-containers",
             "restart-containers",
             view_func=self.restart_containers,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/configure-zerotier",
             "configure-zerotier",
             view_func=self.configure_zerotier,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/configure-tailscale",
             "configure-tailscale",
             view_func=self.configure_tailscale,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/configure-wifi",
             "configure-wifi",
             view_func=self.configure_wifi,
@@ -584,38 +589,34 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
             methods=["POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/get-logs",
             "get-logs",
             view_func=self.get_logs,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/view-logs",
             "view-logs",
             view_func=self.view_logs,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         # Catch-all rules for the hotspot app.
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/",
             "/",
             view_func=None,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
-        self.app.add_url_rule(
+        app.add_url_rule(
             "/<path:path>",
             None,
             view_func=None,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
         )
-        self.update_meminfo()
-        self.update_journal_state()
-
-        # Write out the env file in case anything has changed.
-        self._conf.write_env_file()
+        return app
 
     def _decide_route_hotspot_mode(self, view_func):
         """
@@ -763,7 +764,7 @@ class AdsbIm:
 
         self._server = werkzeug.serving.make_server(
             host="0.0.0.0", port=int(self._conf.get("ports.web")),
-            app=self.app, threaded=True)
+            app=self._app, threaded=True)
         self._server_thread = threading.Thread(
             target=self._server.serve_forever, name="AdsbIm")
         self._server_thread.start()
