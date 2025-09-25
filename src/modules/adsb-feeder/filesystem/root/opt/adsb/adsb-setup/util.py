@@ -333,9 +333,16 @@ class FlashingLogger(logging.getLoggerClass()):
         return super().exception(msg, *args, **kwargs)
 
     def _maybe_flash(self, flash_message, msg, category):
-        if flash_message is True:
+        if not flash_message:
+            return
+        elif flash_message is True:
             flash_message = msg
-        if flash_message:
+        self.info(f"has context: {flask.has_request_context()}")
+        if not flask.has_request_context():
+            self.error(
+                "This logger was used to try and flash a message, but the "
+                "necessary Flask request context is not available.")
+        else:
             flask.flash(flash_message, category)
 
 
