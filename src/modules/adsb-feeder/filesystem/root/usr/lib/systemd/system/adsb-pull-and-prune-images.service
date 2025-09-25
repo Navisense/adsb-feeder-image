@@ -1,6 +1,9 @@
 [Unit]
 Description=Download new and prune unused Docker images
-Requires=adsb-docker.service
+# Pulling images requires certificates, which need a reasonably accurate time
+# (for the expiration). We require systemd-time-wait-sync.service to wait until
+# the system time has synchronized to an NTP server.
+Requires=adsb-docker.service systemd-time-wait-sync.service
 After=adsb-docker.service
 
 [Service]
