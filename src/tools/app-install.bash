@@ -123,10 +123,6 @@ if [ "${EXPAND_ROOTFS}" == "True" ] ; then
     systemctl start adsb-expand-rootfs
 fi
 
-# while the user is getting ready, let's try to pull the key docker
-# containers in the background -- that way startup will feel quicker
-systemd-run -u adsb-docker-pull bash ${APP_DIR}/docker-pull.sh
-
 echo "done installing"
 echo "you can uninstall this software by running"
 echo "sudo bash ${APP_DIR}/app-uninstall"

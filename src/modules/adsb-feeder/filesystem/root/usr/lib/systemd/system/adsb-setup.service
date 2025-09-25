@@ -1,7 +1,7 @@
 [Unit]
 Description=Porttracker Feeder Setup
 Requires=adsb-rotate-ramlog-to-file.service
-Wants=adsb-docker.service
+Wants=adsb-docker.service adsb-pull-and-prune-images.service
 After=network-online.target
 # The firewall gets in the way of serving the app.
 Conflicts=nftables.service

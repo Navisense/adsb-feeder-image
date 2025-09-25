@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Pull Docker images we need and prune those that are outdated.
+
 if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
     echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
     exit 1
@@ -8,14 +10,15 @@ else
     rootcheck
 fi
 
-log $0 "Pulling new container images and restarting docker."
-
-bash /opt/adsb/docker-compose-start
-# If something failed, run the docker pull for good measure:
-if [[ -f ${DOCKER_COMPOSE_UP_FAILED_MARKER_FILE} ]]; then
-    bash /opt/adsb/docker-pull.sh
-    bash /opt/adsb/docker-compose-start
+docker ps >/dev/null 2>&1
+if [ $? -ne 0 ] ; then
+    log_and_exit_sync 1 $0 "The Docker daemon isn't running, can't do anything."
 fi
+
+log $0 "Pulling new container images."
+# Let the wrapper script figure out which compose files should be activated and
+# pull all necessary images.
+bash /opt/adsb/docker-compose-adsb pull --ignore-pull-failures &>> ${LOG_FILE}
 
 # Prune images and files we no longer use.
 # https://docs.docker.com/config/pruning/ says: A dangling image is one that
@@ -39,12 +42,10 @@ for existing_image in $(docker images -a --format "{{.Repository}}:{{.Tag}}") ; 
     done
 done
 
-if [[ -n "$prune_images" ]]; then
-    log $0 "Pruning ${prune_images}"
-    if [[ -f /opt/adsb/noprune ]]; then
-        log $0 "Not actually pruning due to flag file /opt/adsb/noprune being present."
-    else
-        docker rmi $prune_images # unquoted expansion required
-    fi
+if [[ -z "$prune_images" ]]; then
+    log $0 "No unused images to prune."
+else
+    log $0 "Pruning unused images ${prune_images}"
+    docker image rm $prune_images # unquoted expansion required
 fi
 log $0 "Pruning done."

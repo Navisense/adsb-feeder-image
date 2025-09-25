@@ -1,0 +1,11 @@
+[Unit]
+Description=Download new and prune unused Docker images
+Requires=adsb-docker.service
+After=adsb-docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/adsb/scripts/pull-and-prune-images.bash
+
+[Install]
+WantedBy=multi-user.target

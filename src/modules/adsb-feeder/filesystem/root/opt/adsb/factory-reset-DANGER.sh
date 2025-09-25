@@ -10,6 +10,5 @@ rm -f /opt/adsb/init-complete
 
 echo "FACTORY RESET DONE" >> /run/porttracker-feeder.log
 
-systemctl enable adsb-bootstrap.service
 systemctl stop adsb-docker
-systemctl restart adsb-bootstrap adsb-setup adsb-docker
+systemctl restart adsb-setup adsb-docker
