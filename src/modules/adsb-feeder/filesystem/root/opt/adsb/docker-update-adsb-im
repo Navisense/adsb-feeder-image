@@ -22,9 +22,10 @@ fi
 # isn't tagged, and isn't referenced by any container. Pretty much all old
 # images we have are tagged so they wouldn't be removed without -a but -a also
 # removes current images of for example deactived feed containers, thus we
-# manually create a list of images that are neither running nor in a variable
-# starting with DOCKER_IMAGE_* in .env.
-needed_images="$(grep "DOCKER_IMAGE_" /etc/adsb/.env | cut -d= -f2)"
+# manually create a list of images that are neither running nor specified in the
+# config.
+needed_images=$(/opt/adsb/adsb-setup/config.py as_json 2>/dev/null \
+    | jq -r '.images[]')
 prune_images=""
 for existing_image in $(docker images -a --format "{{.Repository}}:{{.Tag}}") ; do
     existing_base_image=$(echo $existing_image | cut -d: -f1)
