@@ -2418,7 +2418,6 @@ class AdsbIm:
             self._conf.set("tailscale.is_enabled", False)
             self._logger.info("Disabled Tailscale.")
             return
-        self._conf.set("tailscale.is_enabled", True)
         try:
             system.systemctl().run(["unmask", "enable --now"],
                                    ["tailscaled.service"])
@@ -2443,7 +2442,6 @@ class AdsbIm:
             if not match:
                 raise ValueError(
                     f"invalid login server URL {login_server_url}")
-        self._conf.set("tailscale.extras", extra_args)
         self._logger.info(f"Starting Tailscale with args {extra_args}")
         try:
             # due to the following error, we just add --reset to the options
@@ -2470,6 +2468,9 @@ class AdsbIm:
             self._logger.exception(
                 "Exception trying to set up tailscale - giving up")
             raise ValueError("error setting up Tailscale")
+        self._conf.set("tailscale.is_enabled", True)
+        self._conf.set("tailscale.extras", extra_args)
+
         start_time = time.time()
         match = None
         while time.time() - start_time < 30:
