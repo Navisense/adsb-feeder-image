@@ -709,8 +709,12 @@ class PorttrackerAggregator(AccountBasedAggregator):
     def configure(
             self, enabled: bool, station_id: str, data_sharing_key: str,
             mqtt_protocol: str, mqtt_host: str, mqtt_port: str,
-            mqtt_username: str, mqtt_password: str, mqtt_topic: str) -> None:
+            mqtt_username: str, mqtt_password: str, mqtt_topic: str,
+            prometheus_enabled: bool) -> None:
         if not enabled:
+            # Prometheus metrics should only be enabled if the aggregator is.
+            self._conf.set(
+                "aggregators.porttracker.prometheus.is_enabled", False)
             return super().configure(enabled, data_sharing_key)
         if not all([station_id, data_sharing_key, mqtt_protocol, mqtt_host,
                     mqtt_port, mqtt_username, mqtt_password, mqtt_topic]):
@@ -729,6 +733,9 @@ class PorttrackerAggregator(AccountBasedAggregator):
         self._conf.set("aggregators.porttracker.mqtt_qos", 0)
         self._conf.set("aggregators.porttracker.mqtt_topic", mqtt_topic)
         self._conf.set("aggregators.porttracker.mqtt_msgformat", "JSON_NMEA")
+        self._conf.set(
+            "aggregators.porttracker.prometheus.is_enabled",
+            prometheus_enabled)
         super().configure(enabled, data_sharing_key)
 
     def _check_aggregator_status(self) -> AggregatorStatus:

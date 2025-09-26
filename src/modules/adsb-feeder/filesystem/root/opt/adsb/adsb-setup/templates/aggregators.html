@@ -59,20 +59,37 @@
                        class="required-if-enabled"
                        name="porttracker-mqtt-topic"
                        value="">
-                <div class="d-flex p-2">
-                  <div class="form-outline" data-mdb-input-init style="width: 20rem">
-                    <input type="text"
-                           id="porttracker-data-sharing-key"
-                           name="porttracker-data-sharing-key"
-                           class="form-control required-if-enabled"
-                           value="{{ get_conf('aggregators.porttracker.key') }}">
-                    <label class="form-label" for="porttracker-data-sharing-key">Data sharing key</label>
+                <div class="row align-items-center">
+                  <div class="col-12 col-lg-8">
+                    <div class="input-group m-1">
+                      <div class="form-outline w-75" data-mdb-input-init>
+                        <input type="text"
+                               id="porttracker-data-sharing-key"
+                               name="porttracker-data-sharing-key"
+                               class="form-control required-if-enabled"
+                               value="{{ get_conf('aggregators.porttracker.key') }}">
+                        <label class="form-label" for="porttracker-data-sharing-key">Data sharing key</label>
+                      </div>
+                      <button type="button"
+                              class="btn btn-primary"
+                              data-mdb-button-init
+                              data-mdb-ripple-init
+                              onclick="getAndShowRegisteredPorttrackerStations()">
+                        Set data sharing key
+                      </button>
+                    </div>
                   </div>
-                  <button type="button"
-                          class="btn btn-primary"
-                          data-mdb-button-init
-                          data-mdb-ripple-init
-                          onclick="getAndShowRegisteredPorttrackerStations()">Set data sharing key</button>
+                  <div class="col-12 col-lg-4 align-items-center">
+                    <div class="m-1 ms-3">
+                      <label for="porttracker-enable-prometheus-metrics">Send device metrics to Porttracker</label>
+                      <input type="checkbox"
+                             id="porttracker-enable-prometheus-metrics"
+                             name="porttracker-enable-prometheus-metrics"
+                             class="form-check-input me-1"
+                             disabled
+                             {% if get_conf("aggregators.porttracker.prometheus.is_enabled") %}checked{% endif %}>
+                    </div>
+                  </div>
                 </div>
                 <div id="porttracker-registered-stations"></div>
               </div>
@@ -261,9 +278,13 @@
             {% if aggregators['adsblol'].enabled('adsb') or any_non_adsblol_uf_aggregators %}
               <div class="col-12 small fw-light text-muted text-end">
                 <div class="small fw-light text-muted text-end collapse" id="show-uuids">
-                  {% if aggregators['adsblol'].enabled('adsb') %}adsb.lol UUID: {{ get_conf("adsblol_uuid", default="") }}{% endif %}
+                  {% if aggregators['adsblol'].enabled('adsb') %}
+                    adsb.lol UUID: {{ get_conf("adsblol_uuid", default="") }}
+                  {% endif %}
                   <br>
-                  {% if any_non_adsblol_uf_aggregators %}Ultrafeeder UUID: {{ get_conf("ultrafeeder_uuid", default="") }}{% endif %}
+                  {% if any_non_adsblol_uf_aggregators %}
+                    Ultrafeeder UUID: {{ get_conf("ultrafeeder_uuid", default="") }}
+                  {% endif %}
                 </div>
                 <button class="btn btn-secondary small"
                         type="button"
@@ -631,17 +652,19 @@
         for (const userStation of userStations) {
           appendRegisteredPorttrackerStation(userStation);
         }
-      $("#porttracker-registered-stations > table > tbody").append(`
-        <tr id="porttracker-add-new-station-row">
-          <td colspan="6">
-            <button type="button" class="btn btn-primary col-12" data-mdb-button-init data-mdb-ripple-init onclick="showNewPorttrackerStationRegistrationFields()">
-              Register a new station
-            </button>
-          </td>
-        </tr>`);
+        $("#porttracker-registered-stations > table > tbody").append(`
+          <tr id="porttracker-add-new-station-row">
+            <td colspan="6">
+              <button type="button" class="btn btn-primary col-12" data-mdb-button-init data-mdb-ripple-init onclick="showNewPorttrackerStationRegistrationFields()">
+                Register a new station
+              </button>
+            </td>
+          </tr>`);
+        $("#porttracker-enable-prometheus-metrics").removeAttr("disabled");
       }).fail(function(jqXHR) {
         showRegisteredStationNotification(
           "error", "Error getting stations", parsePorttrackerErrorDetail(jqXHR));
+        $("#porttracker-enable-prometheus-metrics").attr("disabled", "");
       });
     }
 

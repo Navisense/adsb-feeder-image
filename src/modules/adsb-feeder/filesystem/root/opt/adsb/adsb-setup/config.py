@@ -717,7 +717,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 5
+    CONFIG_VERSION = 6
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -978,7 +978,16 @@ class Config(CompoundSetting):
                             true_value_path=
                             "aggregators.porttracker.mqtt_msgformat",
                             false_value="", env_variable_name=
-                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_MSGFORMAT"),}),
+                            "SHIPFEEDER_CONFIG_PORTTRACKER_MQTT_MSGFORMAT"),
+                        "prometheus": ft.partial(
+                            CompoundSetting, schema={
+                                "is_enabled": ft.partial(
+                                    BoolSetting, default=False),
+                                "textfile_dir": ft.partial(
+                                    ConstantSetting, constant_value=
+                                    "/var/lib/prometheus/node-exporter",
+                                    env_variable_name=
+                                    "AF_PROMETHEUS_TEXTFILE_DIR"),}),}),
                 "aiscatcher": ft.partial(
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(
@@ -1022,12 +1031,6 @@ class Config(CompoundSetting):
                 "is_enabled": ft.partial(BoolSetting, default=True),
                 "domains": ft.partial(
                     ListSetting, required_value_type=str, default=[]),}),
-        "prometheus": ft.partial(
-            CompoundSetting, schema={
-                "is_enabled": ft.partial(BoolSetting, default=False),
-                "textfile_dir": ft.partial(
-                    StringSetting, default="/var/lib/prometheus/node-exporter",
-                    env_variable_name="AF_PROMETHEUS_TEXTFILE_DIR"),}),
         "ports": ft.partial(
             CompoundSetting, schema={
                 "web": ft.partial(
@@ -1513,11 +1516,24 @@ class Config(CompoundSetting):
         del config_dict["base_config"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_5_to_6(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # Prometheus settings are moved to the Porttracker aggregator, and the
+        # textfile_dir has become a constant.
+        prometheus_settings = config_dict.pop("prometheus")
+        del prometheus_settings["textfile_dir"]
+        config_dict["aggregators"]["porttracker"]["prometheus"] = (
+            prometheus_settings)
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
                          (3, 4): _upgrade_config_dict_from_3_to_4,
-                         (4, 5): _upgrade_config_dict_from_4_to_5}
+                         (4, 5): _upgrade_config_dict_from_4_to_5,
+                         (5, 6): _upgrade_config_dict_from_5_to_6}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

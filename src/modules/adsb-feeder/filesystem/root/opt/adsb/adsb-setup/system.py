@@ -88,7 +88,7 @@ class Systemctl:
 
     def run(
             self, commands: list[str], units: list[str], *,
-            log_errors: bool = True):
+            log_errors: bool = True) -> list[subprocess.CompletedProcess]:
         """
         Run systemctl commands.
 
@@ -115,6 +115,13 @@ class Systemctl:
             raise ValueError("no arguments given")
         util.shell_with_combined_output(
             f"systemd-run -u {unit_name} " + " ".join(arguments), check=True)
+
+    def unit_is_active(self, unit: str) -> bool:
+        """Check whether a unit is active."""
+        with self._lock:
+            proc = util.shell_with_combined_output(
+                f"systemctl is-active --quiet {unit}")
+            return proc.returncode == 0
 
 
 class Restart:

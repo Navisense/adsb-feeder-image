@@ -805,11 +805,10 @@ class AdsbIm:
     def _ensure_running_dependencies(self):
         self._maybe_enable_mdns()
         try:
-            self._ensure_prometheus_metrics_state(
-                self._conf.get("prometheus.is_enabled"))
+            self._ensure_prometheus_metrics_state()
         except SystemOperationError:
             self._logger.exception(
-                "Error enabling/disabling Prometheus metrics state")
+                "Error enabling/disabling Prometheus metrics.")
         self._ensure_nightly_feeder_update_timer()
         self._ensure_nightly_os_update_timer()
         tailscale_is_running = (
@@ -1718,17 +1717,6 @@ class AdsbIm:
                     self._logger.exception(
                         "Error running UAT autogain reset.",
                         flash_message=True)
-            elif key == "enable-prometheus-metrics":
-                self._logger.debug(
-                    "Prometheus metrics requested as "
-                    f"{util.checkbox_checked(value)}.")
-                try:
-                    self._ensure_prometheus_metrics_state(
-                        util.checkbox_checked(value))
-                except SystemOperationError as e:
-                    self._logger.exception(
-                        "Error enabling/disabling Prometheus metrics state: "
-                        f"{e}", flash_message=True)
             # Next up are text fields.
             if key == "tz":
                 self._logger.debug(f"Time zone changed to {value}.")
@@ -1815,8 +1803,12 @@ class AdsbIm:
         self._logger.debug("Base config not complete.")
         return redirect(url_for("index"))
 
-    def _ensure_prometheus_metrics_state(self, should_be_enabled: bool):
-        currently_enabled = self._conf.get("prometheus.is_enabled")
+
+    def _ensure_prometheus_metrics_state(self):
+        currently_enabled = system.systemctl().unit_is_active(
+            "adsb-push-prometheus-metrics.timer")
+        should_be_enabled = self._conf.get(
+            "aggregators.porttracker.prometheus.is_enabled")
         if currently_enabled != should_be_enabled:
             self._logger.info(
                 f"Toggling Prometheus metrics state from {currently_enabled} "
@@ -1831,7 +1823,6 @@ class AdsbIm:
                                        ["adsb-push-prometheus-metrics.timer"])
         if proc.returncode != 0:
             raise SystemOperationError(f"systemctl call failed: {proc.stdout}")
-        self._conf.set("prometheus.is_enabled", should_be_enabled)
 
     def expert(self):
         if request.method == "POST":
@@ -1872,6 +1863,15 @@ class AdsbIm:
     def aggregators(self):
         if request.method == "POST":
             self._configure_aggregators(request.form)
+            # The Porttracker aggregator has the option of enabling Prometheus
+            # metrics being sent to Porttracker. Enable/disable the systemd
+            # unit here if necessary.
+            try:
+                self._ensure_prometheus_metrics_state()
+            except SystemOperationError as e:
+                self._logger.exception(
+                    f"Error enabling/disabling Prometheus metrics: {e}",
+                    flash_message=True)
             return self.update(needs_docker_restart=True)
 
         any_non_adsblol_uf_aggregators = any(
@@ -1953,6 +1953,10 @@ class AdsbIm:
                 request.form.get("porttracker-mqtt-password", ""))
             kwargs["mqtt_topic"] = (
                 request.form.get("porttracker-mqtt-topic", ""))
+            kwargs["prometheus_enabled"] = (
+                util.checkbox_checked(
+                    request.form.get(
+                        "porttracker-enable-prometheus-metrics", "0")))
         elif agg_key == "aiscatcher":
             kwargs["feeder_key"] = (
                 request.form.get("aiscatcher-feeder-key") or None)
