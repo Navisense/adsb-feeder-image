@@ -1197,9 +1197,9 @@ class Config(CompoundSetting):
 
     def write_env_file(self):
         with Config._file_lock, ENV_FILE.open("w") as f:
-            f.writelines(
-                f"{key}={value}\n"
-                for key, value in self.env_variables.items())
+            for key, value in self.env_variables.items():
+                escaped_value = value.replace('"', r'\"')
+                f.write(f'{key}="{escaped_value}"\n')
 
     @staticmethod
     def create_default() -> "Config":
