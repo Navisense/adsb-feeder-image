@@ -1566,7 +1566,7 @@ def _run_command(conf: Config, args):
     if args.command == "ensure_config_exists":
         # This already happened in _main(), nothing to do.
         pass
-    if args.command == "write_env_file":
+    elif args.command == "write_env_file":
         conf.write_env_file()
     elif args.command == "as_json":
         print(json.dumps(_compound_setting_as_dict(conf)))
