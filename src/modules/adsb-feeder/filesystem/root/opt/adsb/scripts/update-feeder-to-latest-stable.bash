@@ -17,7 +17,7 @@ latest_version=$(find_latest_stable_version)
 if [ "${current_version}" = "${latest_version}" ] ; then
     log $0 "No new feeder version available."
 else
-    log $0 "Starting nightly feeder update from ${current_version} " \
+    log $0 "Starting nightly feeder update from ${current_version}"\
         "to ${latest_version}."
     /opt/adsb/scripts/update-feeder.bash $latest_version
     log $0 "Nightly feeder update done."
