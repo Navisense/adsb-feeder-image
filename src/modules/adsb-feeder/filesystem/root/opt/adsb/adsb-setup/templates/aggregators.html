@@ -91,7 +91,12 @@
                     </div>
                   </div>
                 </div>
-                <div id="porttracker-registered-stations"></div>
+                <h4 class="my-2">Registered stations</h4>
+                <p>
+                  These are all the stations registered for your data sharing key. Select which one this by clicking on
+                  it, or create a new one.
+                </p>
+                <div id="porttracker-registered-stations" class="row"></div>
               </div>
             </div>
             <div class="form-check col-12">
@@ -593,6 +598,7 @@
             class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
             name="aggregators">apply settings - take me to the website</button>
   </form>
+  <script type="text/javascript" src="{{ url_for('static', filename='js/common.js') }}"></script>
   <script>
     function showOrHide(b, f) {
       if (b.checked) f.style.display = "block";
@@ -633,34 +639,23 @@
         "https://porttracker-api.porttracker.co/api/v1/sharing/stations",
         {headers: {"X-Data-Sharing-Key": dataSharingKey}}
       ).done(function (userStations) {
-        $("#porttracker-registered-stations").html(`
-          <table class="table caption-top">
-            <caption>Registered stations</caption>
-            <thead>
-              <tr>
-                <th scope="col">Use</th>
-                <th scope="col">Station ID</th>
-                <th scope="col">Name</th>
-                <th scope="col">Description</th>
-                <th scope="col">Latitude</th>
-                <th scope="col">Longitude</th>
-              </tr>
-            </thead>
-            <tbody>
-            </tbody>
-          </table>`);
-        for (const userStation of userStations) {
-          appendRegisteredPorttrackerStation(userStation);
+        if (!userStations || !userStations.length) {
+          showRegisteredStationNotification(
+            "info", "No stations",
+            "There are no stations registered to your data sharing key yet.");
+          $("#porttracker-enable-prometheus-metrics").attr("disabled", "");
+        } else {
+          $("#porttracker-registered-stations").html("");
+          for (const userStation of userStations) {
+            appendRegisteredPorttrackerStation(userStation);
+          }
         }
-        $("#porttracker-registered-stations > table > tbody").append(`
-          <tr id="porttracker-add-new-station-row">
-            <td colspan="6">
-              <button type="button" class="btn btn-primary col-12" data-mdb-button-init data-mdb-ripple-init onclick="showNewPorttrackerStationRegistrationFields()">
-                Register a new station
-              </button>
-            </td>
-          </tr>`);
-        $("#porttracker-enable-prometheus-metrics").removeAttr("disabled");
+        $("#porttracker-registered-stations").append(`
+          <div class="col-12 text-center" id="porttracker-add-new-station-data">
+            <button type="button" class="btn btn-primary" data-mdb-button-init data-mdb-ripple-init onclick="showNewPorttrackerStationRegistrationFields()">
+              Register a new station
+            </button>
+          </div>`);
       }).fail(function(jqXHR) {
         showRegisteredStationNotification(
           "error", "Error getting stations", parsePorttrackerErrorDetail(jqXHR));
@@ -670,25 +665,46 @@
 
     function appendRegisteredPorttrackerStation(
       userStation, useImmediately=false) {
-      let row = $("<tr></tr>");
-      let useRadioButton = $(
-        `<input class="form-check-input required-if-enabled" type="radio" ` + `name="porttracker-station-id" value="${userStation.station.id}" />`);
+      let descriptionHtml = `<span class="text-muted">no description</span>`
+      if (userStation.station.description) {
+        descriptionHtml = `<span>${userStation.station.description}</span>`;
+      }
+      $("#porttracker-registered-stations").append($(`
+        <div class="col-12 col-xl-6">
+          <label class="w-100">
+            <input id="porttracker-select-station-${userStation.station.id}"
+                   class="form-check-input required-if-enabled d-none"
+                   type="radio" name="porttracker-station-id"
+                   value="${userStation.station.id}">
+            <div id="porttracker-select-station-card-${userStation.station.id}"
+                 class="card my-2 porttracker-select-station-card">
+              <div class="card-body">
+                <h5 class="card-title">${userStation.station.hostname}</h5>
+                ${descriptionHtml}
+                <div class="card-footer text-muted">
+                  ID ${userStation.station.id} in Position
+                  ${formatPosition(userStation.station.position.lat, userStation.station.position.lon)}
+                </div>
+              </div>
+            </div>
+          </label>
+        </div>`));
+      let useRadioButton = $(`#porttracker-select-station-${userStation.station.id}`);
       useRadioButton.on(
-        "click change", {userStation: userStation}, setPorttrackerData);
+        "click change", {userStation: userStation}, updatePorttrackerStationSelection);
       if (useImmediately || userStation.station.id == {{ get_conf('aggregators.porttracker.station_id') or 'undefined' }}) {
-        useRadioButton.prop("checked", true);
+        useRadioButton.attr("checked", "");
         useRadioButton.trigger("click");
       }
-      $("<td></td>").append(useRadioButton).appendTo(row);
-      row.append(`<th scope='row'>${userStation.station.id}</th>`);
-      row.append(`<td>${userStation.station.hostname}</td>`);
-      row.append(`<td>${userStation.station.description ?? ""}</td>`);
-      row.append(`<td>${userStation.station.position.lat}</td>`);
-      row.append(`<td>${userStation.station.position.lon}</td></tr>`);
-      $("#porttracker-registered-stations > table > tbody").append(row);
+      $("#porttracker-enable-prometheus-metrics").removeAttr("disabled");
     }
 
-    function setPorttrackerData(event) {
+    function updatePorttrackerStationSelection(event) {
+      const selectedCardClasses = "border border-3 border-success";
+      $(".porttracker-select-station-card").each(function() {
+        $(this).removeClass(selectedCardClasses);
+      });
+      $(`#porttracker-select-station-card-${event.data.userStation.station.id}`).addClass(selectedCardClasses);
       $("input[name=porttracker-mqtt-protocol]").val(
         event.data.userStation.mosquittoAccess.protocol);
       $("input[name=porttracker-mqtt-host]").val(
@@ -704,26 +720,30 @@
     }
 
     function showNewPorttrackerStationRegistrationFields() {
-      let row = $();
-      $("#porttracker-add-new-station-row").html(`
-        <td>
-          <button type="button" class="btn btn-primary" data-mdb-button-init data-mdb-ripple-init onclick="registerNewPorttrackerStation()">
-            Register
-          </button>
-        </td>
-        <td></td>
-        <td>
-          <input type="text" id="porttracker-register-new-station-hostname" class="form-control required-if-enabled" value="{{ get_conf('site_name') }}" />
-        </td>
-        <td>
-          <input type="text" id="porttracker-register-new-station-description" class="form-control required-if-enabled" placeholder="Optional" />
-        </td>
-        <td>
-          <input type="text" id="porttracker-register-new-station-latitude" class="form-control required-if-enabled" value="{{ get_conf('lat', default=0) }}" />
-        </td>
-        <td>
-          <input type="text" id="porttracker-register-new-station-longitude" class="form-control required-if-enabled" value="{{ get_conf('lon', default=0) }}" />
-        </td>`);
+      $("#porttracker-add-new-station-data").html(`
+        <div class="card my-2">
+          <div class="card-body">
+            <div class="input-group m-1">
+              <span class="input-group-text w-25">Hostname</span>
+              <input type="text" id="porttracker-register-new-station-hostname" class="form-control required-if-enabled" value="{{ get_conf('site_name') }}">
+            </div>
+            <div class="input-group m-1">
+              <span class="input-group-text w-25">Description</span>
+              <input type="text" id="porttracker-register-new-station-description" class="form-control required-if-enabled" placeholder="Optional">
+            </div>
+            <div class="input-group m-1">
+              <span class="input-group-text w-25">Latitude</span>
+              <input type="text" id="porttracker-register-new-station-latitude" class="form-control required-if-enabled" value="{{ get_conf('lat', default=0) }}">
+            </div>
+            <div class="input-group m-1">
+              <span class="input-group-text w-25">Longitude</span>
+              <input type="text" id="porttracker-register-new-station-longitude" class="form-control required-if-enabled" value="{{ get_conf('lon', default=0) }}">
+            </div>
+            <button type="button" class="btn btn-primary m-1" data-mdb-button-init data-mdb-ripple-init onclick="registerNewPorttrackerStation()">
+              Register
+            </button>
+          </div>
+        </div>`);
     }
 
     function registerNewPorttrackerStation() {
@@ -763,7 +783,7 @@
           })
         }
       ).done(function (userStation) {
-        $("#porttracker-add-new-station-row").remove();
+        $("#porttracker-add-new-station-data").remove();
         appendRegisteredPorttrackerStation(userStation, true);
       }).fail(function(jqXHR) {
         showRegisteredStationNotification(
@@ -778,10 +798,12 @@
         kindClass = "text-bg-danger";
       }
       $("#porttracker-registered-stations").html(`
-        <div class="card ${kindClass} mb-3">
-          <div class="card-body">
-            <h5 class="card-title">${title}</h5>
-            <p class="card-text">${message}</p>
+        <div class="col-12">
+          <div class="card ${kindClass} m-3">
+            <div class="card-body">
+              <h5 class="card-title">${title}</h5>
+              <p class="card-text">${message}</p>
+            </div>
           </div>
         </div>`);
     }
