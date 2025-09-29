@@ -24,7 +24,7 @@
              class="accordion-collapse collapse"
              aria-labelledby="aggregators-heading-ais">
           <div class="accordion-body">
-            <div class="form-check col-12">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="porttracker-is-enabled"
@@ -33,7 +33,7 @@
               <label class="mx-1 w-auto" for="porttracker-is-enabled">
                 <a href="https://porttracker.co/">Porttracker</a>
               </label>
-              <div class="form-group" id="porttracker-setup">
+              <div class="form-group my-3" id="porttracker-setup">
                 <!-- These hidden inputs are set by a script on radio button select. -->
                 <input type="hidden"
                        class="required-if-enabled"
@@ -99,7 +99,7 @@
                 <div id="porttracker-registered-stations" class="row"></div>
               </div>
             </div>
-            <div class="form-check col-12">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="aiscatcher-is-enabled"
@@ -107,7 +107,7 @@
                      {% if aggregators['aiscatcher'].enabled('ais') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="aiscatcher-is-enabled">
                 <a href="https://aiscatcher.org">AIS-catcher</a>
-                <div class="form-group" id="aiscatcher-setup">
+                <div class="form-group my-3" id="aiscatcher-setup">
                   <label for="aiscatcher-feeder-key">
                     Enter your optional AIS-catcher feeder key. Sharing will also work without a key, but you can get
                     one <a href="https://www.aiscatcher.org/addstation_ac">on the website</a>.
@@ -121,7 +121,7 @@
                 </div>
               </label>
             </div>
-            <div class="form-check col-12">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="aishub-is-enabled"
@@ -129,7 +129,7 @@
                      {% if aggregators['aishub'].enabled('ais') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="aishub-is-enabled">
                 <a href="https://www.aishub.net/">Aishub</a>
-                <div class="form-group" id="aishub-setup">
+                <div class="form-group my-3" id="aishub-setup">
                   <label for="aishub-udp-port">
                     Enter your Aishub sharing UDP port. If you don't have one yet, you can request one
                     <a href="https://www.aishub.net/join-us">on the website</a>.
@@ -184,7 +184,7 @@
               <label class="mx-1 w-auto" for="mlat_enable">Enable MLAT (for selected aggregators supporting MLAT)</label>
             </div>
             <div class="col-12 h5 mt-3">Select the account-less ADS-B aggregators you want to feed:</div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="adsblol-is-enabled"
@@ -194,7 +194,7 @@
                 <a href="https://adsb.lol/privacy-license/">adsb.lol</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="flyitaly-is-enabled"
@@ -204,7 +204,7 @@
                 <a href="https://flyitalyadsb.com/informazioni-legali-e-privacy/">Fly Italy ADSB</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="avdelphi-is-enabled"
@@ -214,7 +214,7 @@
                 <a href="https://www.avdelphi.com/privacy.html">AVDelphi</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="planespotters-is-enabled"
@@ -224,7 +224,7 @@
                 <a href="https://www.planespotters.net/legal/privacypolicy/">planespotters.net</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      data-mdb-toggle="tooltip"
@@ -236,7 +236,7 @@
                 <a href="https://theairtraffic.com/privacy/">TheAirTraffic.com</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="adsbfi-is-enabled"
@@ -246,7 +246,7 @@
                 <a href="https://adsb.fi/privacy">adsb.fi</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      data-mdb-toggle="tooltip"
@@ -260,7 +260,7 @@
                    title="please note that this site is missing a clear data/privacy policy">HPRadar</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="alive-is-enabled"
@@ -270,7 +270,7 @@
                 <a href="https://airplanes.live/privacy">airplanes.live</a>
               </label>
             </div>
-            <div class="col-xl-2 col-lg-3 col-sm-4 form-check">
+            <div class="col-12 form-check">
               <input type="checkbox"
                      class="form-check-input me-1"
                      name="adsbx-is-enabled"
@@ -308,7 +308,7 @@
                      {% if aggregators['flightradar'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="flightradar-is-enabled">
                 <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
-                <div class="form-group" id="flightradar-setup">
+                <div class="form-group my-3" id="flightradar-setup">
                   <label for="flightradar-key-or-email">
                     {% if not get_conf('uat978') %}
                       Enter your FR24 sharing key (or enter your email address and click the button to request a sharing
@@ -351,7 +351,7 @@
                 <a href="https://plane.watch"
                    data-mdb-toggle="tooltip"
                    title="please note that this site is missing a clear data/privacy policy">Plane.watch</a>
-                <div class="form-group" id="planewatch-setup">
+                <div class="form-group my-3" id="planewatch-setup">
                   <label for="planewatch-key">
                     To sign up for an API key go to <a href="https://atc.plane.watch/">atc.plane.watch</a>, sign up for
                     an account, log in and click on <b>Feeders, + New Feeder</b>. Fill out the details and save the
@@ -374,7 +374,7 @@
                      {% if aggregators['flightaware'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="flightaware-is-enabled">
                 <a href="https://www.flightaware.com/about/privacy/">FlightAware</a>
-                <div class="form-group" id="flightaware-setup">
+                <div class="form-group my-3" id="flightaware-setup">
                   <label for="flightaware-feeder-id">
                     You need a FlightAware / Piaware feeder ID. If you already have one, please enter it below.
                     Otherwise, leave the field empty and click on the button and we will try to get one for you. Once
@@ -413,7 +413,7 @@
                 <a href="https://www.airnavradar.com/terms-of-use"
                    data-mdb-toggle="tooltip"
                    title="please note that this site is missing a clear data/privacy policy">AirNav Radar</a>
-                <div class="form-group" id="radarbox-setup">
+                <div class="form-group my-3" id="radarbox-setup">
                   <label for="radarbox-sharing-key">
                     You need a AirNav Radar (formerly RadarBox) sharing key. If you already have one, please enter it
                     below. Otherwise, leave the field empty and click on the button and we will try to get one for you.
@@ -440,7 +440,7 @@
                      {% if aggregators['planefinder'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="planefinder-is-enabled">
                 <a href="https://planefinder.net/legal/privacy-information-notice">PlaneFinder</a>
-                <div class="form-group" id="planefinder-setup">
+                <div class="form-group my-3" id="planefinder-setup">
                   <label for="planefinder-key">
                     You need a PlaneFinder sharecode. If you already have one, please enter it below. Otherwise, request
                     a sharecode from their
@@ -464,7 +464,7 @@
                      {% if aggregators['adsbhub'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="adsbhub-is-enabled">
                 <a href="https://www.adsbhub.org/privacy-policy.php">ADSBHub</a>
-                <div class="form-group" id="adsbhub-setup">
+                <div class="form-group my-3" id="adsbhub-setup">
                   <label for="adsbhub-key">
                     To sign up for an ADSBHub station key go to
                     <a href="https://www.adsbhub.org/howtofeed.php">ADSBHub how to feed</a>, setting your station up as
@@ -489,7 +489,7 @@
               <label class="mx-1 w-auto" for="opensky-is-enabled">
                 <a href="https://opensky-network.org/about/privacy-policy">OpenSky Network</a>
                 <!-- this one needs automation set up with a docker container again -- and it needs two fields -->
-                <div class="form-group" id="opensky-setup">
+                <div class="form-group my-3" id="opensky-setup">
                   <label for="opensky-serial">
                     You need an OpenSky username and serial number. If you already have these, please enter them below.
                     Otherwise, please go to the <a href="https://opensky-network.org/">OpenSky website</a>
@@ -522,7 +522,7 @@
                 <a href="https://www.radarvirtuel.com/"
                    data-mdb-toggle="tooltip"
                    title="please note that this site is missing a clear data/privacy policy">RadarVirtuel</a>
-                <div class="form-group" id="radarvirtuel-setup">
+                <div class="form-group my-3" id="radarvirtuel-setup">
                   <label for="radarvirtuel-key">
                     To sign up for a feeder key send email to
                     <a href="mailto://support@adsbnetwork.com">support@adsbnetwork.com</a>. Include your name, Lat/Lon
@@ -546,7 +546,7 @@
                      {% if aggregators['1090uk'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="1090uk-is-enabled">
                 <a href="https://1090mhz.uk/legal.html#privacy">1090MHz UK</a>
-                <div class="form-group" id="1090uk-setup">
+                <div class="form-group my-3" id="1090uk-setup">
                   <label for="1090uk-key">
                     1090MHz UK is only interested in the UK and surrounding countries out to 1000nm including Ireland,
                     Jersey, Guernsey, France, Belgium, Netherlands, North Germany, Denmark, Norway, Faroe Islands. If
@@ -569,7 +569,7 @@
                      {% if aggregators['sdrmap'].enabled('adsb') %}checked{% endif %} />
               <label class="mx-1 w-auto" for="sdrmap-is-enabled">
                 <a href="https://sdrmap.org/">sdrmap</a>
-                <div class="form-group" id="sdrmap-setup">
+                <div class="form-group my-3" id="sdrmap-setup">
                   <label for="sdrmap-user">
                     You need an sdrmap username and password. If you already have these, please enter them below.
                     Otherwise, please send them an email at <tt>send us an email feed@sdrmap.org</tt> and request
