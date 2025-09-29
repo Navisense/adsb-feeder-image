@@ -379,15 +379,9 @@
                     You need a FlightAware / Piaware feeder ID. If you already have one, please enter it below.
                     Otherwise, leave the field empty and click on the button and we will try to get one for you. Once
                     this process completes and the feeder ID has been filled in, open the local
-                    <a id="piaware" href="" target="_blank">Piaware page</a> (this should open in a new tab) and click
-                    on the "Claim this feeder on FlightAware" button.
+                    <a id="piaware-link" href="" target="_blank">Piaware page</a> (this will open in a new tab) and
+                    click on the "Claim this feeder on FlightAware" button.
                   </label>
-                  <script>
-          var link = document.getElementById('piaware');
-          link.setAttribute(
-            'href', window.location.protocol + "//" + window.location.hostname
-            + ":{{ get_conf('ports.piastat') }}");
-                  </script>
                   <input type="text"
                          id="flightaware-feeder-id"
                          name="flightaware-feeder-id"
@@ -598,8 +592,15 @@
             class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3"
             name="aggregators">apply settings - take me to the website</button>
   </form>
-  <script type="text/javascript" src="{{ url_for('static', filename='js/common.js') }}"></script>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/common.js') }}"></script>
   <script>
+    function setPiawareLink() {
+      $("#piaware-link").attr(
+            "href", `${window.location.protocol}//${window.location.hostname}:{{ get_conf('ports.piastat') }}`);
+    }
+    setPiawareLink();
+
     function showOrHide(b, f) {
       if (b.checked) f.style.display = "block";
       else f.style.display = "none";
@@ -672,12 +673,8 @@
       $("#porttracker-registered-stations").append($(`
         <div class="col-12 col-xl-6">
           <label class="w-100">
-            <input id="porttracker-select-station-${userStation.station.id}"
-                   class="form-check-input required-if-enabled d-none"
-                   type="radio" name="porttracker-station-id"
-                   value="${userStation.station.id}">
-            <div id="porttracker-select-station-card-${userStation.station.id}"
-                 class="card my-2 porttracker-select-station-card">
+            <input id="porttracker-select-station-${userStation.station.id}" class="form-check-input required-if-enabled d-none" type="radio" name="porttracker-station-id" value="${userStation.station.id}">
+            <div id="porttracker-select-station-card-${userStation.station.id}" class="card my-2 porttracker-select-station-card">
               <div class="card-body">
                 <h5 class="card-title">${userStation.station.hostname}</h5>
                 ${descriptionHtml}
