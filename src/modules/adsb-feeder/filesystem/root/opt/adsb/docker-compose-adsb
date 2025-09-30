@@ -63,7 +63,7 @@ else
         && [ "$(echo $config_json | jq -r '.sdrplay_license_accepted')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/sdrplay.yml"
     fi
-    if [ "$(echo $config_json | jq -r '.uat978')" = true ] ; then
+    if [ "$(echo $config_json | jq -r '.uat978_config.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/uat978.yml"
     fi
     if [ -n "$(echo $config_json | jq -r '.serial_devices."1090" | select(. != null and . != "")')" ] \

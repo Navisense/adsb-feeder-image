@@ -1514,18 +1514,6 @@ class AdsbIm:
             else:
                 self._conf.set("uat_device_type", "rtlsdr")
 
-            # handle 978 settings for stage1
-            if self._conf.get("serial_devices.978"):
-                self._conf.set("uat978", True)
-                self._conf.set("978url", "http://dump978/skyaware978")
-                self._conf.set("978host", "dump978")
-                self._conf.set("978piaware", "relay")
-            else:
-                self._conf.set("uat978", False)
-                self._conf.set("978url", "")
-                self._conf.set("978host", "")
-                self._conf.set("978piaware", "")
-
             # next check for airspy devices
             airspy = any([sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "airspy" for sdr in self._sdrdevices.sdrs])
             self._conf.set("airspy", airspy)
@@ -1577,7 +1565,6 @@ class AdsbIm:
             self._logger.debug(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
             self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
             self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
-            self._logger.debug(f"dump978 container {self._conf.get('uat978')}")
 
             # if the base config is completed, lock down further SDR changes so they only happen on
             # user request

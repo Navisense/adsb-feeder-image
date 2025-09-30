@@ -193,7 +193,7 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
                 mlat_privacy=conf.get("mlat_privacy"), uuid=agg_uuid,
                 mlat_enable=conf.get("mlat_enable")))
 
-    if conf.get("uat978"):
+    if conf.get("uat978_config.is_enabled"):
         args.add("adsb,dump978,30978,uat_in")
 
     # Make sure we only ever use 1 SDR / network input for Ultrafeeder.
@@ -795,24 +795,30 @@ class Config(CompoundSetting):
             env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"),
         "css_theme": ft.partial(StringSetting, default="auto"),
         "tar1090_query_params": ft.partial(StringSetting, default=""),
-        "uat978": ft.partial(
-            BoolSetting, default=False,
-            env_variable_name="FEEDER_ENABLE_UAT978"),
-        # hostname ultrafeeder uses to get 978 data
-        "978host": ft.partial(
-            StringSetting, env_variable_name="FEEDER_UAT978_HOST"),
-        # add the URL to the dump978 map
-        "978url": ft.partial(
-            StringSetting, env_variable_name="FEEDER_URL_978"),
+        "uat978_config": ft.partial(
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(
+                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
+                    true_value=True, false_value=False,
+                    env_variable_name="FEEDER_ENABLE_UAT978"),
+                "host": ft.partial(
+                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
+                    true_value="dump978", false_value="",
+                    env_variable_name="FEEDER_UAT978_HOST"),
+                "url": ft.partial(
+                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
+                    true_value="http://dump978/skyaware978", false_value="",
+                    env_variable_name="FEEDER_URL_978"),
+                "piaware": ft.partial(
+                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
+                    true_value="relay", false_value="",
+                    env_variable_name="FEEDER_PIAWARE_UAT978"),}),
         # URL to get Airspy stats (used in stage2)
         "airspyurl": ft.partial(
             StringSetting, env_variable_name="FEEDER_URL_AIRSPY"),
         # port for Airspy stats (used in micro feeder and handed to stage2 via base_info)
         "airspyport": ft.partial(
             IntSetting, default=8070, env_variable_name="FEEDER_AIRSPY_PORT"),
-        # magic setting for piaware to get 978 data
-        "978piaware": ft.partial(
-            StringSetting, env_variable_name="FEEDER_PIAWARE_UAT978"),
         # Misc
         "heywhatsthat": ft.partial(BoolSetting, default=False),
         "heywhatsthat_id": ft.partial(
@@ -1539,6 +1545,11 @@ class Config(CompoundSetting):
             assert isinstance(serial, str)
             unused_serials.add(serial)
         config_dict["serial_devices"]["unused"] = sorted(unused_serials)
+        # These settings are generated now.
+        del config_dict["uat978"]
+        del config_dict["978url"]
+        del config_dict["978host"]
+        del config_dict["978piaware"]
         return config_dict
 
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,

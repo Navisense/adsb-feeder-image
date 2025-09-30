@@ -311,7 +311,7 @@
             <a href="https://www.flightradar24.com/privacy-policy">flightradar24</a>
             <div class="form-group my-3" id="flightradar-setup">
               <label for="flightradar-key-or-email">
-                {% if not get_conf('uat978') %}
+                {% if not get_conf('uat978_config.is_enabled') %}
                   Enter your FR24 sharing key (or enter your email address and click the button to request a sharing
                   key)
                 {% else %}
@@ -329,11 +329,10 @@
                      class="form-control w-75 required-if-enabled"
                      placeholder="existing flightradar24 ADS-B sharing key or email address"
                      value="{{ get_conf('aggregators.flightradar.key', default='') }}" />
-              <input {% if not get_conf('uat978') %}style="display: none;"{% endif %}
-                     type="text"
+              <input type="text"
                      id="flightradar-uat-key-or-email"
                      name="flightradar-uat-key-or-email"
-                     class="form-control w-75"
+                     class="form-control w-75 {% if not get_conf('uat978_config.is_enabled') %}d-none{% endif %}"
                      placeholder="existing flightradar24 UAT sharing key or email address"
                      value="{{ get_conf('aggregators.flightradar.uat_key', default='') }}" />
               <button type="submit"
