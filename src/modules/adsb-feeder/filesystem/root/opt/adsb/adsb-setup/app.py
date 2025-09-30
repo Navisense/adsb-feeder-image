@@ -1684,26 +1684,6 @@ class AdsbIm:
             if key == "clear_range" and util.checkbox_checked(value):
                 self._logger.debug("Clear range requested.")
                 self.clear_range_outline()
-            elif key == "resetgain" and util.checkbox_checked(value):
-                self._logger.debug("Gain reset requested.")
-                try:
-                    util.shell_with_combined_output(
-                        "docker exec ultrafeeder /usr/local/bin/autogain1090 reset",
-                        timeout=5, check=True)
-                except:
-                    self._logger.exception(
-                        "Error running Ultrafeeder autogain reset.",
-                        flash_message=True)
-            elif key == "resetuatgain" and util.checkbox_checked(value):
-                self._logger.debug("UAT gain reset requested.")
-                try:
-                    util.shell_with_combined_output(
-                        "docker exec dump978 /usr/local/bin/autogain978 reset",
-                        timeout=5, check=True)
-                except:
-                    self._logger.exception(
-                        "Error running UAT autogain reset.",
-                        flash_message=True)
             # Next up are text fields.
             if key == "tz":
                 self._logger.debug(f"Time zone changed to {value}.")
@@ -1737,12 +1717,7 @@ class AdsbIm:
                         f"Error parsing config setting {key_path}.",
                         flash_message=True)
                     continue
-
-                if key_path == "uatgain" and value in ["", "auto"]:
-                    value = "autogain"
-                elif key_path == "gain" and value == "":
-                    value = "auto"
-                elif key_path == "site_name":
+                if key_path == "site_name":
                     value = "".join(
                         c for c in value if c.isalnum() or c == "-")
                     value = value.strip("-")[:63]
@@ -1753,22 +1728,6 @@ class AdsbIm:
                         and self._conf.get("aggregator_choice")
                         != "individual"):
                     next_url = url_for("aggregators")
-                # If this is an assignment of an SDR device to a purpose (i.e.
-                # ais, 1090 etc.), make sure that device is only assigned once
-                # by clearing all of its other assignments.
-                purposes = [
-                    f"serial_devices.{p}" for p in self._sdrdevices.purposes]
-                if key_path in purposes and value != "":
-                    for other_purpose in purposes:
-                        if (key_path == other_purpose
-                            or value != self._conf.get(other_purpose)):
-                            continue
-                        self._logger.info(
-                            f"Device {value} was just assigned to purpose "
-                            f"{key_path}, but still had a previous assignment "
-                            f"to {other_purpose}. Clearing the old one so it "
-                            "only has one purpose.")
-                        self._conf.set(other_purpose, "")
                 self._conf.set(key_path, value)
 
         # Done handling form data. See if the new config implies any other
