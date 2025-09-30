@@ -93,18 +93,11 @@ class SDR:
             return ""
         return match.group(1).strip()
 
-    @property
-    def _json(self):
-        return {
-            "type": self._type,
-            "address": self._address,
-            "serial": self.serial,}
-
-    # a magic method to compare two objects
     def __eq__(self, other):
-        if isinstance(other, SDR):
-            return self._json == other._json
-        return False
+        return (
+            isinstance(other, SDR) and self._type == other._type
+            and self._address == other._address
+            and self.serial == other.serial)
 
     def __repr__(self):
         return f"SDR(type: '{self._type}' address: '{self._address}', serial: '{self.serial}')"

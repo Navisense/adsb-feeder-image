@@ -1257,6 +1257,17 @@ class AdsbIm:
     def sdr_info(self):
         # get our guess for the right SDR to frequency mapping
         # and then update with the actual settings
+        sdr_device_dicts = []
+        for sdr in self._sdrdevices.sdrs:
+            assignment = next((
+                purpose for purpose in ["978", "1090", "ais"]
+                if self._conf.get(f"serial_devices.{purpose}") == sdr.serial),
+                              None)
+            sdr_device_dicts.append({
+                "serial": sdr.serial,
+                "vendor": sdr.vendor,
+                "product": sdr.product,
+                "assignment": assignment,})
         serial_guess: dict[str, str] = self._sdrdevices.addresses_per_frequency
         serials: dict[str, str] = {
             purpose: self._conf.get(f"serial_devices.{purpose}")
@@ -1271,7 +1282,7 @@ class AdsbIm:
                     and serial_guess[purpose] not in configured_serials):
                 serials[purpose] = serial_guess[purpose]
         return {
-            "sdr_devices": [sdr._json for sdr in self._sdrdevices.sdrs],
+            "sdr_devices": sdr_device_dicts,
             "frequencies": serials,
             "duplicate_serials": list(self._sdrdevices.duplicate_serials),
             "lsusb_output": self._sdrdevices.lsusb_output,}

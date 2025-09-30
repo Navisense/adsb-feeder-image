@@ -8,239 +8,247 @@
     There are multiple SDRs with serial numbers <span id="duplicate-serials"></span>. This will not work correctly.
     Please ensure that all SDRs have distinct serial numbers.
   </div>
-  <form class="row gy-2 gx-3 align-items-center" method="post">
-    <button type="submit"
-            class="btn btn-primary btn-rounded btn-block btn-lg p-4 mb-3"
-            name="sdr_setup">apply settings - take me to the feeder homepage</button>
-    <div class="col-12 {% if not get_conf('serial_devices.1090') and not get_conf('airspy') %}d-none{% endif %}">
-      <h5 class="mt-3">Set ADS-B SDR gain</h5>
-      <div class="row">
-        <label for="gain" class="col-12 col-sm-6">
-          Normally the feeder will settle on a good gain value very quickly. If you want to override that "autogain"
-          behavior, you can set an explicit gain value here.
-        </label>
-        <input class="col-6 col-sm-3 ms-3"
-               id="gain"
-               name="set_config--str--gain"
-               type="text"
-               style="height: 2rem"
-               pattern="(^auto.*|\d+(?:.\d+)?)"
-               title="A number between 0 and 50 or starting with the word 'auto'"
-               value="{{ get_conf('gain') }}" />
-        <div class="col-12 form-check mt-3 ms-3{% if True %} d-none{% endif %}">
-          <input class=" form-check-input me-1"
-                 type="checkbox"
-                 name="resetgain"
-                 id="resetgain" />
-          <label for="resetgain" class="form-check-label">Check to reset autogain</label>
+  <form method="post">
+    <div class="extra-elements-1090 d-none">
+      <h5 class="mt-3">Set SDR gain for ADS-B (1090MHz)</h5>
+      <div class="row align-items-center">
+        <div class="col-12 col-md-6 col-xxl-5">
+          <label for="gain" class="my-1">
+            Normally the feeder will settle on a good gain value very quickly. If you want to override that "autogain"
+            behavior, you can set an explicit gain value here.
+          </label>
         </div>
-      </div>
-    </div>
-    <div class="col-12 {% if not get_conf('uat978') %}d-none{% endif %}">
-      <h5 class="mt-3">Set UAT SDR gain</h5>
-      <div class="row">
-        <label for="uatgain" class="col-12 col-sm-6">
-          Normally the feeder will settle on a good gain value over time - however, the "autogain" algorithm for UAT is
-          slower and not as reliable as for ADS-B. If you want to override that "autogain" behavior, you can set an
-          explicit gain value here.
-        </label>
-        <input class="col-6 col-sm-3 ms-3"
-               id="uatgain"
-               name="set_config--str--uatgain"
-               type="text"
-               style="height: 2rem"
-               pattern="(?:autogain|\d+(?:.\d+)?)"
-               title="A number between 0 and 50 or the word 'autogain'"
-               value="{{ get_conf('uatgain') }}" />
-        <div class="col-12 form-check mt-3 ms-3{% if get_conf('uatgain') != 'autogain' %} d-none{% endif %}">
-          <input class=" form-check-input me-1"
-                 type="checkbox"
-                 name="resetuatgain"
-                 id="resetuatgain" />
-          <label for="resetuatgain" class="form-check-label">Check to reset UAT autogain</label>
+        <div class="col-6 col-md-6 col-xxl-3">
+          <input id="gain"
+                 class="form-control mx-2 my-1"
+                 name="set_config--str--gain"
+                 type="text"
+                 style="height: 2rem"
+                 pattern="(^auto.*|\d+(?:.\d+)?)"
+                 title="A number between 0 and 50 or starting with the word 'auto'"
+                 value="{{ get_conf('gain') }}">
         </div>
-      </div>
-    </div>
-    <div class="col-12">
-      <div class="row">
-        <div class="col-12 form-check mt-3 ms-3"
-             id="1090biast"
-             {% if not get_conf('serial_devices.1090') and not get_conf('airspy') %}style="display: none;"{% endif %}>
-          <input class="form-check-input me-1"
-                 type="checkbox"
-                 name="set_config--bool--biast"
-                 id="biast"
-                 {% if get_conf("biast") %}checked{% endif %} />
-          <label for="biast" class="form-check-label">Enable bias-T for ADS-B/1090/airspy SDR.</label>
-        </div>
-        <div class="col-12 form-check mt-3 ms-3"
-             {% if not get_conf('uat978') %}style="display: none;"{% endif %}>
-          <input class="form-check-input me-1"
-                 type="checkbox"
-                 name="set_config--bool--uatbiast"
-                 id="uatbiast"
-                 {% if get_conf("uatbiast") %}checked{% endif %} />
-          <label for="uatbiast">Enable bias-T for UAT978 SDR.</label>
-        </div>
-      </div>
-      <div class="row">
-        <div class="col-sm-3 no-gutters">
-          <button class="btn btn-secondary btn-rounded"
-                  type="button"
-                  name="update_sdr_info"
-                  onclick="updateSdrInfo()">
-            Check
-            SDRs
-          </button>
-        </div>
-      </div>
-      <div class="row gx-0">
-        <div class=".g-0">
-          <div class="row gx-0">
-            <p class="col-2 bg-info mr-2">SDR #</p>
-            <p class="col-2 bg-info mr-2">Type</p>
-            <p class="col-3 bg-info mr-2">Serial</p>
-            <p class="col-5 bg-info mr-2">Used for</p>
-          </div>
-          {% for sdr in [ "0", "1", "2", "3"] %}
-            <div class="row" id="sdr{{ sdr }}" style="display: none">
-              <p class="col-2" id="sdr{{ sdr }}-tag">SDR {{ sdr }}</p>
-              <p class="col-2" id="sdr{{ sdr }}-type"></p>
-              <p class="col-3 text-break" id="sdr{{ sdr }}-serial"></p>
-              <p class="col-5 small" id="sdr{{ sdr }}-puprpose">
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         id="1090-{{ sdr }}"
-                         name="set_config--str--serial_devices.1090"
-                         value="">
-                  1090
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         id="978-{{ sdr }}"
-                         name="set_config--str--serial_devices.978"
-                         value="">
-                  978
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         id="ais-{{ sdr }}"
-                         name="set_config--str--serial_devices.ais"
-                         value="">
-                  AIS
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         id="other-{{ sdr }}"
-                         name="set_config--str--serial_devices.other-{{ sdr }}"
-                         value=""
-                         checked>
-                  Other
-                </label>
-              </p>
+        {% if get_conf('gain') == 'autogain' %}
+          <div class="col-12 col-xxl-4">
+            <div class="form-check my-1">
+              <input class="form-check-input me-1"
+                     type="checkbox"
+                     name="resetgain"
+                     id="resetgain">
+              <label for="resetgain" class="form-check-label">Check to reset autogain</label>
             </div>
-          {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="extra-elements-978 d-none">
+      <h5 class="mt-3">Set SDR gain for UAT (978MHz)</h5>
+      <div class="row align-items-center">
+        <div class="col-12 col-md-6 col-xxl-5">
+          <label for="uatgain" class="my-1">
+            Normally the feeder will settle on a good gain value over time - however, the "autogain" algorithm for UAT is
+            slower and not as reliable as for ADS-B. If you want to override that "autogain" behavior, you can set an
+            explicit gain value here.
+          </label>
+        </div>
+        <div class="col-6 col-md-6 col-xxl-3">
+          <input id="uatgain"
+                 class="form-control mx-2 my-1"
+                 name="set_config--str--uatgain"
+                 type="text"
+                 style="height: 2rem"
+                 pattern="(?:autogain|\d+(?:.\d+)?)"
+                 title="A number between 0 and 50 or the word 'autogain'"
+                 value="{{ get_conf('uatgain') }}">
+        </div>
+        {% if get_conf('uatgain') == 'autogain' %}
+          <div class="col-12 col-xxl-4">
+            <div class="form-check my-1">
+              <input class="form-check-input me-1"
+                     type="checkbox"
+                     name="resetuatgain"
+                     id="resetuatgain">
+              <label for="resetuatgain" class="form-check-label">Check to reset UAT autogain</label>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="row my-3">
+      <div class="extra-elements-1090 d-none">
+        <div class="col-12 col-lg-6">
+          <div class="form-check">
+            <input class="form-check-input me-1"
+                   type="checkbox"
+                   name="set_config--bool--biast"
+                   id="biast"
+                   {% if get_conf("biast") %}checked{% endif %}>
+            <label for="biast" class="form-check-label">Enable bias-T for ADS-B/1090/airspy SDR</label>
+          </div>
+        </div>
+      </div>
+      <div class="extra-elements-978 d-none">
+        <div class="col-12 col-lg-6">
+          <div class="form-check">
+            <input class="form-check-input me-1"
+                   type="checkbox"
+                   name="set_config--bool--uatbiast"
+                   id="uatbiast"
+                   {% if get_conf("uatbiast") %}checked{% endif %}>
+            <label for="uatbiast">Enable bias-T for UAT978 SDR</label>
+          </div>
         </div>
       </div>
     </div>
-    <div class="col-12 mb-3">
-      <button class="btn btn-secondary btn-rounded"
+    <div class="row my-3 justify-content-center">
+      <div class="col-8 col-lg-4">
+        <div class="text-center">
+          <button class="btn btn-secondary btn-block"
+                  type="button"
+                  onclick="updateSdrInfo()">Check SDRs</button>
+        </div>
+      </div>
+    </div>
+    <h5>Available SDR devices</h5>
+    <div id="sdr-devices" class="row my-3"></div>
+    <div class="row my-3 align-items-center">
+      <div class="col-12 col-xl-8">
+        <label class="form-label" for="remote-sdr">
+          If you are intending to use this feeder with a remote device that has the SDR connected to it and offers
+          <code>beast_out</code>, please enter the IPv4 address here (and the port used if it's not 30005):
+        </label>
+      </div>
+      <div class="col-12 col-xl-4">
+        <input type="text"
+              name="set_config--str--remote_sdr"
+              class="form-control mb-2"
+              pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
+              title="IPv4 address and port, separated by a comma"
+              placeholder="IP-address[,port]"
+              value="{{ get_conf('remote_sdr', default='') }}">
+      </div>
+    </div>
+    <div class="row my-3 justify-content-center">
+      <div class="col-8 col-lg-4">
+        <button class="btn btn-secondary btn-block"
               type="button"
               data-mdb-toggle="collapse"
-              data-mdb-target="#showlsusb"
+              data-mdb-target="#show-lsusb"
               aria-expanded="false"
-              aria-controls="showlsusb">toggle lsusb output</button>
-      <div class="fw-light collapse" id="showlsusb">
-        <h5 class="mt-3">lsusb output</h5>
-        <div class="row">
-          <pre class="col-12 smal" id="lsusb_text"></pre>
+              aria-controls="show-lsusb">Toggle lsusb output</button>
+      </div>
+      <div class="col-12">
+        <div class="fw-light collapse" id="show-lsusb">
+          <h5>lsusb output</h5>
+          <pre class="sllmall" id="lsusb-output"></pre>
         </div>
       </div>
     </div>
-    <div class="col-12 gy-2 gx-3 align-items-center"
-         id="no-sdrs"
-         style="display: none">
-      No SDRs found. If you have SDRs attached to the computer this software is running on, then a reboot may be
-      required before the web UI can see the SDRs.
-    </div>
-    <div class="col-12 gy-2 gx-3 align-items-center form-group"
-         id="remote_sdr"
-         {% if get_conf('serial_devices.1090') or get_conf('airspy') %}style="display: none;"{% endif %}>
-      <label class="form-label" for="remote_sdr">
-        If you are intending to use this feeder with a remote device that has the SDR connected to it and offers
-        <code>beast_out</code> (like the micro feeder setup that this image supports), please enter the IPv4 address
-        here (and the port used if it's not 30005):
-      </label>
-      <input type="text"
-             id="remote_sdr"
-             name="set_config--str--remote_sdr"
-             class="form-control mb-2"
-             pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
-             title="IPv4 address and port, separated by a comma"
-             placeholder="IP-address[,port]"
-             value="{{ get_conf('remote_sdr', default='') }}" />
-    </div>
     <button type="submit"
-            class="btn btn-primary btn-rounded  btn-block btn-lg p-4 mb-3 mt-3"
-            name="sdr_setup">apply settings - take me to the feeder homepage</button>
+            class="btn btn-primary btn-block btn-lg my-5"
+            name="aggregators">Apply settings</button>
   </form>
   <script>
     function updateSdrInfo() {
-      fetch("/api/sdr_info", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(data => {
-          let num = data["sdr_devices"].length;
-          if (num == 0) {
-            document.getElementById("no-sdrs").style.display = "block";
-            document.getElementById("1090biast").style.display = "none";
+      $.ajax("/api/sdr_info").done(function (sdrInfo) {
+        $("#sdr-devices").html("");
+        if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
+          showSdrDeviceNotification(
+            "info", "No devices",
+            'There seem to be no devices connected. You can check again with the "Check SDRs" button. But a restart '
+            + "may also be necessary.");
+        } else {
+          for (const sdrDevice of sdrInfo.sdr_devices) {
+            appendSdrDevice(sdrDevice);
           }
-          document.getElementById("lsusb_text").innerHTML = data.lsusb_output;
-          let sdrs = data["sdr_devices"];
-          let use = data["frequencies"];
-          let consumers = ["1090", "978", "ais", "other"]
-          for (let i = 0; i < num; i++) {
-            let id = "sdr" + i;
-            let serial = sdrs[i]["serial"];
-            let type = sdrs[i]["type"];
-            document.getElementById(id).style.display = "flex";
-            document.getElementById(id + "-serial").innerHTML = serial;
-            document.getElementById(id + "-type").innerHTML = type;
-            let used = false;
-            for (const c of consumers) {
-              document.getElementById(c + "-" + i).value = serial;
-              document.getElementById(c + "-" + i).checked = (use[c] == serial);
-              used |= (use[c] == serial)
-            }
-            // if not explicitely used, check box for other
-            if (!used) {
-              document.getElementById("other" + "-" + i).checked = true;
-            }
-            // don't show the 978 checkbox for non-rtlsdr SDRs as they can't be used for 978
-            document.getElementById("978-" + i).parentNode.style.display = (type != "rtlsdr") ? "none" : "";
-          }
-          for (let i = num; i < 4; i++) {
-            let id = "sdr" + i;
-            document.getElementById(id).style.display = "none";
-          }
-          $("#duplicate-serials").text(data["duplicate_serials"].join(", "));
-          let duplicateSerialsAlert = $("#duplicate-serials-alert");
-          if (data["duplicate_serials"].length) {
-            duplicateSerialsAlert.removeClass("d-none");
-          } else {
-            duplicateSerialsAlert.addClass("d-none");
-          }
+        }
+        enableExtraElements();
+        $("#lsusb-output").text(sdrInfo.lsusb_output);
+      }).fail(function(jqXHR) {
+        showSdrDeviceNotification(
+          "error", "Error getting devices", "Error getting info about SDR devices from the feeder.");
+      });
+    }
 
-          $("input[type=radio]").click(function () {
-            myid = this.id;
-            let components = myid.split("-");
-            for (const usage of ["1090", "978", "ais", "other"]) {
-              otherid = usage + "-" + components[1];
-              if (otherid != myid) {
-                document.getElementById(otherid).checked = false;
-              }
-            }
-          });
-        });
+    function appendSdrDevice(sdrDevice) {
+      let usageDescription = "unused";
+      let nameThatShouldBeChecked = "set_config--str--serial_devices.other-0";
+      if (sdrDevice.assignment == "ais") {
+        usageDescription = "handling AIS";
+        nameThatShouldBeChecked = "set_config--str--serial_devices.ais";
+      } else if (sdrDevice.assignment == "1090") {
+        usageDescription = "handling ADS-B (1090MHz)";
+        nameThatShouldBeChecked = "set_config--str--serial_devices.1090";
+      } else if (sdrDevice.assignment == "978") {
+        usageDescription = "handling UAT (978MHz)";
+        nameThatShouldBeChecked = "set_config--str--serial_devices.978";
+      }
+      $("#sdr-devices").append($(`
+        <div class="col-12 col-lg-6">
+          <div class="card my-2">
+            <div class="card-body">
+              <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
+              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
+              <label class="checkbox-inline mr-2">
+                <input type="radio"
+                       name="set_config--str--serial_devices.1090"
+                       value="${sdrDevice.serial}">
+                ADS-B (1090MHz)
+              </label>
+              <label class="checkbox-inline mr-2">
+                <input type="radio"
+                       name="set_config--str--serial_devices.978"
+                       value="${sdrDevice.serial}">
+                UAT (978MHz)
+              </label>
+              <label class="checkbox-inline mr-2">
+                <input type="radio"
+                       name="set_config--str--serial_devices.ais"
+                       value="${sdrDevice.serial}">
+                AIS
+              </label>
+              <label class="checkbox-inline mr-2">
+                <input type="radio"
+                       name="set_config--str--serial_devices.other-0"
+                       value="${sdrDevice.serial}">
+                Other
+              </label>
+            </div>
+          </div>
+        </div>`));
+      const inputThatShouldBeChecked = $(
+        `#sdr-devices input[value="${sdrDevice.serial}"][name="${nameThatShouldBeChecked}"]`);
+      inputThatShouldBeChecked.attr("checked", "");
+    }
+
+    function enableExtraElements() {
+      $(".extra-elements-1090").addClass("d-none");
+      $(".extra-elements-978").addClass("d-none");
+      const checkedInputs = $("#sdr-devices input[checked]");
+      checkedInputs.each(function() {
+        const name = $(this).attr("name");
+        if (name == "set_config--str--serial_devices.1090") {
+          $(".extra-elements-1090").removeClass("d-none");
+        } else if (name == "set_config--str--serial_devices.978") {
+          $(".extra-elements-978").removeClass("d-none");
+        }
+      });
+    }
+
+    function showSdrDeviceNotification(kind, title, message) {
+      let kindClass = "text-bg-info";
+      if (kind == "error") {
+        kindClass = "text-bg-danger";
+      }
+      $("#sdr-devices").html(`
+        <div class="col-12">
+          <div class="card ${kindClass} m-3">
+            <div class="card-body">
+              <h5 class="card-title">${title}</h5>
+              <p class="card-text">${message}</p>
+            </div>
+          </div>
+        </div>`);
     }
 
     updateSdrInfo();
