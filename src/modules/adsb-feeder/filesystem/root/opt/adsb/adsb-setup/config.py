@@ -728,9 +728,6 @@ class Config(CompoundSetting):
         "tz": ft.partial(StringSetting, env_variable_name="FEEDER_TZ"),
         "site_name": ft.partial(StringSetting, env_variable_name="SITE_NAME"),
         # --- Mandatory site data end ---
-        # sdrs_locked means the initial setup has been completed, don't change
-        # SDR assignments unless requested explicitely by the user.
-        "sdrs_locked": ft.partial(BoolSetting, default=False),
         # Misnomer, FEEDER_RTL_SDR is used as follows:
         # READSB_DEVICE_TYPE=${FEEDER_RTL_SDR}
         "readsb_device_type": ft.partial(
@@ -1550,6 +1547,8 @@ class Config(CompoundSetting):
         del config_dict["978url"]
         del config_dict["978host"]
         del config_dict["978piaware"]
+        # This setting is obsolete.
+        del config_dict["sdrs_locked"]
         return config_dict
 
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,

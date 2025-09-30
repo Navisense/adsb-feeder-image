@@ -1487,7 +1487,7 @@ class AdsbIm:
 
         # make all the smart choices for plugged in SDRs
         # only run this for initial setup or when the SDR setup is requested via the interface
-        if not self._conf.get("sdrs_locked"):
+        if not True:
             # first grab the SDRs plugged in and check if we have one identified for UAT
             self._sdrdevices.ensure_populated()
             serial_978 = self._conf.get(f"serial_devices.978")
@@ -1577,11 +1577,6 @@ class AdsbIm:
             self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
             self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
 
-            # if the base config is completed, lock down further SDR changes so they only happen on
-            # user request
-            if self._conf.get("mandatory_config_is_complete"):
-                self._conf.set("sdrs_locked", True)
-
         # finally, check if this has given us enough configuration info to
         # start the containers
         if self._conf.get("mandatory_config_is_complete"):
@@ -1654,12 +1649,6 @@ class AdsbIm:
                 # Set aggregator_choice to individual so even users that have
                 # set "all" before can still deselect individual aggregators.
                 self._conf.set("aggregator_choice", "individual")
-            elif key == "sdr_setup":
-                self._logger.debug(
-                    "User has chosen SDRs, unlocking SDR setup so the changes "
-                    "can take effect.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("sdrs_locked", False)
             elif key == "no_config_link":
                 self._logger.debug("Disabled the tar1090 config link.")
                 needs_docker_restart, next_url = True, None
