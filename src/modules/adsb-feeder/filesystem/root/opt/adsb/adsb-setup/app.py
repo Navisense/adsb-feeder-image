@@ -592,6 +592,14 @@ class AdsbIm:
             methods=["POST"],
         )
         app.add_url_rule(
+            "/configure-sdr",
+            "configure-sdr",
+            view_func=self.configure_sdr,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/get-logs",
             "get-logs",
             view_func=self.get_logs,
@@ -675,30 +683,11 @@ class AdsbIm:
                 flash("Please complete the initial setup.")
                 return redirect(url_for("setup"))
 
-            # Check for unconfigured SDR devices.
+            # Check if any used SDR devices are missing.
             available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
-            configured_serials = {
-                self._conf.get(f"serial_devices.{purpose}")
-                for purpose in self._sdrdevices.purposes()}
-            configured_serials = {
-                serial
-                for serial in configured_serials
-                if serial}
-            unconfigured_serials = available_serials - configured_serials
-            if unconfigured_serials and request.endpoint != "sdr_setup":
-                self._logger.info(
-                    f"Unconfigured devices: {unconfigured_serials}, "
-                    "redirecting to SDR setup.")
-                flash(
-                    f"Please configure {len(unconfigured_serials)} "
-                    "unconfigured device(s).")
-                return redirect(url_for("sdr_setup"))
-
-            # Check if any configured SDR devices are missing.
             used_serials = {
                 self._conf.get(f"serial_devices.{purpose}")
-                for purpose in self._sdrdevices.purposes()
-                if not purpose.startswith("other")}
+                for purpose in self._sdrdevices.purposes}
             used_serials = {serial for serial in used_serials if serial}
             missing_serials = used_serials - available_serials
             if missing_serials and request.endpoint != "sdr_setup":
@@ -708,6 +697,19 @@ class AdsbIm:
                 flash(
                     f"{len(missing_serials)} device(s) are configured for "
                     "some purpose, but aren't plugged in.", category="warning")
+                return redirect(url_for("sdr_setup"))
+
+            # Check for unconfigured SDR devices.
+            configured_serials = (
+                used_serials | set(self._conf.get("serial_devices.unused")))
+            unconfigured_serials = available_serials - configured_serials
+            if unconfigured_serials and request.endpoint != "sdr_setup":
+                self._logger.info(
+                    f"Unconfigured devices: {unconfigured_serials}, "
+                    "redirecting to SDR setup.")
+                flash(
+                    f"Please configure {len(unconfigured_serials)} "
+                    "unconfigured device(s).")
                 return redirect(url_for("sdr_setup"))
 
             return view_func(*args, **kwargs)
@@ -1269,21 +1271,8 @@ class AdsbIm:
                 "product": sdr.product,
                 "assignment": assignment,})
         serial_guess: dict[str, str] = self._sdrdevices.addresses_per_frequency
-        serials: dict[str, str] = {
-            purpose: self._conf.get(f"serial_devices.{purpose}")
-            for purpose in ["978", "1090", "ais"]}
-        configured_serials = {
-            self._conf.get(f"serial_devices.{purpose}")
-            for purpose in self._sdrdevices.purposes()}
-        available_serials = [sdr.serial for sdr in self._sdrdevices.sdrs]
-        for purpose in ["978", "1090", "ais"]:
-            if ((not serials[purpose]
-                 or serials[purpose] not in available_serials)
-                    and serial_guess[purpose] not in configured_serials):
-                serials[purpose] = serial_guess[purpose]
         return {
             "sdr_devices": sdr_device_dicts,
-            "frequencies": serials,
             "duplicate_serials": list(self._sdrdevices.duplicate_serials),
             "lsusb_output": self._sdrdevices.lsusb_output,}
 
@@ -1501,7 +1490,7 @@ class AdsbIm:
                 self._conf.set(f"serial_devices.ais", "")
             auto_assignment = self._sdrdevices.addresses_per_frequency
 
-            purposes = self._sdrdevices.purposes()
+            purposes = self._sdrdevices.purposes
 
             # if we have an actual asignment, that overrides the auto-assignment,
             # delete the auto-assignment
@@ -1781,7 +1770,7 @@ class AdsbIm:
                 # ais, 1090 etc.), make sure that device is only assigned once
                 # by clearing all of its other assignments.
                 purposes = [
-                    f"serial_devices.{p}" for p in self._sdrdevices.purposes()]
+                    f"serial_devices.{p}" for p in self._sdrdevices.purposes]
                 if key_path in purposes and value != "":
                     for other_purpose in purposes:
                         if (key_path == other_purpose
@@ -2558,6 +2547,75 @@ class AdsbIm:
 
         self._system._restart.bg_run(func=connect_wifi)
         return redirect(url_for("systemmgmt"))
+
+    def configure_sdr(self):
+        # Extra buttons for gain resets.
+        if "reset-gain" in request.form:
+            self._logger.debug("Gain reset requested.")
+            try:
+                util.shell_with_combined_output(
+                    "docker exec ultrafeeder /usr/local/bin/autogain1090 reset",
+                    timeout=5, check=True)
+            except:
+                self._logger.exception(
+                    "Error running Ultrafeeder autogain reset.",
+                    flash_message=True)
+            return redirect(url_for("sdr_setup"))
+        if "reset-uat-gain" in request.form:
+            self._logger.debug("UAT gain reset requested.")
+            try:
+                util.shell_with_combined_output(
+                    "docker exec dump978 /usr/local/bin/autogain978 reset",
+                    timeout=5, check=True)
+            except:
+                self._logger.exception(
+                    "Error running UAT autogain reset.", flash_message=True)
+            return redirect(url_for("sdr_setup"))
+
+        # Regular form data.
+        if (uat_gain := request.form["uat-gain"]) in ["", "auto"]:
+            uat_gain = "autogain"
+        self._conf.set("uatgain", uat_gain)
+        if (gain := request.form["gain"]) == "":
+            gain = "auto"
+        self._conf.set("gain", gain)
+        self._conf.set("biast", util.checkbox_checked(request.form["biast"]))
+        self._conf.set(
+            "uatbiast", util.checkbox_checked(request.form["uat-biast"]))
+        self._conf.set("remote_sdr", request.form["remote-sdr"])
+
+        # SDR devices assignments to purposes (AIS, ADS-B etc.).
+        assignments = {}
+        unused_serials = set()
+        for key, value in request.form.items():
+            if not key.startswith("purpose-"):
+                continue
+            _, serial = key.split("-")
+            if value == "unused":
+                unused_serials.add(serial)
+                continue
+            if value not in ["ais", "1090", "978"]:
+                return f"Unknown SDR assignment {value}", 400
+            if value in assignments:
+                return f"{value} assigned to more than one device.", 400
+            assignments[value] = serial
+        if len(assignments) != len(set(assignments.values())):
+            return (
+                f"At least one serial in {list(assignments.values())} "
+                "assigned twice.", 400)
+        unused_serials |= set(self._conf.get("serial_devices.unused"))
+        unused_serials -= set(assignments.values())
+        self._conf.set("serial_devices.unused", sorted(unused_serials))
+        for purpose in self._sdrdevices.purposes:
+            self._conf.set(
+                f"serial_devices.{purpose}", assignments.get(purpose))
+        self._logger.info(
+            f"Configured SDR device assignments {assignments}, with unused "
+            f"devices {unused_serials}.")
+
+        self._system._restart.bg_run(
+            cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("restarting"))
 
 
 class Manager:

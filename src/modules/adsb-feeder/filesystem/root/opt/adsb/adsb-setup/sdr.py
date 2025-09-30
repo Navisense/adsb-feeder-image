@@ -119,16 +119,9 @@ class SDRDevices:
     def __repr__(self):
         return f"SDRDevices({','.join([s for s in self.sdrs])})"
 
+    @property
     def purposes(self):
-        return (
-            "978",
-            "1090",
-            "ais",
-            "other-0",
-            "other-1",
-            "other-2",
-            "other-3",
-        )
+        return ("978", "1090", "ais")
 
     def _update_sdrs(self):
         self.debug_out = "_update_sdrs() found:\n"
