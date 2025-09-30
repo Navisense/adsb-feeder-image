@@ -5,6 +5,7 @@ import filecmp
 import json
 import logging
 import logging.config
+import operator as op
 import os
 import os.path
 import pathlib
@@ -1257,20 +1258,30 @@ class AdsbIm:
                 flash_message=True)
 
     def sdr_info(self):
-        # get our guess for the right SDR to frequency mapping
-        # and then update with the actual settings
+        guessed_assignment = self._sdrdevices.get_best_guess_assignment()
         sdr_device_dicts = []
         for sdr in self._sdrdevices.sdrs:
             assignment = next((
-                purpose for purpose in ["978", "1090", "ais"]
+                purpose for purpose in self._sdrdevices.purposes
                 if self._conf.get(f"serial_devices.{purpose}") == sdr.serial),
                               None)
+            if assignment is None:
+                try:
+                    assignment = next(
+                        purpose for purpose, serial in guessed_assignment
+                        if serial == sdr.serial)
+                    self._logger.info(
+                        f"Automatically assigning device {sdr.serial} to "
+                        f"{assignment}.")
+                except StopIteration:
+                    pass
             sdr_device_dicts.append({
                 "serial": sdr.serial,
                 "vendor": sdr.vendor,
                 "product": sdr.product,
                 "assignment": assignment,})
-        serial_guess: dict[str, str] = self._sdrdevices.addresses_per_frequency
+        # Sort devices to always get the same order.
+        sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
             "sdr_devices": sdr_device_dicts,
             "duplicate_serials": list(self._sdrdevices.duplicate_serials),

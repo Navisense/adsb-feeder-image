@@ -246,8 +246,7 @@ class SDRDevices:
             address = f"{match.group(1)}:{match.group(2)}"
         return address
 
-    @property
-    def addresses_per_frequency(self, frequencies: list = ["1090", "978", "ais"]):
+    def get_best_guess_assignment(self):
         self.ensure_populated()
         # - if we find an airspy, that's for 1090
         # - if we find an stratuxv3, that's for 978
@@ -283,7 +282,7 @@ class SDRDevices:
             assignment.setdefault("ais", unassigned_rtlsdr.serial)
         except StopIteration:
             pass
-        for frequency in frequencies:
-            # Make sure all frequencies exist.
-            assignment.setdefault(frequency, "")
+        for purpose in self.purposes:
+            # Make sure all purposes exist.
+            assignment.setdefault(purpose, None)
         return assignment
