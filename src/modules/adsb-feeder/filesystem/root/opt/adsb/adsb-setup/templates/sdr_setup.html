@@ -158,9 +158,21 @@
             'There seem to be no devices connected. You can check again with the "Check SDRs" button. But a restart '
             + "may also be necessary.");
         } else {
+          let serials = new Set();
+          let duplicateSerials = new Set();
           for (const sdrDevice of sdrInfo.sdr_devices) {
             appendSdrDevice(sdrDevice);
+            if (serials.has(sdrDevice.serial)) {
+              duplicateSerials.add(sdrDevice.serial);
+            }
+            serials.add(sdrDevice.serial);
           }
+        }
+        if (duplicateSerials.size) {
+          $("#duplicate-serials").text(Array.from(duplicateSerials).join(", "));
+          $("#duplicate-serials-alert").removeClass("d-none");
+        } else {
+          $("#duplicate-serials-alert").addClass("d-none");
         }
         enableExtraElements();
         $("#lsusb-output").text(sdrInfo.lsusb_output);
