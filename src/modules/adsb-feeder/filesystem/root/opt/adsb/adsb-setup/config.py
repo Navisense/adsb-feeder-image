@@ -717,7 +717,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 6
+    CONFIG_VERSION = 7
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -759,10 +759,8 @@ class Config(CompoundSetting):
                     StringSetting, env_variable_name="FEEDER_SERIAL_978"),
                 "ais": ft.partial(
                     StringSetting, env_variable_name="FEEDER_SERIAL_AIS"),
-                "other-0": StringSetting,
-                "other-1": StringSetting,
-                "other-2": StringSetting,
-                "other-3": StringSetting,}),
+                "unused": ft.partial(
+                    ListSetting, required_value_type=str, default=[]),}),
         "uat_device_type": ft.partial(
             StringSetting, default="rtlsdr",
             env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
@@ -1528,12 +1526,28 @@ class Config(CompoundSetting):
             prometheus_settings)
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_6_to_7(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # The other-{0,1,2,3} settings for device assignments are now a list.
+        unused_serials = set()
+        for i in [0, 1, 2, 3]:
+            serial = config_dict["serial_devices"].pop(f"other-{i}")
+            if not serial:
+                continue
+            assert isinstance(serial, str)
+            unused_serials.add(serial)
+        config_dict["serial_devices"]["unused"] = sorted(unused_serials)
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
                          (3, 4): _upgrade_config_dict_from_3_to_4,
                          (4, 5): _upgrade_config_dict_from_4_to_5,
-                         (5, 6): _upgrade_config_dict_from_5_to_6}
+                         (5, 6): _upgrade_config_dict_from_5_to_6,
+                         (6, 7): _upgrade_config_dict_from_6_to_7}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
