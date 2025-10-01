@@ -40,6 +40,176 @@
       {% block title required %}
       {% endblock title %}
     </title>
+  </head>
+  <body class="bg-light">
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"
+            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+            crossorigin="anonymous"></script>
+    <script type="text/javascript"
+            src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
+    <script>
+      let tasks = [];
+      let taskTimeout = undefined;
+
+      function log(message) {
+        console.log(`${new Date().toLocaleTimeString()}: ${message}`);
+      }
+
+      if (document.addEventListener !== undefined) {
+        // If visibility changes, check if we should execute any tasks, e.g. because they had been paused while the 
+        // document was hidden.
+        document.addEventListener("visibilitychange", maybeExecuteTasks);
+      }
+
+      /**
+        Register a function to be executed regularly.
+
+        The function will be executed with the given interval, unless the window is hidden.
+      */
+      function registerTask(name, interval, func) {
+        let task = {name: name, interval: interval, func: func, nextExecutionTime: Date.now()};
+        tasks.push(task);
+        maybeExecuteTasks();
+      }
+
+      function maybeExecuteTasks() {
+        clearTimeout(taskTimeout);
+        if (document.hidden) {
+          // The page isn't visible, there's no point in executing tasks now.
+          return;
+        }
+        const now = Date.now();
+        let nextTaskExecutionTime = Infinity;
+        for (let task of tasks) {
+          if (task.nextExecutionTime < now) {
+            log(`Running task "${task.name}"`);
+            task.func();
+            task.nextExecutionTime = now + task.interval;
+          }
+          nextTaskExecutionTime = Math.min(nextTaskExecutionTime, task.nextExecutionTime);
+        }
+        taskTimeout = setTimeout(maybeExecuteTasks, nextTaskExecutionTime - Date.now());
+      }
+
+      {% if get_conf('temperature_block') %}
+        function update_temp_block(cpu, ext, age) {
+          if (cpu == null && ext == null) {
+            $("#temperature_block").addClass('d-none');
+            return;
+          }
+          if (isNaN(age - 0)) {
+            age = 1
+          }
+          opacity = Math.min(1, 30 / (1 + age));
+          $("#temperature_block").css('opacity', opacity);
+          $("#temperature_block").removeClass('d-none');
+          if (cpu != null) {
+            $("#cpu").removeClass('d-none');
+            $("#cpu_temp").removeClass('d-none');
+            $("#cpu_temp").text(cpu + "°C");
+            if (cpu < 50) {
+              $("#cpu_temp").css('color', 'green');
+            } else if (cpu < 80) {
+              $("#cpu_temp").css('color', 'orange');
+            } else {
+              $("#cpu_temp").css('color', 'red');
+            }
+          } else {
+            $("#cpu").addClass('d-none');
+            $("#cpu_temp").addClass('d-none');
+          }
+          if (ext != null) {
+            $("#ext").removeClass('d-none');
+            $("#ext_temp").removeClass('d-none');
+            $("#ext_temp").text(ext + "°C");
+            if (ext < -10) {
+              $("#ext_temp").css('color', 'orange');
+            } else if (ext < 40) {
+              $("#ext_temp").css('color', 'green');
+            } else if (ext < 50) {
+              $("#ext_temp").css('color', 'orange');
+            } else {
+              $("#ext_temp").css('color', 'red');
+            }
+          } else {
+            $("#ext").addClass('d-none');
+            $("#ext_temp").addClass('d-none');
+          }
+        }
+
+        let temperatureTask = {};
+        temperatureTask.func = function() {
+          let url = "/api/get_temperatures.json";
+          fetch(url, {
+            method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+          })
+            .then(response => { return response.json() })
+            .then(data => {
+              update_temp_block(data["cpu"], data["ext"], data["age"]);
+            })
+            .catch((err) => {
+              console.log("requested temperatures and got error: " + err);
+            });
+        }
+
+        registerTask(
+          "Update temperature",
+          15000,
+          function() {
+            let url = "/api/get_temperatures.json";
+            fetch(url, {
+              method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
+            })
+              .then(response => { return response.json() })
+              .then(data => {
+                update_temp_block(data["cpu"], data["ext"], data["age"]);
+              })
+              .catch((err) => {
+                console.log("requested temperatures and got error: " + err);
+              }
+            );
+          }
+        );
+      {% endif %}
+
+      function show_spinner() {
+        document.getElementById("loader").style.display = "block";
+        document.getElementById("overlay").style.display = "block";
+        console.log('show_spinner');
+      }
+
+      function hide_spinner() {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("overlay").style.display = "none";
+        console.log('hide_spinner');
+      }
+
+      $(document).find('form').each((key, value) => {
+        if ("no_spinner" in value.className.split(" ")) return;
+        value.addEventListener("submit", (event) => { show_spinner(); });
+      });
+      $(document).ready(function () {
+        $('[data-toggle="tooltip"]').tooltip();
+
+        $("form").submit(function () {
+          // stupid hack to get checkboxes that are unchecked into Flask
+          // first hide the form (so the checkboxes don't visibly turn back on)
+          // then artificially check them all, but give them values of 0/1 to represent
+          // whether they were checked or not
+          var this_master = $(this);
+          this_master.hide();
+          this_master.find('input[type="checkbox"]').each(function () {
+            var checkbox_this = $(this);
+            if (checkbox_this.is(":checked") == true) {
+              checkbox_this.attr("value", "1");
+            } else {
+              checkbox_this.prop("checked", true);
+              checkbox_this.attr("value", "0");
+            }
+          });
+        });
+      });
+    </script>
     <nav class="navbar fixed-top navbar-expand-md">
       <div class="container-fluid">
         <a class="navbar-brand ms-0 me-1 me-sm-3"
@@ -248,176 +418,6 @@
         </div>
       </div>
     </nav>
-    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"
-            integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
-            crossorigin="anonymous"></script>
-    <script type="text/javascript"
-            src="{{ url_for('static', filename='js/mdb.min.js') }}"></script>
-    <script>
-      let tasks = [];
-      let taskTimeout = undefined;
-
-      function log(message) {
-        console.log(`${new Date().toLocaleTimeString()}: ${message}`);
-      }
-
-      if (document.addEventListener !== undefined) {
-        // If visibility changes, check if we should execute any tasks, e.g. because they had been paused while the 
-        // document was hidden.
-        document.addEventListener("visibilitychange", maybeExecuteTasks);
-      }
-
-      /**
-        Register a function to be executed regularly.
-
-        The function will be executed with the given interval, unless the window is hidden.
-      */
-      function registerTask(name, interval, func) {
-        let task = {name: name, interval: interval, func: func, nextExecutionTime: Date.now()};
-        tasks.push(task);
-        maybeExecuteTasks();
-      }
-
-      function maybeExecuteTasks() {
-        clearTimeout(taskTimeout);
-        if (document.hidden) {
-          // The page isn't visible, there's no point in executing tasks now.
-          return;
-        }
-        const now = Date.now();
-        let nextTaskExecutionTime = Infinity;
-        for (let task of tasks) {
-          if (task.nextExecutionTime < now) {
-            log(`Running task "${task.name}"`);
-            task.func();
-            task.nextExecutionTime = now + task.interval;
-          }
-          nextTaskExecutionTime = Math.min(nextTaskExecutionTime, task.nextExecutionTime);
-        }
-        taskTimeout = setTimeout(maybeExecuteTasks, nextTaskExecutionTime - Date.now());
-      }
-
-      {% if get_conf('temperature_block') %}
-        function update_temp_block(cpu, ext, age) {
-          if (cpu == null && ext == null) {
-            $("#temperature_block").addClass('d-none');
-            return;
-          }
-          if (isNaN(age - 0)) {
-            age = 1
-          }
-          opacity = Math.min(1, 30 / (1 + age));
-          $("#temperature_block").css('opacity', opacity);
-          $("#temperature_block").removeClass('d-none');
-          if (cpu != null) {
-            $("#cpu").removeClass('d-none');
-            $("#cpu_temp").removeClass('d-none');
-            $("#cpu_temp").text(cpu + "°C");
-            if (cpu < 50) {
-              $("#cpu_temp").css('color', 'green');
-            } else if (cpu < 80) {
-              $("#cpu_temp").css('color', 'orange');
-            } else {
-              $("#cpu_temp").css('color', 'red');
-            }
-          } else {
-            $("#cpu").addClass('d-none');
-            $("#cpu_temp").addClass('d-none');
-          }
-          if (ext != null) {
-            $("#ext").removeClass('d-none');
-            $("#ext_temp").removeClass('d-none');
-            $("#ext_temp").text(ext + "°C");
-            if (ext < -10) {
-              $("#ext_temp").css('color', 'orange');
-            } else if (ext < 40) {
-              $("#ext_temp").css('color', 'green');
-            } else if (ext < 50) {
-              $("#ext_temp").css('color', 'orange');
-            } else {
-              $("#ext_temp").css('color', 'red');
-            }
-          } else {
-            $("#ext").addClass('d-none');
-            $("#ext_temp").addClass('d-none');
-          }
-        }
-
-        let temperatureTask = {};
-        temperatureTask.func = function() {
-          let url = "/api/get_temperatures.json";
-          fetch(url, {
-            method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
-          })
-            .then(response => { return response.json() })
-            .then(data => {
-              update_temp_block(data["cpu"], data["ext"], data["age"]);
-            })
-            .catch((err) => {
-              console.log("requested temperatures and got error: " + err);
-            });
-        }
-
-        registerTask(
-          "Update temperature",
-          15000,
-          function() {
-            let url = "/api/get_temperatures.json";
-            fetch(url, {
-              method: "GET", cors: "no-cors", signal: AbortSignal.timeout(15000)
-            })
-              .then(response => { return response.json() })
-              .then(data => {
-                update_temp_block(data["cpu"], data["ext"], data["age"]);
-              })
-              .catch((err) => {
-                console.log("requested temperatures and got error: " + err);
-              }
-            );
-          }
-        );
-      {% endif %}
-
-      function show_spinner() {
-        document.getElementById("loader").style.display = "block";
-        document.getElementById("overlay").style.display = "block";
-        console.log('show_spinner');
-      }
-
-      function hide_spinner() {
-        document.getElementById("loader").style.display = "none";
-        document.getElementById("overlay").style.display = "none";
-        console.log('hide_spinner');
-      }
-
-      $(document).find('form').each((key, value) => {
-        if ("no_spinner" in value.className.split(" ")) return;
-        value.addEventListener("submit", (event) => { show_spinner(); });
-      });
-      $(document).ready(function () {
-        $('[data-toggle="tooltip"]').tooltip();
-
-        $("form").submit(function () {
-          // stupid hack to get checkboxes that are unchecked into Flask
-          // first hide the form (so the checkboxes don't visibly turn back on)
-          // then artificially check them all, but give them values of 0/1 to represent
-          // whether they were checked or not
-          var this_master = $(this);
-          this_master.hide();
-          this_master.find('input[type="checkbox"]').each(function () {
-            var checkbox_this = $(this);
-            if (checkbox_this.is(":checked") == true) {
-              checkbox_this.attr("value", "1");
-            } else {
-              checkbox_this.prop("checked", true);
-              checkbox_this.attr("value", "0");
-            }
-          });
-        });
-      });
-    </script>
-  </head>
-  <body class="bg-light">
     <div id="loader" style="display: none"></div>
     <div id="overlay" style="display: none">
       <div id="overlaytext">
