@@ -397,7 +397,7 @@ class AdsbIm:
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config],
-            methods=["GET", "POST"],
+            methods=["GET"],
         )
         app.add_url_rule(
             "/visualization",
@@ -1347,8 +1347,6 @@ class AdsbIm:
         return aggregator.status
 
     def sdr_setup(self):
-        if request.method == "POST":
-            return self.update()
         return render_template("sdr_setup.html")
 
     def visualization(self):
