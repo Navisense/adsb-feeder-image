@@ -337,7 +337,6 @@ class FlashingLogger(logging.getLoggerClass()):
             return
         elif flash_message is True:
             flash_message = msg
-        self.info(f"has context: {flask.has_request_context()}")
         if not flask.has_request_context():
             self.error(
                 "This logger was used to try and flash a message, but the "

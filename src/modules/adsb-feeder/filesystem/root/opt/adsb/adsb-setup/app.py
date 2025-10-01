@@ -12,7 +12,6 @@ import pathlib
 import queue
 import re
 import shlex
-import requests
 import secrets
 import select
 import signal
@@ -697,7 +696,8 @@ class AdsbIm:
                     "attached, redirecting to SDR setup.")
                 flash(
                     f"{len(missing_serials)} device(s) are configured for "
-                    "some purpose, but aren't plugged in.", category="warning")
+                    "some purpose, but aren't plugged in. Please set up the "
+                    "remaining SDR devices.", category="error")
                 return redirect(url_for("sdr_setup"))
 
             # Check for unconfigured SDR devices.
