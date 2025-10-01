@@ -29,12 +29,12 @@
       </div>
       <div class="col-12 col-xl-4">
         <input type="text"
-              name="remote-sdr"
-              class="form-control mb-2"
-              pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
-              title="IPv4 address and port, separated by a comma"
-              placeholder="IP-address[,port]"
-              value="{{ get_conf('remote_sdr', default='') }}">
+               name="remote-sdr"
+               class="form-control mb-2"
+               pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
+               title="IPv4 address and port, separated by a comma"
+               placeholder="IP-address[,port]"
+               value="{{ get_conf('remote_sdr', default='') }}">
       </div>
     </div>
     <div class="extra-elements-1090 d-none">
@@ -58,9 +58,7 @@
         </div>
         {% if get_conf('gain') == 'autogain' %}
           <div class="col-12 col-xxl-4">
-            <button type="submit"
-            class="btn btn-primary my-1"
-                     name="reset-gain">Reset autogain</button>
+            <button type="submit" class="btn btn-primary my-1" name="reset-gain">Reset autogain</button>
           </div>
         {% endif %}
       </div>
@@ -70,8 +68,8 @@
       <div class="row align-items-center">
         <div class="col-12 col-md-6 col-xxl-5">
           <label for="uat-gain" class="my-1">
-            Normally the feeder will settle on a good gain value over time - however, the "autogain" algorithm for UAT is
-            slower and not as reliable as for ADS-B. If you want to override that "autogain" behavior, you can set an
+            Normally the feeder will settle on a good gain value over time - however, the "autogain" algorithm for UAT
+            is slower and not as reliable as for ADS-B. If you want to override that "autogain" behavior, you can set an
             explicit gain value here.
           </label>
         </div>
@@ -87,9 +85,7 @@
         </div>
         {% if get_conf('uatgain') == 'autogain' %}
           <div class="col-12 col-xxl-4">
-            <button type="submit"
-            class="btn btn-primary my-1"
-                     name="reset-uat-gain">Reset UAT autogain</button>
+            <button type="submit" class="btn btn-primary my-1" name="reset-uat-gain">Reset UAT autogain</button>
           </div>
         {% endif %}
       </div>
@@ -123,11 +119,11 @@
     <div class="row my-3 justify-content-center">
       <div class="col-8 col-lg-4">
         <button class="btn btn-secondary btn-block"
-              type="button"
-              data-mdb-toggle="collapse"
-              data-mdb-target="#show-lsusb"
-              aria-expanded="false"
-              aria-controls="show-lsusb">Toggle lsusb output</button>
+                type="button"
+                data-mdb-toggle="collapse"
+                data-mdb-target="#show-lsusb"
+                aria-expanded="false"
+                aria-controls="show-lsusb">Toggle lsusb output</button>
       </div>
       <div class="col-12">
         <div class="fw-light collapse" id="show-lsusb">
