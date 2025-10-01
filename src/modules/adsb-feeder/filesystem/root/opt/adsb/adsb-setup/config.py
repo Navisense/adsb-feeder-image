@@ -675,8 +675,8 @@ class SwitchedGeneratedSetting(GeneratedSetting):
             env_variable_name: Optional[str] = None):
         """
         :param switch_path: Path to a setting that is used as the switch. If no
-            setting with this path exists, it will default to None and the
-            false value is used.
+            setting with this path exists, a warning is logged and the false
+            value is used.
         :param true_value: The fixed value to use in case the switch is truthy.
             Mutually exclusive with true_value_path.
         :param true_value_path: The path to a setting whose value should be
@@ -702,11 +702,13 @@ class SwitchedGeneratedSetting(GeneratedSetting):
             return false_value
 
         def value_generator(config: "Config"):
-            switch_value = config.get(switch_path)
-            if switch_value is None:
+            try:
+                switch_value = config.get(switch_path)
+            except KeyError:
                 logger.warning(
                     "Switch value for a generated setting was None. This "
                     "indicates a misconfiguration.")
+                switch_value = None
             if switch_value:
                 return get_true_value()
             else:
