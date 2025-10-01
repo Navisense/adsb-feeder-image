@@ -1342,6 +1342,7 @@ class AdsbIm:
                 "serial": sdr.serial,
                 "vendor": sdr.vendor,
                 "product": sdr.product,
+                "type": sdr.type,
                 "assignment": assignments.get(sdr.serial),})
         # Sort devices to always get the same order.
         sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))

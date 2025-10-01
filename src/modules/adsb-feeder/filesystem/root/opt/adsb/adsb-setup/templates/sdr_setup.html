@@ -186,49 +186,69 @@
         usageDescription = "handling UAT (978MHz)";
         valueThatShouldBeChecked = sdrDevice.assignment;
       }
+      let supportedAssignments = [];
+      switch (sdrDevice.type) {
+        case "rtlsdr":
+        case "modesbeast":
+        supportedAssignments = ["ais", "1090", "978"];
+        break;
+        case "stratuxv3":
+        supportedAssignments = ["978"];
+        break;
+        case "airspy":
+        case "sdrplay":
+        supportedAssignments = ["1090"];
+        break;
+      }
       $("#sdr-devices").append($(`
         <div class="col-12 col-lg-6">
           <div class="card my-2">
             <div class="card-body">
               <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
               This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
-              <div class="row mt-2 sdr-assignment">
-                <div class="col-12 col-md-3">
-                  <label class="checkbox-inline mx-3">
-                    <input type="radio"
-                          name="purpose-${sdrDevice.serial}"
-                          value="ais">
-                    AIS
-                  </label>
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="checkbox-inline mx-3">
-                    <input type="radio"
-                          name="purpose-${sdrDevice.serial}"
-                          value="1090">
-                    ADS-B (1090MHz)
-                  </label>
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="checkbox-inline mx-3">
-                    <input type="radio"
-                          name="purpose-${sdrDevice.serial}"
-                          value="978">
-                    UAT (978MHz)
-                  </label>
-                </div>
-                <div class="col-12 col-md-3">
-                  <label class="checkbox-inline mx-3">
-                    <input type="radio"
-                          name="purpose-${sdrDevice.serial}"
-                          value="unused">
-                    Other
-                  </label>
-                </div>
-              </div>
+              <div id="sdr-assignment-${sdrDevice.serial}" class="row mt-2 sdr-assignment"></div>
             </div>
           </div>
         </div>`));
+      let assignmentsRow = $(`#sdr-assignment-${sdrDevice.serial}`);
+      if (supportedAssignments.includes("ais")) {
+        assignmentsRow.append($(`
+          <div class="col-12 col-md-3">
+            <label class="checkbox-inline mx-3">
+              <input type="radio" name="purpose-${sdrDevice.serial}" value="ais">
+              AIS
+            </label>
+          </div>
+        `));
+      }
+      if (supportedAssignments.includes("1090")) {
+        assignmentsRow.append($(`
+          <div class="col-12 col-md-3">
+            <label class="checkbox-inline mx-3">
+              <input type="radio" name="purpose-${sdrDevice.serial}" value="1090">
+              ADS-B (1090MHz)
+            </label>
+          </div>
+        `));
+      }
+      if (supportedAssignments.includes("978")) {
+        assignmentsRow.append($(`
+          <div class="col-12 col-md-3">
+            <label class="checkbox-inline mx-3">
+              <input type="radio" name="purpose-${sdrDevice.serial}" value="978">
+              UAT (978MHz)
+            </label>
+          </div>
+        `))
+      }
+      assignmentsRow.append($(`
+        <div class="col-12 col-md-3">
+          <label class="checkbox-inline mx-3">
+            <input type="radio" name="purpose-${sdrDevice.serial}" value="unused">
+            Other
+          </label>
+        </div>
+      `));
       $(".sdr-assignment input").on("change", onPurposeAssignmentChanged);
       const inputThatShouldBeChecked = $(
         `.sdr-assignment input[name="purpose-${sdrDevice.serial}"][value="${valueThatShouldBeChecked}"]`);
