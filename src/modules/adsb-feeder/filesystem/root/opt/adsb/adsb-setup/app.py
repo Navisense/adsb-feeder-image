@@ -1257,41 +1257,6 @@ class AdsbIm:
                 "Timeout expired re-starting docker... trying to continue...",
                 flash_message=True)
 
-    def sdr_info(self):
-        # Figure out which device is supposed to handle what. First check the
-        # config.
-        assignments = {}
-        for purpose in self._sdrdevices.purposes:
-            serial = self._conf.get(f"serial_devices.{purpose}")
-            if not serial:
-                continue
-            elif serial in assignments:
-                self._logger.error(
-                    f"Device with serial {serial} assigned to more than one "
-                    "purpose. This is a configuration error.")
-                continue
-            assignments[serial] = purpose
-        # For any serials without a job, make a guess what they could do.
-        guessed_assignment = self._sdrdevices.get_best_guess_assignment()
-        for purpose, serial in guessed_assignment.items():
-            if (serial not in assignments
-                    and purpose not in assignments.values()):
-                self._logger.info(
-                    f"Automatically assigning device {serial} to {purpose}.")
-                assignments[serial] = purpose
-        sdr_device_dicts = []
-        for sdr in self._sdrdevices.sdrs:
-            sdr_device_dicts.append({
-                "serial": sdr.serial,
-                "vendor": sdr.vendor,
-                "product": sdr.product,
-                "assignment": assignments.get(sdr.serial),})
-        # Sort devices to always get the same order.
-        sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
-        return {
-            "sdr_devices": sdr_device_dicts,
-            "lsusb_output": self._sdrdevices.lsusb_output,}
-
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
         # or from the env variables
@@ -1348,6 +1313,165 @@ class AdsbIm:
 
     def sdr_setup(self):
         return render_template("sdr_setup.html")
+
+    def sdr_info(self):
+        # Figure out which device is supposed to handle what. First check the
+        # config.
+        assignments = {}
+        for purpose in self._sdrdevices.purposes:
+            serial = self._conf.get(f"serial_devices.{purpose}")
+            if not serial:
+                continue
+            elif serial in assignments:
+                self._logger.error(
+                    f"Device with serial {serial} assigned to more than one "
+                    "purpose. This is a configuration error.")
+                continue
+            assignments[serial] = purpose
+        # For any serials without a job, make a guess what they could do.
+        guessed_assignment = self._sdrdevices.get_best_guess_assignment()
+        for purpose, serial in guessed_assignment.items():
+            if (serial not in assignments
+                    and purpose not in assignments.values()):
+                self._logger.info(
+                    f"Automatically assigning device {serial} to {purpose}.")
+                assignments[serial] = purpose
+        sdr_device_dicts = []
+        for sdr in self._sdrdevices.sdrs:
+            sdr_device_dicts.append({
+                "serial": sdr.serial,
+                "vendor": sdr.vendor,
+                "product": sdr.product,
+                "assignment": assignments.get(sdr.serial),})
+        # Sort devices to always get the same order.
+        sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
+        return {
+            "sdr_devices": sdr_device_dicts,
+            "lsusb_output": self._sdrdevices.lsusb_output,}
+
+    def configure_sdr(self):
+        # Extra buttons for gain resets.
+        if "reset-gain" in request.form:
+            self._logger.debug("Gain reset requested.")
+            try:
+                util.shell_with_combined_output(
+                    "docker exec ultrafeeder /usr/local/bin/autogain1090 reset",
+                    timeout=5, check=True)
+            except:
+                self._logger.exception(
+                    "Error running Ultrafeeder autogain reset.",
+                    flash_message=True)
+            return redirect(url_for("sdr_setup"))
+        if "reset-uat-gain" in request.form:
+            self._logger.debug("UAT gain reset requested.")
+            try:
+                util.shell_with_combined_output(
+                    "docker exec dump978 /usr/local/bin/autogain978 reset",
+                    timeout=5, check=True)
+            except:
+                self._logger.exception(
+                    "Error running UAT autogain reset.", flash_message=True)
+            return redirect(url_for("sdr_setup"))
+
+        # Regular form data.
+        if (uat_gain := request.form["uat-gain"]) in ["", "auto"]:
+            uat_gain = "autogain"
+        self._conf.set("uatgain", uat_gain)
+        if (gain := request.form["gain"]) == "":
+            gain = "auto"
+        self._conf.set("gain", gain)
+        self._conf.set("biast", util.checkbox_checked(request.form["biast"]))
+        self._conf.set(
+            "uatbiast", util.checkbox_checked(request.form["uat-biast"]))
+        self._conf.set("remote_sdr", request.form["remote-sdr"])
+
+        # SDR devices assignments to purposes (AIS, ADS-B etc.).
+        assignments = {}
+        unused_serials = set()
+        for key, value in request.form.items():
+            if not key.startswith("purpose-"):
+                continue
+            _, serial = key.split("-")
+            if value == "unused":
+                unused_serials.add(serial)
+                continue
+            if value not in self._sdrdevices.purposes:
+                return f"Unknown SDR assignment {value}", 400
+            if value in assignments:
+                return f"{value} assigned to more than one device.", 400
+            assignments[value] = serial
+        if len(assignments) != len(set(assignments.values())):
+            return (
+                f"At least one serial in {list(assignments.values())} "
+                "assigned twice.", 400)
+        unused_serials |= set(self._conf.get("serial_devices.unused"))
+        unused_serials -= set(assignments.values())
+        self._conf.set("serial_devices.unused", sorted(unused_serials))
+        for purpose in self._sdrdevices.purposes:
+            self._conf.set(
+                f"serial_devices.{purpose}", assignments.get(purpose))
+        self._logger.info(
+            f"Configured SDR device assignments {assignments}, with unused "
+            f"devices {unused_serials}.")
+
+        # Finally go over some additional devices settings.
+        self._configure_sdr_assignment_settings()
+
+        self._system._restart.bg_run(
+            cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("restarting"))
+
+    def _configure_sdr_assignment_settings(self):
+        serials_by_type = {}
+        for sdr in self._sdrdevices.sdrs:
+            serials_by_type.setdefault(sdr.type, set()).add(sdr.serial)
+        # Airspy devices.
+        self._conf.set("airspy.is_enabled", False)
+        for purpose in self._sdrdevices.purposes:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("airspy", []):
+                continue
+            if purpose == "1090":
+                self._conf.set("airspy.is_enabled", True)
+            else:
+                self._logger.error(
+                    "Airspy configured for something other than 1090MHz. This "
+                    "won't work.")
+        # Stratuxv3 devices.
+        self._conf.set("uat_device_type", "rtlsdr")
+        for purpose in self._sdrdevices.purposes:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("stratuxv3", []):
+                continue
+            if purpose == "978":
+                self._conf.set("uat_device_type", "stratuxv3")
+            else:
+                self._logger.error(
+                    "Stratuxv3 configured for something other than 978MHz. "
+                    "This won't work.")
+        # SDRplay devices.
+        self._conf.set("sdrplay", False)
+        for purpose in self._sdrdevices.purposes:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("sdrplay", []):
+                continue
+            if purpose == "1090":
+                self._conf.set("sdrplay", True)
+            else:
+                self._logger.error(
+                    "Sdrplay configured for something other than 1090MHz. "
+                    "This won't work.")
+        # Set readsb_device_type to rtlsdr or modesbeast.
+        adsb_serial = self._conf.get("serial_devices.1090")
+        if adsb_serial in serials_by_type.get("rtlsdr", []):
+            self._conf.set("readsb_device_type", "rtlsdr")
+            # Set rtlsdr 1090 gain, bit hacky but means we don't have to
+            # restart the bulky ultrafeeder for gain changes.
+            self.setRtlGain()
+        if adsb_serial in serials_by_type.get("modesbeast", []):
+            self._conf.set("readsb_device_type", "modesbeast")
+        else:
+            self._conf.set("readsb_device_type", "")
 
     def visualization(self):
         if request.method == "POST":
@@ -2394,130 +2518,6 @@ class AdsbIm:
 
         self._system._restart.bg_run(func=connect_wifi)
         return redirect(url_for("systemmgmt"))
-
-    def configure_sdr(self):
-        # Extra buttons for gain resets.
-        if "reset-gain" in request.form:
-            self._logger.debug("Gain reset requested.")
-            try:
-                util.shell_with_combined_output(
-                    "docker exec ultrafeeder /usr/local/bin/autogain1090 reset",
-                    timeout=5, check=True)
-            except:
-                self._logger.exception(
-                    "Error running Ultrafeeder autogain reset.",
-                    flash_message=True)
-            return redirect(url_for("sdr_setup"))
-        if "reset-uat-gain" in request.form:
-            self._logger.debug("UAT gain reset requested.")
-            try:
-                util.shell_with_combined_output(
-                    "docker exec dump978 /usr/local/bin/autogain978 reset",
-                    timeout=5, check=True)
-            except:
-                self._logger.exception(
-                    "Error running UAT autogain reset.", flash_message=True)
-            return redirect(url_for("sdr_setup"))
-
-        # Regular form data.
-        if (uat_gain := request.form["uat-gain"]) in ["", "auto"]:
-            uat_gain = "autogain"
-        self._conf.set("uatgain", uat_gain)
-        if (gain := request.form["gain"]) == "":
-            gain = "auto"
-        self._conf.set("gain", gain)
-        self._conf.set("biast", util.checkbox_checked(request.form["biast"]))
-        self._conf.set(
-            "uatbiast", util.checkbox_checked(request.form["uat-biast"]))
-        self._conf.set("remote_sdr", request.form["remote-sdr"])
-
-        # SDR devices assignments to purposes (AIS, ADS-B etc.).
-        assignments = {}
-        unused_serials = set()
-        for key, value in request.form.items():
-            if not key.startswith("purpose-"):
-                continue
-            _, serial = key.split("-")
-            if value == "unused":
-                unused_serials.add(serial)
-                continue
-            if value not in ["ais", "1090", "978"]:
-                return f"Unknown SDR assignment {value}", 400
-            if value in assignments:
-                return f"{value} assigned to more than one device.", 400
-            assignments[value] = serial
-        if len(assignments) != len(set(assignments.values())):
-            return (
-                f"At least one serial in {list(assignments.values())} "
-                "assigned twice.", 400)
-        unused_serials |= set(self._conf.get("serial_devices.unused"))
-        unused_serials -= set(assignments.values())
-        self._conf.set("serial_devices.unused", sorted(unused_serials))
-        for purpose in self._sdrdevices.purposes:
-            self._conf.set(
-                f"serial_devices.{purpose}", assignments.get(purpose))
-        self._logger.info(
-            f"Configured SDR device assignments {assignments}, with unused "
-            f"devices {unused_serials}.")
-
-        # Finally go over some additional devices settings.
-        self._configure_sdr_assignment_settings()
-
-        self._system._restart.bg_run(
-            cmdline="/opt/adsb/docker-compose-start", silent=False)
-        return redirect(url_for("restarting"))
-
-    def _configure_sdr_assignment_settings(self):
-        serials_by_type = {}
-        for sdr in self._sdrdevices.sdrs:
-            serials_by_type.setdefault(sdr.type, set()).add(sdr.serial)
-        # Airspy devices.
-        self._conf.set("airspy.is_enabled", False)
-        for purpose in self._sdrdevices.purposes:
-            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
-            if assigned_serial not in serials_by_type.get("airspy", []):
-                continue
-            if purpose == "1090":
-                self._conf.set("airspy.is_enabled", True)
-            else:
-                self._logger.error(
-                    "Airspy configured for something other than 1090MHz. This "
-                    "won't work.")
-        # Stratuxv3 devices.
-        self._conf.set("uat_device_type", "rtlsdr")
-        for purpose in self._sdrdevices.purposes:
-            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
-            if assigned_serial not in serials_by_type.get("stratuxv3", []):
-                continue
-            if purpose == "978":
-                self._conf.set("uat_device_type", "stratuxv3")
-            else:
-                self._logger.error(
-                    "Stratuxv3 configured for something other than 978MHz. "
-                    "This won't work.")
-        # SDRplay devices.
-        self._conf.set("sdrplay", False)
-        for purpose in self._sdrdevices.purposes:
-            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
-            if assigned_serial not in serials_by_type.get("sdrplay", []):
-                continue
-            if purpose == "1090":
-                self._conf.set("sdrplay", True)
-            else:
-                self._logger.error(
-                    "Sdrplay configured for something other than 1090MHz. "
-                    "This won't work.")
-        # Set readsb_device_type to rtlsdr or modesbeast.
-        adsb_serial = self._conf.get("serial_devices.1090")
-        if adsb_serial in serials_by_type.get("rtlsdr", []):
-            self._conf.set("readsb_device_type", "rtlsdr")
-            # Set rtlsdr 1090 gain, bit hacky but means we don't have to
-            # restart the bulky ultrafeeder for gain changes.
-            self.setRtlGain()
-        if adsb_serial in serials_by_type.get("modesbeast", []):
-            self._conf.set("readsb_device_type", "modesbeast")
-        else:
-            self._conf.set("readsb_device_type", "")
 
 
 class Manager:
