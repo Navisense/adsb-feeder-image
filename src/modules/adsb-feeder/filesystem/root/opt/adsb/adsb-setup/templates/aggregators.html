@@ -81,7 +81,7 @@
                            id="porttracker-data-sharing-key"
                            name="porttracker-data-sharing-key"
                            class="form-control required-if-enabled"
-                           value="{{ get_conf('aggregators.porttracker.key') }}">
+                           value="{{ get_conf('aggregators.porttracker.key', default='') }}">
                     <label class="form-label" for="porttracker-data-sharing-key">Data sharing key</label>
                   </div>
                   <button type="button"
