@@ -192,31 +192,39 @@
             <div class="card-body">
               <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
               This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
-              <div class="sdr-assignment">
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         name="purpose-${sdrDevice.serial}"
-                         value="ais">
-                  AIS
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         name="purpose-${sdrDevice.serial}"
-                         value="1090">
-                  ADS-B (1090MHz)
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         name="purpose-${sdrDevice.serial}"
-                         value="978">
-                  UAT (978MHz)
-                </label>
-                <label class="checkbox-inline mr-2">
-                  <input type="radio"
-                         name="purpose-${sdrDevice.serial}"
-                         value="unused">
-                  Other
-                </label>
+              <div class="row mt-2 sdr-assignment">
+                <div class="col-12 col-md-3">
+                  <label class="checkbox-inline mx-3">
+                    <input type="radio"
+                          name="purpose-${sdrDevice.serial}"
+                          value="ais">
+                    AIS
+                  </label>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="checkbox-inline mx-3">
+                    <input type="radio"
+                          name="purpose-${sdrDevice.serial}"
+                          value="1090">
+                    ADS-B (1090MHz)
+                  </label>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="checkbox-inline mx-3">
+                    <input type="radio"
+                          name="purpose-${sdrDevice.serial}"
+                          value="978">
+                    UAT (978MHz)
+                  </label>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="checkbox-inline mx-3">
+                    <input type="radio"
+                          name="purpose-${sdrDevice.serial}"
+                          value="unused">
+                    Other
+                  </label>
+                </div>
               </div>
             </div>
           </div>
