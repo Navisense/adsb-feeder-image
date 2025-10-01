@@ -1480,108 +1480,6 @@ class AdsbIm:
         # for regular feeders or micro feeders a max range of 300nm seem reasonable
         self._conf.set("max_range", 300)
 
-        # fix up airspy installs without proper serial number configuration
-        if self._conf.get("airspy"):
-            if (
-                    self._conf.get("serial_devices.1090") == ""
-                    or self._conf.get("serial_devices.1090", default="").startswith("AIRSPY SN:")):
-                self._sdrdevices.ensure_populated()
-                airspy_serials = [sdr.serial for sdr in self._sdrdevices.sdrs if sdr.type == "airspy"]
-                if len(airspy_serials) == 1:
-                    self._conf.set("serial_devices.1090", airspy_serials[0])
-
-        # make all the smart choices for plugged in SDRs
-        # only run this for initial setup or when the SDR setup is requested via the interface
-        if not True:
-            # first grab the SDRs plugged in and check if we have one identified for UAT
-            self._sdrdevices.ensure_populated()
-            serial_978 = self._conf.get(f"serial_devices.978")
-            serial_1090 = self._conf.get(f"serial_devices.1090")
-            serial_ais = self._conf.get(f"serial_devices.ais")
-            if serial_978 and not any([sdr.serial == serial_978 for sdr in self._sdrdevices.sdrs]):
-                self._conf.set(f"serial_devices.978", "")
-            if serial_1090 and not any([sdr.serial == serial_1090 for sdr in self._sdrdevices.sdrs]):
-                self._conf.set(f"serial_devices.1090", "")
-            if serial_ais and not any([sdr.serial == serial_ais for sdr in self._sdrdevices.sdrs]):
-                self._conf.set(f"serial_devices.ais", "")
-            auto_assignment = self._sdrdevices.addresses_per_frequency
-
-            purposes = self._sdrdevices.purposes
-
-            # if we have an actual asignment, that overrides the auto-assignment,
-            # delete the auto-assignment
-            for frequency in ["978", "1090", "ais"]:
-                if any(
-                        auto_assignment[frequency] == self._conf.get(f"serial_devices.{purpose}")
-                        for purpose in purposes):
-                    auto_assignment[frequency] = ""
-            if not self._conf.get("serial_devices.1090") and auto_assignment["1090"]:
-                self._conf.set("serial_devices.1090", auto_assignment["1090"])
-            if not self._conf.get("serial_devices.978") and auto_assignment["978"]:
-                self._conf.set("serial_devices.978", auto_assignment["978"])
-            if not self._conf.get("serial_devices.ais") and auto_assignment["ais"]:
-                self._conf.set("serial_devices.ais", auto_assignment["ais"])
-
-            stratuxv3 = any(
-                [sdr.serial == self._conf.get("serial_devices.978") and sdr.type == "stratuxv3" for sdr in self._sdrdevices.sdrs]
-            )
-            if stratuxv3:
-                self._conf.set("uat_device_type", "stratuxv3")
-            else:
-                self._conf.set("uat_device_type", "rtlsdr")
-
-            # next check for airspy devices
-            airspy = any([sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "airspy" for sdr in self._sdrdevices.sdrs])
-            self._conf.set("airspy", airspy)
-            self._conf.set("airspyurl", "http://airspy_adsb" if airspy else "")
-            # SDRplay devices
-            sdrplay = any([sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "sdrplay" for sdr in self._sdrdevices.sdrs])
-            self._conf.set("sdrplay", sdrplay)
-            # Mode-S Beast
-            modesbeast = any(
-                [sdr.serial == self._conf.get("serial_devices.1090") and sdr.type == "modesbeast" for sdr in self._sdrdevices.sdrs]
-            )
-
-            # rtl-sdr
-            rtlsdr = any(
-                sdr.type == "rtlsdr"
-                and sdr.serial in {
-                    self._conf.get("serial_devices.1090"),
-                    self._conf.get("serial_devices.ais")}
-                for sdr in self._sdrdevices.sdrs)
-
-            if rtlsdr:
-                self._conf.set("readsb_device_type", "rtlsdr")
-            elif modesbeast:
-                self._conf.set("readsb_device_type", "modesbeast")
-            else:
-                self._conf.set("readsb_device_type", "")
-
-            if rtlsdr:
-                # set rtl-sdr 1090 gain, bit hacky but means we don't have to restart the bulky ultrafeeder for gain changes
-                self.setRtlGain()
-
-            if airspy:
-                # make sure airspy gain is within bounds
-                gain = self._conf.get(["gain"])
-                if gain.startswith("auto"):
-                    self._conf.set("gain_airspy", "auto")
-                elif util.make_int(gain) > 21:
-                    self._conf.set("gain_airspy", "21")
-                    self._conf.set("gain", "21")
-                elif util.make_int(gain) < 0:
-                    self._conf.set("gain_airspy", "0")
-                    self._conf.set("gain", "0")
-                else:
-                    self._conf.set("gain_airspy", gain)
-
-            self._logger.debug(f"in the end we have")
-            self._logger.debug(f"serial_devices.1090 {self._conf.get('serial_devices.1090')}")
-            self._logger.debug(f"serial_devices.978 {self._conf.get('serial_devices.978')}")
-            self._logger.debug(f"serial_devices.ais {self._conf.get('serial_devices.ais')}")
-            self._logger.debug(f"airspy container is {self._conf.get('airspy')}")
-            self._logger.debug(f"SDRplay container is {self._conf.get('sdrplay')}")
-
         # finally, check if this has given us enough configuration info to
         # start the containers
         if self._conf.get("mandatory_config_is_complete"):
@@ -2564,22 +2462,22 @@ class AdsbIm:
             f"Configured SDR device assignments {assignments}, with unused "
             f"devices {unused_serials}.")
 
-        # Finally go over some device quirks.
-        self._fix_sdr_device_quirks()
+        # Finally go over some additional devices settings.
+        self._configure_sdr_assignment_settings()
 
         self._system._restart.bg_run(
             cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("restarting"))
 
-    def _fix_sdr_device_quirks(self):
+    def _configure_sdr_assignment_settings(self):
+        serials_by_type = {}
+        for sdr in self._sdrdevices.sdrs:
+            serials_by_type.setdefault(sdr.type, set()).add(sdr.serial)
+        # Airspy devices.
         self._conf.set("airspy.is_enabled", False)
-        airspy_serials = {
-            sdr.serial
-            for sdr in self._sdrdevices.sdrs
-            if sdr.type == "airspy"}
         for purpose in self._sdrdevices.purposes:
-            if self._conf.get(
-                    f"serial_devices.{purpose}") not in airspy_serials:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("airspy", []):
                 continue
             if purpose == "1090":
                 self._conf.set("airspy.is_enabled", True)
@@ -2587,6 +2485,41 @@ class AdsbIm:
                 self._logger.error(
                     "Airspy configured for something other than 1090MHz. This "
                     "won't work.")
+        # Stratuxv3 devices.
+        self._conf.set("uat_device_type", "rtlsdr")
+        for purpose in self._sdrdevices.purposes:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("stratuxv3", []):
+                continue
+            if purpose == "978":
+                self._conf.set("uat_device_type", "stratuxv3")
+            else:
+                self._logger.error(
+                    "Stratuxv3 configured for something other than 978MHz. "
+                    "This won't work.")
+        # SDRplay devices.
+        self._conf.set("sdrplay", False)
+        for purpose in self._sdrdevices.purposes:
+            assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+            if assigned_serial not in serials_by_type.get("sdrplay", []):
+                continue
+            if purpose == "1090":
+                self._conf.set("sdrplay", True)
+            else:
+                self._logger.error(
+                    "Sdrplay configured for something other than 1090MHz. "
+                    "This won't work.")
+        # Set readsb_device_type to rtlsdr or modesbeast.
+        adsb_serial = self._conf.get("serial_devices.1090")
+        if adsb_serial in serials_by_type.get("rtlsdr", []):
+            self._conf.set("readsb_device_type", "rtlsdr")
+            # Set rtlsdr 1090 gain, bit hacky but means we don't have to
+            # restart the bulky ultrafeeder for gain changes.
+            self.setRtlGain()
+        if adsb_serial in serials_by_type.get("modesbeast", []):
+            self._conf.set("readsb_device_type", "modesbeast")
+        else:
+            self._conf.set("readsb_device_type", "")
 
 
 class Manager:
