@@ -2,7 +2,7 @@
 # application. It is meant to be sourced from other scripts.
 
 APP_DIR="/opt/adsb"
-METADATA_DIR="${APP_DIR}/porttracker_feeder_install_metadata"
+METADATA_DIR="${APP_DIR}/porttracker_sdr_feeder_install_metadata"
 REPO_URL="https://gitlab.navisense.de/navisense-public/adsb-feeder-image.git"
 REPO_API_BASE_URL="https://gitlab.navisense.de/api/v4/projects/96"
 
@@ -212,7 +212,7 @@ install_files() {
     local staging_root="${staging_dir}/src/modules/adsb-feeder/filesystem/root"
     cp -a "${staging_root}${APP_DIR}/"* "${APP_DIR}/"
     cp -a "${staging_root}/usr/lib/systemd/system/"* "/usr/lib/systemd/system/"
-    cp -a "${staging_root}/etc/logrotate.d/porttracker-feeder" /etc/logrotate.d/
+    cp -a "${staging_root}/etc/logrotate.d/porttracker-sdr-feeder" /etc/logrotate.d/
     install_distro_specific_quirks ${staging_root} ${distro}
 }
 

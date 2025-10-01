@@ -17,7 +17,7 @@ uname -a:
 $(uname -a)
 ${SEPARATOR}
 base_image:
-$(cat /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt 2>/dev/null || echo "probably app install")
+$(cat /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt 2>/dev/null || echo "probably app install")
 ${SEPARATOR}
 /etc/os-release:
 $(cat /etc/os-release 2>&1)
@@ -79,8 +79,8 @@ ${SEPARATOR}
 lsusb -vt:
 $(timeout 4 lsusb -vt 2>&1)
 ${SEPARATOR}
-grep -e sdr_info /run/porttracker-feeder.log:
-$(grep -e sdr_info /run/porttracker-feeder.log 2>&1)
+grep -e sdr_info /run/porttracker-sdr-feeder.log:
+$(grep -e sdr_info /run/porttracker-sdr-feeder.log 2>&1)
 ${SEPARATOR}
 lsusb -v:
 $(timeout 4 lsusb -v 2>&1)
@@ -108,7 +108,7 @@ done
 
 SANITIZED_LOG+="
 adsb-setup.log:
-$(cat /run/porttracker-feeder.log 2>&1)
+$(cat /run/porttracker-sdr-feeder.log 2>&1)
 ${SEPARATOR}
 "
 

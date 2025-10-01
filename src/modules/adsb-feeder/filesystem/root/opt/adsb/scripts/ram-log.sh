@@ -17,7 +17,7 @@ if [ -L /opt/adsb/adsb-setup.log ] && [ -e /opt/adsb/adsb-setup.log ]
 then
     # this is already a symlink, so likely this is redundant
     target=$(realpath /opt/adsb/adsb-setup.log)
-    if [ "$target" = "/run/porttracker-feeder.log" ]
+    if [ "$target" = "/run/porttracker-sdr-feeder.log" ]
     then
         echo "looks like we already switched to logging to /run"
         exit 0
@@ -31,13 +31,13 @@ else
     systemctl stop adsb-setup
     /opt/adsb/docker-compose-adsb stop adsb-setup-proxy
     # copy the log file and create a symlink to tmpfs log
-    if [ -f /run/porttracker-feeder.log ]
+    if [ -f /run/porttracker-sdr-feeder.log ]
     then
-        cp /run/porttracker-feeder.log /run/adsb-feeder-image/adsb-setup.log."$TIMESTAMP"
+        cp /run/porttracker-sdr-feeder.log /run/adsb-feeder-image/adsb-setup.log."$TIMESTAMP"
     fi
     cp /opt/adsb/adsb-setup.log /opt/adsb/adsb-setup.log."$TIMESTAMP"
-    truncate -s 0 /run/porttracker-feeder.log
-    ln -sf /run/porttracker-feeder.log /opt/adsb/adsb-setup.log
+    truncate -s 0 /run/porttracker-sdr-feeder.log
+    ln -sf /run/porttracker-sdr-feeder.log /opt/adsb/adsb-setup.log
     systemctl start adsb-setup
     /opt/adsb/docker-compose-adsb start adsb-setup-proxy
 fi

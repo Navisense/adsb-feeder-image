@@ -112,7 +112,7 @@ class PidFile:
         if self.PID_FILE.exists():
             self._logger.warning(
                 f"PID file {self.PID_FILE} already exists. Overwriting it, "
-                "since adsb-feeder should only run once.")
+                "since porttracker-sdr-feeder should only run once.")
         self.PID_FILE.write_text(str(os.getpid()))
         return self
 
@@ -833,7 +833,7 @@ class AdsbIm:
         if not self._conf.get("mdns.is_enabled"):
             return
         args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.sh"]
-        mdns_domains = ["porttracker-feeder.local"]
+        mdns_domains = ["porttracker-sdr-feeder.local"]
         if self.hostname:
             # If we have a hostname, make the mDNS script create an alias for
             # it as well.
@@ -2224,7 +2224,7 @@ class AdsbIm:
         return render_template("waiting.html", title="ADS-B Feeder performing requested actions")
 
     def stream_log(self):
-        logfile = "/run/porttracker-feeder.log"
+        logfile = "/run/porttracker-sdr-feeder.log"
 
         def tail():
             with open(logfile, "r") as file:

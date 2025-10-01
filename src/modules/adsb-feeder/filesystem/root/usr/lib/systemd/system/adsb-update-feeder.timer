@@ -1,5 +1,5 @@
 [Unit]
-Description=Update Porttracker feeder every night
+Description=Update Porttracker SDR Feeder every night
 Requisite=adsb-setup.service
 After=adsb-setup.service
 

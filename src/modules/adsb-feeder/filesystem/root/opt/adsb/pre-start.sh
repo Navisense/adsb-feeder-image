@@ -30,23 +30,23 @@ bash /opt/adsb/scripts/cachebust.sh
 kill_wait_app
 
 ACTION="update to"
-if [[ -f "/opt/adsb/porttracker_feeder_install_metadata/finish-update.done" ]]; then
+if [[ -f "/opt/adsb/porttracker_sdr_feeder_install_metadata/finish-update.done" ]]; then
     # so we have completed one of the 'post 0.15' updates already.
     # let's see if the version changed (i.e. if this is another new update)
     # if not, then we ran this script already and can exit
-    if cmp /opt/adsb/porttracker_feeder_install_metadata/finish-update.done /opt/adsb/porttracker_feeder_install_metadata/version.txt > /dev/null 2>&1; then
+    if cmp /opt/adsb/porttracker_sdr_feeder_install_metadata/finish-update.done /opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt > /dev/null 2>&1; then
         echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh done"
         exit 0
     fi
 else
     ACTION="initial install of"
-    if ! [[ -f /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt ]]; then
-        echo "unknown-install" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
+    if ! [[ -f /opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt ]]; then
+        echo "unknown-install" > /opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt
     fi
 fi
 
-NEW_VERSION=$(</opt/adsb/porttracker_feeder_install_metadata/version.txt)
-echo "$(date -u +"%FT%T.%3NZ") final housekeeping for the $ACTION $NEW_VERSION" >> /run/porttracker-feeder.log
+NEW_VERSION=$(</opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt)
+echo "$(date -u +"%FT%T.%3NZ") final housekeeping for the $ACTION $NEW_VERSION" >> /run/porttracker-sdr-feeder.log
 
 # remove any left-over apps and files from previous versions
 USR_BIN_APPS=('docker-compose-start' 'docker-compose-adsb' 'docker-update-adsb-im' \
@@ -58,6 +58,6 @@ for app in "${USR_BIN_APPS[@]}"; do
 done
 
 # remember that we handled the housekeeping for this version
-cp /opt/adsb/porttracker_feeder_install_metadata/version.txt /opt/adsb/porttracker_feeder_install_metadata/finish-update.done
+cp /opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt /opt/adsb/porttracker_sdr_feeder_install_metadata/finish-update.done
 
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh done"

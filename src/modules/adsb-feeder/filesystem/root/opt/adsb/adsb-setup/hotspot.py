@@ -171,12 +171,12 @@ class Hotspot(abc.ABC):
         self._hotspot_is_running = False
         self._wifi_test_thread = None
         # Don't answer DNS queries for names under .local or
-        # local.porttracker-feeder.de (where porttracker-feeder.de is the DNS
-        # suffix advertised via DHCP). Those are mDNS names that should be
-        # answered by the avahi service.
+        # local.porttracker-sdr-feeder.de (where porttracker-sdr-feeder.de is
+        # the DNS suffix advertised via DHCP). Those are mDNS names that should
+        # be answered by the avahi service.
         self._dns_server = fakedns.Server(
             response_ip=self.HOTSPOT_IP,
-            non_response_domains={"local", "local.porttracker-feeder.de"})
+            non_response_domains={"local", "local.porttracker-sdr-feeder.de"})
         self._logger = logging.getLogger(type(self).__name__)
         self.wifi = wifi.make_wifi(self.wlan)
         self._setup_config_files()
@@ -278,7 +278,7 @@ class Hotspot(abc.ABC):
         if self._conf.get("mdns.is_enabled"):
             system.systemctl().run(
                 ["restart"],
-                ["adsb-avahi-alias@porttracker-feeder.local.service"])
+                ["adsb-avahi-alias@porttracker-sdr-feeder.local.service"])
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
@@ -296,7 +296,7 @@ class Hotspot(abc.ABC):
         if self._conf.get("mdns.is_enabled"):
             system.systemctl().run(
                 ["stop"],
-                ["adsb-avahi-alias@porttracker-feeder.local.service"])
+                ["adsb-avahi-alias@porttracker-sdr-feeder.local.service"])
         system.systemctl().run(
             ["stop", "disable", "mask"],
             ["isc-kea-dhcp4-server.service", "hostapd.service"])

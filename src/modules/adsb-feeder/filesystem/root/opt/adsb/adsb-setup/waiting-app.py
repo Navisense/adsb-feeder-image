@@ -8,7 +8,7 @@ import math
 import sys
 
 app = Flask(__name__)
-logfile = "/run/porttracker-feeder.log"
+logfile = "/run/porttracker-sdr-feeder.log"
 title = "Restarting the ADS-B Feeder System"
 theme = "auto"
 

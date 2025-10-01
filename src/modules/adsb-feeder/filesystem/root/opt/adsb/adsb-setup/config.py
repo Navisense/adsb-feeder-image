@@ -27,7 +27,7 @@ if t.TYPE_CHECKING:
     import aggregators
 
 APP_DIR = pathlib.Path("/opt/adsb")
-METADATA_DIR = APP_DIR / "porttracker_feeder_install_metadata"
+METADATA_DIR = APP_DIR / "porttracker_sdr_feeder_install_metadata"
 CONFIG_DIR = pathlib.Path("/etc/adsb")
 CONFIG_FILE = CONFIG_DIR / "config.json"
 CONFIG_FILE_BACKUP_TEMPLATE = (
@@ -37,7 +37,7 @@ VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
 FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
 DOCKER_COMPOSE_UP_FAILED_FILE = pathlib.Path(
-    "/run/porttracker-feeder-docker-compose-up-failed")
+    "/run/porttracker-sdr-feeder-docker-compose-up-failed")
 
 logger = logging.getLogger(__name__)
 

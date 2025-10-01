@@ -1,4 +1,4 @@
-# Porttracker feeder
+# Porttracker SDR Feeder
 
 This application can be used to easily set up stations receiving AIS ship
 positions and/or ADS-B airplane positions on devices running
@@ -102,7 +102,8 @@ The script allows a few options, which are appended to the bash command after
 - `--web-port`: The port on which the web interface should be started (default
   1099).
 - `--enable-mdns`: Whether an mDNS service should be started, which makes it
-  easier to access the machine from the outside as `porttracker-feeder.local`.
+  easier to access the machine from the outside as
+  `porttracker-sdr-feeder.local`.
 - `--expand-rootfs`: Whether a service should be started that automatically
   expands the root filesystem. This really only makes sense for generating
   images and shouldn't be used on existing systems.
@@ -126,7 +127,7 @@ the application. You need root SSH access to the devices. You can specify the
 host using the `HOST` environment variable, e.g.
 
 ```
-HOST=porttracker-feeder.local make sync-and-update
+HOST=porttracker-sdr-feeder.local make sync-and-update
 ```
 
 ### Checkboxes in form data
@@ -139,6 +140,6 @@ unchecked ones and "1" for checked ones.
 ### Logging setup
 
 To save on unnecessary disk writes, all parts of the application log to
-`/run/porttracker-feeder.log` (`/run` is a tmpfs in memory). This file is
+`/run/porttracker-sdr-feeder.log` (`/run` is a tmpfs in memory). This file is
 regularly spilled over to the permanent log file
-`/var/log/porttracker-feeder.log`, which then gets rotated by logrotate.
+`/var/log/porttracker-sdr-feeder.log`, which then gets rotated by logrotate.

@@ -7,4 +7,4 @@ systemctl restart docker docker.socket adsb-docker
 
 echo "Done."
 echo "If you want to view the progress of container recreation, use this command:"
-echo "tail -f /run/porttracker-feeder.log"
+echo "tail -f /run/porttracker-sdr-feeder.log"

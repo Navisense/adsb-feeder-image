@@ -26,4 +26,4 @@ services:
     stop_signal: SIGKILL
     command: tail -n0 -f /opt/adsb-setup.log
     volumes:
-      - /run/porttracker-feeder.log:/opt/adsb-setup.log
+      - /run/porttracker-sdr-feeder.log:/opt/adsb-setup.log

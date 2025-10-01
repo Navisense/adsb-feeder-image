@@ -11,8 +11,8 @@ Type=simple
 RestartSec=5
 StartLimitInterval=1
 StartLimitBurst=100
-StandardOutput=append:/run/porttracker-feeder.log
-StandardError=append:/run/porttracker-feeder.log
+StandardOutput=append:/run/porttracker-sdr-feeder.log
+StandardError=append:/run/porttracker-sdr-feeder.log
 
 [Install]
 WantedBy=multi-user.target

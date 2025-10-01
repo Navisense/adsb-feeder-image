@@ -71,7 +71,7 @@ def generic_get_json(url: str, data=None, timeout=5.0):
         url = url.replace("host.docker.internal", "localhost")
     # use image specific but random value for user agent to distinguish
     # between requests from the same IP but different feeders
-    agent = f"Porttracker Feeder {get_device_id()[:8]}"
+    agent = f"Porttracker SDR Feeder {get_device_id()[:8]}"
     status = -1
     try:
         response = requests.request(

@@ -26,5 +26,5 @@ if (( $(wc -l < "${LOG_FILE}") < "${min_lines_to_do_rotation}" )); then
     exit 0
 fi
 
-cat "${LOG_FILE}" >> /var/log/porttracker-feeder.log
+cat "${LOG_FILE}" >> /var/log/porttracker-sdr-feeder.log
 truncate -s 0 "${LOG_FILE}"

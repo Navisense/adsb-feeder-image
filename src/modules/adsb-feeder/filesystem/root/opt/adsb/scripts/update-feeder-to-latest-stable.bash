@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Update the Porttracker feeder to the latest stable version.
+# Update the Porttracker SDR Feeder to the latest stable version.
 
 if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
     echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."
