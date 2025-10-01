@@ -56,7 +56,7 @@ if [ "$(echo $config_json | jq -r '.mandatory_config_is_complete')" != true ] ; 
     fi
 else
     # The base config is done, start all the compose files.
-    if [ "$(echo $config_json | jq -r '.airspy')" = true ] ; then
+    if [ "$(echo $config_json | jq -r '.airspy.is_enabled')" = true ] ; then
         compose_file_args+=" -f /opt/adsb/compose_files/airspy.yml"
     fi
     if [ "$(echo $config_json | jq -r '.sdrplay')" = true ] \

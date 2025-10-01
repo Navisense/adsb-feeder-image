@@ -2564,9 +2564,29 @@ class AdsbIm:
             f"Configured SDR device assignments {assignments}, with unused "
             f"devices {unused_serials}.")
 
+        # Finally go over some device quirks.
+        self._fix_sdr_device_quirks()
+
         self._system._restart.bg_run(
             cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("restarting"))
+
+    def _fix_sdr_device_quirks(self):
+        self._conf.set("airspy.is_enabled", False)
+        airspy_serials = {
+            sdr.serial
+            for sdr in self._sdrdevices.sdrs
+            if sdr.type == "airspy"}
+        for purpose in self._sdrdevices.purposes:
+            if self._conf.get(
+                    f"serial_devices.{purpose}") not in airspy_serials:
+                continue
+            if purpose == "1090":
+                self._conf.set("airspy.is_enabled", True)
+            else:
+                self._logger.error(
+                    "Airspy configured for something other than 1090MHz. This "
+                    "won't work.")
 
 
 class Manager:

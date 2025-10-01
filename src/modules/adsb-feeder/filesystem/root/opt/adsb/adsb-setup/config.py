@@ -199,7 +199,7 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
     # Make sure we only ever use 1 SDR / network input for Ultrafeeder.
     if conf.get("readsb_device_type"):
         pass
-    elif conf.get("airspy"):
+    elif conf.get("airspy.is_enabled"):
         args.add("adsb,airspy_adsb,30005,beast_in")
     elif conf.get("sdrplay"):
         args.add("adsb,sdrplay-beast1090,30005,beast_in")
@@ -221,6 +221,18 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
     args = sorted(args)
     logger.debug(f"Generated Ultrafeeder args {args}")
     return ";".join(args)
+
+
+def _calculate_airspy_gain(conf: "Config") -> str:
+    # Make sure airspy gain is within bounds.
+    gain = conf.get("gain")
+    if gain.startswith("auto"):
+        return "auto"
+    elif util.make_int(gain) > 21:
+        return "21"
+    elif util.make_int(gain) < 0:
+        return "0"
+    return gain
 
 
 class Setting(abc.ABC):
@@ -742,9 +754,6 @@ class Config(CompoundSetting):
             env_variable_name="FEEDER_ENABLE_UATBIASTEE", env_string_false="",
             env_string_true="1"),
         "gain": ft.partial(StringSetting, default="autogain"),
-        "gain_airspy": ft.partial(
-            StringSetting, default="auto",
-            env_variable_name="FEEDER_AIRSPY_GAIN"),
         "uatgain": ft.partial(
             StringSetting, default="autogain",
             env_variable_name="UAT_SDR_GAIN"),
@@ -810,12 +819,6 @@ class Config(CompoundSetting):
                     SwitchedGeneratedSetting, switch_path="serial_devices.978",
                     true_value="relay", false_value="",
                     env_variable_name="FEEDER_PIAWARE_UAT978"),}),
-        # URL to get Airspy stats (used in stage2)
-        "airspyurl": ft.partial(
-            StringSetting, env_variable_name="FEEDER_URL_AIRSPY"),
-        # port for Airspy stats (used in micro feeder and handed to stage2 via base_info)
-        "airspyport": ft.partial(
-            IntSetting, default=8070, env_variable_name="FEEDER_AIRSPY_PORT"),
         # Misc
         "heywhatsthat": ft.partial(BoolSetting, default=False),
         "heywhatsthat_id": ft.partial(
@@ -1068,7 +1071,19 @@ class Config(CompoundSetting):
             CachedGeneratedSetting,
             value_generator=ft.partial(_read_file, file=FRIENDLY_NAME_FILE)),
         "secure_image": ft.partial(BoolSetting, default=False, norestore=True),
-        "airspy": BoolSetting,
+        "airspy": ft.partial(
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(BoolSetting, default=False),
+                "gain": ft.partial(
+                    GeneratedSetting, value_generator=_calculate_airspy_gain,
+                    env_variable_name="FEEDER_AIRSPY_GAIN"),
+                "url": ft.partial(
+                    SwitchedGeneratedSetting, switch_path="airspy.is_enabled",
+                    true_value="http://airspy_adsb", false_value="",
+                    env_variable_name="FEEDER_URL_AIRSPY"),
+                "port": ft.partial(
+                    ConstantSetting, constant_value=8070,
+                    env_variable_name="FEEDER_AIRSPY_PORT"),}),
         "sdrplay": BoolSetting,
         "sdrplay_license_accepted": BoolSetting,
         "journal_configured": ft.partial(BoolSetting, default=False),
@@ -1542,11 +1557,17 @@ class Config(CompoundSetting):
             assert isinstance(serial, str)
             unused_serials.add(serial)
         config_dict["serial_devices"]["unused"] = sorted(unused_serials)
-        # These settings are generated now.
+        # Airspy gets a compound config.
+        airspy_enabled = bool(config_dict["airspy"])
+        config_dict["airspy"] = {"is_enabled": airspy_enabled}
+        # These settings are generated or constants now.
         del config_dict["uat978"]
         del config_dict["978url"]
         del config_dict["978host"]
         del config_dict["978piaware"]
+        del config_dict["gain_airspy"]
+        del config_dict["airspyurl"]
+        del config_dict["airspyport"]
         # This setting is obsolete.
         del config_dict["sdrs_locked"]
         return config_dict
