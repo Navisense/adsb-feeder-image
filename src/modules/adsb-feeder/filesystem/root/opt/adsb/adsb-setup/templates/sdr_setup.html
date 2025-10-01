@@ -9,6 +9,34 @@
     Please ensure that all SDRs have distinct serial numbers.
   </div>
   <form method="post" action="{{ url_for('configure-sdr') }}">
+    <div class="row my-3 justify-content-center">
+      <div class="col-8 col-lg-4">
+        <div class="text-center">
+          <button class="btn btn-secondary btn-block"
+                  type="button"
+                  onclick="updateSdrInfo()">Check SDRs</button>
+        </div>
+      </div>
+    </div>
+    <h5>Available SDR devices</h5>
+    <div id="sdr-devices" class="row my-3"></div>
+    <div class="row my-3 align-items-center">
+      <div class="col-12 col-xl-8">
+        <label class="form-label" for="remote-sdr">
+          If you are intending to use this feeder with a remote device that has the SDR connected to it and offers
+          <code>beast_out</code>, please enter the IPv4 address here (and the port used if it's not 30005):
+        </label>
+      </div>
+      <div class="col-12 col-xl-4">
+        <input type="text"
+              name="remote-sdr"
+              class="form-control mb-2"
+              pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
+              title="IPv4 address and port, separated by a comma"
+              placeholder="IP-address[,port]"
+              value="{{ get_conf('remote_sdr', default='') }}">
+      </div>
+    </div>
     <div class="extra-elements-1090 d-none">
       <h5 class="mt-3">Set SDR gain for ADS-B (1090MHz)</h5>
       <div class="row align-items-center">
@@ -90,34 +118,6 @@
             <label for="uatbiast">Enable bias-T for UAT978 SDR</label>
           </div>
         </div>
-      </div>
-    </div>
-    <div class="row my-3 justify-content-center">
-      <div class="col-8 col-lg-4">
-        <div class="text-center">
-          <button class="btn btn-secondary btn-block"
-                  type="button"
-                  onclick="updateSdrInfo()">Check SDRs</button>
-        </div>
-      </div>
-    </div>
-    <h5>Available SDR devices</h5>
-    <div id="sdr-devices" class="row my-3"></div>
-    <div class="row my-3 align-items-center">
-      <div class="col-12 col-xl-8">
-        <label class="form-label" for="remote-sdr">
-          If you are intending to use this feeder with a remote device that has the SDR connected to it and offers
-          <code>beast_out</code>, please enter the IPv4 address here (and the port used if it's not 30005):
-        </label>
-      </div>
-      <div class="col-12 col-xl-4">
-        <input type="text"
-              name="remote-sdr"
-              class="form-control mb-2"
-              pattern="^\s*(?:\d{1,3}\.){3}\d{1,3}(?:,\s*\d+)?\s*$"
-              title="IPv4 address and port, separated by a comma"
-              placeholder="IP-address[,port]"
-              value="{{ get_conf('remote_sdr', default='') }}">
       </div>
     </div>
     <div class="row my-3 justify-content-center">
