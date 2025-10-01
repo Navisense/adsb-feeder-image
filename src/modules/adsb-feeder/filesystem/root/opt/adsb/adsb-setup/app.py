@@ -1258,33 +1258,38 @@ class AdsbIm:
                 flash_message=True)
 
     def sdr_info(self):
+        # Figure out which device is supposed to handle what. First check the
+        # config.
+        assignments = {}
+        for purpose in self._sdrdevices.purposes:
+            serial = self._conf.get(f"serial_devices.{purpose}")
+            if not serial:
+                continue
+            elif serial in assignments:
+                self._logger.error(
+                    f"Device with serial {serial} assigned to more than one "
+                    "purpose. This is a configuration error.")
+                continue
+            assignments[serial] = purpose
+        # For any serials without a job, make a guess what they could do.
         guessed_assignment = self._sdrdevices.get_best_guess_assignment()
+        for purpose, serial in guessed_assignment.items():
+            if (serial not in assignments
+                    and purpose not in assignments.values()):
+                self._logger.info(
+                    f"Automatically assigning device {serial} to {purpose}.")
+                assignments[serial] = purpose
         sdr_device_dicts = []
         for sdr in self._sdrdevices.sdrs:
-            assignment = next((
-                purpose for purpose in self._sdrdevices.purposes
-                if self._conf.get(f"serial_devices.{purpose}") == sdr.serial),
-                              None)
-            if assignment is None:
-                try:
-                    assignment = next(
-                        purpose for purpose, serial in guessed_assignment
-                        if serial == sdr.serial)
-                    self._logger.info(
-                        f"Automatically assigning device {sdr.serial} to "
-                        f"{assignment}.")
-                except StopIteration:
-                    pass
             sdr_device_dicts.append({
                 "serial": sdr.serial,
                 "vendor": sdr.vendor,
                 "product": sdr.product,
-                "assignment": assignment,})
+                "assignment": assignments.get(sdr.serial),})
         # Sort devices to always get the same order.
         sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
             "sdr_devices": sdr_device_dicts,
-            "duplicate_serials": list(self._sdrdevices.duplicate_serials),
             "lsusb_output": self._sdrdevices.lsusb_output,}
 
     def get_lat_lon_alt(self):
