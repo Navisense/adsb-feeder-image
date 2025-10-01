@@ -279,7 +279,4 @@ class SDRDevices:
             assignment.setdefault("ais", unassigned_rtlsdr.serial)
         except StopIteration:
             pass
-        for purpose in self.purposes:
-            # Make sure all purposes exist.
-            assignment.setdefault(purpose, None)
         return assignment

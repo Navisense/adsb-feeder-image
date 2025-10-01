@@ -1317,7 +1317,9 @@ class AdsbIm:
     def sdr_info(self):
         # Figure out which device is supposed to handle what. First check the
         # config.
-        assignments = {}
+        assignments = {
+            serial: None
+            for serial in self._conf.get("serial_devices.unused")}
         for purpose in self._sdrdevices.purposes:
             serial = self._conf.get(f"serial_devices.{purpose}")
             if not serial:
