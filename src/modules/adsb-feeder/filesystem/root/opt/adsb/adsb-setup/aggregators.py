@@ -83,40 +83,41 @@ def init_aggregators(conf: config.Config, system: system.System) -> None:
         UltrafeederAggregator(
             conf, system, agg_key="flyitaly", name="Fly Italy ADSB",
             map_url="https://mappa.flyitalyadsb.com/",
-            status_url="https://my.flyitalyadsb.com/am_i_feeding",
+            status_url_or_factory="https://my.flyitalyadsb.com/am_i_feeding",
             netconfig=NetConfig(
                 "adsb,dati.flyitalyadsb.com,4905,beast_reduce_plus_out",
                 "mlat,dati.flyitalyadsb.com,30100,39002", has_policy=True)),
         UltrafeederAggregator(
             conf, system, agg_key="avdelphi", name="AVDelphi",
-            map_url="https://www.avdelphi.com/coverage.html", status_url=None,
-            netconfig=NetConfig(
+            map_url="https://www.avdelphi.com/coverage.html",
+            status_url_or_factory=None, netconfig=NetConfig(
                 "adsb,data.avdelphi.com,24999,beast_reduce_plus_out", "",
                 has_policy=True)),
         UltrafeederAggregator(
             conf, system, agg_key="planespotters", name="Planespotters",
             map_url="https://radar.planespotters.net/",
-            status_url="https://www.planespotters.net/feed/status",
+            status_url_or_factory="https://www.planespotters.net/feed/status",
             netconfig=NetConfig(
                 "adsb,feed.planespotters.net,30004,beast_reduce_plus_out",
                 "mlat,mlat.planespotters.net,31090,39005", has_policy=True)),
         UltrafeederAggregator(
             conf, system, agg_key="tat", name="TheAirTraffic",
             map_url="https://globe.theairtraffic.com/",
-            status_url="https://theairtraffic.com/feed/myip/",
+            status_url_or_factory="https://theairtraffic.com/feed/myip/",
             netconfig=NetConfig(
                 "adsb,feed.theairtraffic.com,30004,beast_reduce_plus_out",
                 "mlat,feed.theairtraffic.com,31090,39004", has_policy=False)),
         UltrafeederAggregator(
             conf, system, agg_key="adsbfi", name="adsb.fi",
             map_url="https://globe.adsb.fi/",
-            status_url="https://api.adsb.fi/v1/myip", netconfig=NetConfig(
+            status_url_or_factory="https://api.adsb.fi/v1/myip",
+            netconfig=NetConfig(
                 "adsb,feed.adsb.fi,30004,beast_reduce_plus_out",
                 "mlat,feed.adsb.fi,31090,39007", has_policy=True)),
         AdsbxAggregator(conf, system),
         UltrafeederAggregator(
             conf, system, agg_key="hpradar", name="HPRadar",
-            map_url="https://skylink.hpradar.com/", status_url=None,
+            map_url="https://skylink.hpradar.com/", status_url_or_factory=None,
             netconfig=NetConfig(
                 "adsb,skyfeed.hpradar.com,30004,beast_reduce_plus_out",
                 "mlat,skyfeed.hpradar.com,31090,39011", has_policy=False)),
@@ -189,14 +190,15 @@ class Aggregator(abc.ABC):
 
     def __init__(
             self, conf: config.Config, system: system.System, *, agg_key: str,
-            name: str, map_url: Optional[str], status_url: Optional[str]):
+            name: str, map_url: Optional[str],
+            status_url_or_factory: Optional[str]):
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
         self._system = system
         self._agg_key = agg_key
         self._name = name
         self._map_url = map_url
-        self._status_url = status_url
+        self._status_url_or_factory = status_url_or_factory
         self._last_check = 0
         self._status = AggregatorStatus(ais=None, adsb=None)
         self._check_lock = threading.Lock()
@@ -220,7 +222,9 @@ class Aggregator(abc.ABC):
 
     @property
     def status_url(self) -> Optional[str]:
-        return self._status_url
+        if callable(self._status_url_or_factory):
+            return self._status_url_or_factory()
+        return self._status_url_or_factory
 
     @property
     @abc.abstractmethod
@@ -315,11 +319,11 @@ class UltrafeederAggregator(Aggregator):
 
     def __init__(
             self, conf: config.Config, system: system.System, *, agg_key: str,
-            name: str, map_url: Optional[str], status_url: Optional[str],
-            netconfig: NetConfig):
+            name: str, map_url: Optional[str],
+            status_url_or_factory: Optional[str], netconfig: NetConfig):
         super().__init__(
             conf, system, agg_key=agg_key, name=name, map_url=map_url,
-            status_url=status_url)
+            status_url_or_factory=status_url_or_factory)
         self._netconfig = netconfig
 
     @property
@@ -410,7 +414,8 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
         super().__init__(
             conf, system, agg_key="alive", name="airplanes.live",
             map_url="https://globe.airplanes.live/",
-            status_url="https://airplanes.live/myfeed/", netconfig=NetConfig(
+            status_url_or_factory="https://airplanes.live/myfeed/",
+            netconfig=NetConfig(
                 "adsb,feed.airplanes.live,30004,beast_reduce_plus_out",
                 "mlat,feed.airplanes.live,31090,39012", has_policy=True))
         self._alive_map_link = None
@@ -440,7 +445,8 @@ class AdsbLolAggregator(UltrafeederAggregator):
         super().__init__(
             conf, system, agg_key="adsblol", name="adsb.lol",
             map_url="https://adsb.lol/",
-            status_url="https://api.adsb.lol/0/me", netconfig=NetConfig(
+            status_url_or_factory="https://api.adsb.lol/0/me",
+            netconfig=NetConfig(
                 "adsb,feed.adsb.lol,30004,beast_reduce_plus_out",
                 "mlat,feed.adsb.lol,31090,39001", has_policy=True))
         self._adsblol_link = None
@@ -470,7 +476,7 @@ class AdsbxAggregator(UltrafeederAggregator):
         super().__init__(
             conf, system, agg_key="adsbx", name="ADSBExchange",
             map_url="https://globe.adsbexchange.com/",
-            status_url="https://www.adsbexchange.com/myip/",
+            status_url_or_factory="https://www.adsbexchange.com/myip/",
             netconfig=NetConfig(
                 "adsb,feed1.adsbexchange.com,30004,beast_reduce_plus_out",
                 "mlat,feed.adsbexchange.com,31090,39003", has_policy=True))
@@ -603,7 +609,7 @@ class PlaneFinderAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="planefinder", name="PlaneFinder",
             map_url="https://planefinder.net/",
-            status_url="/planefinder-stat/")
+            status_url_or_factory="/planefinder-stat/")
 
     @property
     def _container_name(self):
@@ -614,7 +620,8 @@ class AdsbHubAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="adsbhub", name="ADSBHub",
-            map_url="https://www.adsbhub.org/coverage.php", status_url=None)
+            map_url="https://www.adsbhub.org/coverage.php",
+            status_url_or_factory=None)
 
     @property
     def _container_name(self):
@@ -626,7 +633,7 @@ class OpenSkyAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="opensky", name="OpenSky Network",
             map_url="https://opensky-network.org/network/explorer",
-            status_url=None)
+            status_url_or_factory=None)
 
     @property
     def _container_name(self):
@@ -676,7 +683,8 @@ class RadarVirtuelAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="radarvirtuel", name="RadarVirtuel",
-            map_url="https://www.radarvirtuel.com/", status_url=None)
+            map_url="https://www.radarvirtuel.com/",
+            status_url_or_factory=None)
 
     @property
     def _container_name(self):
@@ -692,7 +700,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="porttracker", name="Porttracker",
             map_url="https://porttracker.co/",
-            status_url="https://www.porttracker.co/app/profile")
+            status_url_or_factory="https://www.porttracker.co/app/profile")
         self._station_id = None
 
     @property
@@ -769,10 +777,11 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="radarbox", name="AirNav Radar",
             map_url="https://www.airnavradar.com/coverage-map",
-            status_url=None)
+            status_url_or_factory=self._make_status_url)
 
-    @property
-    def status_url(self) -> Optional[str]:
+    def _make_status_url(self) -> Optional[str]:
+        if not self.enabled():
+            return None
         feeder_id = self._conf.get("aggregators.radarbox.sn")
         return f"https://www.airnavradar.com/stations/{feeder_id}"
 
@@ -876,7 +885,7 @@ class FlightAwareAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="flightaware", name="FlightAware",
             map_url="https://www.flightaware.com/live/map",
-            status_url="/fa-status/")
+            status_url_or_factory="/fa-status/")
 
     @property
     def _container_name(self):
@@ -949,10 +958,12 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="1090uk", name="1090MHz UK",
-            map_url="https://1090mhz.uk", status_url=None)
+            map_url="https://1090mhz.uk",
+            status_url_or_factory=self._make_status_url)
 
-    @property
-    def status_url(self) -> Optional[str]:
+    def _make_status_url(self) -> Optional[str]:
+        if not self.enabled():
+            return None
         api_key = self._conf.get("aggregators.1090uk.key")
         return f"https://www.1090mhz.uk/mystatus.php?key={api_key}"
 
@@ -991,7 +1002,8 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="flightradar", name="flightradar24",
-            map_url="https://www.flightradar24.com/", status_url="/fr24/")
+            map_url="https://www.flightradar24.com/",
+            status_url_or_factory="/fr24/")
 
     @property
     def _container_name(self):
@@ -1183,7 +1195,8 @@ class PlaneWatchAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="planewatch", name="Plane.watch",
-            map_url="https:/plane.watch/desktop.html", status_url=None)
+            map_url="https:/plane.watch/desktop.html",
+            status_url_or_factory=None)
 
     @property
     def _container_name(self):
@@ -1221,7 +1234,7 @@ class SdrMapAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="sdrmap", name="sdrmap",
-            map_url="https://sdrmap.org/", status_url=None)
+            map_url="https://sdrmap.org/", status_url_or_factory=None)
 
     @property
     def _container_name(self):
@@ -1253,8 +1266,8 @@ class AiscatcherAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="aiscatcher", name="AIS-catcher",
-            map_url="https://www.aiscatcher.org/livemap", status_url=None,
-            key_required=False)
+            map_url="https://www.aiscatcher.org/livemap",
+            status_url_or_factory=None, key_required=False)
 
     @property
     def capable_message_types(self) -> set[MessageType]:
@@ -1284,7 +1297,8 @@ class AishubAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
             conf, system, agg_key="aishub", name="Aishub",
-            map_url="https://www.aishub.net/coverage", status_url=None)
+            map_url="https://www.aishub.net/coverage",
+            status_url_or_factory=self._make_status_url)
 
     @property
     def capable_message_types(self) -> set[MessageType]:
@@ -1298,8 +1312,7 @@ class AishubAggregator(AccountBasedAggregator):
     def _udp_port(self) -> Optional[int]:
         return self._conf.get("aggregators.aishub.key")
 
-    @property
-    def status_url(self) -> Optional[str]:
+    def _make_status_url(self) -> Optional[str]:
         if not self.enabled():
             return None
         return f"https://www.aishub.net/stations/{self._udp_port}"
