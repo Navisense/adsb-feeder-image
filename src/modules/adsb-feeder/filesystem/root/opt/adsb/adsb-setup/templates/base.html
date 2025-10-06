@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 {% set css_theme = get_conf("css_theme") %}
 <html lang="en"
+      class="h-100"
       data-mdb-theme="{{ css_theme if css_theme in ['light', 'dark'] else 'auto' }}">
   <head>
     <!-- Required meta tags -->
@@ -41,7 +42,7 @@
       {% endblock title %}
     </title>
   </head>
-  <body class="bg-light">
+  <body class="h-100 d-flex flex-column bg-light">
     <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"
             integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
             crossorigin="anonymous"></script>
@@ -212,8 +213,7 @@
     </script>
     <nav class="navbar navbar-expand-md">
       <div class="container-fluid">
-        <a class="navbar-brand ms-0 me-1 me-sm-3"
-           href="{{ url_for('index') }}">Porttracker SDR Feeder</a>
+        <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('index') }}">Porttracker SDR Feeder</a>
         {# Live map buttons in the nav bar. These will be hidden for small screens. #}
         <div id="livemap-buttons">
           <div class="btn-group"
