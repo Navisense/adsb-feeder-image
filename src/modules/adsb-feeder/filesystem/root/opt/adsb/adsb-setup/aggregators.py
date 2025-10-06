@@ -1,5 +1,6 @@
 import abc
 import enum
+import functools as ft
 import json
 import logging
 import numbers
@@ -12,6 +13,8 @@ import time
 import typing as t
 from typing import Any, Optional
 import uuid
+
+import flask
 
 import config
 import system
@@ -609,7 +612,8 @@ class PlaneFinderAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="planefinder", name="PlaneFinder",
             map_url="https://planefinder.net/",
-            status_url_or_factory="/planefinder-stat/")
+            status_url_or_factory=ft.partial(
+                flask.url_for, "planefinder-status"))
 
     @property
     def _container_name(self):
@@ -885,7 +889,8 @@ class FlightAwareAggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="flightaware", name="FlightAware",
             map_url="https://www.flightaware.com/live/map",
-            status_url_or_factory="/fa-status/")
+            status_url_or_factory=ft.partial(
+                flask.url_for, "flightaware-status"))
 
     @property
     def _container_name(self):
@@ -921,8 +926,8 @@ class FlightAwareAggregator(AccountBasedAggregator):
         return None
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        host = f"http://127.0.0.1:{self._conf.get('ports.web')}"
-        json_url = f"{host}/fa-status.json/"
+        json_url = (
+            f"http://localhost{flask.url_for('flightaware-status-json')}")
         fa_dict, status = util.generic_get_json(json_url)
         if not fa_dict or status != 200:
             raise StatusCheckError(
@@ -1003,7 +1008,8 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         super().__init__(
             conf, system, agg_key="flightradar", name="flightradar24",
             map_url="https://www.flightradar24.com/",
-            status_url_or_factory="/fr24/")
+            status_url_or_factory=ft.partial(
+                flask.url_for, "flightradar-status"))
 
     @property
     def _container_name(self):
@@ -1174,8 +1180,8 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
         return uat_key
 
     def _check_aggregator_status(self) -> AggregatorStatus:
-        host = f"http://127.0.0.1:{self._conf.get('ports.web')}"
-        json_url = f"{host}/fr24-monitor.json/"
+        json_url = (
+            f"http://localhost{flask.url_for('flightradar-monitor-json')}")
         fr_dict, status = util.generic_get_json(json_url)
         if not fr_dict or status != 200:
             raise StatusCheckError(

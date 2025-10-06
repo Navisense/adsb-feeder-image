@@ -255,6 +255,67 @@ class HotspotApp:
 
 
 class AdsbIm:
+    _embedded_app_specs = [
+        {
+            "rule": "/ais-catcher",
+            "endpoint": "ais-catcher",
+            "port_key_path": "ports.aiscatcher",
+            "path": "",
+            "title": "AIS-catcher",},
+        {
+            "rule": "/tar1090",
+            "endpoint": "tar1090",
+            "port_key_path": "ports.tar1090",
+            "path": "",
+            "title": "Tar1090",},
+        {
+            "rule": "/tar1090-stats",
+            "endpoint": "tar1090-stats",
+            "port_key_path": "ports.tar1090",
+            "path": "/graphs1090/",
+            "title": "Tar1090 Stats",},
+        {
+            "rule": "/dozzle",
+            "endpoint": "dozzle",
+            "port_key_path": "ports.dazzle",
+            "path": "",
+            "title": "Dozzle",},
+        {
+            "rule": "/flightaware/status",
+            "endpoint": "flightaware-status",
+            "port_key_path": "ports.piastat",
+            "path": "",
+            "title": "FlightAware Stats",},
+        {
+            "rule": "/flightradar/status",
+            "endpoint": "flightradar-status",
+            "port_key_path": "ports.fr",
+            "path": "",
+            "title": "Flightradar Stats",},
+        {
+            "rule": "/planefinder/map",
+            "endpoint": "planefinder-map",
+            "port_key_path": "ports.pf",
+            "path": "",
+            "title": "PlaneFinder Map",},
+        {
+            "rule": "/planefinder/status",
+            "endpoint": "planefinder-status",
+            "port_key_path": "ports.pf",
+            "path": "/stats.html",
+            "title": "PlaneFinder Stats",},]
+    _redirect_app_specs = [
+        {
+            "rule": "/flightaware/status.json",
+            "endpoint": "flightaware-status-json",
+            "port_key_path": "ports.piastat",
+            "path": "/status.json",},
+        {
+            "rule": "/flightradar/monitor.json",
+            "endpoint": "flightradar-monitor-json",
+            "port_key_path": "ports.fr",
+            "path": "/monitor.json",},]
+
     def __init__(self, conf: config.Config, sys: system.System, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
@@ -313,29 +374,28 @@ class AdsbIm:
         app.context_processor(env_functions)
         app.after_request(set_no_cache)
 
-        for endpoint, port_key_path, path in [
-            ["/map/", "ports.tar1090", "/"],
-            ["/tar1090/", "ports.tar1090", "/"],
-            ["/graphs1090/", "ports.tar1090", "/graphs1090/"],
-            ["/graphs/", "ports.tar1090", "/graphs1090/"],
-            ["/stats/", "ports.tar1090", "/graphs1090/"],
-            ["/fa/", "ports.piamap", "/"],
-            ["/fa-status/", "ports.piastat", "/"],
-            ["/fa-status.json/", "ports.piastat", "/status.json"],
-            ["/fr24/", "ports.fr", "/"],
-            ["/fr24-monitor.json/", "ports.fr", "/monitor.json"],
-            ["/planefinder/", "ports.pf", "/"],
-            ["/planefinder-stat/", "ports.pf", "/stats.html"],
-            ["/dump978/", "ports.uat", "/skyaware978/"],
-            ["/logs/", "ports.dazzle", "/"],
-            ["/ais-catcher/", "ports.aiscatcher", "/"],]:
-            port = self._conf.get(port_key_path)
+        # Docker container pages embedded in iframes.
+        for spec in self._embedded_app_specs:
+            port = self._conf.get(spec["port_key_path"])
             app.add_url_rule(
-                endpoint,
-                endpoint,
-                view_func=ft.partial(self._redirect_to_other_app, endpoint, port, path),
+                spec["rule"],
+                spec["endpoint"],
+                view_func=ft.partial(
+                    self.render_other_app_in_iframe, spec["title"], port,
+                    spec["path"]),
                 view_func_wrappers=[self._decide_route_hotspot_mode],
             )
+        # Docker container pages with redirects.
+        for spec in self._redirect_app_specs:
+            port = self._conf.get(spec["port_key_path"])
+            app.add_url_rule(
+                spec["rule"],
+                spec["endpoint"],
+                view_func=ft.partial(
+                    self.redirect_to_other_app, port, spec["path"]),
+                view_func_wrappers=[self._decide_route_hotspot_mode],
+            )
+
         app.add_url_rule(
             "/healthz",
             "healthz",
@@ -651,15 +711,7 @@ class AdsbIm:
         )
         return app
 
-    def _redirect_to_other_app(self, orig, port, new_path):
-        host_url = request.host_url.rstrip("/ ")
-        host_url = re.sub(":\\d+$", "", host_url)
-        q = ""
-        if request.query_string:
-            q = f"?{request.query_string.decode()}"
-        url = f"{host_url}:{port}{new_path}{q}"
-        self._logger.info(f"Redirecting {orig} to {url}.")
-        return redirect(url)
+
 
     def _decide_route_hotspot_mode(self, view_func):
         """
@@ -955,6 +1007,22 @@ class AdsbIm:
                 pass
 
         return True
+
+    def render_other_app_in_iframe(self, title, port, path):
+        return render_template(
+            "iframe.html", title=title, url=self._make_proxy_url(port, path))
+
+    def redirect_to_other_app(self, port, path):
+        url = self._make_proxy_url(port, path)
+        return redirect(url)
+
+    def _make_proxy_url(self, port, path):
+        host_url = request.host_url.rstrip("/ ")
+        host_url = re.sub(":\\d+$", "", host_url)
+        q = ""
+        if request.query_string:
+            q = f"?{request.query_string.decode()}"
+        return f"{host_url}:{port}{path}{q}"
 
     def index(self):
         return redirect(url_for("overview"))

@@ -179,7 +179,7 @@
                   {% if agg.agg_key == 'flightradar' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/fr24/') }}"
+                      <a href="{{ url_for('flightaware-status') }}"
                          class="btn btn-secondary m-1"
                          role="button">FR24 status</a>
                     </div>
@@ -187,7 +187,7 @@
                   {% if agg.agg_key == 'flightaware' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/fa-status/') }}"
+                      <a href="{{ url_for('flightaware-status') }}"
                          class="btn btn-secondary m-1"
                          role="button">FlightAware status</a>
                     </div>
@@ -195,10 +195,10 @@
                   {% if agg.agg_key == 'planefinder' %}
                     <hr class="hr">
                     <div>
-                      <a href="{{ url_for('/planefinder/') }}"
+                      <a href="{{ url_for('planefinder-map') }}"
                          class="btn btn-secondary m-1"
                          role="button">Planefinder map</a>
-                      <a href="{{ url_for('/planefinder-stat/') }}"
+                      <a href="{{ url_for('planefinder-status') }}"
                          class="btn btn-secondary m-1"
                          role="button">Planefinder stats</a>
                     </div>
@@ -266,7 +266,7 @@
           <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
         {% endif %}
       </p>
-      These Docker containers belong to the application (see <a href="{{ url_for('/logs/') }}">Dozzle</a> for details):
+      These Docker containers belong to the application (see <a href="{{ url_for('dozzle') }}">Dozzle</a> for details):
       <div class="row">
         {% for container in containers %}
           {% with %}

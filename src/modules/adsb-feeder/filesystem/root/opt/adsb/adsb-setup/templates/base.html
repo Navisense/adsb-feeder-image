@@ -205,14 +205,14 @@
             <button type="button"
                     class="btn btn-primary"
                     {% if not is_reception_enabled('ais') %}disabled{% endif %}
-                    onclick="document.location='{{ url_for("/ais-catcher/") }}'">Live Map (AIS)</button>
+                    onclick="document.location='{{ url_for('ais-catcher') }}'">Live Map (AIS)</button>
           </div>
           <div class="btn-group"
                {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
             <button type="button"
                     class="btn btn-primary"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
-                    onclick="document.location='{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}'">
+                    onclick="document.location='{{ url_for('tar1090' + get_conf('tar1090_query_params') ) }}'">
               Live Map (ADS-B)
             </button>
             <button type="button"
@@ -222,13 +222,13 @@
                     aria-expanded="false"></button>
             <ul class="dropdown-menu">
               <li>
-                <a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">Heatmap</a>
+                <a class="dropdown-item" href="{{ url_for('tar1090', heatmap=None) }}">Heatmap</a>
               </li>
               <li>
-                <a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">Tracks</a>
+                <a class="dropdown-item" href="{{ url_for('tar1090', pTracks=None) }}">Tracks</a>
               </li>
               <li>
-                <a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">Replay</a>
+                <a class="dropdown-item" href="{{ url_for('tar1090', replay=None) }}">Replay</a>
               </li>
             </ul>
           </div>
@@ -295,43 +295,43 @@
               <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-maps">
                 {% if is_reception_enabled('ais') %}
                   <li>
-                    <a class="dropdown-item" href="{{ url_for("/ais-catcher/") }}">AIS Live Map</a>
+                    <a class="dropdown-item" href="{{ url_for('ais-catcher') }}">AIS Live Map</a>
                   </li>
                 {% else %}
                   <li title="AIS reception is disabled">
-                    <a class="dropdown-item disabled" href="{{ url_for("/ais-catcher/") }}">AIS Live Map</a>
+                    <a class="dropdown-item disabled" href="{{ url_for('ais-catcher') }}">AIS Live Map</a>
                   </li>
                 {% endif %}
                 {% if is_reception_enabled('adsb') %}
                   <li>
                     <a class="dropdown-item"
-                       href="{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                       href="{{ url_for('tar1090' + get_conf('tar1090_query_params') ) }}">ADS-B Live Map</a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
+                    <a class="dropdown-item" href="{{ url_for('tar1090', heatmap=None) }}">ADS-B Heatmap</a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
+                    <a class="dropdown-item" href="{{ url_for('tar1090', pTracks=None) }}">ADS-B Tracks</a>
                   </li>
                   <li>
-                    <a class="dropdown-item" href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
+                    <a class="dropdown-item" href="{{ url_for('tar1090', replay=None) }}">ADS-B Replay</a>
                   </li>
                 {% else %}
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
-                       href="{{ url_for("/map/" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                       href="{{ url_for("tar1090" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
                   </li>
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
-                       href="{{ url_for('/map/', heatmap=None) }}">ADS-B Heatmap</a>
+                       href="{{ url_for('tar1090', heatmap=None) }}">ADS-B Heatmap</a>
                   </li>
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
-                       href="{{ url_for('/map/', pTracks=None) }}">ADS-B Tracks</a>
+                       href="{{ url_for('tar1090', pTracks=None) }}">ADS-B Tracks</a>
                   </li>
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
-                       href="{{ url_for('/map/', replay=None) }}">ADS-B Replay</a>
+                       href="{{ url_for('tar1090', replay=None) }}">ADS-B Replay</a>
                   </li>
                 {% endif %}
               </ul>
@@ -374,7 +374,7 @@
                  aria-expanded="false">System</a>
               <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-logs">
                 <li>
-                  <a class="dropdown-item" href="{{ url_for('/logs/') }}">Logs</a>
+                  <a class="dropdown-item" href="{{ url_for('dozzle') }}">Dozzle (Docker logs)</a>
                 </li>
                 <li>
                   <a class="dropdown-item" href="{{ url_for('info') }}">Support Info</a>
@@ -394,7 +394,7 @@
               </li>
               #}
                 <li>
-                  <a class="dropdown-item" href="{{ url_for('/stats/') }}">Stats</a>
+                  <a class="dropdown-item" href="{{ url_for('tar1090-stats') }}">Stats</a>
                 </li>
               </ul>
             </li>
