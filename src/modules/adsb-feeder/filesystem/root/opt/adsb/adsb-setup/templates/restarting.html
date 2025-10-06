@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base-container.html" %}
 {% block title %}
   Restarting the Porttracker Feeder system
 {% endblock title %}
@@ -86,7 +86,7 @@
         request.send();
       }
 
-      show_spinner();
+      showSpinner();
       checkRestartStatus();
     </script>
   </body>

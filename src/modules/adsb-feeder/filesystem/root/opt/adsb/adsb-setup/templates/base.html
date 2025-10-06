@@ -1,4 +1,4 @@
-{# Base template with common skeleton for all pages. #}
+{# Base template with common skeleton for all pages. Includes navigation header and footer. #}
 <!DOCTYPE html>
 {% set css_theme = get_conf("css_theme") %}
 <html lang="en"
@@ -173,22 +173,6 @@
         );
       {% endif %}
 
-      function show_spinner() {
-        document.getElementById("loader").style.display = "block";
-        document.getElementById("overlay").style.display = "block";
-        console.log('show_spinner');
-      }
-
-      function hide_spinner() {
-        document.getElementById("loader").style.display = "none";
-        document.getElementById("overlay").style.display = "none";
-        console.log('hide_spinner');
-      }
-
-      $(document).find('form').each((key, value) => {
-        if ("no_spinner" in value.className.split(" ")) return;
-        value.addEventListener("submit", (event) => { show_spinner(); });
-      });
       $(document).ready(function () {
         $('[data-toggle="tooltip"]').tooltip();
 
@@ -418,21 +402,8 @@
         </div>
       </div>
     </nav>
-    <div id="loader" style="display: none"></div>
-    <div id="overlay" style="display: none">
-      <div id="overlaytext">
-        please wait
-        <br />
-        this could take several minutes
-      </div>
-    </div>
-    <div class="container my-3">
-      <h1 class="mt-3 text-center text-secondary">{{ self.title() }}</h1>
-      {% block base_content %}
-        {% block content required %}
-        {% endblock content %}
-      {% endblock base_content %}
-    </div>
+    {% block body required %}
+    {% endblock body %}
     <footer class="text-center">
       <section class="d-flex justify-content-center border-bottom small">
         <span>

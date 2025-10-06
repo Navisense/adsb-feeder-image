@@ -1,0 +1,35 @@
+{# Base template with a container for content and overlays for lading spinner and wait message. #}
+{% extends "base.html" %}
+{% block body %}
+  <script>
+      function showSpinner() {
+        document.getElementById("loader").style.display = "block";
+        document.getElementById("overlay").style.display = "block";
+      }
+
+      function hideSpinner() {
+        document.getElementById("loader").style.display = "none";
+        document.getElementById("overlay").style.display = "none";
+      }
+
+      $(document).find('form').each((key, value) => {
+        if ("no_spinner" in value.className.split(" ")) return;
+        value.addEventListener("submit", (event) => { showSpinner(); });
+      });
+  </script>
+  <div id="loader" style="display: none"></div>
+  <div id="overlay" style="display: none">
+    <div id="overlaytext">
+      please wait
+      <br />
+      this could take several minutes
+    </div>
+  </div>
+  <div class="container my-3">
+    <h1 class="mt-3 text-center text-secondary">{{ self.title() }}</h1>
+    {% block container %}
+      {% block content required %}
+      {% endblock content %}
+    {% endblock container %}
+  </div>
+{% endblock body %}

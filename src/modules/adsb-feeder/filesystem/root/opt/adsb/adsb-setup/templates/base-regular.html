@@ -1,7 +1,7 @@
 {# Base template for regular pages (most of them). In addition to the base, includes flashed messages that should be
 excluded in pages that redirect automatically. #}
-{% extends "base.html" %}
-{% block base_content %}
+{% extends "base-container.html" %}
+{% block container %}
   <div id="flashed-messages">
     {% with categories_and_messages = get_flashed_messages(with_categories=True) %}
       {% for category, message in categories_and_messages %}
@@ -17,4 +17,4 @@ excluded in pages that redirect automatically. #}
     {% endwith %}
   </div>
   {{ super() }}
-{% endblock base_content %}
+{% endblock container %}

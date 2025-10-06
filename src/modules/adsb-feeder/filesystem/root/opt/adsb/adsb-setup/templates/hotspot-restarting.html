@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base-container.html" %}
 {% set active_page = "hotspot" %}
 {% block title %}Trying to connect to WiFi{% endblock title %}
 {% block content %}
@@ -39,7 +39,7 @@
       request.send();
     }
 
-    show_spinner();
+    showSpinner();
     checkRestartStatus();
 
     setTimeout(after60, 60 * 1000);

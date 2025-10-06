@@ -23,7 +23,7 @@
             <h5 class="card-title m-1">Secure feeder system</h5>
             <form method="post"
                   action="{{ url_for('set-secure-image') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12 col-md-8">
                   <label for="secure_image" class="m-1">
@@ -52,7 +52,7 @@
           <h5 class="card-title m-1">Update feeder application</h5>
           <form method="post"
                 action="{{ url_for('feeder-update') }}"
-                onsubmit="show_spinner(); return true;">
+                onsubmit="showSpinner(); return true;">
             {% with %}
               {% set current_version = get_conf("base_version") %}
               <p class="m-1">
@@ -114,7 +114,7 @@
           <h5 class="card-title m-1">System update</h5>
           <form method="post"
                 action="{{ url_for('os-update') }}"
-                onsubmit="show_spinner(); return true;">
+                onsubmit="showSpinner(); return true;">
             <p class="m-1">
               You can manually upgrade software packages installed via the operating system's package manager here. You
               can also configure the system to do this automatically every night.
@@ -154,7 +154,7 @@
             <h5 class="card-title m-1">Install SSH credentials</h5>
             <form method="post"
                   action="{{ url_for('set-ssh-credentials') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12">
                   <label for="ssh-public-key" class="m-1">
@@ -185,7 +185,7 @@
             <h5 class="card-title m-1">Create new random root password</h5>
             <form method="post"
                   action="{{ url_for('create-root-password') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12">
                   <label for="root_password" class="m-1">
@@ -223,7 +223,7 @@
           <h5 class="card-title m-1">Restart / recreate containers</h5>
           <form method="post"
                 action="{{ url_for('restart-containers') }}"
-                onsubmit="show_spinner(); return true;">
+                onsubmit="showSpinner(); return true;">
             <div class="row align-items-center">
               <div class="col-12">
                 <label for="restart_containers" class="m-1">
@@ -271,7 +271,7 @@
             {% else %}
               <form method="post"
                     action="{{ url_for('configure-tailscale') }}"
-                    onsubmit="show_spinner(); return true;">
+                    onsubmit="showSpinner(); return true;">
                 <div class="row align-items-center">
                   <div class="col-12">
                     <label for="tailscale" class="m-1">
@@ -341,7 +341,7 @@
             <h5 class="card-title m-1">Configure Zerotier VPN</h5>
             <form method="post"
                   action="{{ url_for('configure-zerotier') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12">
                   <label for="zerotierid" class="m-1">
@@ -410,7 +410,7 @@
             </h5>
             <form method="post"
                   action="{{ url_for('configure-wifi') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12 m-1">
                   {% if wifi != "" %}
@@ -461,7 +461,7 @@
           <h5 class="card-title m-1">System log persistence toggle</h5>
           <form method="post"
                 action="{{ url_for('toggle-log-persistence') }}"
-                onsubmit="show_spinner(); return true;">
+                onsubmit="showSpinner(); return true;">
             <div class="row align-items-center">
               <div class="col-12 col-md-8">
                 <div class="row align-items-center">
@@ -494,7 +494,7 @@
             <h5 class="card-title m-1">Reboot</h5>
             <form method="post"
                   action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12 col-md-8">
                   <label for="reboot" class="m-1">
@@ -518,7 +518,7 @@
             <h5 class="card-title m-1">Shutdown</h5>
             <form method="post"
                   action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="show_spinner(); return true;">
+                  onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12 col-md-8">
                   <label for="shutdown" class="m-1">
