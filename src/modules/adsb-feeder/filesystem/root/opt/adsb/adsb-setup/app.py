@@ -2,6 +2,7 @@ import concurrent.futures
 import copy
 from datetime import datetime
 import filecmp
+import functools as ft
 import json
 import logging
 import logging.config
@@ -312,7 +313,29 @@ class AdsbIm:
         app.context_processor(env_functions)
         app.after_request(set_no_cache)
 
-        app.add_proxy_routes(self._conf)
+        for endpoint, port_key_path, path in [
+            ["/map/", "ports.tar1090", "/"],
+            ["/tar1090/", "ports.tar1090", "/"],
+            ["/graphs1090/", "ports.tar1090", "/graphs1090/"],
+            ["/graphs/", "ports.tar1090", "/graphs1090/"],
+            ["/stats/", "ports.tar1090", "/graphs1090/"],
+            ["/fa/", "ports.piamap", "/"],
+            ["/fa-status/", "ports.piastat", "/"],
+            ["/fa-status.json/", "ports.piastat", "/status.json"],
+            ["/fr24/", "ports.fr", "/"],
+            ["/fr24-monitor.json/", "ports.fr", "/monitor.json"],
+            ["/planefinder/", "ports.pf", "/"],
+            ["/planefinder-stat/", "ports.pf", "/stats.html"],
+            ["/dump978/", "ports.uat", "/skyaware978/"],
+            ["/logs/", "ports.dazzle", "/"],
+            ["/ais-catcher/", "ports.aiscatcher", "/"],]:
+            port = self._conf.get(port_key_path)
+            app.add_url_rule(
+                endpoint,
+                endpoint,
+                view_func=ft.partial(self._redirect_to_other_app, endpoint, port, path),
+                view_func_wrappers=[self._decide_route_hotspot_mode],
+            )
         app.add_url_rule(
             "/healthz",
             "healthz",
@@ -627,6 +650,16 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         return app
+
+    def _redirect_to_other_app(self, orig, port, new_path):
+        host_url = request.host_url.rstrip("/ ")
+        host_url = re.sub(":\\d+$", "", host_url)
+        q = ""
+        if request.query_string:
+            q = f"?{request.query_string.decode()}"
+        url = f"{host_url}:{port}{new_path}{q}"
+        self._logger.info(f"Redirecting {orig} to {url}.")
+        return redirect(url)
 
     def _decide_route_hotspot_mode(self, view_func):
         """
