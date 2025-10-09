@@ -271,6 +271,12 @@
         <div class="mx-auto">
           <!-- filler element -->
         </div>
+        {% if current_user.is_authenticated %}
+          <form method="post"
+                action="{{ url_for('logout', next=request.full_path) }}">
+            <button type="submit" class="btn btn-secondary">Logout</button>
+          </form>
+        {% endif %}
         <button class="navbar-toggler"
                 type="button"
                 data-mdb-toggle="collapse"

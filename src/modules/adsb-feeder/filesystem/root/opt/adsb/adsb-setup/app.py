@@ -441,6 +441,14 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
+            "/logout",
+            "logout",
+            view_func=self.logout,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/restarting",
             "restarting",
             view_func=self.restarting,
@@ -1101,16 +1109,7 @@ class AdsbIm:
     def login(self):
         if request.method == "GET":
             return render_template("login.html")
-        next_url = request.args.get("next")
-        if not next_url:
-            self._logger.warning(
-                "No next URL after login, redirecting to index instead.")
-            next_url = url_for("index")
-        elif not next_url.startswith("/"):
-            self._logger.warning(
-                "Next URL after login is not a relative URL, redirecting "
-                "to index instead.")
-            next_url = url_for("index")
+        next_url = self._get_next_url_from_request()
         if not self._conf.get("admin_login.is_enabled"):
             self._logger.error(
                 "Received an admin login request, but admin login is "
@@ -1124,6 +1123,28 @@ class AdsbIm:
             return redirect(next_url)
         flash("Incorrect password, try again.", category="error")
         return redirect(flask_login.login_url("login", next_url=next_url))
+
+    def _get_next_url_from_request(self):
+        next_url = request.args.get("next")
+        if not next_url:
+            self._logger.warning(
+                "No next URL in request, redirecting to index instead.")
+            next_url = url_for("index")
+        elif not next_url.startswith("/"):
+            self._logger.warning(
+                "Next URL is not a relative URL, redirecting to index "
+                "instead.")
+            next_url = url_for("index")
+        return next_url
+
+    def logout(self):
+        next_url = self._get_next_url_from_request()
+        if not flask_login.current_user.is_authenticated:
+            self._logger.warning(
+                "Received logout request, but user was not logged in.")
+        else:
+            flask_login.logout_user()
+        return redirect(next_url)
 
     def restarting(self):
         return render_template("restarting.html")

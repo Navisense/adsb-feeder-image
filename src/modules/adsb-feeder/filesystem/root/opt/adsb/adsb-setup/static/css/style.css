@@ -107,7 +107,7 @@ font-size: 50%;
 /* Hide the maps dropdown by default. */
 #navbar-maps-dropdown { display: none; }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
     /* On small screens, hide the big livemap buttons in the navbar, but show
        the dropdown with the links instead. */
     #livemap-buttons { display: none; }
