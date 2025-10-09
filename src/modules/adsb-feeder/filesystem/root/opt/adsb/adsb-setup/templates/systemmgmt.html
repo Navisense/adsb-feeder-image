@@ -20,25 +20,34 @@
       <div class="col">
         <div class="card h-100">
           <div class="card-body">
-            <h5 class="card-title m-1">Secure feeder system</h5>
+            <h5 class="card-title m-1">Set admin password</h5>
             <form method="post"
-                  action="{{ url_for('set-secure-image') }}"
-                  onsubmit="showSpinner(); return true;">
+                  action="{{ url_for('set-admin-password') }}">
               <div class="row align-items-center">
-                <div class="col-12 col-md-8">
-                  <label for="secure_image" class="m-1">
-                    Attempt to make it somewhat harder for someone on the local network to gain access to the image. Of
-                    course, anyone with physical access to the feeder hardware can circumvent the protection attempted
-                    here. Make sure you have an SSH key set up and tested before doing this, or you will permanently
-                    lock yourself out of this device.
-                  </label>
+                <div class="col-12 m-1">
+                  {% if not get_conf("admin_login.is_enabled") %}
+                    You can set an admin password here that will be required in order to make changes to the feeder
+                    system. Settings pages will show a login page first, while pages showing only information remain
+                    accessible without login.
+                  {% else %}
+                    An admin password has already been set. You can change it here by entering a new one. You can also
+                    remove password protection by leaving both fields blank.
+                  {% endif %}
                 </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">
-                    Yes, SSH is working.
-                    <br>
-                    Secure the image
-                  </button>
+                <div class="col-12 col-md-6 col-lg-4">
+                  <input class="m-1 w-100"
+                         name="password"
+                         type="password"
+                         placeholder="Password">
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                  <input class="m-1 w-100"
+                         name="password-repeated"
+                         type="password"
+                         placeholder="Password (repeated)">
+                </div>
+                <div class="col-12 col-lg-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
                 </div>
               </div>
             </form>

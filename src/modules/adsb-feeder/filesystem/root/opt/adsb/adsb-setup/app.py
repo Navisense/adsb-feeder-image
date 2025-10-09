@@ -653,9 +653,9 @@ class AdsbIm:
             methods=["POST"],
         )
         app.add_url_rule(
-            "/set-secure-image",
-            "set-secure-image",
-            view_func=self.set_secure_image,
+            "/set-admin-password",
+            "set-admin-password",
+            view_func=self.set_admin_password,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["POST"],
         )
@@ -2481,8 +2481,22 @@ class AdsbIm:
         self.set_rpw()
         return redirect(url_for("systemmgmt"))
 
-    def set_secure_image(self):
-        self._conf.set("secure_image", True)
+    def set_admin_password(self):
+        password_plain = request.form["password"]
+        if password_plain != request.form["password-repeated"]:
+            flash(
+                "The repeated password does not match. Password was not "
+                "updated. Please try again.", category="error")
+            return redirect(url_for("systemmgmt"))
+        if password_plain:
+            password_bcrypt = bcrypt.hashpw(
+                password_plain.encode(), bcrypt.gensalt())
+            self._conf.set("admin_login.password_bcrypt", password_bcrypt)
+            flash("Admin password updated.", category="success")
+        else:
+            self._conf.set("admin_login.password_bcrypt", None)
+            flask_login.logout_user()
+            flash("Admin password removed.", category="success")
         return redirect(url_for("systemmgmt"))
 
     def shutdown_reboot(self):
