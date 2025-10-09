@@ -2,6 +2,7 @@
 
 import abc
 import argparse
+import base64
 import collections.abc as cl_abc
 import datetime
 import functools as ft
@@ -285,7 +286,9 @@ class ScalarSetting(Setting):
     def __init__(
             self, config: "Config", value: Any, *,
             default: Optional[Any] = None,
-            env_variable_name: Optional[str] = None, norestore: bool = False):
+            env_variable_name: Optional[str] = None, norestore: bool = False,
+            value_json_decoder: cl_abc.Callable[[Any], Any] = lambda x: x,
+            value_json_encoder: cl_abc.Callable[[Any], Any] = lambda x: x):
         """
         :param default: A default value to use if no value is set explicitly
             (i.e. is None).
@@ -294,12 +297,20 @@ class ScalarSetting(Setting):
             appear in the env file.
         :param norestore: Whether this setting should be omitted when restoring
             a config from backup.
+        :param value_json_decoder: A function used to convert the value's
+            representation in the JSON file (loaded into the settings dict) to
+            the actual value (which may be a different type that can't be
+            represented in JSON). This only applies to the value, not the
+            default.
+        :param value_json_decoder: A function used to convert the value to
+            something that can be represented in JSON.
         """
         super().__init__(config)
-        self._value = value
+        self._value = value_json_decoder(value)
         self._default = default
         self._env_variable_name = env_variable_name
         self._norestore = norestore
+        self._value_json_encoder = value_json_encoder
 
     @property
     def env_value_string(self) -> str:
@@ -313,7 +324,8 @@ class ScalarSetting(Setting):
 
     def get(
             self, key_path: Literal[""], *, default: Any = None,
-            use_setting_level_default: bool = True) -> Any:
+            use_setting_level_default: bool = True,
+            convert_to_json_representation: bool = False) -> Any:
         """
         Get the value.
 
@@ -333,8 +345,11 @@ class ScalarSetting(Setting):
         """
         if key_path != "":
             raise ValueError("Scalar settings have no subkeys.")
-        return self._coalesce_value(
+        value = self._coalesce_value(
             self._value, default, use_setting_level_default)
+        if convert_to_json_representation:
+            value = self._value_json_encoder(value)
+        return value
 
     def _coalesce_value(self, value, default, use_setting_level_default):
         if value is not None:
@@ -373,9 +388,9 @@ class TypeConstrainedScalarSetting(ScalarSetting):
             self, required_type: type, config: "Config", value: Any, *args,
             default: Optional[Any] = None, **kwargs):
         self._required_type = required_type
-        self._check_correct_type(value, "value")
-        self._check_correct_type(default, "default value")
         super().__init__(config, value, *args, default=default, **kwargs)
+        self._check_correct_type(self._value, "value")
+        self._check_correct_type(default, "default value")
 
     def _check_correct_type(self, value, value_name):
         if not isinstance(value, (self._required_type, type(None))):
@@ -418,6 +433,30 @@ class RealNumberSetting(TypeConstrainedScalarSetting):
 class IntSetting(TypeConstrainedScalarSetting):
     def __init__(self, *args, **kwargs):
         super().__init__(int, *args, **kwargs)
+
+
+class BytesSetting(TypeConstrainedScalarSetting):
+    """A setting storing bytes as base64-encoded strings."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            bytes, *args, value_json_decoder=self._decode_base64,
+            value_json_encoder=self._encode_base64, **kwargs)
+
+    @staticmethod
+    def _decode_base64(value: Optional[str]) -> Optional[bytes]:
+        if value is None:
+            return None
+        try:
+            return base64.b64decode(value)
+        except Exception as e:
+            raise ValueError(
+                f"Error decoding base64-encoded bytes {value}") from e
+
+    @staticmethod
+    def _encode_base64(value: Optional[bytes]) -> Optional[str]:
+        if value is None:
+            return None
+        return base64.b64encode(value).decode()
 
 
 class ListSetting(ScalarSetting):
@@ -731,7 +770,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 7
+    CONFIG_VERSION = 8
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1073,6 +1112,12 @@ class Config(CompoundSetting):
             CachedGeneratedSetting,
             value_generator=ft.partial(_read_file, file=FRIENDLY_NAME_FILE)),
         "secure_image": ft.partial(BoolSetting, default=False, norestore=True),
+        "admin_login": ft.partial(
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(
+                    GeneratedSetting, value_generator=lambda conf: conf.get(
+                        "admin_login.password_bcrypt") is not None),
+                "password_bcrypt": BytesSetting,}),
         "airspy": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(BoolSetting, default=False),
@@ -1208,7 +1253,8 @@ class Config(CompoundSetting):
             for key in path_components[:-1]:
                 sub_dict = sub_dict.setdefault(key, {})
             sub_dict[path_components[-1]] = setting.get(
-                "", use_setting_level_default=False)
+                "", use_setting_level_default=False,
+                convert_to_json_representation=True)
         config_dict["config_version"] = self.CONFIG_VERSION
         with Config._file_lock, CONFIG_FILE.open("w") as f:
             json.dump(config_dict, f)
@@ -1574,13 +1620,22 @@ class Config(CompoundSetting):
         del config_dict["sdrs_locked"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_7_to_8(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # The secure_image mechanism is replaced by the admin_login.
+        config_dict["admin_login"] = {"password_bcrypt": None}
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
                          (3, 4): _upgrade_config_dict_from_3_to_4,
                          (4, 5): _upgrade_config_dict_from_4_to_5,
                          (5, 6): _upgrade_config_dict_from_5_to_6,
-                         (6, 7): _upgrade_config_dict_from_6_to_7}
+                         (6, 7): _upgrade_config_dict_from_6_to_7,
+                         (7, 8): _upgrade_config_dict_from_7_to_8}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
