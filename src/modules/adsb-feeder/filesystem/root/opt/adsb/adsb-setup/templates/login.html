@@ -1,0 +1,11 @@
+{% extends "base-regular.html" %}
+{% set active_page = "login" %}
+{% block title %}
+  Admin login
+{% endblock title %}
+{% block content %}
+  <form method="post">
+    <input type="password" name="password" required placeholder="Admin password">
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+{% endblock content %}

@@ -27,6 +27,7 @@ import re
 import sys
 import zipfile
 
+import bcrypt
 import flask
 from flask import (
     flash,
@@ -37,6 +38,7 @@ from flask import (
     send_file,
     url_for,
 )
+import flask_login
 import werkzeug.serving
 import werkzeug.utils
 
@@ -254,6 +256,22 @@ class HotspotApp:
         self._restart_state = "done"
 
 
+class AdminUser:
+    """
+    Simple admin user representation.
+
+    We need to provide flask_login with a user object, but we don't have
+    multiple users, just one that's logged in or not.
+    """
+    def __init__(self):
+        self.is_authenticated = True
+        self.is_active = True
+        self.is_anonymous = False
+
+    def get_id(self):
+        return "admin"
+
+
 class AdsbIm:
     _embedded_app_specs = [
         {
@@ -353,7 +371,7 @@ class AdsbIm:
         self.update_meminfo()
         self.update_journal_state()
 
-    def _make_app(self) -> flask.Flask:
+    def _make_app(self) -> flask_util.App:
         app = flask_util.App(__name__)
 
         def env_functions():
@@ -373,6 +391,17 @@ class AdsbIm:
         app.jinja_env.add_extension("jinja2.ext.loopcontrols")
         app.context_processor(env_functions)
         app.after_request(set_no_cache)
+
+        login_manager = flask_login.LoginManager()
+        login_manager.init_app(app)
+
+        def load_user(user_id: str) -> Optional[AdminUser]:
+            if user_id == "admin":
+                return AdminUser()
+            self._logger.error(f"Request to load unknown user {user_id}.")
+            return None
+
+        login_manager.user_loader(load_user)
 
         # Docker container pages embedded in iframes.
         for spec in self._embedded_app_specs:
@@ -402,6 +431,14 @@ class AdsbIm:
             view_func=self.healthz,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["OPTIONS", "GET"],
+        )
+        app.add_url_rule(
+            "/login",
+            "login",
+            view_func=self.login,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+            methods=["GET", "POST"],
         )
         app.add_url_rule(
             "/restarting",
@@ -802,6 +839,29 @@ class AdsbIm:
 
         return handle_request
 
+    def _require_login(self, view_func):
+        """
+        Redirect if the user needs to log in.
+
+        Redirects to the login page, and uses login_url() to set a parameter
+        containing the next url that should be redirected to.
+        """
+        def handle_request(*args, **kwargs):
+            if (not self._conf.get("admin_login.is_enabled")
+                    or flask_login.current_user.is_authenticated):
+                return view_func(*args, **kwargs)
+            flash("This page requires you to be logged in.", category="info")
+            if request.method in ["GET", "OPTIONS"]:
+                return redirect(
+                    flask_login.login_url("login", next_url=request.url))
+            self._logger.warning(
+                "Received request with method other than GET or OPTIONS on a "
+                "login-protected endpoint while the user wasn't logged in.")
+            return redirect(
+                flask_login.login_url("login", next_url=url_for("index")))
+
+        return handle_request
+
     def _set_undervoltage(self):
         self._conf.set("under_voltage", True)
         self.undervoltage_epoch = time.time()
@@ -1037,6 +1097,33 @@ class AdsbIm:
             response = flask.make_response("ok")
             response.headers.add("Access-Control-Allow-Origin", "*")
         return response
+
+    def login(self):
+        if request.method == "GET":
+            return render_template("login.html")
+        next_url = request.args.get("next")
+        if not next_url:
+            self._logger.warning(
+                "No next URL after login, redirecting to index instead.")
+            next_url = url_for("index")
+        elif not next_url.startswith("/"):
+            self._logger.warning(
+                "Next URL after login is not a relative URL, redirecting "
+                "to index instead.")
+            next_url = url_for("index")
+        if not self._conf.get("admin_login.is_enabled"):
+            self._logger.error(
+                "Received an admin login request, but admin login is "
+                "disabled. Redirecting to next page.")
+            return redirect(next_url)
+        password_bcrypt = self._conf.get("admin_login.password_bcrypt")
+        assert isinstance(password_bcrypt, bytes)
+        password_plain = request.form["password"]
+        if bcrypt.checkpw(password_plain.encode(), password_bcrypt):
+            flask_login.login_user(AdminUser())
+            return redirect(next_url)
+        flash("Incorrect password, try again.", category="error")
+        return redirect(flask_login.login_url("login", next_url=next_url))
 
     def restarting(self):
         return render_template("restarting.html")

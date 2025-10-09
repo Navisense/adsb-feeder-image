@@ -5,6 +5,7 @@ from typing import Optional
 import flask
 import flask.typing
 
+
 class App(flask.Flask):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
