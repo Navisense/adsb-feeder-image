@@ -1111,7 +1111,6 @@ class Config(CompoundSetting):
         "image_name": ft.partial(
             CachedGeneratedSetting,
             value_generator=ft.partial(_read_file, file=FRIENDLY_NAME_FILE)),
-        "secure_image": ft.partial(BoolSetting, default=False, norestore=True),
         "admin_login": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(
@@ -1625,6 +1624,7 @@ class Config(CompoundSetting):
             config_dict: dict[str, Any]) -> dict[str, Any]:
         config_dict = config_dict.copy()
         # The secure_image mechanism is replaced by the admin_login.
+        del config_dict["secure_image"]
         config_dict["admin_login"] = {"password_bcrypt": None}
         return config_dict
 

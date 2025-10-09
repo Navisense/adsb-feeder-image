@@ -2454,8 +2454,6 @@ class AdsbIm:
         return Response(tail(), mimetype="text/event-stream")
 
     def set_ssh_credentials(self):
-        if self._conf.get("secure_image"):
-            return "Image is secured, cannot set SSH credentials.", 400
         ssh_dir = pathlib.Path("/root/.ssh")
         ssh_dir.mkdir(mode=0o700, exist_ok=True)
         with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
@@ -2475,8 +2473,6 @@ class AdsbIm:
         return redirect(url_for("systemmgmt"))
 
     def create_root_password(self):
-        if self._conf.get("secure_image"):
-            return "Image is secured, cannot set root password.", 400
         self._logger.info("Updating the root password.")
         self.set_rpw()
         return redirect(url_for("systemmgmt"))
@@ -2500,8 +2496,6 @@ class AdsbIm:
         return redirect(url_for("systemmgmt"))
 
     def shutdown_reboot(self):
-        if self._conf.get("secure_image"):
-            return "Image is secured, cannot shutdown or reboot.", 400
         if "shutdown" in request.form:
             # schedule shutdown in 0.5 seconds
             self._system.shutdown(delay=0.5)
@@ -2596,8 +2590,6 @@ class AdsbIm:
         return render_template("/restarting.html")
 
     def configure_zerotier(self):
-        if self._conf.get("secure_image"):
-            return "Image is secured, cannot configure zerotier.", 400
         if (not util.checkbox_checked(request.form["enabled"])
                 or "zerotierid" not in request.form):
             self._conf.set("zerotierid", "")
@@ -2618,11 +2610,6 @@ class AdsbIm:
         return redirect(url_for("systemmgmt"))
 
     def configure_tailscale(self):
-        if self._conf.get("secure_image"):
-            flash(
-                "Image is secured, cannot configure tailscale.",
-                category="error")
-            return redirect(url_for("systemmgmt"))
         try:
             self._configure_tailscale(
                 util.checkbox_checked(request.form["enabled"]),
@@ -2730,8 +2717,6 @@ class AdsbIm:
             raise ValueError("unable to get a login link")
 
     def configure_wifi(self):
-        if self._conf.get("secure_image"):
-            return "Image is secured, cannot configure wifi.", 400
         ssid = request.form.get("wifi_ssid")
         password = request.form.get("wifi_password")
 

@@ -5,56 +5,42 @@
 {% endblock title %}
 {% block content %}
   <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
-    {% if get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">The feeder system is secured</h5>
-            If you're looking for missing options, this is likely the reason. To unlock the system and re-enable all
-            those options, log in locally or via SSH and issue the following command:
-            <code>/opt/adsb/scripts/secure-image-disable.sh</code>
-          </div>
-        </div>
-      </div>
-    {% else %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Set admin password</h5>
-            <form method="post"
-                  action="{{ url_for('set-admin-password') }}">
-              <div class="row align-items-center">
-                <div class="col-12 m-1">
-                  {% if not get_conf("admin_login.is_enabled") %}
-                    You can set an admin password here that will be required in order to make changes to the feeder
-                    system. Settings pages will show a login page first, while pages showing only information remain
-                    accessible without login.
-                  {% else %}
-                    An admin password has already been set. You can change it here by entering a new one. You can also
-                    remove password protection by leaving both fields blank.
-                  {% endif %}
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                  <input class="m-1 w-100"
-                         name="password"
-                         type="password"
-                         placeholder="Password">
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                  <input class="m-1 w-100"
-                         name="password-repeated"
-                         type="password"
-                         placeholder="Password (repeated)">
-                </div>
-                <div class="col-12 col-lg-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Set admin password</h5>
+          <form method="post" action="{{ url_for('set-admin-password') }}">
+            <div class="row align-items-center">
+              <div class="col-12 m-1">
+                {% if not get_conf("admin_login.is_enabled") %}
+                  You can set an admin password here that will be required in order to make changes to the feeder
+                  system. Settings pages will show a login page first, while pages showing only information remain
+                  accessible without login.
+                {% else %}
+                  An admin password has already been set. You can change it here by entering a new one. You can also
+                  remove password protection by leaving both fields blank.
+                {% endif %}
               </div>
-            </form>
-          </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       name="password"
+                       type="password"
+                       placeholder="Password">
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       name="password-repeated"
+                       type="password"
+                       placeholder="Password (repeated)">
+              </div>
+              <div class="col-12 col-lg-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
-    {% endif %}
+    </div>
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
@@ -156,76 +142,72 @@
         </div>
       </div>
     </div>
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Install SSH credentials</h5>
-            <form method="post"
-                  action="{{ url_for('set-ssh-credentials') }}"
-                  onsubmit="showSpinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <label for="ssh-public-key" class="m-1">
-                    Enter or paste your public key below. This will allow you to then log in as root on the feeder SBC.
-                  </label>
-                </div>
-                <div class="col-12 col-md-8">
-                  <input class="m-1 w-100"
-                         id="ssh-public-key"
-                         name="ssh-public-key"
-                         type="text"
-                         placeholder="Enter your public key"
-                         required>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Install SSH credentials</h5>
+          <form method="post"
+                action="{{ url_for('set-ssh-credentials') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12">
+                <label for="ssh-public-key" class="m-1">
+                  Enter or paste your public key below. This will allow you to then log in as root on the feeder SBC.
+                </label>
               </div>
-            </form>
-          </div>
+              <div class="col-12 col-md-8">
+                <input class="m-1 w-100"
+                       id="ssh-public-key"
+                       name="ssh-public-key"
+                       type="text"
+                       placeholder="Enter your public key"
+                       required>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Create new random root password</h5>
-            <form method="post"
-                  action="{{ url_for('create-root-password') }}"
-                  onsubmit="showSpinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12">
-                  <label for="root_password" class="m-1">
-                    If you need to be able to log into the image as root user (and really, you almost never should need
-                    to), click on 'Show New Random Password' below, copy the random password shown, and then click
-                    'Accept'.
-                    <br>
-                    After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
-                    macOS or Linux).
-                  </label>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Create new random root password</h5>
+          <form method="post"
+                action="{{ url_for('create-root-password') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12">
+                <label for="root_password" class="m-1">
+                  If you need to be able to log into the image as root user (and really, you almost never should need
+                  to), click on 'Show New Random Password' below, copy the random password shown, and then click
+                  'Accept'.
+                  <br>
+                  After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
+                  macOS or Linux).
+                </label>
+              </div>
+              <div class="row fw-light collapse align-right" id="show-root-password">
+                <div class="col-12 col-sm-9">
+                  <pre class="align-middle m-1"><code class="text-light bg-danger">{{ rpw }}</code></pre>
                 </div>
-                <div class="row fw-light collapse align-right" id="show-root-password">
-                  <div class="col-12 col-sm-9">
-                    <pre class="align-middle m-1"><code class="text-light bg-danger">{{ rpw }}</code></pre>
-                  </div>
-                  <div class="col-12 col-sm-3">
-                    <button type="submit" class="align-middle btn btn-primary m-1">Accept</button>
-                  </div>
+                <div class="col-12 col-sm-3">
+                  <button type="submit" class="align-middle btn btn-primary m-1">Accept</button>
                 </div>
               </div>
-              <button class="btn btn-secondary btn-rounded"
-                      type="button"
-                      data-mdb-toggle="collapse"
-                      data-mdb-target="#show-root-password"
-                      aria-expanded="false"
-                      aria-controls="show-root-password">Show New Random Password</button>
-            </form>
-          </div>
+            </div>
+            <button class="btn btn-secondary btn-rounded"
+                    type="button"
+                    data-mdb-toggle="collapse"
+                    data-mdb-target="#show-root-password"
+                    aria-expanded="false"
+                    aria-controls="show-root-password">Show New Random Password</button>
+          </form>
         </div>
       </div>
-    {% endif %}
+    </div>
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
@@ -267,102 +249,39 @@
         </div>
       </div>
     </div>
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Configure Tailscale VPN</h5>
-            {% if tailscale_info.status in ["not_installed", "error"] %}
-              <div class="alert alert-warning m-1">
-                The image can establish and manage a Tailscale connection, but Tailscale is not installed or there is an
-                error with it (check the logs). You have to install it manually using <code>apk add tailscale</code>.
-              </div>
-            {% else %}
-              <form method="post"
-                    action="{{ url_for('configure-tailscale') }}"
-                    onsubmit="showSpinner(); return true;">
-                <div class="row align-items-center">
-                  <div class="col-12">
-                    <label for="tailscale" class="m-1">
-                      Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
-                      <br />
-                      {% if not get_conf("tailscale.is_enabled") %}
-                        In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
-                        redirect you back here and add a link to the login page so you can authenticate the device on
-                        your tailnet.
-                      {% endif %}
-                      {% if tailscale_info.status == "logged_out" %}
-                        Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
-                        {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this
-                        tab and reload this page.
-                      {% endif %}
-                      {% if tailscale_info.status == "logged_in" %}
-                        This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
-                      {% elif not get_conf("tailscale.login_link") %}
-                        You can add options like a specific <code>--login-server</code> below. But please note that
-                        <code>--authkey</code> isn't supported at this point.
-                      {% endif %}
-                    </label>
-                  </div>
-                  <div class="col-12 col-md-8">
-                    <div class="row">
-                      <div class="col-12">
-                        <div class="m-1">
-                          <input id="tailscale-enabled"
-                                 class="form-check-input"
-                                 name="enabled"
-                                 type="checkbox"
-                                 {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
-                          <label for="tailscale-enabled" class="form-check-label">Enable</label>
-                        </div>
-                        <div class="col-12">
-                          {% if not get_conf('tailscale.is_enabled') %}
-                            <input class="m-1 w-100"
-                                   id="tailscale-extras"
-                                   name="tailscale-extras"
-                                   type="text"
-                                   value="{{ get_conf('tailscale.extras', default='') }}"
-                                   placeholder="Enter additional tailscale options you need">
-                          {% else %}
-                            <div class="alert alert-danger m-1">
-                              Tailscale is enabled. Disabling it will prevent you from accessing this feeder if you use
-                              the Tailscale network to connect to it.
-                            </div>
-                          {% endif %}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="col-12 col-md-4">
-                    <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                  </div>
-                </div>
-              </form>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Configure Zerotier VPN</h5>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Configure Tailscale VPN</h5>
+          {% if tailscale_info.status in ["not_installed", "error"] %}
+            <div class="alert alert-warning m-1">
+              The image can establish and manage a Tailscale connection, but Tailscale is not installed or there is an
+              error with it (check the logs). You have to install it manually using <code>apk add tailscale</code>.
+            </div>
+          {% else %}
             <form method="post"
-                  action="{{ url_for('configure-zerotier') }}"
+                  action="{{ url_for('configure-tailscale') }}"
                   onsubmit="showSpinner(); return true;">
               <div class="row align-items-center">
                 <div class="col-12">
-                  <label for="zerotierid" class="m-1">
-                    Zerotier support allows to connect your ADS-B Feeder to your own global area network.
-                    {% if not zerotier_running %}
-                      Please add your Zerotier Network ID below.
-                      <br>
-                      Once this process has completed, you need to accept the new device into the network on the
-                      Zerotier website.
-                    {% else %}
-                      <br>
-                      This device should now be on your Zerotier network.
+                  <label for="tailscale" class="m-1">
+                    Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
+                    <br />
+                    {% if not get_conf("tailscale.is_enabled") %}
+                      In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
+                      redirect you back here and add a link to the login page so you can authenticate the device on
+                      your tailnet.
+                    {% endif %}
+                    {% if tailscale_info.status == "logged_out" %}
+                      Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
+                      {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this
+                      tab and reload this page.
+                    {% endif %}
+                    {% if tailscale_info.status == "logged_in" %}
+                      This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
+                    {% elif not get_conf("tailscale.login_link") %}
+                      You can add options like a specific <code>--login-server</code> below. But please note that
+                      <code>--authkey</code> isn't supported at this point.
                     {% endif %}
                   </label>
                 </div>
@@ -370,26 +289,25 @@
                   <div class="row">
                     <div class="col-12">
                       <div class="m-1">
-                        <input id="zerotier-enabled"
+                        <input id="tailscale-enabled"
                                class="form-check-input"
                                name="enabled"
                                type="checkbox"
-                               {% if zerotier_running -%}checked{%- endif %}>
-                        <label for="zerotier-enabled" class="form-check-label">Enable</label>
+                               {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
+                        <label for="tailscale-enabled" class="form-check-label">Enable</label>
                       </div>
                       <div class="col-12">
-                        {% if not zerotier_running %}
+                        {% if not get_conf('tailscale.is_enabled') %}
                           <input class="m-1 w-100"
-                                 id="zerotierid"
-                                 name="zerotierid"
+                                 id="tailscale-extras"
+                                 name="tailscale-extras"
                                  type="text"
-                                 value="{{ get_conf('zerotierid', default='') }}"
-                                 placeholder="Enter your Zerotier Network ID"
-                                 required>
+                                 value="{{ get_conf('tailscale.extras', default='') }}"
+                                 placeholder="Enter additional tailscale options you need">
                         {% else %}
                           <div class="alert alert-danger m-1">
-                            Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the
-                            Zerotier network to connect to it.
+                            Tailscale is enabled. Disabling it will prevent you from accessing this feeder if you use
+                            the Tailscale network to connect to it.
                           </div>
                         {% endif %}
                       </div>
@@ -401,69 +319,127 @@
                 </div>
               </div>
             </form>
-          </div>
+          {% endif %}
         </div>
       </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">
-              {% if wifi != "" %}
-                Reconfigure
-              {% else %}
-                Connect to
-              {% endif %}
-              WiFi
-            </h5>
-            <form method="post"
-                  action="{{ url_for('configure-wifi') }}"
-                  onsubmit="showSpinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12 m-1">
-                  {% if wifi != "" %}
-                    This feeder is connected to the "{{ wifi }}" WiFi network.
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Configure Zerotier VPN</h5>
+          <form method="post"
+                action="{{ url_for('configure-zerotier') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12">
+                <label for="zerotierid" class="m-1">
+                  Zerotier support allows to connect your ADS-B Feeder to your own global area network.
+                  {% if not zerotier_running %}
+                    Please add your Zerotier Network ID below.
+                    <br>
+                    Once this process has completed, you need to accept the new device into the network on the
+                    Zerotier website.
                   {% else %}
-                    This feeder is connected via Ethernet.
+                    <br>
+                    This device should now be on your Zerotier network.
                   {% endif %}
-                </div>
-                <div class="col-12 m-1">
-                  Enter the SSID and password of the WiFi network you want to connect to. Note that it can take several
-                  minutes for the connection to be established and tested. And in some cases a forced reboot (pull
-                  power) may be required. Depending on the exact version of the base OS of the feeder image that you are
-                  using, the user experience may be slightly different, but when the process appears stuck even after a
-                  longer wait, a reboot may be the way to go.
-                </div>
-                <div class="col-12 m-1">
-                  Remember that if the change is successful, you need to connect to the feeder on that new network.
-                  There is no way for the feeder to automatically forward you to that.
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                  <input class="m-1 w-100"
-                         id="wifi_ssid"
-                         name="wifi_ssid"
-                         type="text"
-                         placeholder="SSID"
-                         required>
-                </div>
-                <div class="col-12 col-md-6 col-lg-4">
-                  <input class="m-1 w-100"
-                         id="wifi_password"
-                         name="wifi_password"
-                         type="text"
-                         placeholder="Password"
-                         required>
-                </div>
-                <div class="col-12 col-lg-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </label>
+              </div>
+              <div class="col-12 col-md-8">
+                <div class="row">
+                  <div class="col-12">
+                    <div class="m-1">
+                      <input id="zerotier-enabled"
+                             class="form-check-input"
+                             name="enabled"
+                             type="checkbox"
+                             {% if zerotier_running -%}checked{%- endif %}>
+                      <label for="zerotier-enabled" class="form-check-label">Enable</label>
+                    </div>
+                    <div class="col-12">
+                      {% if not zerotier_running %}
+                        <input class="m-1 w-100"
+                               id="zerotierid"
+                               name="zerotierid"
+                               type="text"
+                               value="{{ get_conf('zerotierid', default='') }}"
+                               placeholder="Enter your Zerotier Network ID"
+                               required>
+                      {% else %}
+                        <div class="alert alert-danger m-1">
+                          Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the
+                          Zerotier network to connect to it.
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </form>
-          </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
-    {% endif %}
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">
+            {% if wifi != "" %}
+              Reconfigure
+            {% else %}
+              Connect to
+            {% endif %}
+            WiFi
+          </h5>
+          <form method="post"
+                action="{{ url_for('configure-wifi') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 m-1">
+                {% if wifi != "" %}
+                  This feeder is connected to the "{{ wifi }}" WiFi network.
+                {% else %}
+                  This feeder is connected via Ethernet.
+                {% endif %}
+              </div>
+              <div class="col-12 m-1">
+                Enter the SSID and password of the WiFi network you want to connect to. Note that it can take several
+                minutes for the connection to be established and tested. And in some cases a forced reboot (pull
+                power) may be required. Depending on the exact version of the base OS of the feeder image that you are
+                using, the user experience may be slightly different, but when the process appears stuck even after a
+                longer wait, a reboot may be the way to go.
+              </div>
+              <div class="col-12 m-1">
+                Remember that if the change is successful, you need to connect to the feeder on that new network.
+                There is no way for the feeder to automatically forward you to that.
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       id="wifi_ssid"
+                       name="wifi_ssid"
+                       type="text"
+                       placeholder="SSID"
+                       required>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       id="wifi_password"
+                       name="wifi_password"
+                       type="text"
+                       placeholder="Password"
+                       required>
+              </div>
+              <div class="col-12 col-lg-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
@@ -496,53 +472,49 @@
         </div>
       </div>
     </div>
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Reboot</h5>
-            <form method="post"
-                  action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="showSpinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12 col-md-8">
-                  <label for="reboot" class="m-1">
-                    Reboot the feeder. Please note that some boards are not able to reboot without manually power
-                    cycling.
-                  </label>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100" name="reboot">Reboot</button>
-                </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Reboot</h5>
+          <form method="post"
+                action="{{ url_for('shutdown-reboot') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <label for="reboot" class="m-1">
+                  Reboot the feeder. Please note that some boards are not able to reboot without manually power
+                  cycling.
+                </label>
               </div>
-            </form>
-          </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100" name="reboot">Reboot</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
-    {% endif %}
-    {% if not get_conf('secure_image') %}
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title m-1">Shutdown</h5>
-            <form method="post"
-                  action="{{ url_for('shutdown-reboot') }}"
-                  onsubmit="showSpinner(); return true;">
-              <div class="row align-items-center">
-                <div class="col-12 col-md-8">
-                  <label for="shutdown" class="m-1">
-                    Shutdown the feeder. Most boards won't turn off power by themselves.
-                  </label>
-                </div>
-                <div class="col-12 col-md-4">
-                  <button type="submit" class="btn btn-primary m-1 w-100" name="shutdown">Shutdown</button>
-                </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Shutdown</h5>
+          <form method="post"
+                action="{{ url_for('shutdown-reboot') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <label for="shutdown" class="m-1">
+                  Shutdown the feeder. Most boards won't turn off power by themselves.
+                </label>
               </div>
-            </form>
-          </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100" name="shutdown">Shutdown</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
-    {% endif %}
+    </div>
   </div>
   <script>
     function setUpdateButtonEnabledDisabled() {
