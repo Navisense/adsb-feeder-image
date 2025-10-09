@@ -12,6 +12,7 @@ import logging
 import numbers
 import pathlib
 import platform
+import secrets
 import shutil
 import socket
 import subprocess
@@ -34,6 +35,7 @@ CONFIG_FILE = CONFIG_DIR / "config.json"
 CONFIG_FILE_BACKUP_TEMPLATE = (
     "config.json.backup.from:{from_version}.to:{to_version}.{ts}")
 ENV_FILE = CONFIG_DIR / ".env"
+FLASK_SECRET_KEY_FILE = CONFIG_DIR / "flask_secret_key.bin"
 VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
 FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
@@ -41,6 +43,18 @@ DOCKER_COMPOSE_UP_FAILED_FILE = pathlib.Path(
     "/run/porttracker-sdr-feeder-docker-compose-up-failed")
 
 logger = logging.getLogger(__name__)
+
+
+def read_or_create_flask_secret_key() -> bytes:
+    try:
+        with FLASK_SECRET_KEY_FILE.open("rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        secret_key = secrets.token_bytes(32)
+        with FLASK_SECRET_KEY_FILE.open("wb") as f:
+            f.write(secret_key)
+        logger.info("Created new Flask secret key file.")
+        return secret_key
 
 
 def _mandatory_config_is_complete(conf: "Config") -> bool:

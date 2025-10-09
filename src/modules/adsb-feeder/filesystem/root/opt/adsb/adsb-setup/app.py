@@ -384,7 +384,7 @@ class AdsbIm:
             response.headers.setdefault("Cache-Control", "no-cache")
             return response
 
-        app.secret_key = os.urandom(16).hex()
+        app.secret_key = config.read_or_create_flask_secret_key()
         # set Cache-Control max-age for static files served
         # cachebust.sh ensures that the browser doesn't get outdated files
         app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1209600
