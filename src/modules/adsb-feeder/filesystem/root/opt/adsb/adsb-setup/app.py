@@ -483,38 +483,44 @@ class AdsbIm:
             "/backup",
             "backup",
             view_func=self.backup,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
             "/backupexecutefull",
             "backupexecutefull",
             view_func=self.backup_execute_full,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
             "/backupexecutegraphs",
             "backupexecutegraphs",
             view_func=self.backup_execute_graphs,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
             "/backupexecuteconfig",
             "backupexecuteconfig",
             view_func=self.backup_execute_config,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
             "/restore",
             "restore",
             view_func=self.restore,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
             "/executerestore",
             "executerestore",
             view_func=self.executerestore,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -523,7 +529,7 @@ class AdsbIm:
             view_func=self.sdr_setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET"],
         )
         app.add_url_rule(
@@ -532,7 +538,7 @@ class AdsbIm:
             view_func=self.visualization,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -541,7 +547,7 @@ class AdsbIm:
             view_func=self.expert,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -550,7 +556,7 @@ class AdsbIm:
             view_func=self.systemmgmt,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET"],
         )
         app.add_url_rule(
@@ -559,7 +565,7 @@ class AdsbIm:
             view_func=self.aggregators,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -593,7 +599,7 @@ class AdsbIm:
             view_func=self.support,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -602,7 +608,7 @@ class AdsbIm:
             view_func=self.setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -611,7 +617,7 @@ class AdsbIm:
             view_func=self.sdrplay_license,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config],
+                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -642,21 +648,24 @@ class AdsbIm:
             "/set-ssh-credentials",
             "set-ssh-credentials",
             view_func=self.set_ssh_credentials,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/create-root-password",
             "create-root-password",
             view_func=self.create_root_password,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/set-admin-password",
             "set-admin-password",
             view_func=self.set_admin_password,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
@@ -664,14 +673,16 @@ class AdsbIm:
             "shutdown-reboot",
             view_func=self.shutdown_reboot,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/toggle-log-persistence",
             "toggle-log-persistence",
             view_func=self.toggle_log_persistence,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
@@ -679,7 +690,8 @@ class AdsbIm:
             "feeder-update",
             view_func=self.feeder_update,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
@@ -687,28 +699,32 @@ class AdsbIm:
             "os-update",
             view_func=self.os_update,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/restart-containers",
             "restart-containers",
             view_func=self.restart_containers,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/configure-zerotier",
             "configure-zerotier",
             view_func=self.configure_zerotier,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/configure-tailscale",
             "configure-tailscale",
             view_func=self.configure_tailscale,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
@@ -716,7 +732,8 @@ class AdsbIm:
             "configure-wifi",
             view_func=self.configure_wifi,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
@@ -724,20 +741,23 @@ class AdsbIm:
             "configure-sdr",
             view_func=self.configure_sdr,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
             methods=["POST"],
         )
         app.add_url_rule(
             "/get-logs",
             "get-logs",
             view_func=self.get_logs,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
             "/view-logs",
             "view-logs",
             view_func=self.view_logs,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
         )
         # Catch-all rules for the hotspot app.
         app.add_url_rule(
@@ -755,8 +775,6 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         return app
-
-
 
     def _decide_route_hotspot_mode(self, view_func):
         """
