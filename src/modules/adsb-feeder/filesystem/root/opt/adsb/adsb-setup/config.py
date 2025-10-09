@@ -1685,6 +1685,8 @@ def _main():
     set_parser = subparsers.add_parser("set")
     set_parser.add_argument("key_path")
     set_parser.add_argument("value")
+    unset_parser = subparsers.add_parser("unset")
+    unset_parser.add_argument("key_path")
     args = parser.parse_args()
     with system.System() as sys_:
         conf = ensure_config_exists()
@@ -1706,6 +1708,8 @@ def _run_command(conf: Config, args):
         _get(conf, args.key_path, args.default)
     elif args.command == "set":
         _set(conf, args.key_path, args.value)
+    elif args.command == "unset":
+        _unset(conf, args.key_path)
     else:
         logger.error(f"Unknown command {args.command}.")
         sys.exit(1)
@@ -1737,6 +1741,10 @@ def _set(conf: Config, key_path: str, value: Any) -> None:
     elif isinstance(setting, IntSetting):
         value = int(value)
     setting.set("", value)
+
+
+def _unset(conf: Config, key_path: str) -> None:
+    conf.set(key_path, None)
 
 
 if __name__ == '__main__':
