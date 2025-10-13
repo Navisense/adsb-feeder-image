@@ -1722,7 +1722,10 @@ def _compound_setting_as_dict(
         if isinstance(setting, CompoundSetting):
             d[key] = _compound_setting_as_dict(setting)
         else:
-            d[key] = setting.get("")
+            value = setting.get("")
+            if isinstance(value, bytes):
+                value = base64.b64encode(setting.get("")).decode()
+            d[key] = value
     return d
 
 
