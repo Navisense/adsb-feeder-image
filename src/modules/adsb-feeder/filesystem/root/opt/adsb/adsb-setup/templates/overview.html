@@ -304,333 +304,333 @@
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
-  function createReceptionHistoryChart() {
-    let context = document.getElementById("reception-history-chart");
-    let chart = new Chart(context, {
-      type: 'line',
-      data: {
-        labels: [],
-        datasets: []
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        onResize: function(chart, size) {
-          const enoughHeight = size.height >= 250;
-          const enoughWidth = size.width >= 768;
-          chart.options.plugins.legend.display = enoughHeight;
-          chart.options.scales.x.ticks.display = enoughHeight;
-          chart.options.scales.x.grid.drawOnChartArea = enoughHeight;
-          chart.options.scales.pps.ticks.display = enoughWidth;
-          chart.options.scales.pps.title.display = enoughWidth;
-          chart.options.scales.num.ticks.display = enoughWidth;
-          chart.options.scales.num.title.display = enoughWidth;
+    function createReceptionHistoryChart() {
+      let context = document.getElementById("reception-history-chart");
+      let chart = new Chart(context, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: []
         },
-        plugins: {
-          title: {
-            display: true,
-            text: "Reception statistics",
-            font: {
-              size: 18,
-            }
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          onResize: function(chart, size) {
+            const enoughHeight = size.height >= 250;
+            const enoughWidth = size.width >= 768;
+            chart.options.plugins.legend.display = enoughHeight;
+            chart.options.scales.x.ticks.display = enoughHeight;
+            chart.options.scales.x.grid.drawOnChartArea = enoughHeight;
+            chart.options.scales.pps.ticks.display = enoughWidth;
+            chart.options.scales.pps.title.display = enoughWidth;
+            chart.options.scales.num.ticks.display = enoughWidth;
+            chart.options.scales.num.title.display = enoughWidth;
           },
-          legend: {
-            onClick: function (e, legendItem) {
-              let index = legendItem.datasetIndex;
-              if (this.chart.shownIndices.has(index)) {
-                this.chart.shownIndices.delete(index);
-              } else {
-                this.chart.shownIndices.add(index);
+          plugins: {
+            title: {
+              display: true,
+              text: "Reception statistics",
+              font: {
+                size: 18,
               }
-              if (this.chart.shownIndices.size == this.chart.data.datasets.length) {
-                this.chart.shownIndices.clear();
-              }
-              updateChartWithShownIndices(this.chart);
             },
-            labels: {
-              boxWidth: 20,
-              useBorderRadius: true,
-              borderRadius: 2
-            }
-          }
-        },
-        scales: {
-          x: {
-            type: "time",
-            time: {
-              tooltipFormat: "YYYY-MM-DD HH:mm:ss",
-              minUnit: "second",
-              displayFormats: {
-                second: "HH:mm:ss",
-                minute: "HH:mm:ss",
-                hour: "YYYY-MM-DD HH:mm:ss",
-                day: "YYYY-MM-DD",
-                week: "YYYY-MM-DD",
-                month: "YYYY-MM-DD",
-                quarter: "YYYY-MM-DD",
-                year: "YYYY",
+            legend: {
+              onClick: function (e, legendItem) {
+                let index = legendItem.datasetIndex;
+                if (this.chart.shownIndices.has(index)) {
+                  this.chart.shownIndices.delete(index);
+                } else {
+                  this.chart.shownIndices.add(index);
+                }
+                if (this.chart.shownIndices.size == this.chart.data.datasets.length) {
+                  this.chart.shownIndices.clear();
+                }
+                updateChartWithShownIndices(this.chart);
               },
-            }
-          },
-          pps: {
-            title: {text: "pos/s", display: true},
-            type: "linear",
-            display: "auto",
-            position: "left",
-            beginAtZero: true,
-          },
-          num: {
-            title: {text: "number of ships/planes", display: true},
-            type: "linear",
-            display: "auto",
-            position: "right",
-            beginAtZero: true,
-            grid: {
-              drawOnChartArea: false, // Only show grid lines for one axis.
-            },
-          },
-        }
-      }
-    });
-    chart.shownIndices = new Set();
-    return chart;
-  }
-
-  function updateChartWithShownIndices(chart) {
-    // Extend the x axis to the current time.
-    chart.options.scales.x.suggestedMax = moment();
-    const showAll = chart.shownIndices.size == 0;
-    for (let i = 0; i < chart.data.datasets.length; i++) {
-      let meta = chart.getDatasetMeta(i);
-      meta.hidden = !(showAll || chart.shownIndices.has(i));
-    }
-    chart.update("none");
-  }
-
-  let receptionHistoryChart = createReceptionHistoryChart();
-
-  function updateCurrentStats(stats) {
-    updateCurrentCraftStats("AIS", "ships", stats.ais, $(`#ais-stats`));
-    updateCurrentCraftStats("ADS-B", "planes", stats.adsb, $(`#adsb-stats`));
-  }
-
-  function updateCurrentCraftStats(type, craftName, craftStats, element) {
-    element.removeClass("alert-danger alert-success alert-warning");
-    if (!craftStats.enabled) {
-      element.addClass("alert-warning");
-      element.html(`${type} reception is disabled.`);
-    } else if (craftStats.current.pps > 0) {
-      element.addClass("alert-success");
-      element.html(
-        `${type}: ${craftStats.current.pps.toFixed(1)} positions per second — `
-        + `${craftStats.current.num} ${craftName} visible`);
-    } else if (craftStats.uptime < 60) {
-      element.addClass("alert-warning");
-      element.html(
-        `${type} reception has just been enabled, and we've not seen data arriving yet (let's wait a bit...)`);
-    } else {
-      element.addClass("alert-danger");
-      element.html(`${type} reception is enabled, but no data is arriving.`);
-    }
-  }
-
-  function updateStatsHistory(stats) {
-    let light_distinct_colors = [
-      "#61c8ff", "#f57200", "#025dfb", "#01d723", "#7300b3", "#a6e927", "#9055ff", "#d8c200",
-      "#0039af", "#01db78", "#ff64f8", "#00560b", "#d60098", "#ade587", "#557bff", "#ffaf4c",
-      "#6b91ff", "#9d1500", "#3ca4ff", "#574200", "#005296", "#ca0061", "#017960", "#ff8bc4",
-      "#1a1a00", "#8ae3ec", "#50003d", "#e4d3b6", "#0f0021", "#ffbbca", "#4f1700", "#008b94"
-    ];
-    let dark_distinct_colors = [
-      "#a94500", "#e1ffe9", "#960089", "#00633e", "#ffce63", "#015d92", "#ff76d4", "#e96200",
-      "#ff96ae", "#a7d5ff", "#fdff90", "#bb61ff", "#4c5800", "#283e95", "#bd00e0", "#4fa900",
-      "#f8a9ff", "#9dff2f", "#007380", "#4b4539", "#a1003c", "#ffe5cb", "#c00028", "#90af00",
-      "#6cf7ff", "#0285fc", "#956900", "#ff1bd4", "#ff8f16", "#ff683c", "#890159", "#00d36d"
-    ];
-    let distinct_colors = [];
-    if (document.documentElement.dataset.mdbTheme == "dark") {
-      distinct_colors = dark_distinct_colors;
-    } else {
-      distinct_colors = light_distinct_colors;
-    }
-    let datasets = [];
-    let colorIdx = 0;
-    for (const [type, craftName, craftStats] of [["AIS", "ships", stats.ais], ["ADS-B", "planes", stats.adsb]]) {
-      let posRateData = [], numData = [];
-      for (const historyItem of craftStats.history) {
-        const time = moment.unix(historyItem.ts);
-        posRateData.push({x: time, y: historyItem.pps});
-        numData.push({x: time, y: historyItem.num});
-      }
-      datasets.push({
-        label: `${type} pos/s`,
-        data: posRateData,
-        borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
-        yAxisID: 'pps',
-      });
-      datasets.push({
-        label: `number of ${craftName}`,
-        data: numData,
-        borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
-        yAxisID: 'num',
-      });
-    }
-    receptionHistoryChart.data.datasets = datasets;
-    updateChartWithShownIndices(receptionHistoryChart);
-  }
-
-  function refreshAggregatorStatus(aggKey) {
-    fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
-      .then(response => response.json())
-      .then(resp => {
-        for (const messageType of ["ais", "adsb"]) {
-          const status = resp[messageType];
-          let dataStatus = "unknown";
-          let mlatStatus = null;
-          if (status) {
-            dataStatus = status.data_status;
-            mlatStatus = status.mlat_status;
-          }
-          let aggCard = $(`#${aggKey}-${messageType}-status`);
-          let dataStatusSpan = $(`#${aggKey}-${messageType}-data-status`);
-          if (aggCard.length == 0 || dataStatusSpan.length == 0) continue;
-          aggCard.removeClass("bg-success bg-warning bg-danger bg-info");
-          if (dataStatus == "good") {
-            aggCard.addClass("bg-success");
-            dataStatusSpan.text("Data is arriving at the aggregator.");
-          } else if (dataStatus == "warning") {
-            aggCard.addClass("bg-warning");
-            dataStatusSpan.text("Data is arriving at the aggregator, but it doesn't seem to be a lot.");
-          } else if (dataStatus == "bad") {
-            aggCard.addClass("bg-danger");
-            dataStatusSpan.text("No data is arriving at the aggregator.");
-          } else if (dataStatus == "starting") {
-            aggCard.addClass("bg-info");
-            dataStatusSpan.text("We've only just started sending data...");
-          } else if (dataStatus == "container_down") {
-            aggCard.addClass("bg-danger");
-            dataStatusSpan.text("The container sending data is down.");
-          } else if (dataStatus == "disconnected") {
-            aggCard.addClass("bg-danger");
-            dataStatusSpan.text("We're disconnected from the aggregator.");
-          } else {
-            aggCard.addClass("bg-info");
-            dataStatusSpan.text("We have no information whether data is arriving.");
-          }
-          {% if get_conf('mlat_enable') %}
-            if (mlatStatus) {
-              let mlatStatusSpan = $(`#${aggKey}-${messageType}-mlat-status`);
-              if (mlatStatus == "good") {
-                mlatStatusSpan.text("MLAT is working.");
-              } else if (mlatStatus == "warning") {
-                mlatStatusSpan.text(
-                  "There are issues with MLAT (intermittent sync issue / lack of traffic / no other receivers in the "
-                  + "area)");
-              } else if (mlatStatus == "bad") {
-                mlatStatusSpan.html(
-                  `MLAT is not working (if this persists for hours, check `
-                  + `<a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)`);
-              } else if (mlatStatus == "disconnected") {
-                mlatStatusSpan.text("MLAT is not connected.");
-              } else if (mlatStatus == "disabled") {
-                mlatStatusSpan.text("MLAT is disabled.");
-              } else {
-                mlatStatusSpan.text("We have no information whether MLAT is working.");
+              labels: {
+                boxWidth: 20,
+                useBorderRadius: true,
+                borderRadius: 2
               }
             }
-          {% endif %}
-          // Extra data for adsb.lol.
-          if (status && status.adsblol_link) {
-            $("#adsblol-link").attr("href", status.adsblol_link);
-          }
-          // Extra data for airplanes.live.
-          if (status && status.alive_map_link) {
-            $("#alive-map-link").attr("href", status.alive_map_link);
-          }
-          // Extra data for ADSBExchange.
-          if (status && status.adsbx_feeder_id) {
-            $("#adsbx-stat-link").attr(
-              "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
-            $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
+          },
+          scales: {
+            x: {
+              type: "time",
+              time: {
+                tooltipFormat: "YYYY-MM-DD HH:mm:ss",
+                minUnit: "second",
+                displayFormats: {
+                  second: "HH:mm:ss",
+                  minute: "HH:mm:ss",
+                  hour: "YYYY-MM-DD HH:mm:ss",
+                  day: "YYYY-MM-DD",
+                  week: "YYYY-MM-DD",
+                  month: "YYYY-MM-DD",
+                  quarter: "YYYY-MM-DD",
+                  year: "YYYY",
+                },
+              }
+            },
+            pps: {
+              title: {text: "pos/s", display: true},
+              type: "linear",
+              display: "auto",
+              position: "left",
+              beginAtZero: true,
+            },
+            num: {
+              title: {text: "number of ships/planes", display: true},
+              type: "linear",
+              display: "auto",
+              position: "right",
+              beginAtZero: true,
+              grid: {
+                drawOnChartArea: false, // Only show grid lines for one axis.
+              },
+            },
           }
         }
       });
-  }
+      chart.shownIndices = new Set();
+      return chart;
+    }
 
-  async function updateConnectivityInfo() {
-    let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
-      .then(response => response.json());
-    const browserIp = (await browserIpData)["ip"];
-
-    // Internal vs. external IP.
-    {% if system_info.external_ip %}
-      if (browserIp) {
-        if ("{{ system_info.external_ip }}" == browserIp) {
-          $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-          $("#ip-mismatch").addClass("d-none");
-        } else {
-          $("#feeder-external-ip-comment").text(
-            ` (that's a different one than the one of this browser, which has ${browserIp})`);
-          $("#ip-mismatch").removeClass("d-none");
-        }
+    function updateChartWithShownIndices(chart) {
+      // Extend the x axis to the current time.
+      chart.options.scales.x.suggestedMax = moment();
+      const showAll = chart.shownIndices.size == 0;
+      for (let i = 0; i < chart.data.datasets.length; i++) {
+        let meta = chart.getDatasetMeta(i);
+        meta.hidden = !(showAll || chart.shownIndices.has(i));
       }
-    {% endif %}
+      chart.update("none");
+    }
 
-    // Reachability of all the device's hosts.
-    const connectivityChecker = new FeederConnectivityChecker(
-      {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
-    connectivityChecker.start();
-  }
+    let receptionHistoryChart = createReceptionHistoryChart();
 
-  function updateReachabilityInfo(stati, hasTimedOut) {
-    for ([host, status] of stati.entries()) {
-      let alert = $("#" + $.escapeSelector(`feeder-reachability-alert-${host}`));
-      let button = $("#" + $.escapeSelector(`feeder-reachability-button-${host}`));
-      let description = $("#" + $.escapeSelector(`feeder-reachability-description-${host}`));
-      alert.removeClass("alert-primary alert-success alert-danger");
-      button.removeClass("disabled");
-      button.removeAttr("aria-disabled");
-      if (status == "success") {
-        alert.addClass("alert-success");
-        description.text("(reachable from this browser)");
-      } else if (hasTimedOut) {
-        alert.addClass("alert-danger");
-        button.addClass("disabled");
-        button.attr("aria-disabled", "true");
-        description.text("(not reachable, gave up checking)");
+    function updateCurrentStats(stats) {
+      updateCurrentCraftStats("AIS", "ships", stats.ais, $(`#ais-stats`));
+      updateCurrentCraftStats("ADS-B", "planes", stats.adsb, $(`#adsb-stats`));
+    }
+
+    function updateCurrentCraftStats(type, craftName, craftStats, element) {
+      element.removeClass("alert-danger alert-success alert-warning");
+      if (!craftStats.enabled) {
+        element.addClass("alert-warning");
+        element.html(`${type} reception is disabled.`);
+      } else if (craftStats.current.pps > 0) {
+        element.addClass("alert-success");
+        element.html(
+          `${type}: ${craftStats.current.pps.toFixed(1)} positions per second — `
+          + `${craftStats.current.num} ${craftName} visible`);
+      } else if (craftStats.uptime < 60) {
+        element.addClass("alert-warning");
+        element.html(
+          `${type} reception has just been enabled, and we've not seen data arriving yet (let's wait a bit...)`);
       } else {
-        alert.addClass("alert-primary");
-        button.addClass("disabled");
-        button.attr("aria-disabled", "true");
-        description.text("(not reachable yet, continuing to check)");
+        element.addClass("alert-danger");
+        element.html(`${type} reception is enabled, but no data is arriving.`);
       }
     }
-  }
 
-  registerTask(
-    "Update reception stats",
-    15000,
-    function() {
-      fetch("/api/stats", {signal: AbortSignal.timeout(2000)})
-      .then(response => response.json())
-      .then(stats => {
-        updateCurrentStats(stats);
-        updateStatsHistory(stats);
-      });
+    function updateStatsHistory(stats) {
+      let light_distinct_colors = [
+        "#61c8ff", "#f57200", "#025dfb", "#01d723", "#7300b3", "#a6e927", "#9055ff", "#d8c200",
+        "#0039af", "#01db78", "#ff64f8", "#00560b", "#d60098", "#ade587", "#557bff", "#ffaf4c",
+        "#6b91ff", "#9d1500", "#3ca4ff", "#574200", "#005296", "#ca0061", "#017960", "#ff8bc4",
+        "#1a1a00", "#8ae3ec", "#50003d", "#e4d3b6", "#0f0021", "#ffbbca", "#4f1700", "#008b94"
+      ];
+      let dark_distinct_colors = [
+        "#a94500", "#e1ffe9", "#960089", "#00633e", "#ffce63", "#015d92", "#ff76d4", "#e96200",
+        "#ff96ae", "#a7d5ff", "#fdff90", "#bb61ff", "#4c5800", "#283e95", "#bd00e0", "#4fa900",
+        "#f8a9ff", "#9dff2f", "#007380", "#4b4539", "#a1003c", "#ffe5cb", "#c00028", "#90af00",
+        "#6cf7ff", "#0285fc", "#956900", "#ff1bd4", "#ff8f16", "#ff683c", "#890159", "#00d36d"
+      ];
+      let distinct_colors = [];
+      if (document.documentElement.dataset.mdbTheme == "dark") {
+        distinct_colors = dark_distinct_colors;
+      } else {
+        distinct_colors = light_distinct_colors;
+      }
+      let datasets = [];
+      let colorIdx = 0;
+      for (const [type, craftName, craftStats] of [["AIS", "ships", stats.ais], ["ADS-B", "planes", stats.adsb]]) {
+        let posRateData = [], numData = [];
+        for (const historyItem of craftStats.history) {
+          const time = moment.unix(historyItem.ts);
+          posRateData.push({x: time, y: historyItem.pps});
+          numData.push({x: time, y: historyItem.num});
+        }
+        datasets.push({
+          label: `${type} pos/s`,
+          data: posRateData,
+          borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
+          yAxisID: 'pps',
+        });
+        datasets.push({
+          label: `number of ${craftName}`,
+          data: numData,
+          borderColor: distinct_colors[colorIdx++ % distinct_colors.length],
+          yAxisID: 'num',
+        });
+      }
+      receptionHistoryChart.data.datasets = datasets;
+      updateChartWithShownIndices(receptionHistoryChart);
     }
-  );
 
-  registerTask(
-    "Update aggregator status",
-    60000,
-    function() {
-      {% for agg in enabled_aggregators.values() %}
-        refreshAggregatorStatus("{{ agg.agg_key }}");
-      {% endfor %}
-      $("#last-aggregator-status-update").html(new Date().toLocaleTimeString());
+    function refreshAggregatorStatus(aggKey) {
+      fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
+        .then(response => response.json())
+        .then(resp => {
+          for (const messageType of ["ais", "adsb"]) {
+            const status = resp[messageType];
+            let dataStatus = "unknown";
+            let mlatStatus = null;
+            if (status) {
+              dataStatus = status.data_status;
+              mlatStatus = status.mlat_status;
+            }
+            let aggCard = $(`#${aggKey}-${messageType}-status`);
+            let dataStatusSpan = $(`#${aggKey}-${messageType}-data-status`);
+            if (aggCard.length == 0 || dataStatusSpan.length == 0) continue;
+            aggCard.removeClass("bg-success bg-warning bg-danger bg-info");
+            if (dataStatus == "good") {
+              aggCard.addClass("bg-success");
+              dataStatusSpan.text("Data is arriving at the aggregator.");
+            } else if (dataStatus == "warning") {
+              aggCard.addClass("bg-warning");
+              dataStatusSpan.text("Data is arriving at the aggregator, but it doesn't seem to be a lot.");
+            } else if (dataStatus == "bad") {
+              aggCard.addClass("bg-danger");
+              dataStatusSpan.text("No data is arriving at the aggregator.");
+            } else if (dataStatus == "starting") {
+              aggCard.addClass("bg-info");
+              dataStatusSpan.text("We've only just started sending data...");
+            } else if (dataStatus == "container_down") {
+              aggCard.addClass("bg-danger");
+              dataStatusSpan.text("The container sending data is down.");
+            } else if (dataStatus == "disconnected") {
+              aggCard.addClass("bg-danger");
+              dataStatusSpan.text("We're disconnected from the aggregator.");
+            } else {
+              aggCard.addClass("bg-info");
+              dataStatusSpan.text("We have no information whether data is arriving.");
+            }
+            {% if get_conf('mlat_enable') %}
+              if (mlatStatus) {
+                let mlatStatusSpan = $(`#${aggKey}-${messageType}-mlat-status`);
+                if (mlatStatus == "good") {
+                  mlatStatusSpan.text("MLAT is working.");
+                } else if (mlatStatus == "warning") {
+                  mlatStatusSpan.text(
+                    "There are issues with MLAT (intermittent sync issue / lack of traffic / no other receivers in the "
+                    + "area)");
+                } else if (mlatStatus == "bad") {
+                  mlatStatusSpan.html(
+                    `MLAT is not working (if this persists for hours, check `
+                    + `<a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)`);
+                } else if (mlatStatus == "disconnected") {
+                  mlatStatusSpan.text("MLAT is not connected.");
+                } else if (mlatStatus == "disabled") {
+                  mlatStatusSpan.text("MLAT is disabled.");
+                } else {
+                  mlatStatusSpan.text("We have no information whether MLAT is working.");
+                }
+              }
+            {% endif %}
+            // Extra data for adsb.lol.
+            if (status && status.adsblol_link) {
+              $("#adsblol-link").attr("href", status.adsblol_link);
+            }
+            // Extra data for airplanes.live.
+            if (status && status.alive_map_link) {
+              $("#alive-map-link").attr("href", status.alive_map_link);
+            }
+            // Extra data for ADSBExchange.
+            if (status && status.adsbx_feeder_id) {
+              $("#adsbx-stat-link").attr(
+                "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
+              $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
+            }
+          }
+        });
     }
-  );
 
-  registerTask("Update connectivity info", 60000, updateConnectivityInfo);
+    async function updateConnectivityInfo() {
+      let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
+        .then(response => response.json());
+      const browserIp = (await browserIpData)["ip"];
+
+      // Internal vs. external IP.
+      {% if system_info.external_ip %}
+        if (browserIp) {
+          if ("{{ system_info.external_ip }}" == browserIp) {
+            $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
+            $("#ip-mismatch").addClass("d-none");
+          } else {
+            $("#feeder-external-ip-comment").text(
+              ` (that's a different one than the one of this browser, which has ${browserIp})`);
+            $("#ip-mismatch").removeClass("d-none");
+          }
+        }
+      {% endif %}
+
+      // Reachability of all the device's hosts.
+      const connectivityChecker = new FeederConnectivityChecker(
+        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
+      connectivityChecker.start();
+    }
+
+    function updateReachabilityInfo(stati, hasTimedOut) {
+      for ([host, status] of stati.entries()) {
+        let alert = $("#" + $.escapeSelector(`feeder-reachability-alert-${host}`));
+        let button = $("#" + $.escapeSelector(`feeder-reachability-button-${host}`));
+        let description = $("#" + $.escapeSelector(`feeder-reachability-description-${host}`));
+        alert.removeClass("alert-primary alert-success alert-danger");
+        button.removeClass("disabled");
+        button.removeAttr("aria-disabled");
+        if (status == "success") {
+          alert.addClass("alert-success");
+          description.text("(reachable from this browser)");
+        } else if (hasTimedOut) {
+          alert.addClass("alert-danger");
+          button.addClass("disabled");
+          button.attr("aria-disabled", "true");
+          description.text("(not reachable, gave up checking)");
+        } else {
+          alert.addClass("alert-primary");
+          button.addClass("disabled");
+          button.attr("aria-disabled", "true");
+          description.text("(not reachable yet, continuing to check)");
+        }
+      }
+    }
+
+    registerTask(
+      "Update reception stats",
+      15000,
+      function() {
+        fetch("/api/stats", {signal: AbortSignal.timeout(2000)})
+        .then(response => response.json())
+        .then(stats => {
+          updateCurrentStats(stats);
+          updateStatsHistory(stats);
+        });
+      }
+    );
+
+    registerTask(
+      "Update aggregator status",
+      60000,
+      function() {
+        {% for agg in enabled_aggregators.values() %}
+          refreshAggregatorStatus("{{ agg.agg_key }}");
+        {% endfor %}
+        $("#last-aggregator-status-update").html(new Date().toLocaleTimeString());
+      }
+    );
+
+    registerTask("Update connectivity info", 60000, updateConnectivityInfo);
   </script>
 {% endblock content %}
