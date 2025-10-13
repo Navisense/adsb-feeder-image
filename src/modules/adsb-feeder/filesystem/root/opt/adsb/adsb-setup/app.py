@@ -106,7 +106,7 @@ class SystemOperationError(Exception):
 
 
 class PidFile:
-    PID_FILE = pathlib.Path("/run/adsb-feeder.pid")
+    PID_FILE = pathlib.Path("/run/porttracker-sdr-feeder.pid")
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
