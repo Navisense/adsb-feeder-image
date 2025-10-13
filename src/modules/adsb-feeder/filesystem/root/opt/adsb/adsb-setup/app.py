@@ -2271,12 +2271,6 @@ class AdsbIm:
             if ipv6_broken:
                 self._logger.error("Broken IPv6 state detected.")
 
-        def sdr_assignment(sdr):
-            for purpose in ["1090", "978", "ais"]:
-                if self._conf.get(f"serial_devices.{purpose}") == sdr.serial:
-                    return purpose
-            return None
-
         stable_versions = gitlab.gitlab_repo().get_semver_tags()
         # Prepare dicts describing all the different ways of reaching this
         # feeder.
@@ -2305,8 +2299,6 @@ class AdsbIm:
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
             containers=self._system.containers,
-            sdrs=self._sdrdevices.sdrs,
-            sdr_assignment=sdr_assignment,
             stable_versions=stable_versions,
             system_info=self._system.system_info,
             device_hosts=device_hosts,

@@ -142,10 +142,10 @@
         $("#sdr-devices").html("");
         let duplicateSerials = new Set();
         if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
-          showSdrDeviceNotification(
+          $("#sdr-devices").html(makeNotificationCardHtml(
             "info", "No devices",
             'There seem to be no devices connected. You can check again with the "Check SDRs" button. But a restart '
-            + "may also be necessary.");
+            + "may also be necessary."));
         } else {
           let serials = new Set();
           for (const sdrDevice of sdrInfo.sdr_devices) {
@@ -164,8 +164,8 @@
         }
         $("#lsusb-output").text(sdrInfo.lsusb_output);
       }).fail(function(jqXHR) {
-        showSdrDeviceNotification(
-          "error", "Error getting devices", "Error getting info about SDR devices from the feeder.");
+        $("#sdr-devices").html(makeNotificationCardHtml(
+          "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
       });
     }
 
@@ -279,22 +279,6 @@
           $(".extra-elements-978").removeClass("d-none");
         }
       });
-    }
-
-    function showSdrDeviceNotification(kind, title, message) {
-      let kindClass = "text-bg-info";
-      if (kind == "error") {
-        kindClass = "text-bg-danger";
-      }
-      $("#sdr-devices").html(`
-        <div class="col-12">
-          <div class="card ${kindClass} m-3">
-            <div class="card-body">
-              <h5 class="card-title">${title}</h5>
-              <p class="card-text">${message}</p>
-            </div>
-          </div>
-        </div>`);
     }
 
     updateSdrInfo();

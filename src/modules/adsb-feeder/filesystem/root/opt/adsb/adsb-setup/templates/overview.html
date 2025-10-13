@@ -81,33 +81,9 @@
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Available SDR devices</h5>
-      {% if sdrs %}
-        {{ sdrs | length }} SDR device(s) are connected.
-      {% else %}
-        There are no SDR devices connected.
-      {% endif %}
-      You can configure SDR devices on the <a href="{{ url_for('sdr_setup') }}">SDR setup page</a>.
-      {% if sdrs %}
-        <div class="row">
-          {% for sdr in sdrs %}
-            <div class="col-12 col-lg-6">
-              <div class="card my-2">
-                <div class="card-body">
-                  <h5 class="card-title">Device with serial {{ sdr.serial }}</h5>
-                  This is a {{ sdr.vendor }} {{ sdr.product }} which is
-                  {% if sdr_assignment(sdr) == 'ais' %}
-                    currently handling AIS.
-                  {% elif sdr_assignment(sdr) in ['1090', '978'] %}
-                    currently handling ADS-B ({{ sdr_assignment(sdr) }}MHz).
-                  {% else %}
-                    currently unused.
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
-        </div>
-      {% endif %}
+      These SDR devices are connected. You can configure SDR devices on the
+      <a href="{{ url_for('sdr_setup') }}">SDR setup page</a>.
+      <div id="sdr-devices" class="row my-3"></div>
     </div>
   </div>
   <div class="card my-2">
@@ -304,6 +280,26 @@
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
+    function appendSdrDevice(sdrDevice) {
+      let usageDescription = "unused";
+      if (sdrDevice.assignment == "ais") {
+        usageDescription = "handling AIS";
+      } else if (sdrDevice.assignment == "1090") {
+        usageDescription = "handling ADS-B (1090MHz)";
+      } else if (sdrDevice.assignment == "978") {
+        usageDescription = "handling UAT (978MHz)";
+      }
+      $("#sdr-devices").append($(`
+        <div class="col-12 col-lg-6">
+          <div class="card my-2">
+            <div class="card-body">
+              <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
+              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
+            </div>
+          </div>
+        </div>`));
+    }
+
     function createReceptionHistoryChart() {
       let context = document.getElementById("reception-history-chart");
       let chart = new Chart(context, {
@@ -606,6 +602,26 @@
         }
       }
     }
+
+    registerTask(
+      "Update SDR devices",
+      15000,
+      function() {
+        $.ajax("/api/sdr_info").done(function (sdrInfo) {
+          $("#sdr-devices").html("");
+          if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
+            $("#sdr-devices").html(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
+          } else {
+            for (const sdrDevice of sdrInfo.sdr_devices) {
+              appendSdrDevice(sdrDevice);
+            }
+          }
+        }).fail(function(jqXHR) {
+          $("#sdr-devices").html(makeNotificationCardHtml(
+            "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
+        });
+      }
+    );
 
     registerTask(
       "Update reception stats",
