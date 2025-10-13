@@ -104,16 +104,6 @@ font-size: 50%;
   z-index: -1;
 }
 
-/* Hide the maps dropdown by default. */
-#navbar-maps-dropdown { display: none; }
-
-@media (max-width: 900px) {
-    /* On small screens, hide the big livemap buttons in the navbar, but show
-       the dropdown with the links instead. */
-    #livemap-buttons { display: none; }
-    #navbar-maps-dropdown { display: block; }
-}
-
 #chart-wrapper {
   height: 50vmin;
   min-height: 40vh;

@@ -199,7 +199,7 @@
       <div class="container-fluid">
         <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('index') }}">Porttracker SDR Feeder</a>
         {# Live map buttons in the nav bar. These will be hidden for small screens. #}
-        <div id="livemap-buttons">
+        <div class="d-none d-lg-block">
           <div class="btn-group"
                {% if not is_reception_enabled('ais') %}title="AIS reception is disabled"{% endif %}>
             <button type="button"
@@ -291,7 +291,7 @@
         <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbar">
           <ul class="navbar-nav ms-1 mb-2 mb-lg-0">
             {# Maps dropdown menu. This will only be shown on small screens, to replace the big live map buttons. #}
-            <li id="navbar-maps-dropdown" class="nav-item dropdown">
+            <li class="nav-item dropdown d-block d-lg-none">
               <a class="nav-link dropdown-toggle"
                  href="#"
                  id="navbar-dropdown-maps"
