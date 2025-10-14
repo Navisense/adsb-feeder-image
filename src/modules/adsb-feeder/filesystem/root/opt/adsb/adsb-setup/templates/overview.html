@@ -148,49 +148,6 @@
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
-    function updateSdrDevices() {
-      $.ajax("/api/sdr_info").done(function (sdrInfo) {
-        $("#sdr-devices").html("");
-        if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
-          $("#sdr-devices").html(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
-        } else {
-          for (const sdrDevice of sdrInfo.sdr_devices) {
-            appendSdrDevice(sdrDevice);
-          }
-        }
-      }).fail(function(jqXHR) {
-        $("#sdr-devices").html(makeNotificationCardHtml(
-          "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
-      });
-    }
-
-    function appendSdrDevice(sdrDevice) {
-      let usageDescription = "unused";
-      if (sdrDevice.assignment == "ais") {
-        usageDescription = "handling AIS";
-      } else if (sdrDevice.assignment == "1090") {
-        usageDescription = "handling ADS-B (1090MHz)";
-      } else if (sdrDevice.assignment == "978") {
-        usageDescription = "handling UAT (978MHz)";
-      }
-      $("#sdr-devices").append($(`
-        <div class="col-12 col-lg-6">
-          <div class="card my-2">
-            <div class="card-body">
-              <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
-              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
-            </div>
-          </div>
-        </div>`));
-    }
-
-    function updateReceptionStats() {
-      $.ajax("/api/stats").done(function (stats) {
-        updateCurrentStats(stats);
-        updateStatsHistory(stats);
-      });
-    }
-
     function createReceptionHistoryChart() {
       let context = document.getElementById("reception-history-chart");
       let chart = new Chart(context, {
@@ -296,6 +253,99 @@
 
     let receptionHistoryChart = createReceptionHistoryChart();
 
+    async function updateConnectivityInfo() {
+      let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
+        .then(response => response.json());
+      const browserIp = (await browserIpData)["ip"];
+
+      // Internal vs. external IP.
+      {% if system_info.external_ip %}
+        if (browserIp) {
+          if ("{{ system_info.external_ip }}" == browserIp) {
+            $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
+            $("#ip-mismatch").addClass("d-none");
+          } else {
+            $("#feeder-external-ip-comment").text(
+              ` (that's a different one than the one of this browser, which has ${browserIp})`);
+            $("#ip-mismatch").removeClass("d-none");
+          }
+        }
+      {% endif %}
+
+      // Reachability of all the device's hosts.
+      const connectivityChecker = new FeederConnectivityChecker(
+        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
+      connectivityChecker.start();
+    }
+
+    function updateReachabilityInfo(stati, hasTimedOut) {
+      for ([host, status] of stati.entries()) {
+        let alert = $("#" + $.escapeSelector(`feeder-reachability-alert-${host}`));
+        let button = $("#" + $.escapeSelector(`feeder-reachability-button-${host}`));
+        let description = $("#" + $.escapeSelector(`feeder-reachability-description-${host}`));
+        alert.removeClass("alert-primary alert-success alert-danger");
+        button.removeClass("disabled");
+        button.removeAttr("aria-disabled");
+        if (status == "success") {
+          alert.addClass("alert-success");
+          description.text("(reachable from this browser)");
+        } else if (hasTimedOut) {
+          alert.addClass("alert-danger");
+          button.addClass("disabled");
+          button.attr("aria-disabled", "true");
+          description.text("(not reachable, gave up checking)");
+        } else {
+          alert.addClass("alert-primary");
+          button.addClass("disabled");
+          button.attr("aria-disabled", "true");
+          description.text("(not reachable yet, continuing to check)");
+        }
+      }
+    }
+
+    function updateSdrDevices() {
+      $.ajax("/api/sdr_info").done(function (sdrInfo) {
+        $("#sdr-devices").html("");
+        if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
+          $("#sdr-devices").html(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
+        } else {
+          for (const sdrDevice of sdrInfo.sdr_devices) {
+            appendSdrDevice(sdrDevice);
+          }
+        }
+      }).fail(function(jqXHR) {
+        $("#sdr-devices").html(makeNotificationCardHtml(
+          "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
+      });
+    }
+
+    function appendSdrDevice(sdrDevice) {
+      let usageDescription = "unused";
+      if (sdrDevice.assignment == "ais") {
+        usageDescription = "handling AIS";
+      } else if (sdrDevice.assignment == "1090") {
+        usageDescription = "handling ADS-B (1090MHz)";
+      } else if (sdrDevice.assignment == "978") {
+        usageDescription = "handling UAT (978MHz)";
+      }
+      $("#sdr-devices").append($(`
+        <div class="col-12 col-lg-6">
+          <div class="card my-2">
+            <div class="card-body">
+              <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
+              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
+            </div>
+          </div>
+        </div>`));
+    }
+
+    function updateReceptionStats() {
+      $.ajax("/api/stats").done(function (stats) {
+        updateCurrentStats(stats);
+        updateStatsHistory(stats);
+      });
+    }
+
     function updateCurrentStats(stats) {
       updateCurrentCraftStats("AIS", "ships", stats.ais, $(`#ais-stats`));
       updateCurrentCraftStats("ADS-B", "planes", stats.adsb, $(`#adsb-stats`));
@@ -364,56 +414,6 @@
       }
       receptionHistoryChart.data.datasets = datasets;
       updateChartWithShownIndices(receptionHistoryChart);
-    }
-
-    async function updateConnectivityInfo() {
-      let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json());
-      const browserIp = (await browserIpData)["ip"];
-
-      // Internal vs. external IP.
-      {% if system_info.external_ip %}
-        if (browserIp) {
-          if ("{{ system_info.external_ip }}" == browserIp) {
-            $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-            $("#ip-mismatch").addClass("d-none");
-          } else {
-            $("#feeder-external-ip-comment").text(
-              ` (that's a different one than the one of this browser, which has ${browserIp})`);
-            $("#ip-mismatch").removeClass("d-none");
-          }
-        }
-      {% endif %}
-
-      // Reachability of all the device's hosts.
-      const connectivityChecker = new FeederConnectivityChecker(
-        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
-      connectivityChecker.start();
-    }
-
-    function updateReachabilityInfo(stati, hasTimedOut) {
-      for ([host, status] of stati.entries()) {
-        let alert = $("#" + $.escapeSelector(`feeder-reachability-alert-${host}`));
-        let button = $("#" + $.escapeSelector(`feeder-reachability-button-${host}`));
-        let description = $("#" + $.escapeSelector(`feeder-reachability-description-${host}`));
-        alert.removeClass("alert-primary alert-success alert-danger");
-        button.removeClass("disabled");
-        button.removeAttr("aria-disabled");
-        if (status == "success") {
-          alert.addClass("alert-success");
-          description.text("(reachable from this browser)");
-        } else if (hasTimedOut) {
-          alert.addClass("alert-danger");
-          button.addClass("disabled");
-          button.attr("aria-disabled", "true");
-          description.text("(not reachable, gave up checking)");
-        } else {
-          alert.addClass("alert-primary");
-          button.addClass("disabled");
-          button.attr("aria-disabled", "true");
-          description.text("(not reachable yet, continuing to check)");
-        }
-      }
     }
 
     function updateAggregatorInfos() {
