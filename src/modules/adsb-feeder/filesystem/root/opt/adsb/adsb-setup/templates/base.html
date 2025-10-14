@@ -36,6 +36,8 @@
           href="{{ url_for('static', filename='favicon.ico') }}" />
     <link rel="stylesheet"
           href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/fontawesome.min.css') }}" />
     <title>
       {% if get_conf('site_name') %}{{ get_conf("site_name") }}:{% endif %}
       {% block title required %}
