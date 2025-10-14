@@ -43,8 +43,11 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3">
-        <button type="button" class="btn btn-secondary btn-floating" onclick="updateConnectivityInfo()">
-          <span class="fas fa-arrows-rotate"></span></button>
+        <button type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateConnectivityInfo()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
       </div>
       <h5 class="card-title">Device info</h5>
       This is <strong>{{ get_conf("site_name") }}</strong>,
@@ -85,8 +88,11 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3">
-        <button type="button" class="btn btn-secondary btn-floating" onclick="updateSdrDevices()">
-          <span class="fas fa-arrows-rotate"></span></button>
+        <button type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateSdrDevices()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
       </div>
       <h5 class="card-title">Available SDR devices</h5>
       These SDR devices are connected. You can configure SDR devices on the
@@ -97,8 +103,11 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3">
-        <button type="button" class="btn btn-secondary btn-floating" onclick="updateReceptionStats()">
-          <span class="fas fa-arrows-rotate"></span></button>
+        <button type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateReceptionStats()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
       </div>
       <h5 class="card-title">Data reception</h5>
       <div class="row mt-4">
@@ -117,8 +126,11 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3">
-        <button type="button" class="btn btn-secondary btn-floating" onclick="updateAggregatorInfos()">
-          <span class="fas fa-arrows-rotate"></span></button>
+        <button type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateAggregatorInfos()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
       </div>
       <h5 class="card-title">Data sharing</h5>
       You are sharing data with these aggregators. You can add or remove aggregators on the
@@ -129,8 +141,11 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3">
-        <button type="button" class="btn btn-secondary btn-floating" onclick="updateVersionInfo()">
-          <span class="fas fa-arrows-rotate"></span></button>
+        <button type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateVersionInfo()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
       </div>
       <h5 class="card-title">Version</h5>
       <div id="version-info"></div>
@@ -520,15 +535,9 @@
             <hr class="hr">
             <div>
               <a href="https://status.adsb.lol/" class="btn btn-secondary m-1" role="button">ADSB.lol status</a>
-              <a href="https://www.adsb.lol/docs/feeders-only/introduction/"
-                 class="btn btn-secondary m-1"
-                 role="button">ADSB.lol feeder introduction</a>
-              <a href="${status.adsblol_link}"
-                 class="btn btn-secondary m-1"
-                 role="button">personal ADSB.lol URL with the planes you are sending</a>
-              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10"
-                 class="btn btn-secondary m-1"
-                 role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
+              <a href="https://www.adsb.lol/docs/feeders-only/introduction/" class="btn btn-secondary m-1" role="button">ADSB.lol feeder introduction</a>
+              <a href="${status.adsblol_link}" class="btn btn-secondary m-1" role="button">personal ADSB.lol URL with the planes you are sending</a>
+              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10" class="btn btn-secondary m-1" role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
               ${mlatComment}
             </div>`);
         }
@@ -543,9 +552,7 @@
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
             <hr class="hr">
             <div>
-              <a href="{{ url_for('flightaware-status') }}"
-                 class="btn btn-secondary m-1"
-                 role="button">FlightAware status</a>
+              <a href="{{ url_for('flightaware-status') }}" class="btn btn-secondary m-1" role="button">FlightAware status</a>
             </div>`);
         }
         if (agg.agg_key == "planefinder" && typeKey == "adsb") {
@@ -553,21 +560,15 @@
             <hr class="hr">
             <div>
               <a href="{{ url_for('planefinder-map') }}" class="btn btn-secondary m-1" role="button">Planefinder map</a>
-              <a href="{{ url_for('planefinder-status') }}"
-                 class="btn btn-secondary m-1"
-                 role="button">Planefinder stats</a>
+              <a href="{{ url_for('planefinder-status') }}" class="btn btn-secondary m-1" role="button">Planefinder stats</a>
             </div>`);
         }
         if (agg.agg_key == "adsbx" && typeKey == "adsb") {
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
             <hr class="hr">
             <div>
-              <a href="https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}"
-                 class="btn btn-secondary m-1"
-                 role="button">ADSBx Anywhere Stats</a>
-              <a href="https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}"
-                 class="btn btn-secondary m-1"
-                 role="button">ADSBx Anywhere Map</a>
+              <a href="https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Stats</a>
+              <a href="https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Map</a>
             </div>`);
         }
         if (agg.agg_key == "alive" && typeKey == "adsb") {
