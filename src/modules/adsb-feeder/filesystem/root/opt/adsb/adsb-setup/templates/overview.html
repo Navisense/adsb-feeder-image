@@ -42,7 +42,8 @@
   {% endif %}
   <div class="card my-2">
     <div class="card-body">
-      <div class="position-absolute top-0 end-0 m-3">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2">Last update: <span id="last-update-connectivity">never</span></span>
         <button type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateConnectivityInfo()">
@@ -87,7 +88,8 @@
   </div>
   <div class="card my-2">
     <div class="card-body">
-      <div class="position-absolute top-0 end-0 m-3">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2">Last update: <span id="last-update-sdr-devices">never</span></span>
         <button type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateSdrDevices()">
@@ -102,7 +104,8 @@
   </div>
   <div class="card my-2">
     <div class="card-body">
-      <div class="position-absolute top-0 end-0 m-3">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2">Last update: <span id="last-update-reception">never</span></span>
         <button type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateReceptionStats()">
@@ -125,7 +128,8 @@
   </div>
   <div class="card my-2">
     <div class="card-body">
-      <div class="position-absolute top-0 end-0 m-3">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2">Last update: <span id="last-update-aggregators">never</span></span>
         <button type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateAggregatorInfos()">
@@ -140,7 +144,8 @@
   </div>
   <div class="card my-2">
     <div class="card-body">
-      <div class="position-absolute top-0 end-0 m-3">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2">Last update: <span id="last-update-version">never</span></span>
         <button type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateVersionInfo()">
@@ -162,6 +167,8 @@
           crossorigin="anonymous"></script>
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/update-time-counter.js') }}"></script>
   <script>
     function createReceptionHistoryChart() {
       let context = document.getElementById("reception-history-chart");
@@ -291,6 +298,7 @@
       const connectivityChecker = new FeederConnectivityChecker(
         {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
       connectivityChecker.start();
+      connectivityUpdateCounter.reset();
     }
 
     function updateReachabilityInfo(stati, hasTimedOut) {
@@ -328,6 +336,7 @@
             appendSdrDevice(sdrDevice);
           }
         }
+        sdrDevicesUpdateCounter.reset();
       }).fail(function(jqXHR) {
         $("#sdr-devices").html(makeNotificationCardHtml(
           "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
@@ -358,6 +367,7 @@
       $.ajax("/api/stats").done(function (stats) {
         updateCurrentStats(stats);
         updateStatsHistory(stats);
+        receptionUpdateCounter.reset();
       });
     }
 
@@ -442,6 +452,7 @@
             appendAggregatorInfo(agg);
           }
         }
+        aggregatorUpdateCounter.reset();
       }).fail(function(jqXHR) {
         $("#aggregators").html(makeNotificationCardHtml(
           "error", "Error getting aggregator info", "Error getting info about aggregators from the feeder."));
@@ -616,12 +627,18 @@
               </div>
             </div>`);
           }
+          versionUpdateCounter.reset();
         }).fail(function(jqXHR) {
           $("#version-info").html(makeNotificationCardHtml(
             "error", "Error getting version info", "Error getting info about software versions from the feeder."));
         });
     }
 
+    const connectivityUpdateCounter = new UpdateTimeCounter("last-update-connectivity");
+    const sdrDevicesUpdateCounter = new UpdateTimeCounter("last-update-sdr-devices");
+    const receptionUpdateCounter = new UpdateTimeCounter("last-update-reception");
+    const aggregatorUpdateCounter = new UpdateTimeCounter("last-update-aggregators");
+    const versionUpdateCounter = new UpdateTimeCounter("last-update-version");
     registerTask("Update connectivity info", 60000, updateConnectivityInfo);
     registerTask("Update SDR devices", 15000, updateSdrDevices);
     registerTask("Update reception stats", 15000, updateReceptionStats);
