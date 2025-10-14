@@ -2258,7 +2258,7 @@ class AdsbIm:
         for aggregator in aggregators.all_aggregators().values():
             # Refresh the status cache to get a fast response when the frontend
             # requests it.
-            aggregator.refresh_status_cache()
+            self._executor.submit(aggregator.refresh_status_cache)
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
