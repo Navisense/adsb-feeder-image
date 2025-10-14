@@ -639,6 +639,12 @@ class AdsbIm:
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         app.add_url_rule(
+            "/api/version-info",
+            "version_info",
+            view_func=self.version_info,
+            view_func_wrappers=[self._decide_route_hotspot_mode],
+        )
+        app.add_url_rule(
             "/api/get_temperatures.json",
             "temperatures",
             view_func=self.temperatures,
@@ -1727,6 +1733,20 @@ class AdsbIm:
         else:
             self._conf.set("readsb_device_type", "")
 
+    def version_info(self):
+        stable_versions = [
+            str(v) for v in gitlab.gitlab_repo().get_semver_tags()]
+        containers = [{
+            "image": c.image,
+            "name": c.name,
+            "state": c.state,
+            "status": c.status,} for c in self._system.containers]
+        containers.sort(key=op.itemgetter("name"))
+        return {
+            "version": self._conf.get("base_version"),
+            "stable_versions": stable_versions,
+            "containers": containers,}
+
     def visualization(self):
         if request.method == "POST":
             return self.update()
@@ -2294,7 +2314,6 @@ class AdsbIm:
             if ipv6_broken:
                 self._logger.error("Broken IPv6 state detected.")
 
-        stable_versions = gitlab.gitlab_repo().get_semver_tags()
         # Prepare dicts describing all the different ways of reaching this
         # feeder.
         tailscale_info = self._system.get_tailscale_info()
@@ -2320,8 +2339,6 @@ class AdsbIm:
             local_address=local_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
-            containers=self._system.containers,
-            stable_versions=stable_versions,
             system_info=self._system.system_info,
             device_hosts=device_hosts,
             str=str,

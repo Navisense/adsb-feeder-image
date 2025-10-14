@@ -113,39 +113,7 @@
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Version</h5>
-      <p>
-        This device is currently running <strong>{{ get_conf("base_version") }}</strong>
-        {% if get_conf("base_version") == str(stable_versions[0]) %}
-          (this is the latest stable version)
-        {% else %}
-          (the latest stable version is <strong>{{ stable_versions[0] }}</strong>, see
-          <a href="{{ url_for('systemmgmt') }}">system management</a> for update)
-        {% endif %}
-      </p>
-      These Docker containers belong to the application (see <a href="{{ url_for('dozzle') }}">Dozzle</a> for details):
-      <div class="row">
-        {% for container in containers %}
-          {% with %}
-            {% set color_class = "bg-success" %}
-            {% if container.state in ['created', 'paused', 'exited'] %}
-              {% set color_class = "bg-info" %}
-            {% elif container.state == 'restarting' %}
-              {% set color_class = "bg-warning" %}
-            {% elif container.state == 'dead' or 'unhealthy' in container.status %}
-              {% set color_class = "bg-danger" %}
-            {% endif %}
-            <div class="col-12 col-md-6">
-              <div class="card my-2 {{ color_class }}">
-                <div class="card-body">
-                  <h5 class="card-title">{{ container.name }}</h5>
-                  {{ container.status }}
-                </div>
-                <div class="card-footer text-muted">{{ container.image }}</div>
-              </div>
-            </div>
-          {% endwith %}
-        {% endfor %}
-      </div>
+      <div id="version-info"></div>
     </div>
   </div>
   <script src="{{ url_for('static', filename='js/chart.js') }}"
@@ -553,6 +521,41 @@
       }
     }
 
+    function updateVersionInfo(versionInfo) {
+      $("#version-info").html(`<p>This device is currently running <strong>${versionInfo.version}</strong></p>`);
+      if (versionInfo.version == versionInfo.stable_versions[0]) {
+        $("#version-info p").append("(this is the latest stable version)");
+      } else {
+        $("#version-info p").append(`
+          (the latest stable version is <strong>${versionInfo.stable_versions[0]}</strong>, see `
+          + '<a href="{{ url_for('systemmgmt') }}">system management</a> for update)');
+      }
+      $("#version-info").append(`
+        These Docker containers belong to the application (see <a href="{{ url_for('dozzle') }}">Dozzle</a> for
+        details):
+        <div id="docker-containers" class="row"></div>`);
+      for (const container of versionInfo.containers) {
+        let colorClass = "bg-success";
+        if (["created", "paused", "exited"].includes(container.state)) {
+          colorClass = "bg-info";
+        } else if (container.state == "restarting") {
+          colorClass = "bg-warning";
+        } else if (container.state == "dead" || container.status.includes("unhealthy")) {
+          colorClass = "bg-danger";
+        }
+        $("#docker-containers").append(`
+        <div class="col-12 col-md-6">
+          <div class="card my-2 ${colorClass}">
+            <div class="card-body">
+              <h5 class="card-title">${container.name}</h5>
+              ${container.status}
+            </div>
+            <div class="card-footer text-muted">${container.image}</div>
+          </div>
+        </div>`);
+      }
+    }
+
     registerTask(
       "Update SDR devices",
       15000,
@@ -592,7 +595,7 @@
       function() {
         $.ajax("/api/aggregators").done(function (aggregators) {
           $("#aggregators").html("");
-          if (! aggregators.length) {
+          if (!aggregators.length) {
           $("#aggregators").html(makeNotificationCardHtml(
             "info", "No aggregators", "You are not sharing data with any aggregators."));
           } else {
@@ -603,6 +606,20 @@
         }).fail(function(jqXHR) {
           $("#aggregators").html(makeNotificationCardHtml(
             "error", "Error getting aggregator info", "Error getting info about aggregators from the feeder."));
+        });
+      }
+    );
+
+    registerTask(
+      "Update version info",
+      60000,
+      function() {
+        $.ajax("/api/version-info").done(function (versionInfo) {
+          $("#version-info").html("");
+          updateVersionInfo(versionInfo);
+        }).fail(function(jqXHR) {
+          $("#version-info").html(makeNotificationCardHtml(
+            "error", "Error getting version info", "Error getting info about software versions from the feeder."));
         });
       }
     );
