@@ -633,9 +633,9 @@ class AdsbIm:
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         app.add_url_rule(
-            "/api/status/<agg_key>",
-            "agg_status",
-            view_func=self.agg_status,
+            "/api/aggregators",
+            "aggregator_info",
+            view_func=self.aggregator_info,
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         app.add_url_rule(
@@ -1529,14 +1529,38 @@ class AdsbIm:
                 "num": len(s.craft_ids),
                 "pps": s.position_message_rate,} for s in history],}
 
-    def agg_status(self, agg_key):
-        try:
-            aggregator = aggregators.all_aggregators()[agg_key]
-        except KeyError:
-            flask.abort(404)
-        if not aggregator.enabled():
-            return {}
-        return aggregator.status
+    def aggregator_info(self):
+        infos = []
+        for agg in aggregators.all_aggregators().values():
+            if not agg.enabled():
+                continue
+            ais_status = adsb_status = None
+            if agg.enabled(aggregators.MessageType.AIS) and agg.status.ais:
+                ais_status = {"data_status": agg.status.ais.data_status}
+            if agg.enabled(aggregators.MessageType.ADSB) and agg.status.adsb:
+                adsb_status = {
+                    "data_status": agg.status.adsb.data_status,
+                    "mlat_status": agg.status.adsb.mlat_status,
+                    "mlat_privacy": self._conf.get("mlat_privacy"),}
+                # Aggregator-specific extras.
+                if agg.agg_key == "alive":
+                    adsb_status["alive_map_link"] = (
+                        agg.status.adsb.alive_map_link)
+                elif agg.agg_key == "adsblol":
+                    adsb_status["adsblol_link"] = agg.status.adsb.adsblol_link
+                elif agg.agg_key == "adsbx":
+                    adsb_status["adsbx_feeder_id"] = (
+                        agg.status.adsb.adsbx_feeder_id)
+            info = {
+                "agg_key": agg.agg_key,
+                "name": agg.name,
+                "map_url": agg.map_url,
+                "status_url": agg.status_url,
+                "ais": ais_status,
+                "adsb": adsb_status,}
+            infos.append(info)
+        # Sort aggregators to always give the frontend the same order.
+        return sorted(infos, key=op.itemgetter("agg_key"))
 
     def sdr_setup(self):
         return render_template("sdr_setup.html")
@@ -2231,11 +2255,9 @@ class AdsbIm:
             "low_disk", shutil.disk_usage("/").free < 1024 * 1024 * 1024)
 
     def overview(self):
-        enabled_aggregators = {
-            k: a
-            for k, a in aggregators.all_aggregators().items()
-            if a.enabled()}
-        for aggregator in enabled_aggregators.values():
+        for aggregator in aggregators.all_aggregators().values():
+            # Refresh the status cache to get a fast response when the frontend
+            # requests it.
             aggregator.refresh_status_cache()
         # if we get to show the feeder homepage, the user should have everything figured out
         # and we can remove the pre-installed ssh-keys and password
@@ -2294,7 +2316,6 @@ class AdsbIm:
             or self._conf.get("aggregators_chosen"))
         return render_template(
             "overview.html",
-            enabled_aggregators=enabled_aggregators,
             local_address=local_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,

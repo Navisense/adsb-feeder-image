@@ -105,129 +105,9 @@
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Data sharing</h5>
-      {% if enabled_aggregators %}
-        You are sharing data with {{ enabled_aggregators | length }} aggregator(s).
-      {% else %}
-        You are not sharing data with any aggregators.
-      {% endif %}
-      You can add or remove aggregators on the <a href="{{ url_for('aggregators') }}">data sharing setup page</a>.
-      <div class="row">
-        {% for type, type_key in [('AIS', 'ais'), ('ADS-B', 'adsb')] %}
-          {% for agg in enabled_aggregators.values() %}
-            {% if not agg.enabled(type_key) %}
-              {% continue %}
-            {% endif %}
-            <div class="col-12 col-md-6">
-              <div class="card my-2 bg-info"
-                   id="{{ agg.agg_key }}-{{ type_key }}-status">
-                <div class="card-header">{{ type }}</div>
-                <div class="card-body">
-                  <h5 class="card-title">{{ agg.name }}</h5>
-                  <span id="{{ agg.agg_key }}-{{ type_key }}-data-status">Checking status...</span>
-                  {% if type_key == 'adsb' and get_conf('mlat_enable') %}
-                    <br>
-                    <span id="{{ agg.agg_key }}-{{ type_key }}-mlat-status"></span>
-                  {% endif %}
-                  {# Some extra info and links for particular aggregators. #}
-                  {% if agg.agg_key == 'adsblol' %}
-                    <hr class="hr">
-                    <div>
-                      <a href="https://status.adsb.lol/"
-                         class="btn btn-secondary m-1"
-                         role="button">ADSB.lol status</a>
-                      <a href="https://www.adsb.lol/docs/feeders-only/introduction/"
-                         class="btn btn-secondary m-1"
-                         role="button">ADSB.lol feeder introduction</a>
-                      <a id="adsblol-link"
-                         href="https://my.adsb.lol/"
-                         class="btn btn-secondary m-1"
-                         role="button">personal ADSB.lol URL with the planes you are sending</a>
-                      <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10"
-                         class="btn btn-secondary m-1"
-                         role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
-                      {% if get_conf("mlat_privacy") %}
-                        (since you have MLAT privacy enabled, your feeder won't be shown)
-                      {% else %}
-                        (your feeder will be at an approximate location as {{ get_conf("site_name") }})
-                      {% endif %}
-                    </div>
-                  {% endif %}
-                  {% if agg.agg_key == 'flightradar' %}
-                    <hr class="hr">
-                    <div>
-                      <a href="{{ url_for('flightaware-status') }}"
-                         class="btn btn-secondary m-1"
-                         role="button">FR24 status</a>
-                    </div>
-                  {% endif %}
-                  {% if agg.agg_key == 'flightaware' %}
-                    <hr class="hr">
-                    <div>
-                      <a href="{{ url_for('flightaware-status') }}"
-                         class="btn btn-secondary m-1"
-                         role="button">FlightAware status</a>
-                    </div>
-                  {% endif %}
-                  {% if agg.agg_key == 'planefinder' %}
-                    <hr class="hr">
-                    <div>
-                      <a href="{{ url_for('planefinder-map') }}"
-                         class="btn btn-secondary m-1"
-                         role="button">Planefinder map</a>
-                      <a href="{{ url_for('planefinder-status') }}"
-                         class="btn btn-secondary m-1"
-                         role="button">Planefinder stats</a>
-                    </div>
-                  {% endif %}
-                  {% if agg.agg_key == 'adsbx' %}
-                    <hr class="hr">
-                    <div>
-                      <a id="adsbx-stat-link"
-                         href=""
-                         class="btn btn-secondary m-1"
-                         role="button">ADSBx Anywhere Stats</a>
-                      <a id="adsbx-map-link"
-                         href=""
-                         class="btn btn-secondary m-1"
-                         role="button">ADSBx Anywhere Map</a>
-                    </div>
-                  {% endif %}
-                  {% if agg.agg_key == 'alive' %}
-                    <hr class="hr">
-                    <div>
-                      <a href="https://airplanes.live/myfeed/"
-                         class="btn btn-secondary m-1"
-                         role="button">Status</a>
-                      <a id="alive-map-link"
-                         href=""
-                         class="btn btn-secondary m-1"
-                         role="button">Map</a>
-                    </div>
-                  {% endif %}
-                </div>
-                <div class="card-footer">
-                  {% if agg.map_url %}
-                    <a href="{{ agg.map_url }}" class="btn btn-secondary m-1" role="button">Aggregator map</a>
-                  {% else %}
-                    <a class="btn btn-secondary disabled m-1"
-                       role="button"
-                       aria-disabled="true">No aggregator map</a>
-                  {% endif %}
-                  {% if agg.status_url %}
-                    <a href="{{ agg.status_url }}"
-                       class="btn btn-secondary m-1"
-                       role="button">Aggregator status</a>
-                  {% else %}
-                    <a class="btn btn-secondary disabled m-1"
-                       role="button"
-                       aria-disabled="true">No aggregator status map</a>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-          {% endfor %}
-        {% endfor %}
-      </div>
+      You are sharing data with these aggregators. You can add or remove aggregators on the
+      <a href="{{ url_for('aggregators') }}">data sharing setup page</a>.
+      <div id="aggregators" class="row my-3"></div>
     </div>
   </div>
   <div class="card my-2">
@@ -475,84 +355,6 @@
       updateChartWithShownIndices(receptionHistoryChart);
     }
 
-    function refreshAggregatorStatus(aggKey) {
-      fetch(`/api/status/${aggKey}`, { signal: AbortSignal.timeout(15000) })
-        .then(response => response.json())
-        .then(resp => {
-          for (const messageType of ["ais", "adsb"]) {
-            const status = resp[messageType];
-            let dataStatus = "unknown";
-            let mlatStatus = null;
-            if (status) {
-              dataStatus = status.data_status;
-              mlatStatus = status.mlat_status;
-            }
-            let aggCard = $(`#${aggKey}-${messageType}-status`);
-            let dataStatusSpan = $(`#${aggKey}-${messageType}-data-status`);
-            if (aggCard.length == 0 || dataStatusSpan.length == 0) continue;
-            aggCard.removeClass("bg-success bg-warning bg-danger bg-info");
-            if (dataStatus == "good") {
-              aggCard.addClass("bg-success");
-              dataStatusSpan.text("Data is arriving at the aggregator.");
-            } else if (dataStatus == "warning") {
-              aggCard.addClass("bg-warning");
-              dataStatusSpan.text("Data is arriving at the aggregator, but it doesn't seem to be a lot.");
-            } else if (dataStatus == "bad") {
-              aggCard.addClass("bg-danger");
-              dataStatusSpan.text("No data is arriving at the aggregator.");
-            } else if (dataStatus == "starting") {
-              aggCard.addClass("bg-info");
-              dataStatusSpan.text("We've only just started sending data...");
-            } else if (dataStatus == "container_down") {
-              aggCard.addClass("bg-danger");
-              dataStatusSpan.text("The container sending data is down.");
-            } else if (dataStatus == "disconnected") {
-              aggCard.addClass("bg-danger");
-              dataStatusSpan.text("We're disconnected from the aggregator.");
-            } else {
-              aggCard.addClass("bg-info");
-              dataStatusSpan.text("We have no information whether data is arriving.");
-            }
-            {% if get_conf('mlat_enable') %}
-              if (mlatStatus) {
-                let mlatStatusSpan = $(`#${aggKey}-${messageType}-mlat-status`);
-                if (mlatStatus == "good") {
-                  mlatStatusSpan.text("MLAT is working.");
-                } else if (mlatStatus == "warning") {
-                  mlatStatusSpan.text(
-                    "There are issues with MLAT (intermittent sync issue / lack of traffic / no other receivers in the "
-                    + "area)");
-                } else if (mlatStatus == "bad") {
-                  mlatStatusSpan.html(
-                    `MLAT is not working (if this persists for hours, check `
-                    + `<a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)`);
-                } else if (mlatStatus == "disconnected") {
-                  mlatStatusSpan.text("MLAT is not connected.");
-                } else if (mlatStatus == "disabled") {
-                  mlatStatusSpan.text("MLAT is disabled.");
-                } else {
-                  mlatStatusSpan.text("We have no information whether MLAT is working.");
-                }
-              }
-            {% endif %}
-            // Extra data for adsb.lol.
-            if (status && status.adsblol_link) {
-              $("#adsblol-link").attr("href", status.adsblol_link);
-            }
-            // Extra data for airplanes.live.
-            if (status && status.alive_map_link) {
-              $("#alive-map-link").attr("href", status.alive_map_link);
-            }
-            // Extra data for ADSBExchange.
-            if (status && status.adsbx_feeder_id) {
-              $("#adsbx-stat-link").attr(
-                "href", `https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}`);
-              $("#adsbx-map-link").attr("href", `https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}`);
-            }
-          }
-        });
-    }
-
     async function updateConnectivityInfo() {
       let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
         .then(response => response.json());
@@ -603,6 +405,154 @@
       }
     }
 
+    function appendAggregatorInfo(agg) {
+      for (const [type, typeKey] of [["AIS", "ais"], ["ADS-B", "adsb"]]) {
+        const status = agg[typeKey];
+        if (!status) continue;
+        let colorClass = "";
+        let dataStatusText = "";
+        let mlatStatusHtml = "";
+        // Data status.
+        if (status.data_status == "good") {
+          colorClass = "bg-success";
+          dataStatusText = "Data is arriving at the aggregator.";
+        } else if (status.data_status == "warning") {
+          colorClass = "bg-warning";
+          dataStatusText = "Data is arriving at the aggregator, but it doesn't seem to be a lot.";
+        } else if (status.data_status == "bad") {
+          colorClass = "bg-danger";
+          dataStatusText = "No data is arriving at the aggregator.";
+        } else if (status.data_status == "starting") {
+          colorClass = "bg-info";
+          dataStatusText = "We've only just started sending data...";
+        } else if (status.data_status == "container_down") {
+          colorClass = "bg-danger";
+          dataStatusText = "The container sending data is down.";
+        } else if (status.data_status == "disconnected") {
+          colorClass = "bg-danger";
+          dataStatusText = "We're disconnected from the aggregator.";
+        } else {
+          colorClass = "bg-info";
+          dataStatusText = "We have no information whether data is arriving.";
+        }
+        // MLAT status.
+        if (status.mlat_status == "good") {
+          mlatStatusHtml = "MLAT is working.";
+        } else if (status.mlat_status == "warning") {
+          mlatStatusHtml = (
+            "There are issues with MLAT (intermittent sync issue / lack of traffic / no other receivers in the area)");
+        } else if (status.mlat_status == "bad") {
+          mlatStatusHtml = (
+            "MLAT is not working (if this persists for hours, check "
+            + '<a href="https://github.com/wiedehopf/adsb-wiki/wiki/mlat-check">this page</a>)');
+        } else if (status.mlat_status == "disconnected") {
+          mlatStatusHtml = "MLAT is not connected.";
+        } else if (status.mlat_status == "disabled") {
+          mlatStatusHtml = "MLAT is disabled.";
+        } else {
+          mlatStatusHtml = "We have no information whether MLAT is working.";
+        }
+        // Append the card.
+        $("#aggregators").append(`
+          <div class="col-12 col-md-6">
+            <div class="card my-2 ${colorClass}" id="${agg.agg_key}-${typeKey}-status">
+              <div class="card-header">${type}</div>
+              <div class="card-body">
+                <h5 class="card-title">${agg.name}</h5>
+                ${dataStatusText}
+              </div>
+              <div class="card-footer"></div>
+            </div>
+          </div>`);
+        if (typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`<br> ${mlatStatusHtml}`);
+        }
+        // Add a footer with map and status URLs.
+        const footer = $(`#${agg.agg_key}-${typeKey}-status > .card-footer`);
+        if (agg.map_url) {
+          footer.append(`<a href="${agg.map_url}" class="btn btn-secondary m-1" role="button">Aggregator map</a>`);
+        } else {
+          footer.append(`
+            <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator map</a>`);
+        }
+        if (agg.status_url) {
+          footer.append(
+            `<a href="${agg.status_url}" class="btn btn-secondary m-1" role="button">Aggregator status</a>`);
+        } else {
+          footer.append(`
+            <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator status map</a>`);
+        }
+        // Some extra info and links for particular aggregators.
+        if (agg.agg_key == "adsblol" && typeKey == "adsb") {
+          let mlatComment = "(your feeder will be at an approximate location as {{ get_conf('site_name') }})";
+          if (agg.adsb.mlat_privacy) {
+            mlatComment = "(since you have MLAT privacy enabled, your feeder won't be shown)";
+          }
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="https://status.adsb.lol/" class="btn btn-secondary m-1" role="button">ADSB.lol status</a>
+              <a href="https://www.adsb.lol/docs/feeders-only/introduction/"
+                 class="btn btn-secondary m-1"
+                 role="button">ADSB.lol feeder introduction</a>
+              <a href="${status.adsblol_link}"
+                 class="btn btn-secondary m-1"
+                 role="button">personal ADSB.lol URL with the planes you are sending</a>
+              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10"
+                 class="btn btn-secondary m-1"
+                 role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
+              ${mlatComment}
+            </div>`);
+        }
+        if (agg.agg_key == "flightradar" && typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="{{ url_for('flightaware-status') }}" class="btn btn-secondary m-1" role="button">FR24 status</a>
+            </div>`);
+        }
+        if (agg.agg_key == "flightaware" && typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="{{ url_for('flightaware-status') }}"
+                 class="btn btn-secondary m-1"
+                 role="button">FlightAware status</a>
+            </div>`);
+        }
+        if (agg.agg_key == "planefinder" && typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="{{ url_for('planefinder-map') }}" class="btn btn-secondary m-1" role="button">Planefinder map</a>
+              <a href="{{ url_for('planefinder-status') }}"
+                 class="btn btn-secondary m-1"
+                 role="button">Planefinder stats</a>
+            </div>`);
+        }
+        if (agg.agg_key == "adsbx" && typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}"
+                 class="btn btn-secondary m-1"
+                 role="button">ADSBx Anywhere Stats</a>
+              <a href="https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}"
+                 class="btn btn-secondary m-1"
+                 role="button">ADSBx Anywhere Map</a>
+            </div>`);
+        }
+        if (agg.agg_key == "alive" && typeKey == "adsb") {
+          $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
+            <hr class="hr">
+            <div>
+              <a href="https://airplanes.live/myfeed/" class="btn btn-secondary m-1" role="button">Status</a>
+              <a href="${status.alive_map_link}" class="btn btn-secondary m-1" role="button">Map</a>
+            </div>`);
+        }
+      }
+    }
+
     registerTask(
       "Update SDR devices",
       15000,
@@ -637,13 +587,23 @@
     );
 
     registerTask(
-      "Update aggregator status",
+      "Update aggregator infos",
       60000,
       function() {
-        {% for agg in enabled_aggregators.values() %}
-          refreshAggregatorStatus("{{ agg.agg_key }}");
-        {% endfor %}
-        $("#last-aggregator-status-update").html(new Date().toLocaleTimeString());
+        $.ajax("/api/aggregators").done(function (aggregators) {
+          $("#aggregators").html("");
+          if (! aggregators.length) {
+          $("#aggregators").html(makeNotificationCardHtml(
+            "info", "No aggregators", "You are not sharing data with any aggregators."));
+          } else {
+            for (const agg of aggregators) {
+              appendAggregatorInfo(agg);
+            }
+          }
+        }).fail(function(jqXHR) {
+          $("#aggregators").html(makeNotificationCardHtml(
+            "error", "Error getting aggregator info", "Error getting info about aggregators from the feeder."));
+        });
       }
     );
 

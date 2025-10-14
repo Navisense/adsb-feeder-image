@@ -1,4 +1,5 @@
 import abc
+import dataclasses as dc
 import enum
 import functools as ft
 import json
@@ -10,7 +11,6 @@ import requests
 import subprocess
 import threading
 import time
-import typing as t
 from typing import Any, Optional
 import uuid
 
@@ -45,17 +45,20 @@ class MessageType(enum.StrEnum):
     ADSB = "adsb"
 
 
-class AisStatus(t.TypedDict):
+@dc.dataclass
+class AisStatus:
     data_status: DataStatus
 
 
-class AdsbStatus(t.TypedDict):
+@dc.dataclass
+class AdsbStatus:
     data_status: DataStatus
     mlat_status: MlatStatus
 
 
-class AggregatorStatus(t.TypedDict):
-    ais: Optional[AdsbStatus]
+@dc.dataclass
+class AggregatorStatus:
+    ais: Optional[AisStatus]
     adsb: Optional[AdsbStatus]
 
 
@@ -191,6 +194,9 @@ class NetConfig:
 class Aggregator(abc.ABC):
     MAX_CACHE_AGE = 10
 
+    AisStatus = AisStatus
+    AdsbStatus = AdsbStatus
+
     def __init__(
             self, conf: config.Config, system: system.System, *, agg_key: str,
             name: str, map_url: Optional[str],
@@ -292,9 +298,10 @@ class Aggregator(abc.ABC):
         if data_status_based_on_container:
             return AggregatorStatus(
                 ais=None if MessageType.AIS not in self.capable_message_types
-                else AisStatus(data_status=data_status_based_on_container),
+                else self.AisStatus(
+                    data_status=data_status_based_on_container),
                 adsb=None if MessageType.ADSB not in self.capable_message_types
-                else AdsbStatus(
+                else self.AdsbStatus(
                     data_status=data_status_based_on_container,
                     mlat_status=MlatStatus.DISABLED),
             )
@@ -349,8 +356,8 @@ class UltrafeederAggregator(Aggregator):
         data_status = self._get_data_status()
         mlat_status = self._get_mlat_status()
         return AggregatorStatus(
-            ais=None,
-            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status))
+            ais=None, adsb=self.AdsbStatus(
+                data_status=data_status, mlat_status=mlat_status))
 
     def _get_data_status(self) -> DataStatus:
         bconf = self._netconfig.adsb_config
@@ -411,7 +418,7 @@ class UltrafeederAggregator(Aggregator):
 
 class AirplanesLiveAggregator(UltrafeederAggregator):
     class AirplanesLiveAdsbStatus(AdsbStatus):
-        alive_map_link: str
+        alive_map_link: str = ""
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
@@ -436,13 +443,13 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
                 self._logger.exception(
                     "Unexpected response when checking Airplanes.live map "
                     f"link: {a_dict}")
-        status["adsb"]["alive_map_link"] = self._alive_map_link
+        status.adsb.alive_map_link = self._alive_map_link
         return status
 
 
 class AdsbLolAggregator(UltrafeederAggregator):
     class AdsbLolAdsbStatus(AdsbStatus):
-        adsblol_link: str
+        adsblol_link: str = ""
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
@@ -467,13 +474,13 @@ class AdsbLolAggregator(UltrafeederAggregator):
                         self._adsblol_link = entry.get("adsblol_my_url")
             except:
                 self._logger.exception("Error getting map link from adsb.lol.")
-        status["adsb"]["adsblol_link"] = self._adsblol_link
+        status.adsb.adsblol_link = self._adsblol_link
         return status
 
 
 class AdsbxAggregator(UltrafeederAggregator):
     class AdsbxAdsbStatus(AdsbStatus):
-        adsbx_feeder_id: str
+        adsbx_feeder_id: str = ""
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
@@ -489,7 +496,7 @@ class AdsbxAggregator(UltrafeederAggregator):
         status = super()._check_aggregator_status()
         if self._adsbx_feeder_id is None:
             self._adsbx_feeder_id = self._get_feeder_id()
-        status["adsb"]["adsbx_feeder_id"] = self._adsbx_feeder_id
+        status.adsb.adsbx_feeder_id = self._adsbx_feeder_id
         return status
 
     def _get_feeder_id(self):
@@ -601,7 +608,7 @@ class AccountBasedAggregator(Aggregator):
     def _check_aggregator_status(self) -> AggregatorStatus:
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(
+            adsb=self.AdsbStatus(
                 data_status=DataStatus.UNKNOWN,
                 mlat_status=MlatStatus.DISABLED),
         )
@@ -773,7 +780,7 @@ class PorttrackerAggregator(AccountBasedAggregator):
         except (KeyError, AssertionError):
             data_status = DataStatus.UNKNOWN
         return AggregatorStatus(
-            ais=AisStatus(data_status=data_status), adsb=None)
+            ais=self.AisStatus(data_status=data_status), adsb=None)
 
 
 class AirnavRadarAggregator(AccountBasedAggregator):
@@ -880,7 +887,8 @@ class AirnavRadarAggregator(AccountBasedAggregator):
         mlat_status = MlatStatus.GOOD if mlat_online else MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+            adsb=self.AdsbStatus(
+                data_status=data_status, mlat_status=mlat_status),
         )
 
 
@@ -955,7 +963,8 @@ class FlightAwareAggregator(AccountBasedAggregator):
                 mlat_status = MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+            adsb=self.AdsbStatus(
+                data_status=data_status, mlat_status=mlat_status),
         )
 
 
@@ -979,7 +988,7 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
     def _check_aggregator_status(self) -> AggregatorStatus:
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(
+            adsb=self.AdsbStatus(
                 data_status=DataStatus.UNKNOWN,
                 mlat_status=MlatStatus.DISABLED),
         )
@@ -998,7 +1007,7 @@ class TenNinetyUkAggregator(AccountBasedAggregator):
                 data_status = DataStatus.UNKNOWN
             return AggregatorStatus(
                 ais=None,
-                adsb=AdsbStatus(
+                adsb=self.AdsbStatus(
                     data_status=data_status, mlat_status=MlatStatus.DISABLED),
             )
 
@@ -1192,7 +1201,7 @@ class FlightRadar24Aggregator(AccountBasedAggregator):
             data_status = DataStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(
+            adsb=self.AdsbStatus(
                 data_status=data_status, mlat_status=MlatStatus.DISABLED),
         )
 
@@ -1230,7 +1239,8 @@ class PlaneWatchAggregator(AccountBasedAggregator):
             "connected") else MlatStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(data_status=data_status, mlat_status=mlat_status),
+            adsb=self.AdsbStatus(
+                data_status=data_status, mlat_status=mlat_status),
         )
 
 
@@ -1263,7 +1273,7 @@ class SdrMapAggregator(AccountBasedAggregator):
             data_status = DataStatus.DISCONNECTED
         return AggregatorStatus(
             ais=None,
-            adsb=AdsbStatus(
+            adsb=self.AdsbStatus(
                 data_status=data_status, mlat_status=MlatStatus.UNKNOWN),
         )
 
@@ -1296,7 +1306,7 @@ class AiscatcherAggregator(AccountBasedAggregator):
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         return AggregatorStatus(
-            ais=AisStatus(data_status=DataStatus.UNKNOWN), adsb=None)
+            ais=self.AisStatus(data_status=DataStatus.UNKNOWN), adsb=None)
 
 
 class AishubAggregator(AccountBasedAggregator):
@@ -1350,4 +1360,4 @@ class AishubAggregator(AccountBasedAggregator):
         else:
             data_status = DataStatus.GOOD
         return AggregatorStatus(
-            ais=AisStatus(data_status=data_status), adsb=None)
+            ais=self.AisStatus(data_status=data_status), adsb=None)
