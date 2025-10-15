@@ -43,8 +43,9 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
-        <span class="text-muted me-2">Last update: <span id="last-update-connectivity">never</span></span>
-        <button type="button"
+        <span class="text-muted me-2">Last update: <span id="last-update-connectivity-counter">never</span></span>
+        <button id="last-update-connectivity-button"
+                type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateConnectivityInfo()">
           <span class="fas fa-arrows-rotate"></span>
@@ -89,8 +90,9 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
-        <span class="text-muted me-2">Last update: <span id="last-update-sdr-devices">never</span></span>
-        <button type="button"
+        <span class="text-muted me-2">Last update: <span id="last-update-sdr-devices-counter">never</span></span>
+        <button id="last-update-sdr-devices-button"
+                type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateSdrDevices()">
           <span class="fas fa-arrows-rotate"></span>
@@ -105,8 +107,9 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
-        <span class="text-muted me-2">Last update: <span id="last-update-reception">never</span></span>
-        <button type="button"
+        <span class="text-muted me-2">Last update: <span id="last-update-reception-counter">never</span></span>
+        <button id="last-update-reception-button"
+                type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateReceptionStats()">
           <span class="fas fa-arrows-rotate"></span>
@@ -129,8 +132,9 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
-        <span class="text-muted me-2">Last update: <span id="last-update-aggregators">never</span></span>
-        <button type="button"
+        <span class="text-muted me-2">Last update: <span id="last-update-aggregators-counter">never</span></span>
+        <button id="last-update-aggregators-button"
+                type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateAggregatorInfos()">
           <span class="fas fa-arrows-rotate"></span>
@@ -145,8 +149,9 @@
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
-        <span class="text-muted me-2">Last update: <span id="last-update-version">never</span></span>
-        <button type="button"
+        <span class="text-muted me-2">Last update: <span id="last-update-version-counter">never</span></span>
+        <button id="last-update-version-button"
+                type="button"
                 class="btn btn-secondary btn-floating"
                 onclick="updateVersionInfo()">
           <span class="fas fa-arrows-rotate"></span>
@@ -634,11 +639,16 @@
         });
     }
 
-    const connectivityUpdateCounter = new UpdateTimeCounter("last-update-connectivity");
-    const sdrDevicesUpdateCounter = new UpdateTimeCounter("last-update-sdr-devices");
-    const receptionUpdateCounter = new UpdateTimeCounter("last-update-reception");
-    const aggregatorUpdateCounter = new UpdateTimeCounter("last-update-aggregators");
-    const versionUpdateCounter = new UpdateTimeCounter("last-update-version");
+    const connectivityUpdateCounter = new UpdateTimeCounter(
+      "last-update-connectivity-counter", "last-update-connectivity-button");
+    const sdrDevicesUpdateCounter = new UpdateTimeCounter(
+      "last-update-sdr-devices-counter", "last-update-sdr-devices-button");
+    const receptionUpdateCounter = new UpdateTimeCounter(
+      "last-update-reception-counter", "last-update-reception-button");
+    const aggregatorUpdateCounter = new UpdateTimeCounter(
+      "last-update-aggregators-counter", "last-update-aggregators-button");
+    const versionUpdateCounter = new UpdateTimeCounter(
+      "last-update-version-counter", "last-update-version-button");
     registerTask("Update connectivity info", 60000, updateConnectivityInfo);
     registerTask("Update SDR devices", 15000, updateSdrDevices);
     registerTask("Update reception stats", 15000, updateReceptionStats);
