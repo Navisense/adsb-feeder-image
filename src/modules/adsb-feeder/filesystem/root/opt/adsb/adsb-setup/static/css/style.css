@@ -113,3 +113,11 @@ font-size: 50%;
 .position-relative {
   position: relative;
 }
+
+.badge-circular {
+	border-radius: var(--mdb-border-radius-pill) !important;
+  aspect-ratio: 1 / 1;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}

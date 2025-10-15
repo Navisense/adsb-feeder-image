@@ -672,6 +672,9 @@
             <input id="porttracker-select-station-${userStation.station.id}" class="form-check-input required-if-enabled d-none" type="radio" name="porttracker-station-id" value="${userStation.station.id}">
             <div id="porttracker-select-station-card-${userStation.station.id}" class="card my-2 porttracker-select-station-card">
               <div class="card-body">
+                <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                  <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                </div>
                 <h5 class="card-title">${userStation.station.hostname}</h5>
                 ${descriptionHtml}
                 <div class="card-footer text-muted">
@@ -697,7 +700,10 @@
       $(".porttracker-select-station-card").each(function() {
         $(this).removeClass(selectedCardClasses);
       });
+      $(".porttracker-select-station-card .selected-checkmark").addClass("d-none");
       $(`#porttracker-select-station-card-${event.data.userStation.station.id}`).addClass(selectedCardClasses);
+      $(`#porttracker-select-station-card-${event.data.userStation.station.id} .selected-checkmark`).removeClass(
+        "d-none");
       $("input[name=porttracker-mqtt-protocol]").val(
         event.data.userStation.mosquittoAccess.protocol);
       $("input[name=porttracker-mqtt-host]").val(
