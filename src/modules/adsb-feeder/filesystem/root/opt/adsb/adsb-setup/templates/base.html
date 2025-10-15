@@ -278,7 +278,13 @@
         {% if current_user.is_authenticated %}
           <form method="post"
                 action="{{ url_for('logout', next=request.full_path) }}">
-            <button type="submit" class="btn btn-secondary">Logout</button>
+            <button type="submit"
+                    class="btn btn-tertiary"
+                    data-mdb-toggle="tooltip"
+                    title="Admin logout"
+                    data-mdb-placement="bottom">
+              <span class="fas fa-arrow-right-from-bracket fa-3x text-light"></span>
+            </button>
           </form>
         {% endif %}
         <button class="navbar-toggler"
@@ -425,5 +431,12 @@
         </span>
       </section>
     </footer>
+    <script>
+      // Initialize all MDB tooltips.
+      const elementsWithTooltip = [].slice.call(document.querySelectorAll('[data-mdb-toggle="tooltip"]'));
+      for (const elementWithTooltip of elementsWithTooltip) {
+        new mdb.Tooltip(elementWithTooltip);
+      }
+    </script>
   </body>
 </html>
