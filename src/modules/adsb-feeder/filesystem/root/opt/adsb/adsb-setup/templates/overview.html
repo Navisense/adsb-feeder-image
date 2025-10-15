@@ -478,30 +478,30 @@
       for (const [type, typeKey] of [["AIS", "ais"], ["ADS-B", "adsb"]]) {
         const status = agg[typeKey];
         if (!status) continue;
-        let colorClass = "";
+        let statusBadgeHtml = "";
         let dataStatusText = "";
         let mlatStatusHtml = "";
         // Data status.
         if (status.data_status == "good") {
-          colorClass = "bg-success";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-success">OK</span>';
           dataStatusText = "Data is arriving at the aggregator.";
         } else if (status.data_status == "warning") {
-          colorClass = "bg-warning";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-warning">low data</span>';
           dataStatusText = "Data is arriving at the aggregator, but it doesn't seem to be a lot.";
         } else if (status.data_status == "bad") {
-          colorClass = "bg-danger";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-danger">no data</span>';
           dataStatusText = "No data is arriving at the aggregator.";
         } else if (status.data_status == "starting") {
-          colorClass = "bg-info";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-info">starting...</span>';
           dataStatusText = "We've only just started sending data...";
         } else if (status.data_status == "container_down") {
-          colorClass = "bg-danger";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-danger">container down</span>';
           dataStatusText = "The container sending data is down.";
         } else if (status.data_status == "disconnected") {
-          colorClass = "bg-danger";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-danger">disconnected</span>';
           dataStatusText = "We're disconnected from the aggregator.";
         } else {
-          colorClass = "bg-info";
+          statusBadgeHtml = '<span class="badge rounded-pill badge-info">no info</span>';
           dataStatusText = "We have no information whether data is arriving.";
         }
         // MLAT status.
@@ -524,9 +524,10 @@
         // Append the card.
         $("#aggregators").append(`
           <div class="col-12 col-md-6">
-            <div class="card my-2 ${colorClass}" id="${agg.agg_key}-${typeKey}-status">
+            <div class="card my-2" id="${agg.agg_key}-${typeKey}-status">
               <div class="card-header">${type}</div>
-              <div class="card-body">
+              <div class="card-body position-relative">
+                <div class="position-absolute top-0 end-0 m-3">${statusBadgeHtml}</div>
                 <h5 class="card-title">${agg.name}</h5>
                 ${dataStatusText}
               </div>
@@ -623,18 +624,21 @@
             details):
             <div id="docker-containers" class="row"></div>`);
           for (const container of versionInfo.containers) {
-            let colorClass = "bg-success";
+            let statusBadgeHtml = '<span class="badge rounded-pill badge-success">running</span>';
             if (["created", "paused", "exited"].includes(container.state)) {
-              colorClass = "bg-info";
+              statusBadgeHtml = `<span class="badge rounded-pill badge-info">${container.state}</span>`;
             } else if (container.state == "restarting") {
-              colorClass = "bg-warning";
-            } else if (container.state == "dead" || container.status.includes("unhealthy")) {
-              colorClass = "bg-danger";
+              statusBadgeHtml = '<span class="badge rounded-pill badge-warning">restarting</span>';
+            } else if (container.state == "dead") {
+              statusBadgeHtml = '<span class="badge rounded-pill badge-danger">dead</span>';
+            } else if (container.status.includes("unhealthy")) {
+              statusBadgeHtml = '<span class="badge rounded-pill badge-danger">unhealthy</span>';
             }
             $("#docker-containers").append(`
             <div class="col-12 col-md-6">
-              <div class="card my-2 ${colorClass}">
+              <div class="card my-2">
                 <div class="card-body">
+                  <div class="position-absolute top-0 end-0 m-3">${statusBadgeHtml}</div>
                   <h5 class="card-title">${container.name}</h5>
                   ${container.status}
                 </div>
