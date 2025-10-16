@@ -7,6 +7,7 @@ $light: #f3f4f6;
 $dark: #111827;
 
 $font-family-base: "Inter var";
+$input-btn-font-family: "Inter var";
 
 // Make disabled buttons less opaque, because the orange is coming on pretty
 // strong.
@@ -29,15 +30,28 @@ $border-radius: 0;
   @extend .text-white;
 }
 
+.button-padding {
+  padding: 0.5rem 1.25rem !important;
+}
+
 .nav-link{
   @extend .bg-secondary;
   @extend .text-white;
+  @extend .button-padding;
 }
 
 li.nav-item {
-    @extend .mx-2;
+    @extend .mx-1;
+}
+
+.navbar .btn-group {
+  @extend .mx-1;
 }
 
 footer {
   @extend .text-muted;
+}
+
+.btn {
+  @extend .button-padding;
 }

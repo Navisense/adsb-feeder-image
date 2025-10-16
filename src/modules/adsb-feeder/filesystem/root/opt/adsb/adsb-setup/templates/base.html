@@ -213,9 +213,13 @@
                     class="btn btn-primary"
                     {% if not is_reception_enabled('ais') %}disabled{% endif %}
                     onclick="document.location='{{ url_for("ais-catcher") }}'">Live Map (AIS)</button>
-          </div>
-          <div class="btn-group"
+            {# djlint:off #}
+            {# We need to turn off formatting here in order to guarantee the formatter doesn't introduce a whitespace in
+               between these 2 btn-group. Since they are rendered as inline-flex, having one there introduces an unwated
+               space in the layout. #}
+          </div><div class="btn-group"
                {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
+            {# djlint:on #}
             <button type="button"
                     class="btn btn-primary"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
@@ -286,7 +290,7 @@
                     data-mdb-toggle="tooltip"
                     title="Admin logout"
                     data-mdb-placement="bottom">
-              <span class="fas fa-arrow-right-from-bracket fa-3x text-light"></span>
+              <span class="fas fa-arrow-right-from-bracket fa-2x text-light"></span>
             </button>
           </form>
         {% endif %}
@@ -302,7 +306,7 @@
           </svg>
         </button>
         <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbar">
-          <ul class="navbar-nav ms-1 mb-2 mb-lg-0">
+          <ul class="navbar-nav ms-1 mb-0">
             {# Maps dropdown menu. This will only be shown on small screens, to replace the big live map buttons. #}
             <li class="nav-item dropdown d-block d-lg-none">
               <a class="nav-link dropdown-toggle"
