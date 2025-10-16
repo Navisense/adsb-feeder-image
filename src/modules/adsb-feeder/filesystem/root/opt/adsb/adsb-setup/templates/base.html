@@ -290,7 +290,7 @@
                     data-mdb-toggle="tooltip"
                     title="Admin logout"
                     data-mdb-placement="bottom">
-              <span class="fas fa-arrow-right-from-bracket fa-2x text-accent-alternate"></span>
+              <span id="logout-icon" class="fas fa-arrow-right-from-bracket fa-2x text-accent-alternate"></span>
             </button>
           </form>
         {% endif %}
@@ -431,10 +431,11 @@
     <footer class="text-center">
       <section class="d-flex justify-content-center border-bottom small">
         <span>
-          <a href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Porttracker SDR Feeder</a>
+          <a class="link-accent"
+             href="https://gitlab.navisense.de/navisense-public/adsb-feeder-image">Porttracker SDR Feeder</a>
           {{ get_conf("base_version") }}, running on {{ get_conf("board_name") }}.
           <br>
-          Based on <a href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
+          Based on <a class="link-accent" href="https://adsb.im/home">ADS-B Feeder Image</a> by Dirk Hohndel.
         </span>
       </section>
     </footer>
