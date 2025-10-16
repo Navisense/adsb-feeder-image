@@ -210,7 +210,7 @@
           <div class="btn-group"
                {% if not is_reception_enabled('ais') %}title="AIS reception is disabled"{% endif %}>
             <button type="button"
-                    class="btn btn-primary"
+                    class="btn btn-accent"
                     {% if not is_reception_enabled('ais') %}disabled{% endif %}
                     onclick="document.location='{{ url_for("ais-catcher") }}'">Live Map (AIS)</button>
             {# djlint:off #}
@@ -221,13 +221,13 @@
                {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
             {# djlint:on #}
             <button type="button"
-                    class="btn btn-primary"
+                    class="btn btn-accent"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
                     onclick="document.location='{{ url_for("tar1090" + get_conf("tar1090_query_params") ) }}'">
               Live Map (ADS-B)
             </button>
             <button type="button"
-                    class="btn btn-primary dropdown-toggle dropdown-toggle-split"
+                    class="btn btn-accent dropdown-toggle dropdown-toggle-split"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
                     data-mdb-toggle="dropdown"
                     aria-expanded="false"></button>
@@ -290,11 +290,11 @@
                     data-mdb-toggle="tooltip"
                     title="Admin logout"
                     data-mdb-placement="bottom">
-              <span class="fas fa-arrow-right-from-bracket fa-2x text-light"></span>
+              <span class="fas fa-arrow-right-from-bracket fa-2x text-accent-alternate"></span>
             </button>
           </form>
         {% endif %}
-        <button class="navbar-toggler"
+        <button class="navbar-toggler text-accent-alternate"
                 type="button"
                 data-mdb-toggle="collapse"
                 data-mdb-target="#navbar"
@@ -302,7 +302,7 @@
                 aria-expanded="false"
                 aria-label="Toggle navigation">
           <svg viewBox="-5 0 10 8" width="1.5em">
-            <line y2="8" stroke="#fbfbfc" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
+            <line y2="8" stroke="#4f46e5" stroke-width="8" stroke-dasharray="1.6 1.4"></line>
           </svg>
         </button>
         <div class="collapse navbar-collapse" style="flex-grow: 0" id="navbar">

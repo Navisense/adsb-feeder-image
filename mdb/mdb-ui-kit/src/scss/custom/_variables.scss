@@ -1,10 +1,19 @@
 // Your custom variables
 
-$primary: #d97706;
-$secondary: #4f46e5;
-$white: #fbfbfc;
-$light: #f3f4f6;
-$dark: #111827;
+@use "sass:map";
+
+@use "../free/_variables.scss" as free-vars with (
+  $white: #fbfbfc,
+  $light: #f3f4f6,
+  $dark: #111827,
+);
+
+// Add 2 extra colors for the theme for accents.
+$theme-colors: map.merge(free-vars.$theme-colors, (
+    'accent': #d97706,
+    'accent-alternate': #4f46e5
+  )
+);
 
 $font-family-base: "Inter var";
 $input-btn-font-family: "Inter var";
@@ -17,13 +26,9 @@ $btn-disabled-opacity: 0.5;
 $border-radius: 0;
 
 // Header and footer: dark background, font color to match. Dropdown links
-// with secondary background and a bit spaced apart.
+// with alternate accent background and a bit spaced apart.
 .navbar, .navbar-brand, footer {
   @extend .bg-dark;
-}
-
-.navbar{
-  @extend .text-secondary;
 }
 
 .navbar-brand {
@@ -34,13 +39,13 @@ $border-radius: 0;
   padding: 0.5rem 1.25rem !important;
 }
 
-.nav-link{
-  @extend .bg-secondary;
+.navbar .nav-link {
+  @extend .bg-accent-alternate;
   @extend .text-white;
   @extend .button-padding;
 }
 
-li.nav-item {
+.navbar li.nav-item {
     @extend .mx-1;
 }
 
@@ -54,4 +59,10 @@ footer {
 
 .btn {
   @extend .button-padding;
+}
+
+.btn-accent {
+  // We want white text in our accent buttons, even if it has slightly worse
+  // contrast.
+  @extend .text-white;
 }
