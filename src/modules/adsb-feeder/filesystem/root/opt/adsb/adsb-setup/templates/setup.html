@@ -15,6 +15,7 @@
        target="_blank">location and elevation finder tool</a> to find your Latitude, Longitude, and Altitude based
     on your address.
   </p>
+  {#
   <div class="row">
     <div class="col-12 col-lg-6">
       <p class="m-1">
@@ -23,9 +24,10 @@
       </p>
     </div>
     <div class="col-12 col-lg-6">
-      <a class="btn btn-secondary" href="{{ url_for('restore') }}">restore previous backup</a>
+      <a class="btn btn-secondary" href="{{ url_for('restore') }}">Restore previous backup</a>
     </div>
   </div>
+  #}
   <form method="post"
         onsubmit="showSpinner(); return true;"
         action="{{ url_for('setup') }}">
