@@ -170,16 +170,16 @@
     }
 
     function appendSdrDevice(sdrDevice) {
-      let usageDescription = "unused";
+      let usageDescriptionHtml = "unused";
       let valueThatShouldBeChecked = "unused";
       if (sdrDevice.assignment == "ais") {
-        usageDescription = "handling AIS";
+        usageDescriptionHtml = "handling <strong>AIS</strong>";
         valueThatShouldBeChecked = sdrDevice.assignment;
       } else if (sdrDevice.assignment == "1090") {
-        usageDescription = "handling ADS-B (1090MHz)";
+        usageDescriptionHtml = "handling <strong>ADS-B (1090MHz)</strong>";
         valueThatShouldBeChecked = sdrDevice.assignment;
       } else if (sdrDevice.assignment == "978") {
-        usageDescription = "handling UAT (978MHz)";
+        usageDescriptionHtml = "handling <strong>UAT (978MHz)</strong>";
         valueThatShouldBeChecked = sdrDevice.assignment;
       }
       let supportedAssignments = [];
@@ -201,7 +201,7 @@
           <div class="card my-2">
             <div class="card-body">
               <h5 class="card-title">Device with serial ${sdrDevice.serial}</h5>
-              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescription}.
+              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescriptionHtml}.
               <div id="sdr-assignment-${sdrDevice.serial}" class="row mt-2 sdr-assignment"></div>
             </div>
           </div>
