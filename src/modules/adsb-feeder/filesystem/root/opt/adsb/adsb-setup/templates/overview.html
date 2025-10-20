@@ -542,15 +542,16 @@
         if (agg.map_url) {
           footer.append(`<a href="${agg.map_url}" class="btn btn-secondary m-1" role="button">Aggregator map</a>`);
         } else {
-          footer.append(`
-            <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator map</a>`);
+          footer.append(
+            `<a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator map</a>`);
         }
         if (agg.status_url) {
           footer.append(
             `<a href="${agg.status_url}" class="btn btn-secondary m-1" role="button">Aggregator status</a>`);
         } else {
-          footer.append(`
-            <a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator status map</a>`);
+          footer.append(
+            `<a class="btn btn-secondary disabled m-1" role="button" aria-disabled="true">No aggregator status map</a>`
+          );
         }
         // Some extra info and links for particular aggregators.
         if (agg.agg_key == "adsblol" && typeKey == "adsb") {
@@ -558,53 +559,80 @@
           if (agg.adsb.mlat_privacy) {
             mlatComment = "(since you have MLAT privacy enabled, your feeder won't be shown)";
           }
+          let linkHtml = `<a href="${status.adsblol_link}">personal ADSB.lol URL with the planes you are sending</a>`;
+          if (!status.adsblol_link) {
+            linkHtml = (`
+              <span class="text-muted" title="not available at the moment">
+                personal ADSB.lol URL with the planes you are sending
+              </span>`);
+          }
+          const lat = {{ get_conf('lat', default=0) }};
+          const lon = {{ get_conf('lon', default=0) }};
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="https://status.adsb.lol/" class="btn btn-secondary m-1" role="button">ADSB.lol status</a>
-              <a href="https://www.adsb.lol/docs/feeders-only/introduction/" class="btn btn-secondary m-1" role="button">ADSB.lol feeder introduction</a>
-              <a href="${status.adsblol_link}" class="btn btn-secondary m-1" role="button">personal ADSB.lol URL with the planes you are sending</a>
-              <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10" class="btn btn-secondary m-1" role="button">ADSB.lol MLAT feeder map for the area around {{ get_conf("site_name") }}</a>
-              ${mlatComment}
-            </div>`);
-        }
-        if (agg.agg_key == "flightradar" && typeKey == "adsb") {
+            <hr class="hr hr-blurry">
+            <h6>Information specific to adsb.lol</h6>
+            <ul>
+              <li><a href="https://status.adsb.lol/">ADSB.lol status</a></li>
+              <li><a href="https://www.adsb.lol/docs/feeders-only/introduction/">ADSB.lol feeder introduction</a></li>
+              <li>${linkHtml}</li>
+              <li>
+                <a href="https://mlat.adsb.lol/syncmap/#lat=${lat}#lon=${lon}#zoom=10">
+                  ADSB.lol MLAT feeder map for the area around the device
+                </a>
+              </li>
+            </ul>
+            <p class="text-muted">${mlatComment}</p>`);
+        } else if (agg.agg_key == "flightradar" && typeKey == "adsb") {
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="{{ url_for('flightaware-status') }}" class="btn btn-secondary m-1" role="button">FR24 status</a>
-            </div>`);
-        }
-        if (agg.agg_key == "flightaware" && typeKey == "adsb") {
+            <hr class="hr hr-blurry">
+            <h6>Information specific to flightradar24</h6>
+            <ul>
+              <li><a href="{{ url_for('flightaware-status') }}">flightradar24 status</a></li>
+            </ul>`);
+        } else if (agg.agg_key == "flightaware" && typeKey == "adsb") {
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="{{ url_for('flightaware-status') }}" class="btn btn-secondary m-1" role="button">FlightAware status</a>
-            </div>`);
-        }
-        if (agg.agg_key == "planefinder" && typeKey == "adsb") {
+            <hr class="hr hr-blurry">
+            <h6>Information specific to FlightAware</h6>
+            <ul>
+              <li><a href="{{ url_for('flightaware-status') }}">FlightAware status</a></li>
+            </ul>`);
+        } else if (agg.agg_key == "planefinder" && typeKey == "adsb") {
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="{{ url_for('planefinder-map') }}" class="btn btn-secondary m-1" role="button">Planefinder map</a>
-              <a href="{{ url_for('planefinder-status') }}" class="btn btn-secondary m-1" role="button">Planefinder stats</a>
-            </div>`);
-        }
-        if (agg.agg_key == "adsbx" && typeKey == "adsb") {
+            <hr class="hr hr-blurry">
+            <h6>Information specific to PlaneFinder</h6>
+            <ul>
+              <li><a href="{{ url_for('planefinder-map') }}">PlaneFinder map</a></li>
+              <li><a href="{{ url_for('planefinder-status') }}">PlaneFinder stats</a></li>
+            </ul>`);
+        } else if (agg.agg_key == "adsbx" && typeKey == "adsb") {
+          let linksHtml = (`
+            <li>
+              <a href="https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}">
+                ADSBx Anywhere Stats
+              </a>
+            </li>
+            <li><a href="https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}">ADSBx Anywhere Map</a></li>`);
+          if (!status.adsbx_feeder_id) {
+            linksHtml = (`
+            <li><span class="text-muted" title="not available at the moment">ADSBx Anywhere Stats</span></li>
+            <li><span class="text-muted" title="not available at the moment">ADSBx Anywhere Map</span></li>`);
+          }
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="https://www.adsbexchange.com/api/feeders/?feed=${status.adsbx_feeder_id}" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Stats</a>
-              <a href="https://globe.adsbexchange.com/?feed=${status.adsbx_feeder_id}" class="btn btn-secondary m-1" role="button">ADSBx Anywhere Map</a>
-            </div>`);
-        }
-        if (agg.agg_key == "alive" && typeKey == "adsb") {
+            <hr class="hr hr-blurry">
+            <h6>Information specific to ADSBExchange</h6>
+            <ul>${linksHtml}</ul>`);
+        } else if (agg.agg_key == "alive" && typeKey == "adsb") {
+          let linkHtml = `<a href="${status.alive_map_link}">Map</a>`;
+          if (!status.alive_map_link) {
+            linkHtml = `<span class="text-muted" title="not available at the moment">Map</span>`;
+          }
           $(`#${agg.agg_key}-${typeKey}-status > .card-body`).append(`
-            <hr class="hr">
-            <div>
-              <a href="https://airplanes.live/myfeed/" class="btn btn-secondary m-1" role="button">Status</a>
-              <a href="${status.alive_map_link}" class="btn btn-secondary m-1" role="button">Map</a>
-            </div>`);
+            <hr class="hr hr-blurry">
+            <h6>Information specific to airplanes.live</h6>
+            <ul>
+              <li><a href="https://airplanes.live/myfeed/">Status</a></li>
+              <li><a href="${status.alive_map_link}">Map</a></li>
+            </ul>`);
         }
       }
     }
