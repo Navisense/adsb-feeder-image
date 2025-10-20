@@ -417,8 +417,11 @@ class UltrafeederAggregator(Aggregator):
 
 
 class AirplanesLiveAggregator(UltrafeederAggregator):
+    @dc.dataclass
     class AirplanesLiveAdsbStatus(AdsbStatus):
         alive_map_link: str = ""
+
+    AdsbStatus = AirplanesLiveAdsbStatus
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
@@ -448,8 +451,11 @@ class AirplanesLiveAggregator(UltrafeederAggregator):
 
 
 class AdsbLolAggregator(UltrafeederAggregator):
+    @dc.dataclass
     class AdsbLolAdsbStatus(AdsbStatus):
         adsblol_link: str = ""
+
+    AdsbStatus = AdsbLolAdsbStatus
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(
@@ -479,8 +485,11 @@ class AdsbLolAggregator(UltrafeederAggregator):
 
 
 class AdsbxAggregator(UltrafeederAggregator):
+    @dc.dataclass
     class AdsbxAdsbStatus(AdsbStatus):
         adsbx_feeder_id: str = ""
+
+    AdsbStatus = AdsbxAdsbStatus
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(

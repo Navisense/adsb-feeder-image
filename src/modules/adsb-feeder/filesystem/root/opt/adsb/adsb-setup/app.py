@@ -1550,13 +1550,20 @@ class AdsbIm:
                     "mlat_privacy": self._conf.get("mlat_privacy"),}
                 # Aggregator-specific extras.
                 if agg.agg_key == "alive":
-                    adsb_status["alive_map_link"] = (
-                        agg.status.adsb.alive_map_link)
+                    link = None
+                    if agg.status.adsb:
+                        link = agg.status.adsb.alive_map_link
+                    adsb_status["alive_map_link"] = link
                 elif agg.agg_key == "adsblol":
-                    adsb_status["adsblol_link"] = agg.status.adsb.adsblol_link
+                    link = None
+                    if agg.status.adsb:
+                        link = agg.status.adsb.adsblol_link
+                    adsb_status["adsblol_link"] = link
                 elif agg.agg_key == "adsbx":
-                    adsb_status["adsbx_feeder_id"] = (
-                        agg.status.adsb.adsbx_feeder_id)
+                    feeder_id = None
+                    if agg.status.adsb:
+                        feeder_id = agg.status.adsb.adsbx_feeder_id
+                    adsb_status["adsbx_feeder_id"] = feeder_id
             info = {
                 "agg_key": agg.agg_key,
                 "name": agg.name,
