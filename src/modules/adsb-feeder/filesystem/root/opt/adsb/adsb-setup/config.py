@@ -999,7 +999,9 @@ class Config(CompoundSetting):
                     CompoundSetting, schema={
                         "is_enabled": ft.partial(BoolSetting, default=False),
                         "key": StringSetting,
-                        "station_id": IntSetting,
+                        "station_id": ft.partial(
+                            IntSetting,
+                            env_variable_name="FEEDER_PORTTRACKER_STATION_ID"),
                         "mqtt_url": StringSetting,
                         "mqtt_client_id": StringSetting,
                         "mqtt_qos": IntSetting,
