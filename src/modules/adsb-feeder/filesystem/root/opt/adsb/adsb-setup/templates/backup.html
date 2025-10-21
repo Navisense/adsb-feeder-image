@@ -13,9 +13,5 @@
   MAX_GLOBE_HISTORY=365 in the environment variables on the expert page to only retain a year of data, this setting will
   not impact graph data.
 </p>
-<form method="post" enctype="multipart/form-data">
-  <a class="mb-3 btn btn-primary" href="/backupexecuteconfig">Config Backup</a>
-  <a class="mb-3 btn btn-primary" href="/backupexecutegraphs">Config + Graphs Backup</a>
-  <a class="mb-3 btn btn-primary" href="/backupexecutefull">Full Backup</a>
-</form>
+  <a class="mb-3 btn btn-primary" href="{{ url_for('download_backup') }}" target="_blank">Backup</a>
 {% endblock %}

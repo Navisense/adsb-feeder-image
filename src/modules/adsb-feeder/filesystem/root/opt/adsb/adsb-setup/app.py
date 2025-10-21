@@ -1,6 +1,7 @@
+import collections.abc as cl_abc
 import concurrent.futures
 import copy
-from datetime import datetime
+import datetime
 import filecmp
 import functools as ft
 import json
@@ -19,6 +20,7 @@ import signal
 import shutil
 import string
 import subprocess
+import tempfile
 import threading
 import time
 from typing import Optional
@@ -487,23 +489,9 @@ class AdsbIm:
                 self._decide_route_hotspot_mode, self._require_login],
         )
         app.add_url_rule(
-            "/backupexecutefull",
-            "backupexecutefull",
-            view_func=self.backup_execute_full,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._require_login],
-        )
-        app.add_url_rule(
-            "/backupexecutegraphs",
-            "backupexecutegraphs",
-            view_func=self.backup_execute_graphs,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._require_login],
-        )
-        app.add_url_rule(
-            "/backupexecuteconfig",
-            "backupexecuteconfig",
-            view_func=self.backup_execute_config,
+            "/backup/download",
+            "download_backup",
+            view_func=self.download_backup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
         )
@@ -1189,136 +1177,127 @@ class AdsbIm:
     def backup(self):
         return render_template("/backup.html")
 
-    def backup_execute_config(self):
-        return self.create_backup_zip()
 
-    def backup_execute_graphs(self):
-        return self.create_backup_zip(include_graphs=True)
+    def download_backup(self, include_graphs=True, include_heatmap=True):
+        temp_file = tempfile.NamedTemporaryFile()
+        self._logger.info(
+            f"Created temporary file {temp_file.name} to assemble config "
+            "download.")
 
-    def backup_execute_full(self):
-        return self.create_backup_zip(include_graphs=True, include_heatmap=True)
+        def assemble_and_stream_zip() -> cl_abc.Generator[bytes]:
+            with temp_file as binary_file:
+                with zipfile.ZipFile(binary_file, mode="w") as zip_file:
+                    self._add_backup_files_to_zip(
+                        zip_file, include_graphs, include_heatmap)
+                # Seek back to the beginning and yield the bytes of the zip
+                # file.
+                binary_file.seek(0)
+                yield from binary_file
+                # The temp file will be deleted when it is closed by the
+                # context manager.
 
-    def create_backup_zip(self, include_graphs=False, include_heatmap=False):
-        adsb_path = config.CONFIG_DIR
+        ts = datetime.datetime.now(
+            datetime.UTC).isoformat(timespec="seconds").replace(":", "-")
+        file_name = (
+            f"porttracker-sdr-feeder-config_{self.hostname}_{ts}.backup.zip")
+        return flask.Response(
+            assemble_and_stream_zip(), headers={
+                "Content-Type": "application/zip",
+                "Content-Disposition": f'attachment; filename="{file_name}"'})
 
-        def graphs1090_writeback(uf_path):
-            # the rrd file will be updated via move after collectd is done writing it out
-            # so killing collectd and waiting for the mtime to change is enough
-
-            rrd_file = uf_path / "graphs1090/rrd/localhost.tar.gz"
-
-            def timeSinceWrite(rrd_file):
-                # because of the way the file gets updated, it will briefly not exist
-                # when the new copy is moved in place, which will make os.stat unhappy
-                try:
-                    return time.time() - os.stat(rrd_file).st_mtime
-                except:
-                    return time.time() - 0  # fallback to long time since last write
-
-            t = timeSinceWrite(rrd_file)
-            if t < 120:
-                self._logger.info(
-                    "graphs1090 writeback: not needed, timeSinceWrite: "
-                    f"{round(t)}s")
-                return
-
-            self._logger.info(f"graphs1090 writeback: requesting")
-            try:
-                subprocess.run(
-                    "docker exec ultrafeeder pkill collectd",
-                    timeout=10.0,
-                    shell=True,
-                    check=True,
-                )
-            except:
-                self._logger.exception(
-                    f"graphs1090 writeback: docker exec failed - backed up graph data "
-                    "might miss up to 6h", flash_message=True)
+    def _add_backup_files_to_zip(
+            self, zip_file: zipfile.ZipFile, include_graphs, include_heatmap):
+        if include_graphs:
+            # Start the flush right away in the background, because it may take
+            # a few seconds.
+            flush_task = self._executor.submit(self._flush_graphs1090_rrd_file)
+        ultrafeeder_dir = config.CONFIG_DIR / "ultrafeeder"
+        globe_history_dir = ultrafeeder_dir / "globe_history"
+        # First the config.json itself.
+        zip_file.write(config.CONFIG_FILE, arcname="config.json")
+        # Globe history data.
+        if include_heatmap and globe_history_dir.is_dir():
+            for subpath in globe_history_dir.iterdir():
+                if subpath.name in ["internal_state", "tar1090-update"]:
+                    continue
+                for globe_history_file in subpath.rglob("*"):
+                    zip_file.write(
+                        globe_history_file,
+                        arcname=globe_history_file.relative_to(
+                            config.CONFIG_DIR))
+        # Graph data from ultrafeeder.
+        if include_graphs:
+            flush_task.result() # Wait for the flush to finish.
+            rrd_file = (ultrafeeder_dir / "graphs1090/rrd/localhost.tar.gz")
+            if rrd_file.exists():
+                zip_file.write(
+                    rrd_file, arcname=rrd_file.relative_to(config.CONFIG_DIR))
             else:
-                count = 0
-                increment = 0.1
-                # give up after 30 seconds
-                while count < 30:
-                    count += increment
-                    time.sleep(increment)
-                    if timeSinceWrite(rrd_file) < 120:
-                        self._logger.info(f"graphs1090 writeback: success")
-                        return
-
                 self._logger.error(
-                    "graphs1090 writeback: writeback timed out - backed up "
-                    "graph data might miss up to 6h", flash_message=True)
-
-        fdOut, fdIn = os.pipe()
-        pipeOut = os.fdopen(fdOut, "rb")
-        pipeIn = os.fdopen(fdIn, "wb")
-
-        def zip2fobj(fobj, include_graphs, include_heatmap):
-            try:
-                with fobj as file, zipfile.ZipFile(file,
-                                                   mode="w") as backup_zip:
-                    backup_zip.write(
-                        adsb_path / "config.json", arcname="config.json")
-
-                    uf_path = adsb_path / "ultrafeeder"
-                    gh_path = uf_path / "globe_history"
-                    if include_heatmap and gh_path.is_dir():
-                        for subpath in gh_path.iterdir():
-                            pstring = str(subpath)
-                            if subpath.name == "internal_state":
-                                continue
-                            if subpath.name == "tar1090-update":
-                                continue
-
-                            for f in subpath.rglob("*"):
-                                backup_zip.write(
-                                    f, arcname=f.relative_to(adsb_path))
-
-                    # do graphs after heatmap data as this can pause a couple
-                    # seconds in graphs1090_writeback due to buffers, the
-                    # download won't be recognized by the browsers until some
-                    # data is added to the zipfile
-                    if include_graphs:
-                        graphs1090_writeback(uf_path)
-                        graphs_path = (
-                            uf_path / "graphs1090/rrd/localhost.tar.gz")
-                        if graphs_path.exists():
-                            backup_zip.write(
-                                graphs_path,
-                                arcname=graphs_path.relative_to(adsb_path))
-                        else:
-                            self._logger.error(
-                                "graphs1090 backup failed, file not "
-                                f"found: {graphs_path}", flash_message=True)
-
-            except BrokenPipeError:
-                self._logger.exception(
-                    f"warning: backup download aborted mid-stream",
+                    "No graphs1090 rrd file found to back up.",
                     flash_message=True)
 
-        self._executor.submit(
-            zip2fobj,
-            fobj=pipeIn,
-            include_graphs=include_graphs,
-            include_heatmap=include_heatmap,
-        )
+    def _flush_graphs1090_rrd_file(self):
+        if not any(c.name == "ultrafeeder" for c in self._system.containers):
+            self._logger.debug(
+                "No need to flush the graphs1090 rrd file since ultrafeeder "
+                "is not even running.")
+            return
+        rrd_file = (
+            config.CONFIG_DIR / "ultrafeeder/graphs1090/rrd/localhost.tar.gz")
 
-        now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
-        download_name = f"adsb-feeder-config-{self.hostname}-{now}.backup"
+        def rrd_file_has_recently_been_written():
+            if not rrd_file.exists():
+                return False
+            # Because of the way the file gets updated, it will briefly not
+            # exist when the new copy is moved in place, so retry a few times
+            # before giving up.
+            start_time = time.time()
+            while True:
+                try:
+                    return (time.time() - rrd_file.stat().st_mtime) < 120
+                except:
+                    if time.time() - start_time > 1:
+                        self._logger.exception(
+                            "Giving up trying to stat rrd file.")
+                        return False
+                    time.sleep(0.1)
+
+        if rrd_file_has_recently_been_written():
+            self._logger.debug(
+                "No need to flush the graphs1090 rrd file since it's recently "
+                "been written.")
+            return
+
+        # The rrd file will be updated via move after collectd is done writing
+        # it out so killing collectd and waiting for the mtime to change is
+        # enough.
+        self._logger.info(
+            f"Killing ultrafeeder's collectd to force an update of the of the "
+            "graphs1090 rrd file.")
         try:
-            return send_file(
-                pipeOut,
-                mimetype="application/zip",
-                as_attachment=True,
-                download_name=download_name,
-            )
-        except TypeError:
-            return send_file(
-                pipeOut,
-                mimetype="application/zip",
-                as_attachment=True,
-                attachment_filename=download_name,
-            )
+            util.shell_with_combined_output(
+                "docker exec ultrafeeder pkill collectd", timeout=10,
+                check=True)
+        except subprocess.CalledProcessError:
+            self._logger.exception(
+                f"Error killing collectd. Graph data might miss up to 6h.",
+                flash_message=True)
+            return
+        start_time = time.time()
+        while True:
+            if rrd_file_has_recently_been_written():
+                self._logger.debug(
+                    f"Graphs1090 rrd file updated successfully.")
+                return
+            if time.time() - start_time > 30:
+                # Give up after 30 seconds.
+                break
+            time.sleep(0.5)
+
+        self._logger.error(
+            "Timeout when waiting for graphs1090 to be written. Graph data "
+            "might miss up to 6h", flash_message=True)
 
     def restore(self):
         if request.method == "POST":
@@ -2437,7 +2416,7 @@ class AdsbIm:
 
         self._executor.submit(get_log, fobj=pipeIn)
 
-        now = datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
+        now = datetime.datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
         download_name = f"adsb-feeder-config-{self.hostname}-{now}.txt"
         return send_file(
             pipeOut,
