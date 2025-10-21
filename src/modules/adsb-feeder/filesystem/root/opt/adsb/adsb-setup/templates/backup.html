@@ -15,6 +15,7 @@
 </p>
 <form action="{{ url_for('download_backup') }}" method="get" target="_blank">
   <input type="checkbox" name="include-config" checked>config
+  <input type="checkbox" name="include-stats" checked>the feeder's own collected stats
   <input type="checkbox" name="include-graphs1090">graphs1090 graph data
   <input type="checkbox" name="include-heatmap">heatmap data
   <button type="submit" class="btn btn-accent">Download</button>

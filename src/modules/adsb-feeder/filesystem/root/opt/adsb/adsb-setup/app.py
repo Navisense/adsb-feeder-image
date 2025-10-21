@@ -1179,11 +1179,14 @@ class AdsbIm:
 
     def download_backup(self):
         include_config = util.checkbox_checked(request.args['include-config'])
+        include_stats = util.checkbox_checked(
+            request.args['include-stats'])
         include_graphs1090 = util.checkbox_checked(
             request.args['include-graphs1090'])
         include_heatmap = util.checkbox_checked(
             request.args['include-heatmap'])
-        if not any([include_config, include_graphs1090, include_heatmap]):
+        if not any([include_config, include_stats, include_graphs1090,
+                    include_heatmap]):
             return "No option selected.", 400
         temp_file = tempfile.NamedTemporaryFile()
         self._logger.info(
@@ -1194,8 +1197,8 @@ class AdsbIm:
             with temp_file as binary_file:
                 with zipfile.ZipFile(binary_file, mode="w") as zip_file:
                     self._add_backup_files_to_zip(
-                        zip_file, include_config, include_graphs1090,
-                        include_heatmap)
+                        zip_file, include_config, include_stats,
+                        include_graphs1090, include_heatmap)
                 # Seek back to the beginning and yield the bytes of the zip
                 # file.
                 binary_file.seek(0)
@@ -1213,7 +1216,7 @@ class AdsbIm:
                 "Content-Disposition": f'attachment; filename="{file_name}"'})
 
     def _add_backup_files_to_zip(
-            self, zip_file: zipfile.ZipFile, include_config,
+            self, zip_file: zipfile.ZipFile, include_config,include_stats,
             include_graphs1090, include_heatmap):
         if include_graphs1090:
             # Start the flush right away in the background, because it may take
@@ -1224,6 +1227,18 @@ class AdsbIm:
         # First the config.json itself.
         if include_config:
             zip_file.write(config.CONFIG_FILE, arcname="config.json")
+        # Feeder stats.
+        if include_stats:
+            try:
+                self._reception_monitor.write_stats_file()
+            except:
+                self._logger.exception(
+                    "Error flushing current stats. Some data in backup may be "
+                    "missing.", flash_message=True)
+            zip_file.write(
+                self._reception_monitor.STATS_FILE,
+                arcname=self._reception_monitor.STATS_FILE.relative_to(
+                    config.CONFIG_DIR))
         # Globe history data.
         if include_heatmap and globe_history_dir.is_dir():
             for subpath in globe_history_dir.iterdir():
