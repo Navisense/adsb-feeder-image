@@ -1,7 +1,8 @@
 # Common bash functions and constants.
 
 LOG_FILE="/run/porttracker-sdr-feeder.log"
-ENV_FILE=/etc/adsb/.env
+CONFIG_DIR="/etc/adsb"
+ENV_FILE="${CONFIG_DIR}/.env"
 DOCKER_COMPOSE_UP_FAILED_MARKER_FILE="/run/porttracker-sdr-feeder-docker-compose-up-failed"
 
 # Log a message in a nice format.

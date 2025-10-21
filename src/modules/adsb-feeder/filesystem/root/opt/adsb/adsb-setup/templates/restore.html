@@ -1,10 +1,26 @@
 {% extends "base-regular.html" %}
 {% set active_page = "restore" %}
-{% block title %}Restore setup from a backup{% endblock title %}
+{% block title %}
+  Restore setup from a backup
+{% endblock title %}
 {% block content %}
-<p>If you have a configuration backup file, please upload it here:</p>
-<form method="post" enctype="multipart/form-data" onsubmit="showSpinner(); return true;">
-  <input class="btn btn-secondary" type="file" name="file" />
-  <input class="btn btn-primary" type="submit" value="Upload" />
-</form>
-{% endblock %}
+  {% if restore_file_info is not none %}
+    <p>A backup file has been uploaded and can be used to restore.</p>
+    <div>
+      These files are contained in the backup and will replace the current files if applied:
+      <ul>
+        {% for file in restore_file_info["files"] %}<li>{{ file["name"] }}: {{ file["status"] }}</li>{% endfor %}
+      </ul>
+      <form method="post">
+        <button class="btn btn-primary" type="submit" name="restore-backup">Restore this backup</button>
+      </form>
+    </div>
+    <p>You can also upload a new backup file (it will replace the current one):</p>
+  {% else %}
+    <p>No backup file has been uploaded to restore from. You can upload one here:</p>
+  {% endif %}
+  <form method="post" enctype="multipart/form-data">
+    <input class="btn btn-secondary" type="file" name="file">
+    <button class="btn btn-primary" type="submit" name="upload-file">Upload backup file</button>
+  </form>
+{% endblock content %}

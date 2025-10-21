@@ -42,7 +42,6 @@ from flask import (
 )
 import flask_login
 import werkzeug.serving
-import werkzeug.utils
 
 import hotspot
 import aggregators
@@ -275,6 +274,7 @@ class AdminUser:
 
 
 class AdsbIm:
+    RESTORE_STAGING_DIR = pathlib.Path("/run/adsb-restore-stage")
     _embedded_app_specs = [
         {
             "rule": "/ais-catcher",
@@ -484,7 +484,7 @@ class AdsbIm:
         app.add_url_rule(
             "/backup",
             "backup",
-            view_func=self.backup,
+            view_func=ft.partial(render_template, "backup.html"),
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
         )
@@ -499,14 +499,6 @@ class AdsbIm:
             "/restore",
             "restore",
             view_func=self.restore,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._require_login],
-            methods=["GET", "POST"],
-        )
-        app.add_url_rule(
-            "/executerestore",
-            "executerestore",
-            view_func=self.executerestore,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
             methods=["GET", "POST"],
@@ -1174,9 +1166,6 @@ class AdsbIm:
         self._system._restart.wait_restart_done(timeout=0.9)
         return self._system._restart.state
 
-    def backup(self):
-        return render_template("/backup.html")
-
     def download_backup(self):
         include_config = util.checkbox_checked(request.args['include-config'])
         include_stats = util.checkbox_checked(
@@ -1324,174 +1313,80 @@ class AdsbIm:
             "might miss up to 6h", flash_message=True)
 
     def restore(self):
-        if request.method == "POST":
-            # check if the post request has the file part
-            if "file" not in request.files:
-                flash("No file submitted")
-                return redirect(request.url)
-            file = request.files["file"]
-            # If the user does not select a file, the browser submits an
-            # empty file without a filename.
-            if file.filename == "":
-                flash("No file selected")
-                return redirect(request.url)
-            if file.filename.endswith(".zip") or file.filename.endswith(".backup"):
-                filename = werkzeug.utils.secure_filename(file.filename)
-                restore_path = config.CONFIG_DIR / "restore"
-                # clean up the restore path when saving a fresh zipfile
-                shutil.rmtree(restore_path, ignore_errors=True)
-                restore_path.mkdir(mode=0o644, exist_ok=True)
-                file.save(restore_path / filename)
-                self._logger.info(
-                    f"Saved restore file to {restore_path / filename}.")
-                return redirect(url_for("executerestore", zipfile=filename))
-            else:
-                flash("Please only submit ADS-B Feeder Image backup files")
-                return redirect(request.url)
-        else:
-            return render_template("/restore.html")
-
-    def executerestore(self):
         if request.method == "GET":
-            return self.restore_get(request)
-        if request.method == "POST":
-            form = copy.deepcopy(request.form)
-
-            def do_restore_post():
-                self.restore_post(form)
-
-            self._system._restart.bg_run(func=do_restore_post)
-            return render_template("/restarting.html")
-
-    def restore_get(self, request):
-        # TODO
-        raise NotImplementedError
-        # the user has uploaded a zip file and we need to take a look.
-        # be very careful with the content of this zip file...
-        print_err("zip file uploaded, looking at the content")
-        filename = request.args["zipfile"]
-        restore_path = config.CONFIG_DIR / "restore"
-        restore_path.mkdir(mode=0o755, exist_ok=True)
-        restored_files: list[str] = []
-        with zipfile.ZipFile(restore_path / filename, "r") as restore_zip:
-            for name in restore_zip.namelist():
-                print_err(f"found file {name} in archive")
-                # remove files with a name that results in a path that doesn't start with our decompress path
-                if not str(os.path.normpath(os.path.join(restore_path, name))).startswith(str(restore_path)):
-                    print_err(f"restore skipped for path breakout name: {name}")
-                    continue
-                # only accept the .env file and config.json and files for ultrafeeder
-                if name != ".env" and name != "config.json" and not name.startswith("ultrafeeder/"):
-                    continue
-                restore_zip.extract(name, restore_path)
-                restored_files.append(name)
-        # now check which ones are different from the installed versions
-        changed: list[str] = []
-        unchanged: list[str] = []
-        saw_globe_history = False
-        saw_graphs = False
-        uf_paths = set()
-        for name in restored_files:
-            if name.startswith("ultrafeeder/"):
-                parts = name.split("/")
-                if len(parts) < 3:
-                    continue
-                uf_paths.add(parts[0] + "/" + parts[1] + "/")
-            elif os.path.isfile(config.CONFIG_DIR / name):
-                if filecmp.cmp(
-                    config.CONFIG_DIR / name,
-                    restore_path / name):
-                    print_err(f"{name} is unchanged")
-                    unchanged.append(name)
-                else:
-                    print_err(f"{name} is different from current version")
-                    changed.append(name)
-
-        changed += list(uf_paths)
-
-        print_err(f"offering the usr to restore the changed files: {changed}")
-        return render_template("/restoreexecute.html", changed=changed, unchanged=unchanged)
-
-    def restore_post(self, form):
-        # TODO
-        raise NotImplementedError
-        # they have selected the files to restore
-        print_err("restoring the files the user selected")
-        (config.CONFIG_DIR / "ultrafeeder").mkdir(
-            mode=0o755, exist_ok=True)
-        restore_path = config.CONFIG_DIR / "restore"
-        restore_path.mkdir(mode=0o755, exist_ok=True)
-        try:
-            subprocess.call("/opt/adsb/docker-compose-adsb down -t 20", timeout=40.0, shell=True)
-        except subprocess.TimeoutExpired:
-            print_err("timeout expired stopping docker... trying to continue...")
-        for name, value in form.items():
-            if value == "1":
-                print_err(f"restoring {name}")
-                dest = config.CONFIG_DIR / name
-                if dest.is_file():
-                    shutil.move(dest, config.CONFIG_DIR / (name + ".dist"))
-                elif dest.is_dir():
-                    shutil.rmtree(dest, ignore_errors=True)
-
-                if name != "config.json" and name != ".env":
-                    shutil.move(restore_path / name, dest)
-                    continue
-
-                with config_lock:
-                    shutil.move(restore_path / name, dest)
-
-                    if name == ".env":
-                        if "config.json" in form.keys():
-                            # if we are restoring the config.json file, we don't need to restore the .env
-                            # this should never happen, but better safe than sorry
-                            continue
-                        # so this is a backup from an older system, let's try to make this work
-                        # read them in, replace the ones that match a norestore tag with the current value
-                        # and then write this all back out as config.json
-                        values = read_values_from_env_file()
-                        for e in self._d._env:
-                            if "norestore" in e.tags:
-                                # this overwrites the value in the file we just restored with the current value of the running image,
-                                # iow it doesn't restore that value from the backup
-                                values[e.name] = e.value
-                        write_values_to_config_json(values, reason="execute_restore from .env")
-
-        # clean up the restore path
-        restore_path = config.CONFIG_DIR / "restore"
-        shutil.rmtree(restore_path, ignore_errors=True)
-
-        # now that everything has been moved into place we need to read all the values from config.json
-        # of course we do not want to pull values marked as norestore
-        print_err("finished restoring files, syncing the configuration")
-
-        for e in self._d._env:
-            e._reconcile(e._value, pull=("norestore" not in e.tags))
-            print_err(f"{'wrote out' if 'norestore' in e.tags else 'read in'} {e.name}: {e.value}")
-
-        self.set_tz(self._conf.get("tz"))
-
-        # make sure we are connected to the right Zerotier network
-        zt_network = self._conf.get("zerotierid")
-        if zt_network and len(zt_network) == 16:  # that's the length of a valid network id
+            return render_template(
+                "restore.html",
+                restore_file_info=self._make_restore_file_info())
+        assert request.method == "POST"
+        if "upload-file" in request.form:
+            if ("file" not in request.files
+                    or not request.files["file"].filename):
+                # If the user does not select a file, the browser submits an
+                # empty file without a filename.
+                self._logger.error(
+                    "Backup upload requested, but no file selected.",
+                    flash_message=True)
+                return redirect(url_for("restore"))
+            file = request.files["file"]
+            shutil.rmtree(self.RESTORE_STAGING_DIR, ignore_errors=True)
             try:
-                subprocess.call(
-                    ["zerotier-cli", "join", f"{zt_network}"],
-                    timeout=30.0,
-                )
-            except subprocess.TimeoutExpired:
+                with tempfile.TemporaryFile() as temp_file:
+                    file.save(temp_file)
+                    temp_file.seek(0)
+                    with zipfile.ZipFile(temp_file) as zip_file:
+                        zip_file.extractall(self.RESTORE_STAGING_DIR)
+            except Exception as e:
                 self._logger.exception(
-                    "Timeout expired joining Zerotier network... trying to "
-                    "continue...", flash_message=True)
+                    f"Error extracting backup file: {e}.", flash_message=True)
+                shutil.rmtree(self.RESTORE_STAGING_DIR, ignore_errors=True)
+                return redirect(url_for("restore"))
+            return redirect(url_for("restore"))
+        elif "restore-backup" in request.form:
+            self._logger.info("Starting restore service.")
+            # Submit the restore script as a transient systemd unit, so the
+            # process is independent from us and can shut us down.
+            try:
+                system.systemctl().run_transient(
+                    "adsb-apply-config-restore",
+                    ["/opt/adsb/scripts/apply-config-restore.bash"])
+            except:
+                self._logger.exception(
+                    "Error executing restore. Trying to redirect to home.")
+                return redirect(url_for("index"))
+            # Set the exiting flag, so the /restart endpoint can tell the
+            # restarting page that this instance is still going down. Once
+            # restarted, it will say that it's complete.
+            self.exiting = True
+            return render_template("restarting.html")
 
-        self.handle_implied_settings()
+    def _make_restore_file_info(self):
+        if not self.RESTORE_STAGING_DIR.exists():
+            return None
+        files = []
+        for file in self.RESTORE_STAGING_DIR.rglob("*"):
+            if not file.is_file():
+                continue
+            relative_file = file.relative_to(self.RESTORE_STAGING_DIR)
+            corresponding_current = config.CONFIG_DIR / relative_file
+            if not corresponding_current.exists():
+                status = "new"
+            elif filecmp.cmp(file, corresponding_current):
+                status = "unchanged"
+            else:
+                status = "changed"
+            files.append({"name": relative_file, "status": status})
 
-        try:
-            subprocess.call("/opt/adsb/docker-compose-start", timeout=180.0, shell=True)
-        except subprocess.TimeoutExpired:
-            self._logger.exception(
-                "Timeout expired re-starting docker... trying to continue...",
-                flash_message=True)
+        def status_then_name(file_details):
+            status_key = 1000
+            if file_details["status"] == "new":
+                status_key = 0
+            elif file_details["status"] == "changed":
+                status_key = 1
+            return (status_key, file_details["name"])
+
+        # Sort new and changed to the beginning, then by name.
+        files.sort(key=status_then_name)
+        return {"files": files}
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
