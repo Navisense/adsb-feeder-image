@@ -142,13 +142,17 @@ class ReceptionMonitor:
         for task in self._scrape_tasks:
             task.stop_and_wait()
         try:
-            stats_json = json.dumps(
-                dc.asdict(self.stats), cls=IterableAsListJSONEncoder)
-            with tempfile.NamedTemporaryFile("wb", delete=False) as tmp_file:
-                tmp_file.write(gzip.compress(stats_json.encode()))
-            shutil.move(tmp_file.name, self.STATS_FILE)
+            self.write_stats_file()
         except:
             self._logger.exception("Error storing stats.")
+
+    def write_stats_file(self) -> None:
+        """Persist the current stats to the stats file."""
+        stats_json = json.dumps(
+            dc.asdict(self.stats), cls=IterableAsListJSONEncoder)
+        with tempfile.NamedTemporaryFile("wb", delete=False) as tmp_file:
+            tmp_file.write(gzip.compress(stats_json.encode()))
+        shutil.move(tmp_file.name, self.STATS_FILE)
 
     def get_current_stats(self) -> CurrentStats:
         return CurrentStats(
