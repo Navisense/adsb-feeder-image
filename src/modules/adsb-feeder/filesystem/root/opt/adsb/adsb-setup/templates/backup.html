@@ -13,5 +13,10 @@
   MAX_GLOBE_HISTORY=365 in the environment variables on the expert page to only retain a year of data, this setting will
   not impact graph data.
 </p>
-  <a class="mb-3 btn btn-primary" href="{{ url_for('download_backup') }}" target="_blank">Backup</a>
+<form action="{{ url_for('download_backup') }}" method="get" target="_blank">
+  <input type="checkbox" name="include-config" checked>config
+  <input type="checkbox" name="include-graphs1090">graphs1090 graph data
+  <input type="checkbox" name="include-heatmap">heatmap data
+  <button type="submit" class="btn btn-accent">Download</button>
+</form>
 {% endblock %}
