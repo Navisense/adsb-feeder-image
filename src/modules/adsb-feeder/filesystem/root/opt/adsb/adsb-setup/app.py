@@ -1315,7 +1315,8 @@ class AdsbIm:
     def restore(self):
         if request.method == "GET":
             return render_template(
-                "restore.html", restore_info=self._make_restore_info())
+                "restore.html", restore_info=self._make_restore_info(),
+                format_binary_prefix=util.format_binary_prefix)
         assert request.method == "POST"
         if "upload-file" in request.form:
             if ("file" not in request.files
@@ -1369,7 +1370,8 @@ class AdsbIm:
                 continue
             relative_file = file.relative_to(self.RESTORE_STAGING_DIR)
             corresponding_current = config.CONFIG_DIR / relative_file
-            file_details = {"name": str(relative_file)}
+            file_details = {
+                "name": str(relative_file), "size_bytes": file.stat().st_size}
             if not corresponding_current.exists():
                 new_files.append(file_details)
             elif filecmp.cmp(file, corresponding_current):

@@ -221,6 +221,19 @@ def shell_with_separate_output(args, **kwargs):
         args, **kwargs, shell=True, text=True, capture_output=True)
 
 
+def format_binary_prefix(num):
+    """Format a number with a binary prefix."""
+    for prefix in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
+        if abs(num) < 1024:
+            break
+        num /= 1024
+    else:
+        prefix = "Yi"
+    if num == int(num):
+        return f"{num}{prefix}"
+    return f"{num:.1f}{prefix}"
+
+
 @ft.total_ordering
 class Semver:
     """A semantic version, prefixed with 'v'."""

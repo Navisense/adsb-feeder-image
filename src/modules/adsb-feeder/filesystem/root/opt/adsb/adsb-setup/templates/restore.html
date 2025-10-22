@@ -9,9 +9,15 @@
     <div>
       These files are contained in the backup and will replace the current files if applied:
       <ul>
-        {% for file in restore_info["new_files"] %}<li>{{ file["name"] }}: new</li>{% endfor %}
-        {% for file in restore_info["changed_files"] %}<li>{{ file["name"] }}: changed</li>{% endfor %}
-        {% for file in restore_info["unchanged_files"] %}<li>{{ file["name"] }}: unchanged</li>{% endfor %}
+        {% for file in restore_info["new_files"] %}
+          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): new</li>
+        {% endfor %}
+        {% for file in restore_info["changed_files"] %}
+          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): changed</li>
+        {% endfor %}
+        {% for file in restore_info["unchanged_files"] %}
+          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): unchanged</li>
+        {% endfor %}
       </ul>
       <form method="post">
         <button class="btn btn-primary" type="submit" name="restore-backup">Restore this backup</button>
