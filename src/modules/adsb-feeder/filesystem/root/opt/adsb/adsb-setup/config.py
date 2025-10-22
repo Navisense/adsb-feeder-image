@@ -301,6 +301,7 @@ class ScalarSetting(Setting):
             self, config: "Config", value: Any, *,
             default: Optional[Any] = None,
             env_variable_name: Optional[str] = None, norestore: bool = False,
+            restore_init: bool = False,
             value_json_decoder: cl_abc.Callable[[Any], Any] = lambda x: x,
             value_json_encoder: cl_abc.Callable[[Any], Any] = lambda x: x):
         """
@@ -311,6 +312,10 @@ class ScalarSetting(Setting):
             appear in the env file.
         :param norestore: Whether this setting should be omitted when restoring
             a config from backup.
+        :param restore_init: Whether this setting is currently being
+            initialized as part of a restore action. If this flag is set and
+            norestore is also True, the value is set to None so it is
+            effectively ignored.
         :param value_json_decoder: A function used to convert the value's
             representation in the JSON file (loaded into the settings dict) to
             the actual value (which may be a different type that can't be
@@ -320,10 +325,13 @@ class ScalarSetting(Setting):
             something that can be represented in JSON.
         """
         super().__init__(config)
+        if norestore and restore_init:
+            logger.info(
+                "Ignoring value with norestore tag during a config restore.")
+            value = None
         self._value = value_json_decoder(value)
         self._default = default
         self._env_variable_name = env_variable_name
-        self._norestore = norestore
         self._value_json_encoder = value_json_encoder
 
     @property
@@ -482,13 +490,13 @@ class ListSetting(ScalarSetting):
     def __init__(
             self, config: "Config", value: list[Any], *,
             required_value_type: type, default: Optional[list[Any]] = None,
-            norestore: bool = False):
+            norestore: bool = False, restore_init: bool = False):
         self._required_value_type = required_value_type
-        self._check_correct_type(value, "value")
-        self._check_correct_type(default, "default value")
         super().__init__(
             config, value, default=default, env_variable_name=None,
-            norestore=norestore)
+            norestore=norestore, restore_init=restore_init)
+        self._check_correct_type(self._value, "value")
+        self._check_correct_type(default, "default value")
 
     def _check_correct_type(self, value, value_name):
         if value is None:
@@ -518,7 +526,7 @@ class CompoundSetting(Setting):
     """
     def __init__(
             self, config: "Config", settings_dict: Optional[dict[str, Any]], *,
-            schema: dict[str, type[Setting]]):
+            schema: dict[str, type[Setting]], restore_init: bool = False):
         super().__init__(config)
         self._settings = {}
         if settings_dict is None:
@@ -530,7 +538,8 @@ class CompoundSetting(Setting):
             if "." in key:
                 raise ValueError("Keys must not contain dots.")
             self._settings[key] = setting_class(
-                self._config, settings_dict.get(key))
+                self._config, settings_dict.get(key),
+                restore_init=restore_init)
         if (settings_dict_was_none
                 and any(s.persistent for s in self._settings.values())):
             logger.warning(
@@ -640,7 +649,8 @@ class ConstantSetting(TransientSetting):
     """
     def __init__(
             self, config: "Config", unused_value: Any, *, constant_value: Any,
-            env_variable_name: Optional[str] = None):
+            env_variable_name: Optional[str] = None,
+            restore_init: bool = False):
         # unused_value is what CompoungSetting will automatically give us,
         # extracted from the config file. We want to use the constant value
         # instead.
@@ -664,7 +674,8 @@ class GeneratedSetting(TransientSetting):
             self, config: "Config", _: Any, *,
             value_generator: cl_abc.Callable[["Config"], Any],
             default: Optional[Any] = None,
-            env_variable_name: Optional[str] = None):
+            env_variable_name: Optional[str] = None,
+            restore_init: bool = False):
         """
         :param value_generator: A function that takes the config as single
             parameter and returns the value of the setting.
@@ -691,7 +702,8 @@ class CachedGeneratedSetting(GeneratedSetting):
             self, config: "Config", _: Any, *,
             value_generator: cl_abc.Callable[["Config"], Any],
             default: Optional[Any] = None,
-            env_variable_name: Optional[str] = None):
+            env_variable_name: Optional[str] = None,
+            restore_init: bool = False):
         super().__init__(
             config, None, value_generator=value_generator, default=default,
             env_variable_name=env_variable_name)
@@ -725,7 +737,8 @@ class SwitchedGeneratedSetting(GeneratedSetting):
             self, config: "Config", _: Any, *, switch_path: str,
             true_value: Any = None, true_value_path: str = None,
             false_value: Any = None, false_value_path: str = None,
-            env_variable_name: Optional[str] = None):
+            env_variable_name: Optional[str] = None,
+            restore_init: bool = False):
         """
         :param switch_path: Path to a setting that is used as the switch. If no
             setting with this path exists, a warning is logged and the false
@@ -1254,7 +1267,12 @@ class Config(CompoundSetting):
         if Config._has_instance:
             raise ValueError("Config has already been instantiated.")
         Config._has_instance = True
-        super().__init__(self, settings_dict, schema=self._schema)
+        # Pop the flag that will be put into the settings dict to indicate that
+        # this config is being restored from backup for the first time.
+        restore_init = settings_dict.pop("restore_init", False)
+        super().__init__(
+            self, settings_dict, schema=self._schema,
+            restore_init=restore_init)
 
     def write_to_file(self):
         config_dict = {}

@@ -1406,11 +1406,18 @@ class AdsbIm:
             if restore_config_file.exists():
                 restore_config_status = self._restore_config_status(
                     restore_config_file)
-            if restore_config_status in ["invalid", "future_version"]:
-                self._logger.error(
-                    "Can't apply backup, because the config file contained in "
-                    f"it has status {restore_config_status}.")
-                return redirect(url_for("backup"))
+                if restore_config_status in ["invalid", "future_version"]:
+                    self._logger.error(
+                        "Can't apply backup, because the config file "
+                        f"contained in it has status {restore_config_status}.")
+                    return redirect(url_for("backup"))
+                # Set the restore flag in the backed-up config that signals to
+                # omit settings with the norestore flag.
+                with restore_config_file.open() as f:
+                    config_dict = json.load(f)
+                config_dict["restore_init"] = True
+                with restore_config_file.open("w") as f:
+                    config_dict = json.dump(config_dict, f)
             self._logger.info("Starting restore service.")
             # Submit the restore script as a transient systemd unit, so the
             # process is independent from us and can shut us down.
