@@ -290,7 +290,8 @@
                     data-mdb-toggle="tooltip"
                     title="Admin logout"
                     data-mdb-placement="bottom">
-              <span id="logout-icon" class="fas fa-arrow-right-from-bracket fa-2x text-accent-alternate"></span>
+              <span id="logout-icon"
+                    class="fas fa-arrow-right-from-bracket fa-2x text-accent-alternate"></span>
             </button>
           </form>
         {% endif %}
@@ -409,14 +410,9 @@
                 <li>
                   <a class="dropdown-item" href="{{ url_for('systemmgmt') }}">Management</a>
                 </li>
-                {#
-              <li>
-                <a class="dropdown-item" href="{{ url_for('backup') }}">Backup</a>
-              </li>
-              <li>
-                <a class="dropdown-item" href="{{ url_for('restore') }}">Restore</a>
-              </li>
-              #}
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('backup') }}">Backup/restore</a>
+                </li>
                 <li>
                   <a class="dropdown-item" href="{{ url_for('tar1090-stats') }}">Stats</a>
                 </li>
