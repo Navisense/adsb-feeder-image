@@ -4,12 +4,14 @@
   Restore setup from a backup
 {% endblock title %}
 {% block content %}
-  {% if restore_file_info is not none %}
+  {% if restore_info is not none %}
     <p>A backup file has been uploaded and can be used to restore.</p>
     <div>
       These files are contained in the backup and will replace the current files if applied:
       <ul>
-        {% for file in restore_file_info["files"] %}<li>{{ file["name"] }}: {{ file["status"] }}</li>{% endfor %}
+        {% for file in restore_info["new_files"] %}<li>{{ file["name"] }}: new</li>{% endfor %}
+        {% for file in restore_info["changed_files"] %}<li>{{ file["name"] }}: changed</li>{% endfor %}
+        {% for file in restore_info["unchanged_files"] %}<li>{{ file["name"] }}: unchanged</li>{% endfor %}
       </ul>
       <form method="post">
         <button class="btn btn-primary" type="submit" name="restore-backup">Restore this backup</button>

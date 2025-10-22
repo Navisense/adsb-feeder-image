@@ -1315,8 +1315,7 @@ class AdsbIm:
     def restore(self):
         if request.method == "GET":
             return render_template(
-                "restore.html",
-                restore_file_info=self._make_restore_file_info())
+                "restore.html", restore_info=self._make_restore_info())
         assert request.method == "POST"
         if "upload-file" in request.form:
             if ("file" not in request.files
@@ -1359,34 +1358,29 @@ class AdsbIm:
             self.exiting = True
             return render_template("restarting.html")
 
-    def _make_restore_file_info(self):
+    def _make_restore_info(self):
         if not self.RESTORE_STAGING_DIR.exists():
             return None
-        files = []
+        new_files, changed_files, unchanged_files = [], [], []
         for file in self.RESTORE_STAGING_DIR.rglob("*"):
             if not file.is_file():
+                # rglob() will also give us directories, we just want regular
+                # files.
                 continue
             relative_file = file.relative_to(self.RESTORE_STAGING_DIR)
             corresponding_current = config.CONFIG_DIR / relative_file
+            file_details = {"name": str(relative_file)}
             if not corresponding_current.exists():
-                status = "new"
+                new_files.append(file_details)
             elif filecmp.cmp(file, corresponding_current):
-                status = "unchanged"
+                unchanged_files.append(file_details)
             else:
-                status = "changed"
-            files.append({"name": relative_file, "status": status})
-
-        def status_then_name(file_details):
-            status_key = 1000
-            if file_details["status"] == "new":
-                status_key = 0
-            elif file_details["status"] == "changed":
-                status_key = 1
-            return (status_key, file_details["name"])
-
-        # Sort new and changed to the beginning, then by name.
-        files.sort(key=status_then_name)
-        return {"files": files}
+                changed_files.append(file_details)
+        for files in [new_files, changed_files, unchanged_files]:
+            files.sort(key=op.itemgetter("name"))
+        return {
+            "new_files": new_files, "changed_files": changed_files,
+            "unchanged_files": unchanged_files}
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
