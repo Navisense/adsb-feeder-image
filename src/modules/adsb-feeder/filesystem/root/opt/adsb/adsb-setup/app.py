@@ -483,7 +483,7 @@ class AdsbIm:
         app.add_url_rule(
             "/backup",
             "backup",
-            view_func=ft.partial(render_template, "backup.html"),
+            view_func=self.backup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
         )
@@ -500,7 +500,7 @@ class AdsbIm:
             view_func=self.restore,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
-            methods=["GET", "POST"],
+            methods=["POST"],
         )
         app.add_url_rule(
             "/sdr_setup",
@@ -1165,10 +1165,74 @@ class AdsbIm:
         self._system._restart.wait_restart_done(timeout=0.9)
         return self._system._restart.state
 
+    def backup(self):
+        assert request.method == "GET"
+        return render_template(
+            "backup.html", restore_info=self._make_restore_info(),
+            format_binary_prefix=util.format_binary_prefix)
+
+    def _make_restore_info(self):
+        if not self.RESTORE_STAGING_DIR.exists():
+            return None
+        new_files, changed_files, unchanged_files = [], [], []
+        config_status = "unchanged"
+        for file in self.RESTORE_STAGING_DIR.rglob("*"):
+            if not file.is_file():
+                # rglob() will also give us directories, we just want regular
+                # files.
+                continue
+            relative_file = file.relative_to(self.RESTORE_STAGING_DIR)
+            corresponding_current = config.CONFIG_DIR / relative_file
+            file_details = {
+                "name": str(relative_file), "size_bytes": file.stat().st_size}
+            if not corresponding_current.exists():
+                new_files.append(file_details)
+            elif filecmp.cmp(file, corresponding_current):
+                unchanged_files.append(file_details)
+            else:
+                if corresponding_current == config.CONFIG_FILE:
+                    # In case there's a changed config file, examine it a
+                    # little closer to display some extra info.
+                    config_status = self._restore_config_status(file)
+                    if config_status == "unchanged":
+                        unchanged_files.append(file_details)
+                        continue
+                changed_files.append(file_details)
+        for files in [new_files, changed_files, unchanged_files]:
+            files.sort(key=op.itemgetter("name"))
+        return {
+            "new_files": new_files, "changed_files": changed_files,
+            "unchanged_files": unchanged_files, "config_status": config_status}
+
+    def _restore_config_status(self, restore_config_file):
+        try:
+            with restore_config_file.open() as f:
+                restore_dict = json.load(f)
+        except:
+            self._logger.exception("Error loading restore config.")
+            return "invalid"
+        try:
+            with config.CONFIG_FILE.open() as f:
+                current_dict = json.load(f)
+        except:
+            self._logger.exception(
+                "Error loading current config (this really shouldn't happen).")
+            return "invalid_current"
+        if restore_dict == current_dict:
+            return "unchanged"
+        try:
+            restore_version = restore_dict["config_version"]
+            if restore_version < config.Config.CONFIG_VERSION:
+                return "older_version"
+            elif restore_version == config.Config.CONFIG_VERSION:
+                return "same_version"
+            return "future_version"
+        except:
+            return "invalid"
+
     def download_backup(self):
         include_config = util.checkbox_checked(request.args['include-config'])
-        include_stats = util.checkbox_checked(
-            request.args['include-stats'])
+        include_stats = util.checkbox_checked(request.args['include-stats'])
         include_graphs1090 = util.checkbox_checked(
             request.args['include-graphs1090'])
         include_heatmap = util.checkbox_checked(
@@ -1204,7 +1268,7 @@ class AdsbIm:
                 "Content-Disposition": f'attachment; filename="{file_name}"'})
 
     def _add_backup_files_to_zip(
-            self, zip_file: zipfile.ZipFile, include_config,include_stats,
+            self, zip_file: zipfile.ZipFile, include_config, include_stats,
             include_graphs1090, include_heatmap):
         if include_graphs1090:
             # Start the flush right away in the background, because it may take
@@ -1312,10 +1376,6 @@ class AdsbIm:
             "might miss up to 6h", flash_message=True)
 
     def restore(self):
-        if request.method == "GET":
-            return render_template(
-                "restore.html", restore_info=self._make_restore_info(),
-                format_binary_prefix=util.format_binary_prefix)
         assert request.method == "POST"
         if "upload-file" in request.form:
             if ("file" not in request.files
@@ -1325,7 +1385,7 @@ class AdsbIm:
                 self._logger.error(
                     "Backup upload requested, but no file selected.",
                     flash_message=True)
-                return redirect(url_for("restore"))
+                return redirect(url_for("backup"))
             file = request.files["file"]
             shutil.rmtree(self.RESTORE_STAGING_DIR, ignore_errors=True)
             try:
@@ -1338,8 +1398,8 @@ class AdsbIm:
                 self._logger.exception(
                     f"Error extracting backup file: {e}.", flash_message=True)
                 shutil.rmtree(self.RESTORE_STAGING_DIR, ignore_errors=True)
-                return redirect(url_for("restore"))
-            return redirect(url_for("restore"))
+                return redirect(url_for("backup"))
+            return redirect(url_for("backup"))
         elif "restore-backup" in request.form:
             restore_config_file = self.RESTORE_STAGING_DIR / (
                 config.CONFIG_FILE.relative_to(config.CONFIG_DIR))
@@ -1350,7 +1410,7 @@ class AdsbIm:
                 self._logger.error(
                     "Can't apply backup, because the config file contained in "
                     f"it has status {restore_config_status}.")
-                return redirect(url_for("restore"))
+                return redirect(url_for("backup"))
             self._logger.info("Starting restore service.")
             # Submit the restore script as a transient systemd unit, so the
             # process is independent from us and can shut us down.
@@ -1367,65 +1427,6 @@ class AdsbIm:
             # restarted, it will say that it's complete.
             self.exiting = True
             return render_template("restarting.html")
-
-    def _make_restore_info(self):
-        if not self.RESTORE_STAGING_DIR.exists():
-            return None
-        new_files, changed_files, unchanged_files = [], [], []
-        config_status = "unchanged"
-        for file in self.RESTORE_STAGING_DIR.rglob("*"):
-            if not file.is_file():
-                # rglob() will also give us directories, we just want regular
-                # files.
-                continue
-            relative_file = file.relative_to(self.RESTORE_STAGING_DIR)
-            corresponding_current = config.CONFIG_DIR / relative_file
-            file_details = {
-                "name": str(relative_file), "size_bytes": file.stat().st_size}
-            if not corresponding_current.exists():
-                new_files.append(file_details)
-            elif filecmp.cmp(file, corresponding_current):
-                unchanged_files.append(file_details)
-            else:
-                if corresponding_current == config.CONFIG_FILE:
-                    # In case there's a changed config file, examine it a
-                    # little closer to display some extra info.
-                    config_status = self._restore_config_status(file)
-                    if config_status == "unchanged":
-                        unchanged_files.append(file_details)
-                        continue
-                changed_files.append(file_details)
-        for files in [new_files, changed_files, unchanged_files]:
-            files.sort(key=op.itemgetter("name"))
-        return {
-            "new_files": new_files, "changed_files": changed_files,
-            "unchanged_files": unchanged_files, "config_status": config_status}
-
-    def _restore_config_status(self, restore_config_file):
-        try:
-            with restore_config_file.open() as f:
-                restore_dict = json.load(f)
-        except:
-            self._logger.exception("Error loading restore config.")
-            return "invalid"
-        try:
-            with config.CONFIG_FILE.open() as f:
-                current_dict = json.load(f)
-        except:
-            self._logger.exception(
-                "Error loading current config (this really shouldn't happen).")
-            return "invalid_current"
-        if restore_dict == current_dict:
-            return "unchanged"
-        try:
-            restore_version = restore_dict["config_version"]
-            if restore_version < config.Config.CONFIG_VERSION:
-                return "older_version"
-            elif restore_version == config.Config.CONFIG_VERSION:
-                return "same_version"
-            return "future_version"
-        except:
-            return "invalid"
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
