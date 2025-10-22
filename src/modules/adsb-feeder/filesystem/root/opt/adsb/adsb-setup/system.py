@@ -192,9 +192,6 @@ class System:
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self._restart = Restart()
-        self.containerCheckLock = threading.RLock()
-        self.lastContainerCheck = 0
-        self.dockerPsCache = dict()
         self._system_info = None
         self._system_info_lock = threading.Lock()
         self._containers = None
