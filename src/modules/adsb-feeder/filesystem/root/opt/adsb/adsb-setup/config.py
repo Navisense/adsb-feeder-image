@@ -1108,26 +1108,25 @@ class Config(CompoundSetting):
         "ports": ft.partial(
             CompoundSetting, schema={
                 "web": ft.partial(
-                    IntSetting, default=80, env_variable_name="AF_WEBPORT",
-                    norestore=True),
+                    IntSetting, default=80, env_variable_name="AF_WEBPORT"),
                 "dazzle": ft.partial(
                     IntSetting, default=9999,
-                    env_variable_name="AF_DAZZLE_PORT", norestore=True),
+                    env_variable_name="AF_DAZZLE_PORT"),
                 "tar1090": ft.partial(
                     IntSetting, default=8080,
-                    env_variable_name="AF_TAR1090_PORT", norestore=True),
+                    env_variable_name="AF_TAR1090_PORT"),
                 "tar1090adjusted": ft.partial(
                     IntSetting, default=8080,
                     env_variable_name="AF_TAR1090_PORT_ADJUSTED"),
                 "uat": ft.partial(
                     IntSetting, default=9780,
-                    env_variable_name="AF_UAT978_PORT", norestore=True),
+                    env_variable_name="AF_UAT978_PORT"),
                 "piamap": ft.partial(
                     IntSetting, default=8081,
-                    env_variable_name="AF_PIAWAREMAP_PORT", norestore=True),
+                    env_variable_name="AF_PIAWAREMAP_PORT"),
                 "piastat": ft.partial(
                     IntSetting, default=8082,
-                    env_variable_name="AF_PIAWARESTAT_PORT", norestore=True),
+                    env_variable_name="AF_PIAWARESTAT_PORT"),
                 "fr": ft.partial(
                     IntSetting, default=8754,
                     env_variable_name="AF_FLIGHTRADAR_PORT"),
