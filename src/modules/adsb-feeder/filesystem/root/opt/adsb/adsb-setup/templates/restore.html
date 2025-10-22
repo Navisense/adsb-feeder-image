@@ -5,30 +5,128 @@
 {% endblock title %}
 {% block content %}
   {% if restore_info is not none %}
-    <p>A backup file has been uploaded and can be used to restore.</p>
-    <div>
-      These files are contained in the backup and will replace the current files if applied:
-      <ul>
-        {% for file in restore_info["new_files"] %}
-          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): new</li>
-        {% endfor %}
-        {% for file in restore_info["changed_files"] %}
-          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): changed</li>
-        {% endfor %}
-        {% for file in restore_info["unchanged_files"] %}
-          <li>{{ file["name"] }} ({{ format_binary_prefix(file["size_bytes"]) }}B): unchanged</li>
-        {% endfor %}
-      </ul>
-      <form method="post">
-        <button class="btn btn-primary" type="submit" name="restore-backup">Restore this backup</button>
+    <div class="card my-2">
+      <div class="card-body">
+        <h5 class="card-title">Backup restore</h5>
+        <div class="alert alert-success">A backup file has been uploaded and can be used to restore the config.</div>
+        <div class="accordion">
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-new-files">
+              <button class="accordion-button"
+                      type="button"
+                      data-mdb-toggle="collapse"
+                      data-mdb-target="#collapse-new-files"
+                      aria-expanded="true"
+                      aria-controls="collapse-new-files">New files</button>
+            </h2>
+            <div id="collapse-new-files"
+                 class="accordion-collapse collapse show"
+                 aria-labelledby="heading-new-files">
+              <div class="accordion-body">
+                {% if restore_info["new_files"] %}
+                  <div class="alert alert-info">
+                    These files are contained in the backup, but not in the config currently in use.
+                  </div>
+                  <ul class="list-group list-group-light list-group-small">
+                    {% for file in restore_info["new_files"] %}
+                      <li class="list-group-item">
+                        <span class="font-monospace">{{ file["name"] }}</span>
+                        ({{ format_binary_prefix(file["size_bytes"]) }}B)
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <div class="alert alert-info">
+                    There are no new files in the backup (all of them exist on the current system, though there may be
+                    changes.)
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-changed-files">
+              <button class="accordion-button"
+                      type="button"
+                      data-mdb-toggle="collapse"
+                      data-mdb-target="#collapse-changed-files"
+                      aria-expanded="false"
+                      aria-controls="collapse-changed-files">Changed files</button>
+            </h2>
+            <div id="collapse-changed-files"
+                 class="accordion-collapse collapse show"
+                 aria-labelledby="heading-changed-files">
+              <div class="accordion-body">
+                {% if restore_info["changed_files"] %}
+                  <div class="alert alert-info">
+                    These files contained in the backup have a corresponding file in the config currently in use, but
+                    there are changes.
+                  </div>
+                  <ul class="list-group list-group-light list-group-small">
+                    {% for file in restore_info["changed_files"] %}
+                      <li class="list-group-item">
+                        <span class="font-monospace">{{ file["name"] }}</span>
+                        ({{ format_binary_prefix(file["size_bytes"]) }}B)
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <div class="alert alert-info">There are no files with changes in the backup.</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="heading-unchanged-files">
+              <button class="accordion-button collapsed"
+                      type="button"
+                      data-mdb-toggle="collapse"
+                      data-mdb-target="#collapse-unchanged-files"
+                      aria-expanded="false"
+                      aria-controls="collapse-unchanged-files">Unchanged files</button>
+            </h2>
+            <div id="collapse-unchanged-files"
+                 class="accordion-collapse collapse"
+                 aria-labelledby="heading-unchanged-files">
+              <div class="accordion-body">
+                {% if restore_info["unchanged_files"] %}
+                  <div class="alert alert-info">
+                    These files contained in the backup are the same as their counterparts in the config currently in
+                    use.
+                  </div>
+                  <ul class="list-group list-group-light list-group-small">
+                    {% for file in restore_info["unchanged_files"] %}
+                      <li class="list-group-item">
+                        <span class="font-monospace">{{ file["name"] }}</span>
+                        ({{ format_binary_prefix(file["size_bytes"]) }}B)
+                      </li>
+                    {% endfor %}
+                  </ul>
+                {% else %}
+                  <div class="alert alert-info">There are no files without changes in the backup.</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <form method="post">
+          <button class="btn btn-primary mt-3" type="submit" name="restore-backup">Restore this backup</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">File Upload</h5>
+      {% if restore_info is not none %}
+        <p>You can also upload a new backup file here (it will replace the current one).</p>
+      {% else %}
+        <p>No backup file has been uploaded to restore from. You can upload one here.</p>
+      {% endif %}
+      <form method="post" enctype="multipart/form-data">
+        <input class="form-control" type="file" name="file">
+        <button class="btn btn-primary mt-3" type="submit" name="upload-file">Upload backup file</button>
       </form>
     </div>
-    <p>You can also upload a new backup file (it will replace the current one):</p>
-  {% else %}
-    <p>No backup file has been uploaded to restore from. You can upload one here:</p>
-  {% endif %}
-  <form method="post" enctype="multipart/form-data">
-    <input class="btn btn-secondary" type="file" name="file">
-    <button class="btn btn-primary" type="submit" name="upload-file">Upload backup file</button>
-  </form>
+  </div>
 {% endblock content %}
