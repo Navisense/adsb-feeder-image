@@ -9,7 +9,7 @@
       <div class="card-body">
         <h5 class="card-title">Backup restore</h5>
         <div class="alert alert-success">A backup file has been uploaded and can be used to restore the config.</div>
-        <div class="accordion">
+        <div class="accordion my-3">
           <div class="accordion-item">
             <h2 class="accordion-header" id="heading-new-files">
               <button class="accordion-button"
@@ -109,9 +109,42 @@
             </div>
           </div>
         </div>
-        <form method="post">
-          <button class="btn btn-primary mt-3" type="submit" name="restore-backup">Restore this backup</button>
-        </form>
+        {% with %}
+          {% set disable_restore = false %}
+          {% if restore_info["config_status"] == "same_version" %}
+            <div class="alert alert-success">
+              The backup contains a config of the same config version, which should work fine.
+            </div>
+          {% elif restore_info["config_status"] == "older_version" %}
+            <div class="alert alert-warning">
+              The backup contains a config of a previous config version. It will be upgraded to the current version if
+              you choose to restore it.
+            </div>
+          {% elif restore_info["config_status"] == "future_version" %}
+            {% set disable_restore = true %}
+            <div class="alert alert-danger">
+              The backup contains a config of a future config version. Maybe it was generated with a newer version of
+              the feeder? In that case, you must upgrade the feeder before restoring this backup. It will not work with
+              the current version.
+            </div>
+          {% elif restore_info["config_status"] == "invalid" %}
+            {% set disable_restore = true %}
+            <div class="alert alert-danger">
+              The backup contains a config, but it is invalid. This backup can't be applied.
+            </div>
+          {% elif restore_info["config_status"] == "invalid_current" %}
+            <div class="alert alert-danger">
+              The backup contains a config file. In examining it, the current config was found to be invalid. This
+              indicates a serious problem. Maybe applying this backup will fix it.
+            </div>
+          {% endif %}
+          <form method="post">
+            <button class="btn btn-primary"
+                    type="submit"
+                    name="restore-backup"
+                    {% if disable_restore %}disabled{% endif %}>Restore this backup</button>
+          </form>
+        {% endwith %}
       </div>
     </div>
   {% endif %}

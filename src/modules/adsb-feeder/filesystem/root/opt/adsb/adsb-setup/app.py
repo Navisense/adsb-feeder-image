@@ -1,6 +1,5 @@
 import collections.abc as cl_abc
 import concurrent.futures
-import copy
 import datetime
 import filecmp
 import functools as ft
@@ -1342,6 +1341,16 @@ class AdsbIm:
                 return redirect(url_for("restore"))
             return redirect(url_for("restore"))
         elif "restore-backup" in request.form:
+            restore_config_file = self.RESTORE_STAGING_DIR / (
+                config.CONFIG_FILE.relative_to(config.CONFIG_DIR))
+            if restore_config_file.exists():
+                restore_config_status = self._restore_config_status(
+                    restore_config_file)
+            if restore_config_status in ["invalid", "future_version"]:
+                self._logger.error(
+                    "Can't apply backup, because the config file contained in "
+                    f"it has status {restore_config_status}.")
+                return redirect(url_for("restore"))
             self._logger.info("Starting restore service.")
             # Submit the restore script as a transient systemd unit, so the
             # process is independent from us and can shut us down.
@@ -1363,6 +1372,7 @@ class AdsbIm:
         if not self.RESTORE_STAGING_DIR.exists():
             return None
         new_files, changed_files, unchanged_files = [], [], []
+        config_status = "unchanged"
         for file in self.RESTORE_STAGING_DIR.rglob("*"):
             if not file.is_file():
                 # rglob() will also give us directories, we just want regular
@@ -1377,12 +1387,45 @@ class AdsbIm:
             elif filecmp.cmp(file, corresponding_current):
                 unchanged_files.append(file_details)
             else:
+                if corresponding_current == config.CONFIG_FILE:
+                    # In case there's a changed config file, examine it a
+                    # little closer to display some extra info.
+                    config_status = self._restore_config_status(file)
+                    if config_status == "unchanged":
+                        unchanged_files.append(file_details)
+                        continue
                 changed_files.append(file_details)
         for files in [new_files, changed_files, unchanged_files]:
             files.sort(key=op.itemgetter("name"))
         return {
             "new_files": new_files, "changed_files": changed_files,
-            "unchanged_files": unchanged_files}
+            "unchanged_files": unchanged_files, "config_status": config_status}
+
+    def _restore_config_status(self, restore_config_file):
+        try:
+            with restore_config_file.open() as f:
+                restore_dict = json.load(f)
+        except:
+            self._logger.exception("Error loading restore config.")
+            return "invalid"
+        try:
+            with config.CONFIG_FILE.open() as f:
+                current_dict = json.load(f)
+        except:
+            self._logger.exception(
+                "Error loading current config (this really shouldn't happen).")
+            return "invalid_current"
+        if restore_dict == current_dict:
+            return "unchanged"
+        try:
+            restore_version = restore_dict["config_version"]
+            if restore_version < config.Config.CONFIG_VERSION:
+                return "older_version"
+            elif restore_version == config.Config.CONFIG_VERSION:
+                return "same_version"
+            return "future_version"
+        except:
+            return "invalid"
 
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
