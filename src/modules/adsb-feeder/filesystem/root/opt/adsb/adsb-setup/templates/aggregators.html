@@ -41,7 +41,7 @@
                role="tabpanel"
                aria-labelledby="aggregators-tablink-ais">
             <div class="card my-2" id="porttracker-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -123,7 +123,7 @@
               </div>
             </div>
             <div class="card my-2" id="aiscatcher-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -152,7 +152,7 @@
               </div>
             </div>
             <div class="card my-2" id="aishub-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -335,7 +335,7 @@
             {% endif %}
             <div class="mt-3 mb-1 h5">Select the account based ADS-B aggregators you want to feed:</div>
             <div class="card my-2" id="flightradar-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -382,7 +382,7 @@
               </div>
             </div>
             <div class="card my-2" id="planewatch-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -414,7 +414,7 @@
               </div>
             </div>
             <div class="card my-2" id="flightaware-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -452,7 +452,7 @@
               </div>
             </div>
             <div class="card my-2" id="radarbox-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -488,7 +488,7 @@
               </div>
             </div>
             <div class="card my-2" id="planefinder-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -519,7 +519,7 @@
               </div>
             </div>
             <div class="card my-2" id="adsbhub-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -550,7 +550,7 @@
               </div>
             </div>
             <div class="card my-2" id="opensky-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -589,7 +589,7 @@
               </div>
             </div>
             <div class="card my-2" id="radarvirtuel-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -622,7 +622,7 @@
               </div>
             </div>
             <div class="card my-2" id="1090uk-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -652,7 +652,7 @@
               </div>
             </div>
             <div class="card my-2" id="sdrmap-setup">
-              <div class="card-body">
+              <div class="card-body aggregator-setup-card-body">
                 <div class="form-check">
                   <h5 class="card-title my-0">
                     <input type="checkbox"
@@ -703,10 +703,13 @@
     setPiawareLink();
 
     function setExtraInputsVisibility(aggKey, shouldBeVisible) {
+      const setupCard = $(`#${aggKey}-setup`);
       if (shouldBeVisible) {
-        $(`#${aggKey}-setup .aggregator-extra-input`).removeClass("d-none");
+        setupCard.find(".aggregator-extra-input").removeClass("d-none");
+        setupCard.find(".aggregator-setup-card-body").removeClass("py-2");
       } else {
-        $(`#${aggKey}-setup .aggregator-extra-input`).addClass("d-none");
+        setupCard.find(".aggregator-extra-input").addClass("d-none");
+        setupCard.find(".aggregator-setup-card-body").addClass("py-2");
       }
     }
 
