@@ -443,6 +443,58 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
+          <h5 class="card-title m-1">Configure hotspot behavior</h5>
+          <div class="row align-items-center">
+            <form method="post" action="{{ url_for('configure-hotspot') }}">
+              <div class="form-check">
+                <div class="col-12 col-md-6 col-lg-3">
+                  <label class="form-check-label">
+                    <input type="radio"
+                           class="form-check-input"
+                           name="hotspot-mode"
+                           value="auto"
+                           {%- if get_conf("enable_hotspot") is none -%}
+                           checked
+                           {%- endif -%}>
+                    auto
+                  </label>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <label class="form-check-label">
+                    <input type="radio"
+                           class="form-check-input"
+                           name="hotspot-mode"
+                           value="on"
+                           {%- if get_conf("enable_hotspot") is true -%}
+                           checked
+                           {%- endif -%}>
+                    on
+                  </label>
+                </div>
+                <div class="col-12 col-md-6 col-lg-3">
+                  <label class="form-check-label">
+                    <input type="radio"
+                           class="form-check-input"
+                           name="hotspot-mode"
+                           value="off"
+                           {%- if get_conf("enable_hotspot") is false -%}
+                           checked
+                           {%- endif -%}>
+                    off
+                  </label>
+                </div>
+                <div class="col-12 col-lg-3">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
           <h5 class="card-title m-1">System log persistence toggle</h5>
           <form method="post"
                 action="{{ url_for('toggle-log-persistence') }}"

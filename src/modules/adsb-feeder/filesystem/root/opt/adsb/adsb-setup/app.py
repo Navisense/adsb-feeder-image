@@ -731,6 +731,15 @@ class AdsbIm:
             methods=["POST"],
         )
         app.add_url_rule(
+            "/configure-hotspot",
+            "configure-hotspot",
+            view_func=self.configure_hotspot,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/get-logs",
             "get-logs",
             view_func=self.get_logs,
@@ -2760,6 +2769,18 @@ class AdsbIm:
             self.update_net_dev()
 
         self._system._restart.bg_run(func=connect_wifi)
+        return redirect(url_for("systemmgmt"))
+
+    def configure_hotspot(self):
+        mode = request.form.get("hotspot-mode")
+        if mode == "auto":
+            self._conf.set("enable_hotspot", None)
+        elif mode == "off":
+            self._conf.set("enable_hotspot", False)
+        elif mode == "on":
+            self._conf.set("enable_hotspot", True)
+        else:
+            return "Invalid hotspot mode.", 400
         return redirect(url_for("systemmgmt"))
 
 
