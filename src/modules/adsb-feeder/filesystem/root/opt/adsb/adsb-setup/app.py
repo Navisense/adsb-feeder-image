@@ -2757,12 +2757,14 @@ class Manager:
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
     def __init__(self, conf: config.Config, sys: system.System):
+        self._conf = conf
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
-        self._hotspot_app = HotspotApp(conf, self._on_wifi_credentials)
-        self._hotspot = hotspot.make_hotspot(conf, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(conf, sys, self._hotspot_app)
+        self._hotspot_app = HotspotApp(self._conf, self._on_wifi_credentials)
+        self._hotspot = hotspot.make_hotspot(
+            self._conf, self._on_wifi_test_status)
+        self._adsb_im = AdsbIm(self._conf, sys, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
@@ -2830,12 +2832,15 @@ class Manager:
                 "Connectivity monitor says we don't have connection, but we "
                 "don't have a hotspot we could start. Enabling regular mode.")
             self._enable_regular_mode()
-        else:
-            if self._adsb_im.hotspot_mode:
+        elif self._adsb_im.hotspot_mode:
                 self._logger.info(
                     "Connectivity monitor says we don't have connection, but "
                     "we're already in hotspot mode.")
-                return
+        elif self._conf.get("enable_hotspot") is False:
+            self._logger.info(
+                "We don't have internet access, but using the hotspot has "
+                "been disabled in the settings.")
+        else:
             self._logger.info(
                 "We don't have internet access, enabling hotspot mode.")
             self._enable_hotspot_mode()
@@ -2853,6 +2858,11 @@ class Manager:
             self._logger.info(
                 "After shutting down the hotspot, connectivity has returned. "
                 "Staying in regular mode.")
+        elif self._conf.get("enable_hotspot") is False:
+            self._logger.info(
+                "After shutting down the hotspot, we still don't have "
+                "connectivity, but using the hotspot has been disabled in the "
+                "settings.")
         else:
             self._logger.info(
                 "After shutting down the hotspot, we still don't have "
