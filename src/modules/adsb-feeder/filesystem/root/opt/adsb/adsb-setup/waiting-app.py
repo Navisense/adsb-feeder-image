@@ -4,8 +4,6 @@ import re
 import os
 from sys import argv
 import time
-import math
-import sys
 
 app = Flask(__name__)
 logfile = "/run/porttracker-sdr-feeder.log"
@@ -13,27 +11,19 @@ title = "Restarting the ADS-B Feeder System"
 theme = "auto"
 
 
-# we need to fake having get_conf so that the waiting.html can be
-# used both by this and the main app
+# We need to fake having get_conf so that the waiting.html can be used both by
+# this and the main app.
 @app.context_processor
 def utility_processor():
     return {"get_conf": lambda _: theme}
 
 
-def print_err(*args, **kwargs):
-    timestamp = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + ".{0:03.0f}Z".format(
-        math.modf(time.time())[0] * 1000
-    )
-    print(*((timestamp,) + args), file=sys.stderr, **kwargs)
-
-
 @app.route("/stream-log")
 def stream_log():
-
     def tail():
         with open(logfile, "r") as file:
             ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-            tmp = file.read()[-16 * 1024 :]
+            tmp = file.read()[-16 * 1024:]
             # discard anything but the last 16 kB
             while True:
                 tmp += file.read(16 * 1024)
@@ -69,7 +59,9 @@ if __name__ == "__main__":
     if len(argv) >= 4:
         title = argv[3] + " ADS-B Feeder System"
 
-    print_err(f'Starting waiting-app.py on port {port} with title "{title}" streaming logfile {logfile}')
+    print(
+        f'Starting waiting-app.py on port {port} with title "{title}" '
+        f"streaming logfile {logfile}")
     if os.path.exists("/etc/adsb/config.json"):
         with open("/etc/adsb/config.json") as f:
             config = json.load(f)

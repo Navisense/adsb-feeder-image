@@ -93,7 +93,7 @@ def url_for_with_empty_parameters(*args, **kwargs):
         return url
     if "_anchor" in kwargs:
         raise ValueError("adding an anchor is not supported")
-    parameter_string="&".join(empty_parameters)
+    parameter_string = "&".join(empty_parameters)
     if "?" in url:
         # At least one parameter already, append after &.
         return f"{url}&{parameter_string}"
@@ -1009,13 +1009,14 @@ class AdsbIm:
             pass
 
     def update_journal_state(self):
-        # with no config setting or an 'auto' setting, the journal is persistent IFF /var/log/journal exists
+        # with no config setting or an 'auto' setting, the journal is
+        # persistent IFF /var/log/journal exists
         self._persistent_journal = pathlib.Path("/var/log/journal").exists()
         # read journald.conf line by line and check if we override the default
         try:
             result = subprocess.run(
-                "systemd-analyze cat-config systemd/journald.conf", shell=True, capture_output=True, timeout=2.0
-            )
+                "systemd-analyze cat-config systemd/journald.conf", shell=True,
+                capture_output=True, timeout=2.0)
             config = result.stdout.decode("utf-8")
         except:
             config = "Storage=auto"
@@ -1055,25 +1056,33 @@ class AdsbIm:
             self.set_system_tz("UTC")
 
     def set_system_tz(self, timezone):
-        # timedatectl can fail on dietpi installs (Failed to connect to bus: No such file or directory)
-        # thus don't rely on timedatectl and just set environment for containers regardless of timedatectl working
+        # timedatectl can fail on dietpi installs (Failed to connect to bus: No
+        # such file or directory) thus don't rely on timedatectl and just set
+        # environment for containers regardless of timedatectl working
         try:
             self._logger.info(f"Calling timedatectl set-timezone {timezone}")
-            subprocess.run(["timedatectl", "set-timezone", f"{timezone}"], check=True)
+            subprocess.run(["timedatectl", "set-timezone", f"{timezone}"],
+                           check=True)
         except subprocess.SubprocessError:
             self._logger.exception(
                 f"Failed to set up timezone ({timezone}) using timedatectl, "
                 "try dpkg-reconfigure instead")
             try:
-                subprocess.run(["test", "-f", f"/usr/share/zoneinfo/{timezone}"], check=True)
+                subprocess.run(
+                    ["test", "-f", f"/usr/share/zoneinfo/{timezone}"],
+                    check=True)
             except:
                 self._logger.exception(
                     f"Setting timezone: /usr/share/zoneinfo/{timezone} "
                     "doesn't exist")
                 return False
             try:
-                subprocess.run(["ln", "-sf", f"/usr/share/zoneinfo/{timezone}", "/etc/localtime"])
-                subprocess.run("dpkg-reconfigure --frontend noninteractive tzdata", shell=True)
+                subprocess.run([
+                    "ln", "-sf", f"/usr/share/zoneinfo/{timezone}",
+                    "/etc/localtime"])
+                subprocess.run(
+                    "dpkg-reconfigure --frontend noninteractive tzdata",
+                    shell=True)
             except:
                 pass
 
@@ -1441,7 +1450,8 @@ class AdsbIm:
         lat = self._conf.get("lat", default=0)
         lon = self._conf.get("lon", default=0)
         alt = self._conf.get("alt", default=0)
-        gps_json = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/gpsd.json")
+        gps_json = pathlib.Path(
+            "/run/adsb-feeder-ultrafeeder/readsb/gpsd.json")
         if self._conf.get("use_gpsd") and gps_json.exists():
             with gps_json.open() as f:
                 gps = json.load(f)
@@ -1679,7 +1689,7 @@ class AdsbIm:
             self._conf.set("readsb_device_type", "rtlsdr")
             # Set rtlsdr 1090 gain, bit hacky but means we don't have to
             # restart the bulky ultrafeeder for gain changes.
-            self.setRtlGain()
+            self.set_rtl_gain()
         if adsb_serial in serials_by_type.get("modesbeast", []):
             self._conf.set("readsb_device_type", "modesbeast")
         else:
@@ -1706,11 +1716,12 @@ class AdsbIm:
 
     def clear_range_outline(self):
         self._logger.info("Resetting range outline for ultrafeeder.")
-        setGainPath = pathlib.Path(f"/run/adsb-feeder-ultrafeeder/readsb/setGain")
+        set_gain_path = pathlib.Path(
+            f"/run/adsb-feeder-ultrafeeder/readsb/setGain")
 
         self.waitSetGainRace()
         util.string2file(
-            path=setGainPath, string="resetRangeOutline", verbose=True)
+            path=set_gain_path, string="resetRangeOutline", verbose=True)
 
     def waitSetGainRace(self):
         # readsb checks this the setGain file every 0.2 seconds
@@ -1758,20 +1769,20 @@ class AdsbIm:
                 "Failure while setting root password, check logs for details",
                 flash_message=True)
 
-    def setRtlGain(self):
-        gaindir = (
-            config.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
-        setGainPath = pathlib.Path("/run/adsb-feeder-ultrafeeder/readsb/setGain")
+    def set_rtl_gain(self):
+        gaindir = (config.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
+        set_gain_path = pathlib.Path(
+            "/run/adsb-feeder-ultrafeeder/readsb/setGain")
         try:
             gaindir.mkdir(exist_ok=True, parents=True)
         except:
             pass
         gain = self._conf.get("gain")
 
-        # autogain is configured via the container env vars to be always enabled
-        # so we can change gain on the fly without changing env vars
-        # for manual gain the autogain script in the container can be asked to do nothing
-        # by touching the suspend file
+        # autogain is configured via the container env vars to be always
+        # enabled so we can change gain on the fly without changing env vars
+        # for manual gain the autogain script in the container can be asked to
+        # do nothing by touching the suspend file
 
         # the container based autogain script is never used now but the env var
         # READSB_GAIN=autogain must remain set so we can change the gain
@@ -1787,7 +1798,7 @@ class AdsbIm:
 
             # this adjusts the gain while readsb is running
             self.waitSetGainRace()
-            util.string2file(path=setGainPath, string=f"{gain}\n")
+            util.string2file(path=set_gain_path, string=f"{gain}\n")
 
     def handle_implied_settings(self):
         self._conf.set("mlathub_disable", False)
@@ -1819,7 +1830,8 @@ class AdsbIm:
         self._conf.set("mlathub_enable", not self._conf.get("mlathub_disable"))
 
         if self._conf.get("tar1090_image_config_link") != "":
-            self._conf.set("tar1090_image_config_link",
+            self._conf.set(
+                "tar1090_image_config_link",
                 f"http://HOSTNAME:{self._conf.get('ports.web')}/")
 
         self._conf.set(
@@ -1859,7 +1871,8 @@ class AdsbIm:
         if new_daemon_json != daemon_json:
             with open("/etc/docker/daemon.json", "w") as f:
                 json.dump(new_daemon_json, f, indent=2)
-            # reload docker config (this is sufficient for the max-concurrent-downloads setting)
+            # reload docker config (this is sufficient for the
+            # max-concurrent-downloads setting)
             proc = util.shell_with_combined_output(
                 "bash -c 'kill -s SIGHUP $(pidof dockerd)'", timeout=5)
             try:
@@ -2000,7 +2013,6 @@ class AdsbIm:
         self._logger.debug("Base config not complete.")
         return redirect(url_for("index"))
 
-
     def _ensure_prometheus_metrics_state(self):
         currently_enabled = system.systemctl().unit_is_active(
             "adsb-push-prometheus-metrics.timer")
@@ -2036,7 +2048,8 @@ class AdsbIm:
         zerotier_running = False
         proc = util.shell_with_combined_output("ps -e", timeout=2)
         zerotier_running = "zerotier-one" in proc.stdout
-        # create a potential new root password in case the user wants to change it
+        # Create a potential new root password in case the user wants to change
+        # it.
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
         stable_versions = gitlab.gitlab_repo().get_semver_tags()
@@ -2218,13 +2231,16 @@ class AdsbIm:
         else:
             self.zerotier_address = ""
 
-        # reset undervoltage warning after 2h
-        if self._conf.get("under_voltage") and time.time() - self.undervoltage_epoch > 2 * 3600:
-            self._conf.set("under_voltage", False)
+        # Reset undervoltage warning after 2h.
+        if self._conf.get("under_voltage"):
+            time_since_warning = time.time() - self.undervoltage_epoch
+            if time_since_warning > 2 * 3600:
+                self._conf.set("under_voltage", False)
 
-        # now let's check for disk space
+        # Now let's check for disk space.
         self._conf.set(
-            "low_disk", shutil.disk_usage("/").free < 1024 * 1024 * 1024)
+            "low_disk",
+            shutil.disk_usage("/").free < 1024 * 1024 * 1024)
 
     def overview(self):
         for aggregator in aggregators.all_aggregators().values():
@@ -2232,8 +2248,9 @@ class AdsbIm:
                 # Refresh the status cache to get a fast response when the
                 # frontend requests it.
                 self._executor.submit(aggregator.refresh_status_cache)
-        # if we get to show the feeder homepage, the user should have everything figured out
-        # and we can remove the pre-installed ssh-keys and password
+        # If we get to show the feeder homepage, the user should have
+        # everything figured out and we can remove the pre-installed ssh-keys
+        # and password.
         if os.path.exists("/opt/adsb/adsb.im.passwd.and.keys"):
             self._logger.info(
                 "Removing pre-installed ssh keys, overwriting root password.")
@@ -2246,7 +2263,7 @@ class AdsbIm:
                     for line in org_authfile.readlines():
                         if "adsb.im" not in line and installkey not in line:
                             new_authfile.write(line)
-            # now overwrite the root password with something random
+            # Mow overwrite the root password with something random.
             alphabet = string.ascii_letters + string.digits
             self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
             self.set_rpw()
@@ -2305,15 +2322,16 @@ class AdsbIm:
         return render_template("setup.html")
 
     def temperatures(self):
-        temperature_json = {}
+        temperature_file = pathlib.Path(
+            "/run/adsb-feeder-ultrafeeder/temperature.json")
         try:
-            with open("/run/adsb-feeder-ultrafeeder/temperature.json", "r") as temperature_file:
-                temperature_json = json.load(temperature_file)
-                now = int(time.time())
-                age = now - int(temperature_json.get("now", "0"))
-                temperature_json["age"] = age
+            with temperature_file.open() as f:
+                temperature_json = json.load(f)
         except:
-            pass
+            return {}
+        now = int(time.time())
+        age = now - int(temperature_json.get("now", "0"))
+        temperature_json["age"] = age
         return temperature_json
 
     def support(self):
@@ -2326,12 +2344,13 @@ class AdsbIm:
         target = request.form.get("upload")
         if not target:
             self._logger.error("Support POST request without target.")
-            return render_template("support.html", url="Error, unspecified upload target!")
+            return render_template(
+                "support.html", url="Error, unspecified upload target!")
         self._logger.info(f'Trying to upload the logs with target: "{target}"')
         if target == "0x0.st":
             proc = util.shell_with_combined_output(
-                "bash /opt/adsb/log-sanitizer.sh 2>&1 | curl -F'expires=168' -F'file=@-'  https://0x0.st",
-                timeout=60)
+                "bash /opt/adsb/log-sanitizer.sh 2>&1 | "
+                "curl -F'expires=168' -F'file=@-'  https://0x0.st", timeout=60)
             try:
                 proc.check_returncode()
                 self._logger.info(f"Uploaded logs to {proc.stdout.strip()}")
@@ -2356,7 +2375,8 @@ class AdsbIm:
         if target == "local_view" or target == "local_download":
             return self.download_logs(target)
 
-        return render_template("support.html", url="upload logs: unexpected code path")
+        return render_template(
+            "support.html", url="upload logs: unexpected code path")
 
     def get_logs(self):
         return self.download_logs("local_download")
@@ -2382,7 +2402,8 @@ class AdsbIm:
 
         self._executor.submit(get_log, fobj=pipeIn)
 
-        now = datetime.datetime.now().replace(microsecond=0).isoformat().replace(":", "-")
+        now = datetime.datetime.now().replace(
+            microsecond=0).isoformat().replace(":", "-")
         download_name = f"adsb-feeder-config-{self.hostname}-{now}.txt"
         return send_file(
             pipeOut,
@@ -2391,11 +2412,13 @@ class AdsbIm:
         )
 
     def info(self):
-        sdrs = [f"{sdr}" for sdr in self._sdrdevices.sdrs] if len(self._sdrdevices.sdrs) > 0 else ["none"]
+        sdrs = [str(sdr) for sdr in self._sdrdevices.sdrs]
+        sdrs = sdrs or ["none"]
 
         def simple_cmd_result(cmd):
             try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, timeout=2.0)
+                result = subprocess.run(
+                    cmd, shell=True, capture_output=True, timeout=2.0)
                 return result.stdout.decode("utf-8")
             except:
                 return f"failed to run '{cmd}'"
@@ -2404,14 +2427,20 @@ class AdsbIm:
         kernel = simple_cmd_result("uname -rvmo")
         memory = simple_cmd_result("free -h")
         top = simple_cmd_result("top -b -n1 | head -n5")
-        journal = "persistent on disk" if self._persistent_journal else "in memory"
+        if self._persistent_journal:
+            journal = "persistent on disk"
+        else:
+            journal = "in memory"
 
         if self._system.is_ipv6_broken():
-            ipv6 = "IPv6 is broken (IPv6 address assigned but can't connect to IPv6 hosts)"
+            ipv6 = (
+                "IPv6 is broken (IPv6 address assigned but can't connect to "
+                "IPv6 hosts)")
         else:
             ipv6 = "IPv6 is working or disabled"
 
-        netdog = simple_cmd_result("tail -n 10 /opt/adsb/logs/netdog.log 2>/dev/null")
+        netdog = simple_cmd_result(
+            "tail -n 10 /opt/adsb/logs/netdog.log 2>/dev/null")
 
         images = [
             image_setting.get("")
@@ -2431,15 +2460,17 @@ class AdsbIm:
         )
 
     def waiting(self):
-        return render_template("waiting.html", title="ADS-B Feeder performing requested actions")
+        return render_template(
+            "waiting.html", title="ADS-B Feeder performing requested actions")
 
     def stream_log(self):
         logfile = "/run/porttracker-sdr-feeder.log"
 
         def tail():
             with open(logfile, "r") as file:
-                ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
-                tmp = file.read()[-16 * 1024 :]
+                ansi_escape = re.compile(
+                    r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+                tmp = file.read()[-16 * 1024:]
                 # discard anything but the last 16 kB
                 while self._system._restart.state == "busy":
                     tmp += file.read(16 * 1024)
@@ -2447,7 +2478,8 @@ class AdsbIm:
                         block, tmp = tmp.rsplit("\n", 1)
                         block = ansi_escape.sub("", block)
                         lines = block.split("\n")
-                        data = "".join(["data: " + line + "\n" for line in lines])
+                        data = "".join([
+                            "data: " + line + "\n" for line in lines])
                         yield data + "\n\n"
                     else:
                         time.sleep(0.2)
@@ -2599,11 +2631,10 @@ class AdsbIm:
         zerotier_id = request.form["zerotierid"]
         try:
             system.systemctl().run(["unmask", "enable --now"],
-                                    ["zerotier-one"])
+                                   ["zerotier-one"])
             # Wait for the service to get ready...
             time.sleep(5.0)
-            subprocess.call([
-                "/usr/sbin/zerotier-cli", "join", zerotier_id])
+            subprocess.call(["/usr/sbin/zerotier-cli", "join", zerotier_id])
         except:
             self._logger.exception(
                 "Exception trying to set up zerotier - giving up",
@@ -2833,9 +2864,9 @@ class Manager:
                 "don't have a hotspot we could start. Enabling regular mode.")
             self._enable_regular_mode()
         elif self._adsb_im.hotspot_mode:
-                self._logger.info(
-                    "Connectivity monitor says we don't have connection, but "
-                    "we're already in hotspot mode.")
+            self._logger.info(
+                "Connectivity monitor says we don't have connection, but "
+                "we're already in hotspot mode.")
         elif self._conf.get("enable_hotspot") is False:
             self._logger.info(
                 "We don't have internet access, but using the hotspot has "
