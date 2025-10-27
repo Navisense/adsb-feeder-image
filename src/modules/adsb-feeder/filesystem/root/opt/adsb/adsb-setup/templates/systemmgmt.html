@@ -444,51 +444,57 @@
       <div class="card h-100">
         <div class="card-body">
           <h5 class="card-title m-1">Configure hotspot behavior</h5>
-          <div class="row align-items-center">
-            <form method="post" action="{{ url_for('configure-hotspot') }}">
-              <div class="form-check">
-                <div class="col-12 col-md-6 col-lg-3">
-                  <label class="form-check-label">
-                    <input type="radio"
-                           class="form-check-input"
-                           name="hotspot-mode"
-                           value="auto"
-                           {%- if get_conf("enable_hotspot") is none -%}
-                           checked
-                           {%- endif -%}>
-                    auto
-                  </label>
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                  <label class="form-check-label">
-                    <input type="radio"
-                           class="form-check-input"
-                           name="hotspot-mode"
-                           value="on"
-                           {%- if get_conf("enable_hotspot") is true -%}
-                           checked
-                           {%- endif -%}>
-                    on
-                  </label>
-                </div>
-                <div class="col-12 col-md-6 col-lg-3">
-                  <label class="form-check-label">
-                    <input type="radio"
-                           class="form-check-input"
-                           name="hotspot-mode"
-                           value="off"
-                           {%- if get_conf("enable_hotspot") is false -%}
-                           checked
-                           {%- endif -%}>
-                    off
-                  </label>
-                </div>
-                <div class="col-12 col-lg-3">
-                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-                </div>
+          <p>
+            The system continuously checks whether it can still reach the internet. If there is no connectivity, it
+            can start a wifi hotspot to which you can connect and configure a wifi network to use (e.g. because the
+            device doesn't have a display attached). If this setting is <strong>on</strong>, the hotspot will be
+            started when there is no connectivity, if it is <strong>off</strong>, it will never be started. In the
+            setting <strong>auto</strong>, the system will try to determine if a graphical interface is running, and
+            only start the hotspot if it can't find one.
+          </p>
+          <form method="post" action="{{ url_for('configure-hotspot') }}">
+            <div class="d-flex align-items-center">
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="auto"
+                         {%- if get_conf("enable_hotspot") is none -%}
+                         checked
+                         {%- endif -%}>
+                  auto
+                </label>
               </div>
-            </form>
-          </div>
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="on"
+                         {%- if get_conf("enable_hotspot") is true -%}
+                         checked
+                         {%- endif -%}>
+                  on
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="off"
+                         {%- if get_conf("enable_hotspot") is false -%}
+                         checked
+                         {%- endif -%}>
+                  off
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
     </div>
