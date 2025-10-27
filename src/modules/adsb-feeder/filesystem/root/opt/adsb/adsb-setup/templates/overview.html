@@ -60,20 +60,22 @@
         <div class="row">
           {% for device_host in device_hosts %}
             <div class="col-12 col-lg-6 col-xl-4">
-              <div id="feeder-reachability-alert-{{ device_host['host'] }}"
-                   class="alert alert-primary">
+              <div class="alert alert-primary feeder-reachability-alert"
+                   data-host="{{ device_host['host'] }}">
                 <a href="http://{{ device_host['host'] }}"
-                   id="feeder-reachability-button-{{ device_host['host'] }}"
-                   class="btn btn-secondary m-1 disabled"
+                   class="btn btn-secondary m-1 disabled feeder-reachability-button"
                    aria-disabled="true"
-                   role="button">
+                   role="button"
+                   data-host="{{ device_host['host'] }}">
                   {{- device_host['host'] -}}
-                  {%- if device_host['comment'] %}
-                    ({{ device_host["comment"] }})
+                  {%- if device_host['type'] == 'local_ip' %}
+                    (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
+                  {%- elif device_host['type'] == 'tailscale' %}
+                    (via Tailscale)
                   {%- endif -%}
                 </a>
-                <span id="feeder-reachability-description-{{ device_host['host'] }}"
-                      class="small">(checking reachability...)</span>
+                <span class="small feeder-reachability-description"
+                      data-host="{{ device_host['host'] }}">(checking reachability...)</span>
               </div>
             </div>
           {% endfor %}
@@ -318,9 +320,9 @@
 
     function updateReachabilityInfo(stati, hasTimedOut) {
       for ([host, status] of stati.entries()) {
-        let alert = $("#" + $.escapeSelector(`feeder-reachability-alert-${host}`));
-        let button = $("#" + $.escapeSelector(`feeder-reachability-button-${host}`));
-        let description = $("#" + $.escapeSelector(`feeder-reachability-description-${host}`));
+        let alert = $(`.feeder-reachability-alert[data-host="${$.escapeSelector(host)}"`);
+        let button = $(`.feeder-reachability-button[data-host="${$.escapeSelector(host)}"`);
+        let description = $(`.feeder-reachability-description[data-host="${$.escapeSelector(host)}"`);
         alert.removeClass("alert-primary alert-success alert-danger");
         button.removeClass("disabled");
         button.removeAttr("aria-disabled");

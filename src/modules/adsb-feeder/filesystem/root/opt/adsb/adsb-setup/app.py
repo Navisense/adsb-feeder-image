@@ -2297,15 +2297,15 @@ class AdsbIm:
         tailscale_info = self._system.get_tailscale_info()
         device_hosts = []
         device_hosts += [{
-            "host": di.ip,
-            "comment": f"device { di.device } via { di.gateway }"
+            "host": di.ip, "type": "local_ip", "device": di.device,
+            "gateway": di.gateway
         } for di in self._system.system_info.network_device_infos]
-        device_hosts += [{"host": domain, "comment": None}
+        device_hosts += [{"host": domain, "type": "mdns"}
                          for domain in self._conf.get("mdns.domains")]
         if tailscale_info.dns_name:
             device_hosts.append({
-                "host": tailscale_info.dns_name, "comment": "via Tailscale"})
-        device_hosts += [{"host": str(ip), "comment": "via Tailscale"}
+                "host": tailscale_info.dns_name, "type": "tailscale"})
+        device_hosts += [{"host": str(ip), "type": "tailscale"}
                          for ip in tailscale_info.ipv4s]
         aggregators_chosen = (
             any(
