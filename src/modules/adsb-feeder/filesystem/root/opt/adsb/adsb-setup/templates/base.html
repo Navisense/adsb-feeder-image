@@ -442,10 +442,15 @@
       </section>
     </footer>
     <script>
+      function initOrReplaceMdbTooltip(element) {
+        const existingTooltip = mdb.Tooltip.getInstance(element);
+        if (existingTooltip) { existingTooltip.dispose();}
+        new mdb.Tooltip(element);
+      }
       // Initialize all MDB tooltips.
       const elementsWithTooltip = [].slice.call(document.querySelectorAll('[data-mdb-toggle="tooltip"]'));
       for (const elementWithTooltip of elementsWithTooltip) {
-        new mdb.Tooltip(elementWithTooltip);
+        initOrReplaceMdbTooltip(elementWithTooltip);
       }
     </script>
   </body>

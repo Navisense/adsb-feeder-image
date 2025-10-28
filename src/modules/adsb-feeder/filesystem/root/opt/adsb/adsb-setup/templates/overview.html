@@ -54,37 +54,51 @@
         </button>
       </div>
       <h5 class="card-title">Device info</h5>
-      This is <strong>{{ get_conf("site_name") }}</strong>,
-      {% if device_hosts %}
-        reachable as
-        <div class="row">
+      This is <strong>{{ get_conf("site_name") }}</strong>.
+      {% if request.remote_addr in ["127.0.0.1", "::1"] %}
+        You are viewing this page on the device itself.
+        {% if device_hosts %}
+          You can also reach this device on the network as any one of these:
+          <ul class="list-group list-group-small my-3">
+            {% for device_host in device_hosts %}
+              <li class="list-group-item text-center px-2">
+                <span class="link-primary">{{ device_host['host'] }}</span>
+                {%- if device_host['type'] == 'local_ip' %}
+                  (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
+                {%- elif device_host['type'] == 'tailscale' %}
+                  (via Tailscale)
+                {%- endif -%}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          Unfortunately, we have no information on other ways to reach this device.
+        {% endif %}
+      {% elif device_hosts %}
+        This device is reachable on the network as any one of these:
+        <ul class="list-group list-group-small my-3">
           {% for device_host in device_hosts %}
-            <div class="col-12 col-lg-6 col-xl-4">
-              <div class="alert alert-primary feeder-reachability-alert"
-                   data-host="{{ device_host['host'] }}">
-                <a href="http://{{ device_host['host'] }}"
-                   class="btn btn-secondary m-1 disabled feeder-reachability-button"
-                   aria-disabled="true"
-                   role="button"
-                   data-host="{{ device_host['host'] }}">
-                  {{- device_host['host'] -}}
-                  {%- if device_host['type'] == 'local_ip' %}
-                    (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
-                  {%- elif device_host['type'] == 'tailscale' %}
-                    (via Tailscale)
-                  {%- endif -%}
-                </a>
-                <span class="small feeder-reachability-description"
-                      data-host="{{ device_host['host'] }}">(checking reachability...)</span>
-              </div>
-            </div>
+            <li class="list-group-item d-flex justify-content-between align-items-center px-2">
+              <span>
+                <a href="http://{{ device_host['host'] }}">{{ device_host['host'] }}</a>
+                {%- if device_host['type'] == 'local_ip' %}
+                  (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
+                {%- elif device_host['type'] == 'tailscale' %}
+                  (via Tailscale)
+                {%- endif -%}
+              </span>
+              <span class="badge badge-info rounded-pill feeder-reachability-badge"
+                    data-host="{{ device_host['host'] }}"
+                    data-mdb-toggle="tooltip"
+                    title="Checking whether this address is reachable from this browser">checking...</span>
+            </li>
           {% endfor %}
-        </div>
+        </ul>
       {% else %}
-        unfortunately, we have no information on how to reach this device.
+        Unfortunately, we have no information on how to reach this device.
       {% endif %}
       {% if system_info.external_ip %}
-        The external IP (on the public internet) is <strong>{{ system_info.external_ip }}</strong>
+        This device's external IP (on the public internet) is <strong>{{ system_info.external_ip }}</strong>
         <span id="feeder-external-ip-comment"></span>
       {% else %}
         Unfortunately, we have no information on the device's external IP (on the public internet).
@@ -320,26 +334,29 @@
 
     function updateReachabilityInfo(stati, hasTimedOut) {
       for ([host, status] of stati.entries()) {
-        let alert = $(`.feeder-reachability-alert[data-host="${$.escapeSelector(host)}"`);
-        let button = $(`.feeder-reachability-button[data-host="${$.escapeSelector(host)}"`);
-        let description = $(`.feeder-reachability-description[data-host="${$.escapeSelector(host)}"`);
-        alert.removeClass("alert-primary alert-success alert-danger");
-        button.removeClass("disabled");
-        button.removeAttr("aria-disabled");
+        let badge = $(`.feeder-reachability-badge[data-host="${$.escapeSelector(host)}"`);
+        if (!badge.length) continue;
+        let badgeColorClass = "";
         if (status == "success") {
-          alert.addClass("alert-success");
-          description.text("(reachable from this browser)");
+          badgeColorClass = "badge-success";
+          badge.text("ok");
+          badge.attr("data-mdb-original-title", "Reachable from this browser");
         } else if (hasTimedOut) {
-          alert.addClass("alert-danger");
-          button.addClass("disabled");
-          button.attr("aria-disabled", "true");
-          description.text("(not reachable, gave up checking)");
+          badgeColorClass = "badge-danger";
+          badge.text("error");
+          badge.attr("data-mdb-original-title", "Not reachable, gave up checking");
         } else {
-          alert.addClass("alert-primary");
-          button.addClass("disabled");
-          button.attr("aria-disabled", "true");
-          description.text("(not reachable yet, continuing to check)");
+          badgeColorClass = "badge-warning";
+          badge.text("checking...");
+          badge.attr(
+            "data-mdb-original-title",
+            "Not reachable yet, continuing to check whether this address is reachable from this browser");
         }
+        initOrReplaceMdbTooltip(badge[0]);
+        let badgeColorClasses = new Set(["badge-info", "badge-success", "badge-warning", "badge-danger"]);
+        badgeColorClasses.delete(badgeColorClass);
+        badge.addClass(badgeColorClass);
+        badge.removeClass(Array.from(badgeColorClasses).join(" "));
       }
     }
 
