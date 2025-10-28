@@ -10,7 +10,7 @@
 source ../src/modules/adsb-feeder/filesystem/root/opt/adsb/scripts/lib-install.bash
 
 USAGE="
- $0 arguments
+  $0 arguments
   --ref ref                   # the ref (e.g. branch or tag) to install
                               # (default: latest available stable version)
   --web-port port             # the port for the web interface (default: 1099)
@@ -18,6 +18,13 @@ USAGE="
   --expand-rootfs             # enable a service to expand the root file system
   --auto-install-dependencies # automatically install needed dependencies (off
                               # by default)
+  --enable-hotspot            # Enable or disable the wifi hotspot that is
+  --disable-hotspot           # started when there is no internet connection, to
+                              # connect to a wifi network without a display
+                              # attached. The default is to only start the
+                              # hotspot if no window manager is detected. These
+                              # options can be used to override this and force
+                              # the hotspot to always or never be used.
 "
 
 ROOT_REQUIRED="
@@ -37,6 +44,7 @@ WEB_PORT="1099"
 ENABLE_MDNS="False"
 EXPAND_ROOTFS="False"
 AUTO_INSTALL_DEPENDENCIES="False"
+ENABLE_HOTSPOT=""
 
 while (( $# ))
 do
@@ -50,6 +58,18 @@ do
         '--expand-rootfs') EXPAND_ROOTFS="True"
             ;;
         '--auto-install-dependencies') AUTO_INSTALL_DEPENDENCIES="True"
+            ;;
+        '--enable-hotspot')
+            if [ -z "${ENABLE_HOTSPOT}" ] ; then
+                exit_message "Both enable/disable hotspot specified."
+            fi
+            ENABLE_HOTSPOT="True"
+            ;;
+        '--disable-hotspot')
+            if [ -z "${ENABLE_HOTSPOT}" ] ; then
+                exit_message "Both enable/disable hotspot specified."
+            fi
+            ENABLE_HOTSPOT="False"
             ;;
         *) exit_message "$USAGE"
     esac
@@ -112,6 +132,9 @@ echo "Creating a default config at /etc/adsb/config.json."
 /opt/adsb/adsb-setup/config.py ensure_config_exists
 /opt/adsb/adsb-setup/config.py set ports.web ${WEB_PORT}
 /opt/adsb/adsb-setup/config.py set mdns.is_enabled ${ENABLE_MDNS}
+if [ -n "${ENABLE_HOTSPOT}"] ; then
+    /opt/adsb/adsb-setup/config.py set enable_hotspot ${ENABLE_HOTSPOT}
+fi
 
 # Run the final steps of the setup and then enable the service.
 systemctl daemon-reload
