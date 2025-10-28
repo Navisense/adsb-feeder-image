@@ -106,9 +106,9 @@ if [[ "$VARIANT" == "dietpi"* ]] ; then
     mkdir -p "$MNT_DIR/opt/adsb/usr/lib/systemd/system/"
     cp -v -a "$DIR"/modules/adsb-feeder/filesystem/root/usr/lib/systemd/system/* "$MNT_DIR"/opt/adsb/usr/lib/systemd/system/
     cp -v -a -r "$DIR"/modules/adsb-feeder/filesystem/root/opt/adsb "$MNT_DIR"/opt/
-    echo "$FEEDER_IMAGE_NAME" > "$MNT_DIR"/opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
-    echo "image-install" > "$MNT_DIR"/opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
-    echo "$VERSION" > "$MNT_DIR"/opt/adsb/porttracker_feeder_install_metadata/version.txt
+    echo "$FEEDER_IMAGE_NAME" > "$MNT_DIR"/opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt
+    echo "image-install" > "$MNT_DIR"/opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt
+    echo "$VERSION" > "$MNT_DIR"/opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt
     touch "$MNT_DIR"/opt/adsb/adsb.im.passwd.and.keys
 
     # speed up apt-get operations by not rebuilding the man-db cache:
@@ -197,8 +197,8 @@ EOF
     exit 0
 else
     VERSION=$(cat ../version.txt)
-    echo "image-install" > modules/adsb-feeder/filesystem/root//opt/adsb/porttracker_feeder_install_metadata/previous_version.txt
-    echo "$VERSION" > modules/adsb-feeder/filesystem/root/opt/adsb/porttracker_feeder_install_metadata/version.txt
+    echo "image-install" > modules/adsb-feeder/filesystem/root//opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt
+    echo "$VERSION" > modules/adsb-feeder/filesystem/root/opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt
 
     "${CUSTOM_PI_OS_PATH}/build_custom_os" "$@"
 fi

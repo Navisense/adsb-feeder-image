@@ -50,18 +50,18 @@ apt-get install -y --no-install-recommends chrony
 sed -i -e 's/^makestep.*/makestep 0.5 -1/' /etc/chrony/chrony.conf
 
 if [ "$FEEDER_IMAGE_NAME" != "" ] ; then
-	echo "$FEEDER_IMAGE_NAME" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
+	echo "$FEEDER_IMAGE_NAME" > /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt
 else
-	echo "custom built feeder image" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt
+	echo "custom built feeder image" > /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt
 fi
-echo "Using feeder image name $(cat /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt)"
+echo "Using feeder image name $(cat /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt)"
 
 # setup initial .env with container versions
 mkdir -p /etc/adsb
 ENV_FILE=/etc/adsb/.env
 cp /opt/adsb/docker.image.versions "$ENV_FILE"
-echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
-echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
+echo "_ADSBIM_BASE_VERSION=$(cat /opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
+echo "_ADSBIM_CONTAINER_VERSION=$(cat /opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt)" >> "$ENV_FILE"
 
 rm -f /boot/ADSB-README.txt
 

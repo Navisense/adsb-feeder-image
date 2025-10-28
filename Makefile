@@ -62,10 +62,10 @@ sync-py-control:
 	ssh -S "${SSH_CONTROL}" root@$(HOST) '\
 		rm -f /opt/adsb/.cachebust_done; \
 		bash /opt/adsb/scripts/cachebust.sh Makefile; \
-		mkdir -p /opt/adsb/porttracker_feeder_install_metadata; \
-		echo "Makefile-sync install" > /opt/adsb/porttracker_feeder_install_metadata/previous_version.txt; \
-		echo "Porttracker Feeder from Makefile-sync" > /opt/adsb/porttracker_feeder_install_metadata/friendly_name.txt; \
-		echo "`cat /opt/adsb/version.txt`-makefile-sync" > /opt/adsb/porttracker_feeder_install_metadata/version.txt; \
+		mkdir -p /opt/adsb/porttracker_sdr_feeder_install_metadata; \
+		echo "Makefile-sync install" > /opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt; \
+		echo "Porttracker Feeder from Makefile-sync" > /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt; \
+		echo "`cat /opt/adsb/version.txt`-makefile-sync" > /opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt; \
 		systemctl daemon-reload; \
 	'
 
