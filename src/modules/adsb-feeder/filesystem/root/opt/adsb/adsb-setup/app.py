@@ -826,12 +826,7 @@ class AdsbIm:
                 return redirect(url_for("setup"))
 
             # Check if any used SDR devices are missing.
-            available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
-            used_serials = {
-                self._conf.get(f"serial_devices.{purpose}")
-                for purpose in self._sdrdevices.purposes}
-            used_serials = {serial for serial in used_serials if serial}
-            missing_serials = used_serials - available_serials
+            missing_serials = self._missing_sdr_devices()
             if missing_serials and request.endpoint != "sdr_setup":
                 self._logger.warning(
                     f"Configured devices {missing_serials} appear to not be "
@@ -843,9 +838,7 @@ class AdsbIm:
                 return redirect(url_for("sdr_setup"))
 
             # Check for unconfigured SDR devices.
-            configured_serials = (
-                used_serials | set(self._conf.get("serial_devices.unused")))
-            unconfigured_serials = available_serials - configured_serials
+            unconfigured_serials = self._unconfigured_sdr_devices()
             if unconfigured_serials and request.endpoint != "sdr_setup":
                 self._logger.info(
                     f"Unconfigured devices: {unconfigured_serials}, "
@@ -858,6 +851,25 @@ class AdsbIm:
             return view_func(*args, **kwargs)
 
         return handle_request
+
+    def _missing_sdr_devices(self) -> set[str]:
+        """Find serials of devices that are configured but not attached."""
+        available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
+        used_serials = {
+            self._conf.get(f"serial_devices.{purpose}")
+            for purpose in self._sdrdevices.purposes}
+        used_serials = {serial for serial in used_serials if serial}
+        return used_serials - available_serials
+
+    def _unconfigured_sdr_devices(self) -> set[str]:
+        """Find serials of devices that are attached but not configured."""
+        available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
+        used_serials = {
+            self._conf.get(f"serial_devices.{purpose}")
+            for purpose in self._sdrdevices.purposes}
+        configured_serials = (
+            used_serials | set(self._conf.get("serial_devices.unused")))
+        return available_serials - configured_serials
 
     def _require_login(self, view_func):
         """
@@ -1578,7 +1590,9 @@ class AdsbIm:
         sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
             "sdr_devices": sdr_device_dicts,
-            "lsusb_output": self._sdrdevices.lsusb_output,}
+            "lsusb_output": self._sdrdevices.lsusb_output,
+            "missing_devices": list(self._missing_sdr_devices()),
+            "unconfigured_devices": list(self._unconfigured_sdr_devices()),}
 
     def configure_sdr(self):
         # Extra buttons for gain resets.

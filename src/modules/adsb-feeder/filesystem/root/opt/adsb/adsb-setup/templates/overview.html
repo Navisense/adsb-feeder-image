@@ -362,9 +362,15 @@
 
     function updateSdrDevices() {
       $.ajax("/api/sdr_info").done(function (sdrInfo) {
-        $("#sdr-devices").html("");
+        const row = $("#sdr-devices");
+        row.html("");
+        if (sdrInfo.missing_devices.length || sdrInfo.unconfigured_devices.length) {
+          row.append(makeNotificationCardHtml(
+            "error", "Configuration mismatch",
+            "The devices that are configured don't match the ones that are attached."));
+        }
         if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
-          $("#sdr-devices").html(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
+          row.append(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
         } else {
           for (const sdrDevice of sdrInfo.sdr_devices) {
             appendSdrDevice(sdrDevice);
