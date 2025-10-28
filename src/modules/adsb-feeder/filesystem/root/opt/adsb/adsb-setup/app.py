@@ -2794,7 +2794,11 @@ class Manager:
 
     This decision is based mostly on input from the ConnectivityMonitor, which
     regularly checks whether we can reach the open internet. If we can, we want
-    to run the main app, otherwise the hotspot.
+    to run the main app, otherwise the hotspot. But the hotspot is only used if
+    the system is configured to use it via the enable_hotspot setting (True
+    meaning to enable the hotspot if there is no connectivity, False to never
+    use the hotspot, and None, i.e. unset meaning to use the hotspot if no
+    display is attached).
 
     However, an additional criterion is that the hotspot shouldn't run for too
     long if it yields no success. That's because it blocks the wifi device, so
@@ -2804,19 +2808,20 @@ class Manager:
     have connection again, it is kept running, otherwise the hotspot is started
     again.
     """
-    CONNECTIVITY_CHECK_INTERVAL = 60
+    CONNECTIVITY_CHECK_INTERVAL = 5
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
     def __init__(self, conf: config.Config, sys: system.System):
         self._conf = conf
+        self._sys = sys
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_monitor = None
         self._connectivity_change_thread = None
         self._hotspot_app = HotspotApp(self._conf, self._on_wifi_credentials)
         self._hotspot = hotspot.make_hotspot(
             self._conf, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(self._conf, sys, self._hotspot_app)
+        self._adsb_im = AdsbIm(self._conf, self._sys, self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
@@ -2888,7 +2893,7 @@ class Manager:
             self._logger.info(
                 "Connectivity monitor says we don't have connection, but "
                 "we're already in hotspot mode.")
-        elif self._conf.get("enable_hotspot") is False:
+        elif not self._should_use_hotspot():
             self._logger.info(
                 "We don't have internet access, but using the hotspot has "
                 "been disabled in the settings.")
@@ -2896,6 +2901,19 @@ class Manager:
             self._logger.info(
                 "We don't have internet access, enabling hotspot mode.")
             self._enable_hotspot_mode()
+
+    def _should_use_hotspot(self):
+        if self._conf.get("enable_hotspot") is False:
+            self._logger.debug(
+                "Using the hotspot has been disabled completely.")
+            return False
+        if (self._conf.get("enable_hotspot") is None
+                and self._sys.has_graphical_system()):
+            self._logger.debug(
+                "Using the hotspot is in auto mode and we have a graphical "
+                "system, so we don't need it.")
+            return False
+        return True
 
     def _handle_hotspot_timeout(self):
         self._logger.info(
@@ -2910,7 +2928,7 @@ class Manager:
             self._logger.info(
                 "After shutting down the hotspot, connectivity has returned. "
                 "Staying in regular mode.")
-        elif self._conf.get("enable_hotspot") is False:
+        elif not self._should_use_hotspot():
             self._logger.info(
                 "After shutting down the hotspot, we still don't have "
                 "connectivity, but using the hotspot has been disabled in the "

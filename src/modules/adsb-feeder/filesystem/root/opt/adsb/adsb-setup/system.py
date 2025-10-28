@@ -441,6 +441,11 @@ class System:
             self._logger.exception("Error getting Tailscale info.")
             return TailscaleInfo(status=TailscaleStatus.ERROR)
 
+    def has_graphical_system(self):
+        """Check whether the system has a graphical UI that can be used."""
+        # TODO Support other window managers.
+        return systemctl().unit_is_active("plasma-mobile")
+
 
 _systemctl: Systemctl = None
 
