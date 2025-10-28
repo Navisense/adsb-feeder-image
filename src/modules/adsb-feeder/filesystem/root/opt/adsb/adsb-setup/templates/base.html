@@ -444,7 +444,10 @@
     <script>
       function initOrReplaceMdbTooltip(element) {
         const existingTooltip = mdb.Tooltip.getInstance(element);
-        if (existingTooltip) { existingTooltip.dispose();}
+        if (existingTooltip) {
+          // If a tooltip already exists, we need to dispose of it or it may continue to be displayed.
+          existingTooltip.dispose();
+        }
         new mdb.Tooltip(element);
       }
       // Initialize all MDB tooltips.
