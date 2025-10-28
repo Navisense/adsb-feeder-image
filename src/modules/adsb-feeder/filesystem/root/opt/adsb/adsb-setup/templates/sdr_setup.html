@@ -11,14 +11,16 @@
   <form method="post" action="{{ url_for('configure-sdr') }}">
     <div class="card my-2">
       <div class="card-body">
-        <div class="row my-3 justify-content-center">
-          <div class="col-8 col-lg-4">
-            <div class="text-center">
-              <button class="btn btn-secondary btn-block"
-                      type="button"
-                      onclick="updateSdrInfo()">Check SDRs</button>
-            </div>
-          </div>
+        <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+          <span class="text-muted me-2 d-none d-sm-inline">
+            Last update: <span id="last-update-sdr-devices-counter">never</span>
+          </span>
+          <button id="last-update-sdr-devices-button"
+                  type="button"
+                  class="btn btn-secondary btn-floating"
+                  onclick="updateSdrInfo()">
+            <span class="fas fa-arrows-rotate"></span>
+          </button>
         </div>
         <h5 class="card-title">Available SDR devices</h5>
         <div id="sdr-devices" class="row my-3"></div>
@@ -140,6 +142,8 @@
             class="btn btn-accent btn-block btn-lg my-5"
             name="submit">Apply settings</button>
   </form>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/update-time-counter.js') }}"></script>
   <script>
     function updateSdrInfo() {
       $.ajax("/api/sdr_info").done(function (sdrInfo) {
@@ -148,8 +152,8 @@
         if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
           $("#sdr-devices").html(makeNotificationCardHtml(
             "info", "No devices",
-            'There seem to be no devices connected. You can check again with the "Check SDRs" button. But a restart '
-            + "may also be necessary."));
+            "There seem to be no devices connected. You can check again with the refresh button in the upper right "
+            + "corner. But a restart may also be necessary."));
         } else {
           let serials = new Set();
           for (const sdrDevice of sdrInfo.sdr_devices) {
@@ -167,6 +171,7 @@
           $("#duplicate-serials-alert").addClass("d-none");
         }
         $("#lsusb-output").text(sdrInfo.lsusb_output);
+        sdrDevicesUpdateCounter.reset();
       }).fail(function(jqXHR) {
         $("#sdr-devices").html(makeNotificationCardHtml(
           "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
@@ -285,6 +290,8 @@
       });
     }
 
+    const sdrDevicesUpdateCounter = new UpdateTimeCounter(
+      "last-update-sdr-devices-counter", "last-update-sdr-devices-button");
     updateSdrInfo();
   </script>
 {% endblock content %}
