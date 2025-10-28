@@ -443,8 +443,11 @@ class System:
 
     def has_graphical_system(self):
         """Check whether the system has a graphical UI that can be used."""
-        # TODO Support other window managers.
-        return systemctl().unit_is_active("plasma-mobile")
+        possible_window_manager_services = [
+            "plasma-mobile.service", "tinydm.service", "sddm.service"]
+        return any(
+            systemctl().unit_is_active(service)
+            for service in possible_window_manager_services)
 
 
 _systemctl: Systemctl = None
