@@ -132,7 +132,7 @@ echo "Creating a default config at /etc/adsb/config.json."
 /opt/adsb/adsb-setup/config.py ensure_config_exists
 /opt/adsb/adsb-setup/config.py set ports.web ${WEB_PORT}
 /opt/adsb/adsb-setup/config.py set mdns.is_enabled ${ENABLE_MDNS}
-if [ -n "${ENABLE_HOTSPOT}"] ; then
+if [ -n "${ENABLE_HOTSPOT}" ] ; then
     /opt/adsb/adsb-setup/config.py set enable_hotspot ${ENABLE_HOTSPOT}
 fi
 
