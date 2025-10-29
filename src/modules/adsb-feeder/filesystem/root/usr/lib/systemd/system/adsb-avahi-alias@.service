@@ -5,7 +5,7 @@ After=avahi-daemon.service
 
 [Service]
 Type=simple
-ExecStart=/opt/adsb/scripts/advertise-mdns.bash %i
+ExecStart=/opt/adsb/scripts/mdns-advertise.bash %i
 Restart=always
 RestartSec=90
 
