@@ -29,4 +29,4 @@ if [ -z "${own_ip}" ] || [ "${own_ip}" == "null" ] ; then
     log_and_exit_sync 1 $0 "Unable to find our own IP."
 fi
 
-/usr/bin/avahi-publish-address -R "${mdns_name}" "${own_ip}"
+timeout 60 avahi-publish-address -R "${mdns_name}" "${own_ip}"

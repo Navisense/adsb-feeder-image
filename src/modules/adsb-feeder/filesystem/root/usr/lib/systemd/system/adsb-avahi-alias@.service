@@ -7,7 +7,6 @@ After=avahi-daemon.service
 Type=simple
 ExecStart=/opt/adsb/scripts/mdns-advertise.bash %i
 Restart=always
-RestartSec=90
 
 [Install]
 WantedBy=multi-user.target
