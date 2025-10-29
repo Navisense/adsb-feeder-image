@@ -370,26 +370,23 @@ class System:
         return responses != list()
 
     def is_ipv6_broken(self):
-        proc = util.shell_with_combined_output(
-            "ip -6 addr show scope global "
-            "$(ip -j route get 1.2.3.4 | jq '.[0].dev' -r) "
-            "| grep inet6 | grep -v 'inet6 f'",
-            timeout=2,
-        )
-        if proc.returncode != 0:
-            # no global ipv6 addresses assigned, this means we don't have ipv6
-            # so it can't be broken
+        try:
+            util.shell_with_combined_output(
+                "ip -6 addr show scope global "
+                "$(ip -j route get 1.2.3.4 | jq '.[0].dev' -r) "
+                "| grep inet6 | grep -v 'inet6 f'", timeout=2, check=True)
+        except subprocess.SubprocessError:
+            # Timeout or no global ipv6 addresses assigned, this means we don't
+            # have ipv6 so it can't be broken.
             return False
-        # we have at least one global ipv6 address, check if it works:
-        proc = util.shell_with_combined_output(
-            "curl -o /dev/null -6 https://google.com", timeout=2)
-
-        if proc.returncode == 0:
-            # it's working, so it's not broken
+        # We have at least one global ipv6 address, check if it works.
+        try:
+            util.shell_with_combined_output(
+                "curl -o /dev/null -6 https://google.com", timeout=2,
+                check=True)
             return False
-
-        # we have an ipv6 address but curl -6 isn't working
-        return True
+        except subprocess.SubprocessError:
+            return True
 
     def restart_containers(self, containers):
         self._logger.info(f"Restarting docker containers {containers}")
