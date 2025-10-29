@@ -60,13 +60,13 @@ do
         '--auto-install-dependencies') AUTO_INSTALL_DEPENDENCIES="True"
             ;;
         '--enable-hotspot')
-            if [ -z "${ENABLE_HOTSPOT}" ] ; then
+            if [ -n "${ENABLE_HOTSPOT}" ] ; then
                 exit_message "Both enable/disable hotspot specified."
             fi
             ENABLE_HOTSPOT="True"
             ;;
         '--disable-hotspot')
-            if [ -z "${ENABLE_HOTSPOT}" ] ; then
+            if [ -n "${ENABLE_HOTSPOT}" ] ; then
                 exit_message "Both enable/disable hotspot specified."
             fi
             ENABLE_HOTSPOT="False"
