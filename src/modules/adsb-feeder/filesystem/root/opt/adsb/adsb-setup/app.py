@@ -2822,7 +2822,7 @@ class Manager:
     have connection again, it is kept running, otherwise the hotspot is started
     again.
     """
-    CONNECTIVITY_CHECK_INTERVAL = 5
+    CONNECTIVITY_CHECK_INTERVAL = 60
     HOTSPOT_TIMEOUT = 300
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
