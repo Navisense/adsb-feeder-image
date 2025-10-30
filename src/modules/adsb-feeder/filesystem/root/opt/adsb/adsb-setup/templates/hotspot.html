@@ -83,10 +83,10 @@
       if (hasTimedOut) {
         setMdnsStatusDivMessage(
           "text-bg-danger", "mDNS is not working", "Unable to contact the feeder as porttracker-sdr-feeder.local.");
-      } else if (stati["example.org"] != "success") {
+      } else if (stati.get("example.org") != "success") {
         setMdnsStatusDivMessage(
           "text-bg-info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while.");
-      } else if (stati["porttracker-sdr-feeder.local"] != "success") {
+      } else if (stati.get("porttracker-sdr-feeder.local") != "success") {
         setMdnsStatusDivMessage(
           "text-bg-warning", "Checking mDNS status",
           "The feeder can be reached, but not yet as porttracker-sdr-feeder.local.");
