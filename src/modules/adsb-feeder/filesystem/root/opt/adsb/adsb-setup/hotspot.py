@@ -160,8 +160,6 @@ class Hotspot(abc.ABC):
     HOSTAPD_DEST_PATH = pathlib.Path("/etc/hostapd/hostapd.conf")
     KEA_SRC_PATH = pathlib.Path("/opt/adsb/accesspoint/kea-dhcp4.conf")
     KEA_DEST_PATH = pathlib.Path("/etc/kea/kea-dhcp4.conf")
-    AVAHI_UNIT_PATH = pathlib.Path(
-        "/usr/lib/systemd/system/adsb-avahi-alias@.service")
 
     def __init__(self, conf: config.Config, wlan, on_wifi_test_status):
         self._conf = conf
@@ -209,19 +207,6 @@ class Hotspot(abc.ABC):
                 self.wlan]
         with self.KEA_DEST_PATH.open("w") as kea_out:
             json.dump(kea_config, kea_out, indent=4)
-        has_replaced = False
-        with self.AVAHI_UNIT_PATH.open("r+") as avahi_file:
-            avahi_config = []
-            for line in avahi_file:
-                line, subs = re.subn(r"dev \S*", f"dev {self.wlan}", line)
-                has_replaced |= bool(subs)
-                avahi_config.append(line)
-            avahi_file.seek(0)
-            avahi_file.writelines(avahi_config)
-            avahi_file.truncate()
-        if not has_replaced:
-            self._logger.warning(
-                "Interface not replaced in avahi unit config.")
 
     def _scan_for_ssids(self):
         self._logger.info("Scanning for SSIDs.")
@@ -279,7 +264,8 @@ class Hotspot(abc.ABC):
             mdns_domains = set(["porttracker-sdr-feeder.local"]
                                + self._conf.get("mdns.domains"))
             util.shell_with_combined_output(
-                "/opt/adsb/scripts/mdns-alias-setup.bash" + list(mdns_domains))
+                ["/opt/adsb/scripts/mdns-alias-setup.bash"]
+                + list(mdns_domains))
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
