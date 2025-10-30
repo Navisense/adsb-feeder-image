@@ -276,9 +276,10 @@ class Hotspot(abc.ABC):
         system.systemctl().run(["unmask", "start"],
                                ["isc-kea-dhcp4-server.service"])
         if self._conf.get("mdns.is_enabled"):
-            system.systemctl().run(
-                ["restart"],
-                ["adsb-avahi-alias@porttracker-sdr-feeder.local.service"])
+            mdns_domains = set(["porttracker-sdr-feeder.local"]
+                               + self._conf.get("mdns.domains"))
+            util.shell_with_combined_output(
+                "/opt/adsb/scripts/mdns-alias-setup.bash" + list(mdns_domains))
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
@@ -294,9 +295,10 @@ class Hotspot(abc.ABC):
         except:
             self._logger.exception("Error stopping DNS server.")
         if self._conf.get("mdns.is_enabled"):
-            system.systemctl().run(
-                ["stop"],
-                ["adsb-avahi-alias@porttracker-sdr-feeder.local.service"])
+            # Running this script without arguments will shut down all avahi
+            # services.
+            util.shell_with_combined_output(
+                "/opt/adsb/scripts/mdns-alias-setup.bash")
         system.systemctl().run(
             ["stop", "disable", "mask"],
             ["isc-kea-dhcp4-server.service", "hostapd.service"])
