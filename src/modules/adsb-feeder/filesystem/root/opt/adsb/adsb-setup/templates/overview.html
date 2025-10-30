@@ -365,12 +365,12 @@
         const row = $("#sdr-devices");
         row.html("");
         if (sdrInfo.missing_devices.length || sdrInfo.unconfigured_devices.length) {
-          row.append(makeNotificationCardHtml(
+          row.append(makeNotificationCardRowHtml(
             "error", "Configuration mismatch",
             "The devices that are configured don't match the ones that are attached."));
         }
         if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
-          row.append(makeNotificationCardHtml("info", "No devices", "No SDR devices are connected."));
+          row.append(makeNotificationCardRowHtml("info", "No devices", "No SDR devices are connected."));
         } else {
           for (const sdrDevice of sdrInfo.sdr_devices) {
             appendSdrDevice(sdrDevice);
@@ -378,7 +378,7 @@
         }
         sdrDevicesUpdateCounter.reset();
       }).fail(function(jqXHR) {
-        $("#sdr-devices").html(makeNotificationCardHtml(
+        $("#sdr-devices").html(makeNotificationCardRowHtml(
           "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
       });
     }
@@ -485,7 +485,7 @@
       $.ajax("/api/aggregators").done(function (aggregators) {
         $("#aggregators").html("");
         if (!aggregators.length) {
-        $("#aggregators").html(makeNotificationCardHtml(
+        $("#aggregators").html(makeNotificationCardRowHtml(
           "info", "No aggregators", "You are not sharing data with any aggregators."));
         } else {
           for (const agg of aggregators) {
@@ -494,7 +494,7 @@
         }
         aggregatorUpdateCounter.reset();
       }).fail(function(jqXHR) {
-        $("#aggregators").html(makeNotificationCardHtml(
+        $("#aggregators").html(makeNotificationCardRowHtml(
           "error", "Error getting aggregator info", "Error getting info about aggregators from the feeder."));
       });
     }
@@ -701,7 +701,7 @@
           }
           versionUpdateCounter.reset();
         }).fail(function(jqXHR) {
-          $("#version-info").html(makeNotificationCardHtml(
+          $("#version-info").html(makeNotificationCardRowHtml(
             "error", "Error getting version info", "Error getting info about software versions from the feeder."));
         });
     }

@@ -150,7 +150,7 @@
         $("#sdr-devices").html("");
         let duplicateSerials = new Set();
         if (!sdrInfo.sdr_devices || !sdrInfo.sdr_devices.length) {
-          $("#sdr-devices").html(makeNotificationCardHtml(
+          $("#sdr-devices").html(makeNotificationCardRowHtml(
             "info", "No devices",
             "There seem to be no devices connected. You can check again with the refresh button in the upper right "
             + "corner. But a restart may also be necessary."));
@@ -173,7 +173,7 @@
         $("#lsusb-output").text(sdrInfo.lsusb_output);
         sdrDevicesUpdateCounter.reset();
       }).fail(function(jqXHR) {
-        $("#sdr-devices").html(makeNotificationCardHtml(
+        $("#sdr-devices").html(makeNotificationCardRowHtml(
           "error", "Error getting devices", "Error getting info about SDR devices from the feeder."));
       });
     }

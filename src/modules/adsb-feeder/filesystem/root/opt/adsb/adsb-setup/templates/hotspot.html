@@ -1,106 +1,100 @@
-{% extends "base-regular.html" %}
+{% extends "base-container.html" %}
 {% set active_page = "hotspot" %}
 {% block title %}
   Porttracker Feeder Hotspot
 {% endblock title %}
 {% block content %}
-  <div class="container pt-5 mt-3">
-    <h2 class="mt-5">Wifi Setup</h2>
-    {% if comment == "" %}
-      <div class="mt-3">
-        The Feeder wasn't able to connect to a network. Please enter an SSID and password so that we can connect to the
-        network and continue the setup.
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Wifi setup</h5>
+      <div class="alert alert-info">
+        {% if comment == "" %}
+          The Feeder wasn't able to connect to a network. Please enter an SSID and password so that we can connect to
+          the network and continue the setup.
+        {% else %}
+          {{ comment }}
+        {% endif %}
       </div>
-    {% else %}
-      <div class="mt-3">{{ comment }}</div>
-    {% endif %}
-    {% if not comment.startswith("Success") %}
-      <form method="post">
-        <div class="form-group row mt-3">
-          <span class="col-md">
-            <label for="ssidinput">SSID</label>
-          </span>
-          <span class="col-md">
-            <input class="form-control"
-                   list="ssidlist"
-                   id="ssidinput"
-                   name="ssid"
-                   placeholder="Pick or enter SSID">
-            <datalist id="ssidlist">
-              {% for ssid in ssids %}<option value="{{ ssid }}"></option>{% endfor %}
-            </datalist>
-          </span>
-          <span class="col-md">
-            <label for="passwd">Password</label>
-          </span>
-          <span class="col-md">
-            <input type="text"
-                   id="passwd"
-                   name="passwd"
-                   required
-                   placeholder="Password"
-                   class="form-control">
-          </span>
-          <button type="submit" name="submit" class="col-md btn btn-primary">Configure</button>
-        </div>
-      </form>
-      <div class="mt-4">
-        Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will
-        attempt to connect to the network that you specified. If that WiFi connection is successful, the feeder should
-        become available on that WiFi network as <code>porttracker-sdr-feeder.local</code>. This requires mDNS to be
-        enabled on your system (it typically is). The test below checks whether it is working right now.
-      </div>
-      <div class="mt-4">
-        If the connection fails, the feeder will once again bring up this hotspot and you can try entering the credentials
-        again.
-      </div>
-      <div class="mt-4">
-        A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
-        same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
-        connect this device to your router's guest access, but you connect to the internal network. In that case it may
-        help to use guest access yourself, but in some routers you need to enable an option that guest devices can
-        communicate with one another.
-      </div>
-      <div class="mt-4" id="mdns-status"></div>
-    {% endif %}
+      {% if not comment.startswith("Success") %}
+        <form method="post" class="my-4">
+          <div class="row align-items-center">
+            <div class="col-12 col-lg-5">
+              <div class="d-flex align-items-center">
+                <input type="text"
+                       id="ssid"
+                       class="form-control m-2"
+                       list="ssidlist"
+                       name="ssid"
+                       placeholder="Pick or enter SSID">
+                <datalist id="ssidlist">
+                  {% for ssid in ssids %}<option value="{{ ssid }}"></option>{% endfor %}
+                </datalist>
+                <label for="ssid">SSID</label>
+              </div>
+            </div>
+            <div class="col-12 col-lg-5">
+              <div class="d-flex align-items-center">
+                <input type="text"
+                       id="password"
+                       class="form-control m-2"
+                       name="passwd"
+                       required
+                       placeholder="Password">
+                <label for="password">Password</label>
+              </div>
+            </div>
+            <div class="col-12 col-lg-2">
+              <button type="submit" class="btn btn-primary ms-2">Configure</button>
+            </div>
+          </div>
+        </form>
+        <p class="my-3">
+          Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will
+          attempt to connect to the network that you specified. If that WiFi connection is successful, the feeder should
+          become available on that WiFi network as <code>porttracker-sdr-feeder.local</code>. This requires mDNS to be
+          enabled on your system (it typically is). The test below checks whether it is working right now.
+        </p>
+        <p class="my-3">
+          If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
+          credentials again.
+        </p>
+        <p class="my-3">
+          A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
+          same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
+          connect this device to your router's guest access, but you connect to the internal network. In that case it
+          may help to use guest access yourself, but in some routers you need to enable an option that guest devices can
+          communicate with one another.
+        </p>
+        <div class="my-3" id="mdns-status"></div>
+      {% endif %}
+    </div>
   </div>
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
-    function setMdnsStatusDivMessage(divClass, title, message) {
-      let statusDiv = document.getElementById("mdns-status");
-      statusDiv.innerHTML = `
-        <div class="card ${divClass} mb-3">
-          <div class="card-body">
-            <h5 class="card-title">${title}</h5>
-            <p class="card-text">${message}</p>
-          </div>
-        </div>`;
-    }
-
     function updateMdnsStatusDiv(stati, hasTimedOut) {
-      let kindClass, title, message;
+      const statusDiv = $("#mdns-status");
       if (hasTimedOut) {
-        setMdnsStatusDivMessage(
-          "text-bg-danger", "mDNS is not working", "Unable to contact the feeder as porttracker-sdr-feeder.local.");
+        statusDiv.html(makeNotificationCardHtml(
+          "error", "mDNS is not working", "Unable to contact the feeder as porttracker-sdr-feeder.local."));
       } else if (stati.get("example.org") != "success") {
-        setMdnsStatusDivMessage(
-          "text-bg-info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while.");
+        statusDiv.html(makeNotificationCardHtml(
+          "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
       } else if (stati.get("porttracker-sdr-feeder.local") != "success") {
-        setMdnsStatusDivMessage(
-          "text-bg-warning", "Checking mDNS status",
-          "The feeder can be reached, but not yet as porttracker-sdr-feeder.local.");
+        statusDiv.html(makeNotificationCardHtml(
+          "warning", "Checking mDNS status",
+          "The feeder can be reached, but not yet as porttracker-sdr-feeder.local."));
       } else {
-        setMdnsStatusDivMessage(
-          "text-bg-success", "mDNS is working",
-          "The feeder can be reached as porttracker-sdr-feeder.local, looks like mDNS is working.");
+        statusDiv.html(makeNotificationCardHtml(
+          "success", "mDNS is working",
+          "The feeder can be reached as porttracker-sdr-feeder.local, looks like mDNS is working."));
       }
     }
 
     if (!{{ get_conf('mdns.is_enabled') | tojson }}) {
-      setMdnsStatusDivMessage(
-        "text-bg-primary", "mDNS is disabled",
-        "mDNS is disabled in this installation. The feeder will not be reachable as porttracker-sdr-feeder.local.");
+      $("#mdns-status").html(makeNotificationCardHtml(
+        "info", "mDNS is disabled",
+        "mDNS is disabled in this installation. The feeder will not be reachable as porttracker-sdr-feeder.local."));
     } else {
       const checkDomains = ["example.org", "porttracker-sdr-feeder.local"];
       const connectivityChecker = new FeederConnectivityChecker(checkDomains, updateMdnsStatusDiv, 300 * 1000);
