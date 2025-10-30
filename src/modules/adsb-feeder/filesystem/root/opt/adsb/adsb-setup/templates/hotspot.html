@@ -1,61 +1,71 @@
 {% extends "base-regular.html" %}
 {% set active_page = "hotspot" %}
-{% block title %}Porttracker Feeder Hotspot{% endblock title %}
+{% block title %}
+  Porttracker Feeder Hotspot
+{% endblock title %}
 {% block content %}
   <div class="container pt-5 mt-3">
     <h2 class="mt-5">Wifi Setup</h2>
     {% if comment == "" %}
-    <div class="mt-3">
-      The Feeder wasn't able to connect to a network. Please enter an SSID and password so that we can connect to the
-      network and continue the setup.
-    </div>
+      <div class="mt-3">
+        The Feeder wasn't able to connect to a network. Please enter an SSID and password so that we can connect to the
+        network and continue the setup.
+      </div>
     {% else %}
-    <div class="mt-3">{{ comment }}</div>
+      <div class="mt-3">{{ comment }}</div>
     {% endif %}
     {% if not comment.startswith("Success") %}
-    <form method="post">
-      <div class="form-group row mt-3">
-        <span class="col-md">
-          <label for="ssidinput">SSID</label>
-        </span>
-        <span class="col-md">
-          <input class="form-control" list="ssidlist" id="ssidinput" name="ssid" placeholder="Pick or enter SSID">
-          <datalist id="ssidlist">
-            {% for ssid in ssids %}
-            <option value="{{ ssid }}" />
-            {% endfor %}
-          </datalist>
-        </span>
-        <span class="col-md">
-          <label for="passwd">Password</label>
-        </span>
-        <span class="col-md">
-          <input type="text" id="passwd" name="passwd" required placeholder="Password" class="form-control" />
-        </span>
-        <button type="submit" name="submit" class="col-md btn btn-primary">Configure</button>
+      <form method="post">
+        <div class="form-group row mt-3">
+          <span class="col-md">
+            <label for="ssidinput">SSID</label>
+          </span>
+          <span class="col-md">
+            <input class="form-control"
+                   list="ssidlist"
+                   id="ssidinput"
+                   name="ssid"
+                   placeholder="Pick or enter SSID">
+            <datalist id="ssidlist">
+              {% for ssid in ssids %}<option value="{{ ssid }}"></option>{% endfor %}
+            </datalist>
+          </span>
+          <span class="col-md">
+            <label for="passwd">Password</label>
+          </span>
+          <span class="col-md">
+            <input type="text"
+                   id="passwd"
+                   name="passwd"
+                   required
+                   placeholder="Password"
+                   class="form-control">
+          </span>
+          <button type="submit" name="submit" class="col-md btn btn-primary">Configure</button>
+        </div>
+      </form>
+      <div class="mt-4">
+        Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will
+        attempt to connect to the network that you specified. If that WiFi connection is successful, the feeder should
+        become available on that WiFi network as <code>porttracker-sdr-feeder.local</code>. This requires mDNS to be
+        enabled on your system (it typically is). The test below checks whether it is working right now.
       </div>
-    </form>
-    <div class="mt-4">
-      Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will attempt
-      to connect to the network that you specified. If that WiFi connection is successful, the feeder should become
-      available on that WiFi network as <code>porttracker-sdr-feeder.local</code>. This requires mDNS to be enabled on
-      your system (it typically is). The test below checks whether it is working right now.
-    </div>
-    <div class="mt-4">
-      If the connection fails, the feeder will once again bring up this hotspot and you can try entering the credentials
-      again.
-    </div>
-    <div class="mt-4">
-      A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the same
-      one you're on, you probably won't be able to reach the device. This is also commonly the case if you connect this
-      device to your router's guest access, but you connect to the internal network. In that case it may help to use
-      guest access yourself, but in some routers you need to enable an option that guest devices can communicate with
-      one another.
-    </div>
-    <div class="mt-4" id="mdns-status"></div>
+      <div class="mt-4">
+        If the connection fails, the feeder will once again bring up this hotspot and you can try entering the credentials
+        again.
+      </div>
+      <div class="mt-4">
+        A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
+        same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
+        connect this device to your router's guest access, but you connect to the internal network. In that case it may
+        help to use guest access yourself, but in some routers you need to enable an option that guest devices can
+        communicate with one another.
+      </div>
+      <div class="mt-4" id="mdns-status"></div>
     {% endif %}
   </div>
-  <script type="text/javascript" src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
     function setMdnsStatusDivMessage(divClass, title, message) {
       let statusDiv = document.getElementById("mdns-status");
