@@ -2057,9 +2057,22 @@ class AdsbIm:
             raise SystemOperationError(f"systemctl call failed: {proc.stdout}")
 
     def expert(self):
-        if request.method == "POST":
-            return self.update()
-        return render_template("expert.html")
+        if request.method == "GET":
+            return render_template("expert.html")
+        assert request.method == "POST"
+        self._conf.set(
+            "ultrafeeder_extra_args", request.form["ultrafeeder-extra-args"])
+        self._conf.set(
+            "ultrafeeder_extra_env", request.form["ultrafeeder-extra-env"])
+        self._conf.set(
+            "tar1090_query_params", request.form["tar1090-query-params"])
+        css_theme = request.form["css-theme"]
+        if css_theme not in ["light", "dark", "auto"]:
+            self._logger.warning(
+                f"Invalid CSS theme {css_theme}, using auto instead.")
+            css_theme = "auto"
+        self._conf.set("css_theme", css_theme)
+        return self.update()
 
     def systemmgmt(self):
         tailscale_info = self._system.get_tailscale_info()
