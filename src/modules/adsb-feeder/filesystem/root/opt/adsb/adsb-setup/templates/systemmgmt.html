@@ -399,8 +399,8 @@
                 onsubmit="showSpinner(); return true;">
             <div class="row align-items-center">
               <div class="col-12 m-1">
-                {% if wifi != "" %}
-                  This feeder is connected to the "{{ wifi }}" WiFi network.
+                {% if wifi %}
+                  This feeder is connected to the <strong>{{ wifi }}</strong> WiFi network.
                 {% else %}
                   This feeder is connected via Ethernet.
                 {% endif %}
