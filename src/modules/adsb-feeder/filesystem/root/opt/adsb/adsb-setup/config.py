@@ -507,10 +507,45 @@ class ListSetting(ScalarSetting):
         if any(not isinstance(e, self._required_value_type) for e in value):
             raise ValueError(
                 f"elements of {value_name} must be of type "
-                f"{self._required_value_type}, but at least one is "
-                f"{type(value)}")
+                f"{self._required_value_type}, but at least one isn't")
 
     def set(self, key_path: str, value: Optional[list[Any]]) -> None:
+        self._check_correct_type(value, "value")
+        super().set(key_path, value)
+
+
+class StringStringDictSetting(ScalarSetting):
+    """
+    A scalar setting that is a dictionary of strings to strings.
+
+    Can not be represented as environment variables.
+    """
+    def __init__(
+            self, config: "Config", value: dict[str, str], *,
+            default: Optional[dict[str, str]] = None, norestore: bool = False,
+            restore_init: bool = False):
+        super().__init__(
+            config, value, default=default, env_variable_name=None,
+            norestore=norestore, restore_init=restore_init)
+        self._check_correct_type(self._value, "value")
+        self._check_correct_type(default, "default value")
+
+    def _check_correct_type(self, value, value_name):
+        if value is None:
+            return
+        if not isinstance(value, dict):
+            raise ValueError(
+                f"{value_name} must be a dict, but is {type(value)}")
+        if any(not isinstance(k, str) for k in value):
+            raise ValueError(
+                f"keys of {value_name} must be strings, but at least one "
+                "isn't")
+        if any(not isinstance(v, str) for v in value.values()):
+            raise ValueError(
+                f"values of {value_name} must be strings, but at least one "
+                "isn't")
+
+    def set(self, key_path: str, value: Optional[dict[str, str]]) -> None:
         self._check_correct_type(value, "value")
         super().set(key_path, value)
 
