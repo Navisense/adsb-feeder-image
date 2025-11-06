@@ -524,11 +524,15 @@ class StringStringDictSetting(ScalarSetting):
             self, config: "Config", value: dict[str, str], *,
             default: Optional[dict[str, str]] = None, norestore: bool = False,
             restore_init: bool = False):
+        self._check_correct_type(default, "default value")
+        if default:
+            # Make a copy of the default so we're not dragging around a
+            # reference that may still get written to.
+            default = default.copy()
         super().__init__(
             config, value, default=default, env_variable_name=None,
             norestore=norestore, restore_init=restore_init)
         self._check_correct_type(self._value, "value")
-        self._check_correct_type(default, "default value")
 
     def _check_correct_type(self, value, value_name):
         if value is None:
@@ -540,7 +544,7 @@ class StringStringDictSetting(ScalarSetting):
             raise ValueError(
                 f"keys of {value_name} must be strings, but at least one "
                 "isn't")
-        if any(not isinstance(v, str) for v in value.values()):
+        if any(not isinstance(v, (str, type(None))) for v in value.values()):
             raise ValueError(
                 f"values of {value_name} must be strings, but at least one "
                 "isn't")
@@ -832,7 +836,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 9
+    CONFIG_VERSION = 10
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -903,7 +907,8 @@ class Config(CompoundSetting):
             StringSetting, default="http://HOSTNAME:80/",
             env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"),
         "css_theme": ft.partial(StringSetting, default="auto"),
-        "tar1090_query_params": ft.partial(StringSetting, default=""),
+        "tar1090_query_params": ft.partial(
+            StringStringDictSetting, default={}),
         "uat978_config": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(
@@ -1704,6 +1709,30 @@ class Config(CompoundSetting):
         config_dict["enable_hotspot"] = None
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_9_to_10(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        params = config_dict.pop("tar1090_query_params")
+        query_params_dict = {}
+        if params:
+            # Convert the query string "?a&b=1" etc. into a dict.
+            if not params.startswith("?"):
+                logger.warning(
+                    "tar1090 query params don't start with a question mark."
+                    "This was a broken config. Attempting fix.")
+            params = params.strip()
+            params = params.strip("?")
+            for param in params.split("&"):
+                key_and_maybe_value = param.split(sep="=", maxsplit=1)
+                if len(key_and_maybe_value) == 1:
+                    key, value = key_and_maybe_value[0], None
+                else:
+                    key, value = key_and_maybe_value
+                query_params_dict[key] = value
+        config_dict["tar1090_query_params"] = query_params_dict
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1712,7 +1741,8 @@ class Config(CompoundSetting):
                          (5, 6): _upgrade_config_dict_from_5_to_6,
                          (6, 7): _upgrade_config_dict_from_6_to_7,
                          (7, 8): _upgrade_config_dict_from_7_to_8,
-                         (8, 9): _upgrade_config_dict_from_8_to_9}
+                         (8, 9): _upgrade_config_dict_from_8_to_9,
+                         (9, 10): _upgrade_config_dict_from_9_to_10}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

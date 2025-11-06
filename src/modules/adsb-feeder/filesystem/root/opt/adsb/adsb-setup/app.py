@@ -101,6 +101,53 @@ def url_for_with_empty_parameters(*args, **kwargs):
     return f"{url}?{parameter_string}"
 
 
+def query_parameter_string(params: Optional[dict]):
+    """
+    Encode dict parameters to a URL parameter string.
+
+    Essentially reverses the kwargs portion of url_for(). Keys and values are
+    converted to strings. If the params dict is None, an empty string is
+    returned. If the value of any parameter is None, only the key is part of
+    the string (e.g. the a in ?a&b=123). The returned string does not include a
+    leading question mark.
+    """
+    s = ""
+    if not params:
+        return s
+    for k, v in params.items():
+        if s:
+            s += "&"
+        s += str(k)
+        if v is not None:
+            s += f"={v}"
+    return s
+
+
+def parse_query_params(query_string: str):
+    """
+    Parse a query parameter string into a dict.
+
+    If only the key is present for any parameter (e.g. the a in ?a&b=123), the
+    value in the dict will be None.
+    """
+    query_params_dict = {}
+    if not query_string:
+        return query_params_dict
+    if not query_string.startswith("?"):
+        raise ValueError(
+            "query parameter string doesn't start with a question mark")
+    query_string = query_string.strip()
+    query_string = query_string.strip("?")
+    for param in query_string.split("&"):
+        key_and_maybe_value = param.split(sep="=", maxsplit=1)
+        if len(key_and_maybe_value) == 1:
+            key, value = key_and_maybe_value[0], None
+        else:
+            key, value = key_and_maybe_value
+        query_params_dict[key] = value
+    return query_params_dict
+
+
 class SystemOperationError(Exception):
     pass
 
@@ -2058,14 +2105,23 @@ class AdsbIm:
 
     def expert(self):
         if request.method == "GET":
-            return render_template("expert.html")
+            return render_template(
+                "expert.html", query_parameter_string=query_parameter_string)
         assert request.method == "POST"
+        try:
+            query_params_dict = parse_query_params(
+                request.form["tar1090-query-params"])
+        except ValueError as e:
+            self._logger.error(
+                f"Invalid tar1090 query parameter string "
+                f"{request.form['tar1090-query-params']}: {e}.",
+                flash_message=True)
+            return redirect("expert")
+        self._conf.set("tar1090_query_params", query_params_dict)
         self._conf.set(
             "ultrafeeder_extra_args", request.form["ultrafeeder-extra-args"])
         self._conf.set(
             "ultrafeeder_extra_env", request.form["ultrafeeder-extra-env"])
-        self._conf.set(
-            "tar1090_query_params", request.form["tar1090-query-params"])
         css_theme = request.form["css-theme"]
         if css_theme not in ["light", "dark", "auto"]:
             self._logger.warning(

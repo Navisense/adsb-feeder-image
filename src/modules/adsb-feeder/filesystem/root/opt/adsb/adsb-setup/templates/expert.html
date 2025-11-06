@@ -62,7 +62,7 @@
         </div>
         <div class="col-8">
           <input type="text" class="mx-auto w-100" id="tar1090-query-params" name="tar1090-query-params"
-                 placeholder="?autoselect&centerReceiver" value="{{ get_conf('tar1090_query_params') }}">
+                 placeholder="?autoselect&centerReceiver" {%- if get_conf('tar1090_query_params') -%}value="?{{ query_parameter_string(get_conf('tar1090_query_params')) }}"{%- endif -%}>
         </div>
         <div class="col-4">
           <button type="submit" class="btn btn-primary mx-auto w-100">Submit</button>

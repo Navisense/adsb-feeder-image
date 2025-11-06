@@ -223,7 +223,7 @@
             <button type="button"
                     class="btn btn-accent"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
-                    onclick="document.location='{{ url_for("tar1090" + get_conf("tar1090_query_params") ) }}'">
+                    onclick="document.location='{{ url_for("tar1090", **get_conf("tar1090_query_params") ) }}'">
               Live Map (ADS-B)
             </button>
             <button type="button"
@@ -329,7 +329,7 @@
                 {% if is_reception_enabled('adsb') %}
                   <li>
                     <a class="dropdown-item"
-                       href="{{ url_for("tar1090" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                       href="{{ url_for("tar1090", **get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
                   </li>
                   <li>
                     <a class="dropdown-item" href="{{ url_for('tar1090', heatmap=None) }}">ADS-B Heatmap</a>
@@ -343,7 +343,7 @@
                 {% else %}
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
-                       href="{{ url_for("tar1090" + get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
+                       href="{{ url_for("tar1090", **get_conf("tar1090_query_params") ) }}">ADS-B Live Map</a>
                   </li>
                   <li title="ADS-B reception is disabled">
                     <a class="dropdown-item disabled"
