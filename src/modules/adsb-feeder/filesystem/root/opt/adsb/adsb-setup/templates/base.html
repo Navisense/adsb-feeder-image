@@ -192,6 +192,9 @@
           this_master.hide();
           this_master.find('input[type="checkbox"]').each(function () {
             var checkbox_this = $(this);
+            // In case the checkbox is disabled, remove the disabled attribute here. We need to do this in order for the
+            // checkbox' value to be included in the form.
+            checkbox_this.removeAttr("disabled");
             if (checkbox_this.is(":checked") == true) {
               checkbox_this.attr("value", "1");
             } else {

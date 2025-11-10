@@ -1993,16 +1993,6 @@ class AdsbIm:
                 self._conf.set(
                     "tar1090_image_config_link",
                     "WILL_BE_SET_IN_IMPLIED_SETTINGS")
-            elif key == "turn_on_gpsd":
-                self._logger.debug("Enabled gpsd.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("use_gpsd", True)
-                # Updates lat/lon/alt, in case there is a GPS fix.
-                self.get_lat_lon_alt()
-            elif key == "turn_off_gpsd":
-                self._logger.debug("Disabled gpsd.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("use_gpsd", False)
             elif key == "enable_parallel_docker":
                 self._logger.debug("Enabled parallel docker.")
                 needs_docker_restart, next_url = True, None
@@ -2108,6 +2098,7 @@ class AdsbIm:
             return render_template(
                 "expert.html", query_parameter_string=query_parameter_string)
         assert request.method == "POST"
+        needs_docker_restart = False
         try:
             query_params_dict = parse_query_params(
                 request.form["tar1090-query-params"])
@@ -2128,7 +2119,16 @@ class AdsbIm:
                 f"Invalid CSS theme {css_theme}, using auto instead.")
             css_theme = "auto"
         self._conf.set("css_theme", css_theme)
-        return self.update()
+        should_use_gpsd = util.checkbox_checked(request.form["use-gpsd"])
+        if self._conf.get("use_gpsd") != should_use_gpsd:
+            if should_use_gpsd and not self._conf.get("has_gpsd"):
+                self._logger.warning(
+                    "Request to enable gpsd, but it's not even available.")
+                should_use_gpsd = False
+            self._conf.set("use_gpsd", should_use_gpsd)
+            self._logger.debug(f"Set gpsd to {should_use_gpsd}.")
+            needs_docker_restart = True
+        return self.update(needs_docker_restart=needs_docker_restart)
 
     def systemmgmt(self):
         tailscale_info = self._system.get_tailscale_info()
