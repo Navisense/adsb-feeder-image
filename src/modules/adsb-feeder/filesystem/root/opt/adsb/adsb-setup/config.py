@@ -250,6 +250,13 @@ def _calculate_airspy_gain(conf: "Config") -> str:
     return gain
 
 
+def _generate_tar1090_image_config_link(conf: "Config") -> str:
+    if conf.get("tar1090_image_config_link.is_enabled"):
+        return f"http://HOSTNAME:{conf.get('ports.web')}/"
+    else:
+        return ""
+
+
 class Setting(abc.ABC):
     """
     Abstract setting.
@@ -836,7 +843,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 10
+    CONFIG_VERSION = 11
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -901,11 +908,13 @@ class Config(CompoundSetting):
             BoolSetting, default=True,
             env_variable_name="FEEDER_TAR1090_USEROUTEAPI",
             env_string_false="", env_string_true="1"),
-        "tar1090_configjs_append": ft.partial(
-            StringSetting, env_variable_name="FEEDER_TAR1090_CONFIGJS_APPEND"),
         "tar1090_image_config_link": ft.partial(
-            StringSetting, default="http://HOSTNAME:80/",
-            env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"),
+            CompoundSetting, schema={
+                "is_enabled": ft.partial(BoolSetting, default=True),
+                "link": ft.partial(
+                    GeneratedSetting,
+                    value_generator=_generate_tar1090_image_config_link,
+                    env_variable_name="FEEDER_TAR1090_IMAGE_CONFIG_LINK"),}),
         "css_theme": ft.partial(StringSetting, default="auto"),
         "tar1090_query_params": ft.partial(
             StringStringDictSetting, default={}),
@@ -1733,6 +1742,19 @@ class Config(CompoundSetting):
         config_dict["tar1090_query_params"] = query_params_dict
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_10_to_11(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is no longer used.
+        del config_dict["tar1090_configjs_append"]
+        # This is now handled with an enabled flag and a generated setting.
+        tar1090_image_config_link = config_dict.pop(
+            "tar1090_image_config_link")
+        config_dict["tar1090_image_config_link"] = {
+            "is_enabled": bool(tar1090_image_config_link)}
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1742,7 +1764,8 @@ class Config(CompoundSetting):
                          (6, 7): _upgrade_config_dict_from_6_to_7,
                          (7, 8): _upgrade_config_dict_from_7_to_8,
                          (8, 9): _upgrade_config_dict_from_8_to_9,
-                         (9, 10): _upgrade_config_dict_from_9_to_10}
+                         (9, 10): _upgrade_config_dict_from_9_to_10,
+                         (10, 11): _upgrade_config_dict_from_10_to_11}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

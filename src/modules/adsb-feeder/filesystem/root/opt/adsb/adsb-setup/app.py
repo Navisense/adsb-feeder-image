@@ -1899,11 +1899,6 @@ class AdsbIm:
         # Explicitly enable mlathub unless disabled.
         self._conf.set("mlathub_enable", not self._conf.get("mlathub_disable"))
 
-        if self._conf.get("tar1090_image_config_link") != "":
-            self._conf.set(
-                "tar1090_image_config_link",
-                f"http://HOSTNAME:{self._conf.get('ports.web')}/")
-
         self._conf.set(
             "ports.tar1090adjusted", self._conf.get("ports.tar1090"))
 
@@ -1990,16 +1985,6 @@ class AdsbIm:
                 # Set aggregator_choice to individual so even users that have
                 # set "all" before can still deselect individual aggregators.
                 self._conf.set("aggregator_choice", "individual")
-            elif key == "no_config_link":
-                self._logger.debug("Disabled the tar1090 config link.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("tar1090_image_config_link", "")
-            elif key == "allow_config_link":
-                self._logger.debug("Enabled the tar1090 config link.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set(
-                    "tar1090_image_config_link",
-                    "WILL_BE_SET_IN_IMPLIED_SETTINGS")
             # That's submit buttons done. Next are checkboxes where we check
             # key and value. A lot of them just cause a one-time effect, where
             # you check the box, submit the form, and something happens once.
@@ -2131,6 +2116,14 @@ class AdsbIm:
             request.form["parallel-docker-downloads"])
         if self._conf.get("docker_concurrent") != should_download_parallel:
             self.set_docker_concurrent(should_download_parallel)
+            needs_docker_restart = True
+        should_enable_config_link = util.checkbox_checked(
+            request.form["enable-tar1090-image-config-link"])
+        if (self._conf.get("tar1090_image_config_link.is_enabled")
+                != should_enable_config_link):
+            self._conf.set(
+                "tar1090_image_config_link.is_enabled",
+                should_enable_config_link)
             needs_docker_restart = True
         return self.update(needs_docker_restart=needs_docker_restart)
 
