@@ -1918,40 +1918,6 @@ class AdsbIm:
                 except:
                     pass
 
-    def set_docker_concurrent(self, value):
-        daemon_config_file = pathlib.Path("/etc/docker/daemon.json")
-        if value and not daemon_config_file.exists():
-            # this is the default, nothing to do
-            self._conf.set("docker_concurrent", value)
-            return
-        try:
-            with daemon_config_file.open() as f:
-                config_json = json.load(f)
-        except:
-            config_json = {}
-        daemon_config_file
-        new_config_json = config_json.copy()
-        if value:
-            new_config_json.pop("max-concurrent-downloads", None)
-        else:
-            new_config_json["max-concurrent-downloads"] = 1
-        if new_config_json != config_json:
-            try:
-                daemon_config_file.parent.mkdir(parents=True, exist_ok=True)
-                with daemon_config_file.open("w") as f:
-                    json.dump(new_config_json, f, indent=2)
-            except:
-                self._logger.exception("Failed to write docker config.")
-            # reload docker config (this is sufficient for the
-            # max-concurrent-downloads setting)
-            proc = util.shell_with_combined_output(
-                "bash -c 'kill -s SIGHUP $(pidof dockerd)'", timeout=5)
-            try:
-                proc.check_returncode()
-            except:
-                self._logger.exception("Failed to reload docker config.")
-        self._conf.set("docker_concurrent", value)
-
     def update(self, *, needs_docker_restart=False):
         """
         Update a bunch of stuff from various requests.
@@ -2115,7 +2081,7 @@ class AdsbIm:
         should_download_parallel = util.checkbox_checked(
             request.form["parallel-docker-downloads"])
         if self._conf.get("docker_concurrent") != should_download_parallel:
-            self.set_docker_concurrent(should_download_parallel)
+            self._set_docker_concurrent_downloads(should_download_parallel)
             needs_docker_restart = True
         should_enable_config_link = util.checkbox_checked(
             request.form["enable-tar1090-image-config-link"])
@@ -2126,6 +2092,46 @@ class AdsbIm:
                 should_enable_config_link)
             needs_docker_restart = True
         return self.update(needs_docker_restart=needs_docker_restart)
+
+    def _set_docker_concurrent_downloads(self, enable_concurrent_downloads):
+        daemon_config_file = pathlib.Path("/etc/docker/daemon.json")
+        if enable_concurrent_downloads and not daemon_config_file.exists():
+            # This is the default, nothing to do.
+            self._conf.set("docker_concurrent", enable_concurrent_downloads)
+            return
+        try:
+            with daemon_config_file.open() as f:
+                config_json = json.load(f)
+        except:
+            config_json = {}
+        new_config_json = config_json.copy()
+        if enable_concurrent_downloads:
+            new_config_json.pop("max-concurrent-downloads", None)
+        else:
+            new_config_json["max-concurrent-downloads"] = 1
+        if new_config_json == config_json:
+            # No changes, nothing to do.
+            self._conf.set("docker_concurrent", enable_concurrent_downloads)
+            return
+        try:
+            daemon_config_file.parent.mkdir(parents=True, exist_ok=True)
+            with daemon_config_file.open("w") as f:
+                json.dump(new_config_json, f, indent=2)
+        except:
+            self._logger.exception(
+                "Failed to write docker config while setting concurrent "
+                "downloads.", flash_message=True)
+        # Reload docker config via SIGHUP (this is sufficient for the
+        # max-concurrent-downloads setting).
+        try:
+            util.shell_with_combined_output(
+                "bash -c 'kill -s SIGHUP $(pidof dockerd)'", timeout=5,
+                check=True)
+        except:
+            self._logger.exception(
+                "Failed to reload docker config while setting concurrent "
+                "downloads.", flash_message=True)
+        self._conf.set("docker_concurrent", enable_concurrent_downloads)
 
     def systemmgmt(self):
         tailscale_info = self._system.get_tailscale_info()
