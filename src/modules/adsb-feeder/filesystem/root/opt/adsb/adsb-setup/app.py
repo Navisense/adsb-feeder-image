@@ -1924,23 +1924,29 @@ class AdsbIm:
                     pass
 
     def set_docker_concurrent(self, value):
-        self._conf.set("docker_concurrent", value)
-        if not os.path.exists("/etc/docker/daemon.json") and value:
+        daemon_config_file = pathlib.Path("/etc/docker/daemon.json")
+        if value and not daemon_config_file.exists():
             # this is the default, nothing to do
+            self._conf.set("docker_concurrent", value)
             return
         try:
-            with open("/etc/docker/daemon.json", "r") as f:
-                daemon_json = json.load(f)
+            with daemon_config_file.open() as f:
+                config_json = json.load(f)
         except:
-            daemon_json = {}
-        new_daemon_json = daemon_json.copy()
+            config_json = {}
+        daemon_config_file
+        new_config_json = config_json.copy()
         if value:
-            del new_daemon_json["max-concurrent-downloads"]
+            new_config_json.pop("max-concurrent-downloads", None)
         else:
-            new_daemon_json["max-concurrent-downloads"] = 1
-        if new_daemon_json != daemon_json:
-            with open("/etc/docker/daemon.json", "w") as f:
-                json.dump(new_daemon_json, f, indent=2)
+            new_config_json["max-concurrent-downloads"] = 1
+        if new_config_json != config_json:
+            try:
+                daemon_config_file.parent.mkdir(parents=True, exist_ok=True)
+                with daemon_config_file.open("w") as f:
+                    json.dump(new_config_json, f, indent=2)
+            except:
+                self._logger.exception("Failed to write docker config.")
             # reload docker config (this is sufficient for the
             # max-concurrent-downloads setting)
             proc = util.shell_with_combined_output(
@@ -1949,6 +1955,7 @@ class AdsbIm:
                 proc.check_returncode()
             except:
                 self._logger.exception("Failed to reload docker config.")
+        self._conf.set("docker_concurrent", value)
 
     def update(self, *, needs_docker_restart=False):
         """
@@ -1993,14 +2000,6 @@ class AdsbIm:
                 self._conf.set(
                     "tar1090_image_config_link",
                     "WILL_BE_SET_IN_IMPLIED_SETTINGS")
-            elif key == "enable_parallel_docker":
-                self._logger.debug("Enabled parallel docker.")
-                needs_docker_restart, next_url = True, None
-                self.set_docker_concurrent(True)
-            elif key == "disable_parallel_docker":
-                self._logger.debug("Disabled parallel docker.")
-                needs_docker_restart, next_url = True, None
-                self.set_docker_concurrent(False)
             # That's submit buttons done. Next are checkboxes where we check
             # key and value. A lot of them just cause a one-time effect, where
             # you check the box, submit the form, and something happens once.
@@ -2127,6 +2126,11 @@ class AdsbIm:
                 should_use_gpsd = False
             self._conf.set("use_gpsd", should_use_gpsd)
             self._logger.debug(f"Set gpsd to {should_use_gpsd}.")
+            needs_docker_restart = True
+        should_download_parallel = util.checkbox_checked(
+            request.form["parallel-docker-downloads"])
+        if self._conf.get("docker_concurrent") != should_download_parallel:
+            self.set_docker_concurrent(should_download_parallel)
             needs_docker_restart = True
         return self.update(needs_docker_restart=needs_docker_restart)
 
