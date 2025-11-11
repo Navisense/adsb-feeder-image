@@ -1944,14 +1944,6 @@ class AdsbIm:
                 self._logger.debug("sdrplay license rejected.")
                 needs_docker_restart, next_url = True, None
                 self._conf.set("sdrplay_license_accepted", False)
-            elif key == "aggregators":
-                self._logger.debug(
-                    "User has chosen aggregators on the aggregators page.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("aggregators_chosen", True)
-                # Set aggregator_choice to individual so even users that have
-                # set "all" before can still deselect individual aggregators.
-                self._conf.set("aggregator_choice", "individual")
             # That's submit buttons done. Next are checkboxes where we check
             # key and value. A lot of them just cause a one-time effect, where
             # you check the box, submit the form, and something happens once.
@@ -1996,13 +1988,6 @@ class AdsbIm:
                     value = "".join(
                         c for c in value if c.isalnum() or c == "-")
                     value = value.strip("-")[:63]
-                # If user is changing to 'individual' selection (either in
-                # initial setup or when coming back to that setting later),
-                # show them the aggregator selection page next.
-                if (key_path == "aggregator_choice" and value == "individual"
-                        and self._conf.get("aggregator_choice")
-                        != "individual"):
-                    next_url = url_for("aggregators")
                 self._conf.set(key_path, value)
 
         # Done handling form data. See if the new config implies any other
@@ -2181,7 +2166,7 @@ class AdsbIm:
                     f"Error enabling/disabling Prometheus metrics: {e}",
                     flash_message=True)
             return self.update(needs_docker_restart=True)
-
+        assert request.method == "GET"
         any_non_adsblol_uf_aggregators = any(
             agg.enabled()
             for agg in aggregators.all_aggregators().values()
@@ -2413,11 +2398,54 @@ class AdsbIm:
         )
 
     def setup(self):
-        if request.method == "POST":
-            return self.update()
-        # make sure DNS works
-        self.update_dns_state()
-        return render_template("setup.html")
+        if request.method == "GET":
+            # Make sure DNS works.
+            self.update_dns_state()
+            return render_template("setup.html")
+        assert request.method == "POST"
+        needs_docker_restart = False
+        should_enable_accountless_aggregators = (
+            util.checkbox_checked(request.form["enable-all-aggregators"])
+            or util.checkbox_checked(
+                request.form["enable-aggregators-with-privacy"]))
+        if should_enable_accountless_aggregators:
+            # First, record that the user has already made a choice about
+            # aggregators so we don't display annoying reminders.
+            self._conf.set("aggregators_chosen", True)
+            must_have_privacy_policy = not util.checkbox_checked(
+                request.form["enable-all-aggregators"])
+            needs_docker_restart = self._enable_accountless_aggregators(
+                must_have_privacy_policy=must_have_privacy_policy)
+        if needs_docker_restart:
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return self.update()
+
+    def _enable_accountless_aggregators(
+            self, must_have_privacy_policy: bool) -> bool:
+        """
+        Enable all aggregators that don't require further configuration.
+
+        Return whether anything was changed.
+        """
+        has_changed = False
+        for agg_key, aggregator in aggregators.all_aggregators().items():
+            try:
+                netconfig = aggregator.netconfig
+            except AttributeError:
+                # Not an Ultrafeedeer aggregator with a netconfig, ignore.
+                continue
+            assert isinstance(aggregator, aggregators.UltrafeederAggregator)
+            if aggregator.enabled():
+                # Already enabled, ignore.
+                continue
+            should_be_enabled = (
+                not must_have_privacy_policy or netconfig.has_policy)
+            if should_be_enabled:
+                logger.info(f"Enabling {aggregator}.")
+                self._conf.set(f"aggregators.{agg_key}.is_enabled", True)
+                has_changed = True
+        return has_changed
 
     def temperatures(self):
         temperature_file = pathlib.Path(

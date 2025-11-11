@@ -155,37 +155,6 @@ def _has_gpsd(conf: "Config") -> bool:
     return False
 
 
-def _get_enabled_ultrafeeder_aggregators(
-        conf: "Config"
-) -> cl_abc.Generator["aggregators.UltrafeederAggregator"]:
-    """
-    Generate all enabled Ultrafeeder aggregators.
-
-    Checks the aggregator_choice setting, and actively enables aggregators if
-    set to "all" or "privacy". Yields all enabled aggregators.
-    """
-    import aggregators
-    choice = conf.get("aggregator_choice")
-    for agg_key, aggregator in aggregators.all_aggregators().items():
-        try:
-            netconfig = aggregator.netconfig
-        except AttributeError:
-            # Not an Ultrafeedeer aggregator with a netconfig, ignore.
-            continue
-        assert isinstance(aggregator, aggregators.UltrafeederAggregator)
-        if aggregator.enabled():
-            yield aggregator
-            continue
-        should_be_enabled = (
-            choice == "all" or (choice == "privacy" and netconfig.has_policy))
-        if should_be_enabled:
-            logger.info(
-                f"Enabling {aggregator} because of aggregator_choice {choice}."
-            )
-            conf.set(f"aggregators.{agg_key}.is_enabled", True)
-            yield aggregator
-
-
 def _generate_ultrafeeder_config_string(conf: "Config") -> str:
     """
     Generate the string used to configure Ultrafeeder.
@@ -193,8 +162,12 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
     Concatenates all necessary settings into a string that can be fed to
     Ultrafeeder. Generates UUIDs if necessary.
     """
+    import aggregators
     args = set()
-    for aggregator in _get_enabled_ultrafeeder_aggregators(conf):
+    for aggregator in aggregators.all_aggregators().items():
+        if (not isinstance(aggregator, aggregators.UltrafeederAggregator)
+                or not aggregator.enabled()):
+            continue
         if aggregator.agg_key == "adsblol":
             uuid_setting_path = "adsblol_uuid"
         else:
