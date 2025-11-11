@@ -16,7 +16,7 @@
        role="alert">
     docker compose up has failed. This means that something is wrong.
     <form method="post">
-      <button type="submit" name="submit" class="btn btn-primary">Retry</button>
+      <button type="submit" class="btn btn-primary">Retry</button>
     </form>
   </div>
   <div class="alert alert-danger {% if not get_conf('under_voltage') %}d-none{% endif %}"
