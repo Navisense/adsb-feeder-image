@@ -1,127 +1,167 @@
 {% extends "base-regular.html" %}
 {% set active_page = "expert" %}
-{% block title %}Expert setup{% endblock title %}
+{% block title %}
+  Expert setup
+{% endblock title %}
 {% block content %}
-<form method="post">
-<div class="row small">
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">Add additional Ultrafeeder arguments</h5>
-      <div class="row align-items-center">
-        <div class="col-12 mb-2">
-          <label for="ultrafeeder-extra-args">
-            There are very few circumstances where this is something you want to manually add. One might be a
-            situation where you want to feed an aggregator that uses the 'standard' format of all the account-less
-            aggregators, but that isn't supported out of the box.
-            Add the configuration that you need here - it will be appended to the Ultrafeeder config.
-          </label>
-        </div>
-        <div class="col-8">
-          <input  type="text" class="mx-auto w-100" id="ultrafeeder-extra-args" name="ultrafeeder-extra-args"
-                 value="{{ get_conf('ultrafeeder_extra_args', default='') }}">
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100">
-            Submit
-          </button>
+  <form method="post">
+    <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">Additional Ultrafeeder arguments</h5>
+            <label for="ultrafeeder-extra-args">
+              Here you cann add additional command line arguments to Ultrafeeder. There are very few circumstances where
+              this is something you want to manually add. One might be if you want to feed an aggregator that uses the
+              'standard' format of all the account-less aggregators, but isn't supported out of the box. Add the
+              configuration that you need here - it will be appended to the Ultrafeeder config.
+            </label>
+            <input type="text"
+                   name="ultrafeeder-extra-args"
+                   id="ultrafeeder-extra-args"
+                   class="w-100 mt-3"
+                   value="{{ get_conf('ultrafeeder_extra_args', default='') }}">
+          </div>
         </div>
       </div>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">Add environment variables to containers</h5>
-      <div class="row align-items-center">
-        <div class="col-12 mb-2">
-          <label for="ultrafeeder-extra-env">
-            The various Docker containers support a lot more environment variables than are exposed here in
-            the UI. If there are settings that you need to add, this is the best place to do it. Please only use this if
-            you understand what you are doing. It's reasonably simple to break your setup by inserting things here that
-            cause the container not to start.<br />
-            Please enter them one per line, with an equals sign separating the variable name from its value. The name
-            spaces for the different containers are distinct, so for simplicity they are all just added here together.
-          </label>
-        </div>
-        <div class="col-8">
-          <textarea class="mx-auto w-100" id="ultrafeeder-extra-env" name="ultrafeeder-extra-env"
-                    placeholder="READSB_RTLSDR_PPM=22&#13;&#10;READSB_RANGE_OUTLINE_HOURS=72">{{ get_conf('ultrafeeder_extra_env', default='') }}</textarea>
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100">
-            Submit
-          </button>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">Additional environment variables</h5>
+            <label for="ultrafeeder-extra-env">
+              The various Docker containers support a lot more environment variables than are exposed here in the UI.
+              If there are settings that you need to add, this is the best place to do it. Please only use this if you
+              understand what you are doing. You could easily break your setup by inserting things here that cause the
+              containers to not start.
+              <br />
+              Please enter them one per line, with an equals sign separating the variable name from its value. The
+              namespaces for the different containers are distinct, so for simplicity they are all just added here
+              together.
+            </label>
+            <textarea name="ultrafeeder-extra-env"
+                      id="ultrafeeder-extra-env"
+                      class="w-100 mt-3"
+                      placeholder="READSB_RTLSDR_PPM=22&#13;&#10;READSB_RANGE_OUTLINE_HOURS=72">{{ get_conf('ultrafeeder_extra_env', default='') }}</textarea>
+          </div>
         </div>
       </div>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">Add arguments to map URLs</h5>
-      <div class="row align-items-center">
-        <div class="col-12 mb-2">
-          <label for="tar1090-query-params">
-            tar1090, the software used to create the map display used here, contains a plethora of URL <a
-               href="https://github.com/wiedehopf/tar1090/blob/master/README-query.md">query parameters</a>. If you have
-            preferred query parameters that you always want to use, you can add them here.
-          </label>
-        </div>
-        <div class="col-8">
-          <input type="text" class="mx-auto w-100" id="tar1090-query-params" name="tar1090-query-params"
-                 placeholder="?autoselect&centerReceiver" {%- if get_conf('tar1090_query_params') -%}value="?{{ query_parameter_string(get_conf('tar1090_query_params')) }}"{%- endif -%}>
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100">Submit</button>
-        </div>
-      </div>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">GPS based location</h5>
-  <input id="use-gpsd"
-         class="form-check-input"
-         name="use-gpsd"
-         type="checkbox"
-         {% if get_conf('use_gpsd') -%}checked{%- endif %}
-         {% if not get_conf('has_gpsd') -%}disabled{%- endif %}>
-  <label for="use-gpsd" class="form-check-label">Enable gpsd</label>
-  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">Tar1090 image config link</h5>
-  <input id="enable-tar1090-image-config-link"
-         class="form-check-input"
-         name="enable-tar1090-image-config-link"
-         type="checkbox"
-         {% if get_conf('tar1090_image_config_link.is_enabled') -%}checked{%- endif %}>
-  <label for="enable-tar1090-image-config-link" class="form-check-label">Include the image config link</label>
-  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-  </div>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">CSS Theme</h5>
-      <div class="row align-items-center">
-        <div class="col-8">
-          <input type="radio" name="css-theme" id="css-light" value="light" {% if
-          get_conf("css_theme")=="light" %} checked {% endif %}>
-          <label class="form-check-label mr-3" for="css-light">Light Theme</label>
-          <input type="radio" name="css-theme" id="css-dark" value="dark" {% if
-          get_conf("css_theme")=="dark" %} checked {% endif %}>
-          <label class="form-check-label mr-3" for="css-dark">Dark Theme</label>
-          <input type="radio" name="css-theme" id="css-auto" value="auto" {% if
-          get_conf("css_theme")=="auto" %} checked {% endif %}>
-          <label class="form-check-label mr-3" for="css-auto">Auto</label>
-        </div>
-        <div class="col-4">
-          <button type="submit" class="btn btn-primary mx-auto w-100">Submit</button>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">Additional arguments to Tar1090 map URLs</h5>
+            <label for="tar1090-query-params">
+              Tar1090, the software used to create the ADS-B map display used in the feeder, contains a plethora of URL
+              <a href="https://github.com/wiedehopf/tar1090/blob/master/README-query.md">query parameters</a>. If you
+              have preferred query parameters that you always want to use, you can add them here. Note that the string
+              you enter here must be a valid query parameter string starting with a question mark, e.g.
+              <code>?a&b=1&c&d=sdf</code>.
+            </label>
+            <input type="text"
+                   name="tar1090-query-params"
+                   id="tar1090-query-params"
+                   class="w-100 mt-3"
+                   placeholder="?autoselect&centerReceiver"
+                   {%- if get_conf('tar1090_query_params') -%}
+                   value="?{{ query_parameter_string(get_conf('tar1090_query_params') ) }}"
+                   {%- endif -%}>
+          </div>
         </div>
       </div>
-  </div>
-  <div class="col-12 col-lg-6">
-    <h5 class="mt-3">Parallel Docker downloads</h5>
-  <input id="parallel-docker-downloads"
-         class="form-check-input"
-         name="parallel-docker-downloads"
-         type="checkbox"
-         {% if get_conf('docker_concurrent') -%}checked{%- endif %}>
-  <label for="parallel-docker-downloads" class="form-check-label">Enable parallel Docker downloads</label>
-  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
-  </div>
-  </div>
-
-</div>
-</form>
-{% endblock %}
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">GPS based location</h5>
+            <p>
+              {% if get_conf('has_gpsd') %}
+                You have gpsd installed and configured. You can use this checkbox to decide whether it should be used
+                for the feeder's position.
+              {% else %}
+                This device doesn't have gpsd available. If it were, you could select it here to determine the feeder's
+                position via GPS.
+              {% endif %}
+            </p>
+            <input id="use-gpsd"
+                   class="form-check-input"
+                   name="use-gpsd"
+                   type="checkbox"
+                   {% if get_conf('use_gpsd') -%}checked{%- endif %}
+                   {% if not get_conf('has_gpsd') -%}disabled{%- endif %}>
+            <label for="use-gpsd" class="form-check-label">Enable gpsd</label>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">Tar1090 image config link</h5>
+            <p>
+              The Tar1090 page (with the ADS-B map) contains a link to the feeder overview page by default. If you want
+              to share ONLY that map / statistics with others, but don't want to show them the link to feeder overview
+              page (which allows them to change the configuration if no admin password is set), you can disable it here.
+              Please note that the user still can simply access that page by just changing the port belonging to the map
+              ({{ get_conf("ports.tar1090") }}) to the one of the feeder's main interface ({{ get_conf("ports.web") }}).
+              You need to filter this through some firewall settings (which isn't something the feeder supports
+              automatically).
+            </p>
+            <input id="enable-tar1090-image-config-link"
+                   class="form-check-input"
+                   name="enable-tar1090-image-config-link"
+                   type="checkbox"
+                   {% if get_conf('tar1090_image_config_link.is_enabled') -%}checked{%- endif %}>
+            <label for="enable-tar1090-image-config-link" class="form-check-label">Include the image config link</label>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">CSS Theme</h5>
+            <p>You can select a CSS theme here that will affect the style of the web interface.</p>
+            <div>
+              <input type="radio"
+                     name="css-theme"
+                     id="css-light"
+                     value="light"
+                     {% if get_conf("css_theme")=="light" %}checked{% endif %}>
+              <label class="form-check-label mr-3" for="css-light">Light Theme</label>
+              <input type="radio"
+                     name="css-theme"
+                     id="css-dark"
+                     value="dark"
+                     {% if get_conf("css_theme")=="dark" %}checked{% endif %}>
+              <label class="form-check-label mr-3" for="css-dark">Dark Theme</label>
+              <input type="radio"
+                     name="css-theme"
+                     id="css-auto"
+                     value="auto"
+                     {% if get_conf("css_theme")=="auto" %}checked{% endif %}>
+              <label class="form-check-label mr-3" for="css-auto">Auto</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title my-1">Parallel Docker downloads</h5>
+            <p>
+              On initial install and during updates, Docker images need to be downloaded onto the feeder. The default
+              behavior is for multiple downloads to be started at once. This works well on most connections and most
+              devices. However, it can be helpful on slow connections or weak devices to force Docker to only download one
+              thing at a time. This can help avoid update failures or improve update speed slightly.
+            </p>
+            <input id="parallel-docker-downloads"
+                   class="form-check-input"
+                   name="parallel-docker-downloads"
+                   type="checkbox"
+                   {% if get_conf('docker_concurrent') -%}checked{%- endif %}>
+            <label for="parallel-docker-downloads" class="form-check-label">Enable parallel Docker downloads</label>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button type="submit"
+            class="btn btn-accent btn-block btn-lg my-5"
+            name="submit">Apply settings</button>
+  </form>
+{% endblock content %}
