@@ -816,7 +816,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 11
+    CONFIG_VERSION = 12
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1112,7 +1112,6 @@ class Config(CompoundSetting):
         "rbthermalhack": ft.partial(
             StringSetting, env_variable_name="FEEDER_RB_THERMAL_HACK"),
         # ADSB.im specific
-        "aggregator_choice": StringSetting,
         "base_version": ft.partial(
             CachedGeneratedSetting,
             value_generator=ft.partial(_read_file, file=VERSION_FILE)),
@@ -1728,6 +1727,14 @@ class Config(CompoundSetting):
             "is_enabled": bool(tar1090_image_config_link)}
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_11_to_12(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is no longer used.
+        del config_dict["aggregator_choice"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1738,7 +1745,8 @@ class Config(CompoundSetting):
                          (7, 8): _upgrade_config_dict_from_7_to_8,
                          (8, 9): _upgrade_config_dict_from_8_to_9,
                          (9, 10): _upgrade_config_dict_from_9_to_10,
-                         (10, 11): _upgrade_config_dict_from_10_to_11}
+                         (10, 11): _upgrade_config_dict_from_10_to_11,
+                         (11, 12): _upgrade_config_dict_from_11_to_12}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
