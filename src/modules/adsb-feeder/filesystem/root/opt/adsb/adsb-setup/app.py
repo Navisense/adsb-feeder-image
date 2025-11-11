@@ -2091,7 +2091,10 @@ class AdsbIm:
                 "tar1090_image_config_link.is_enabled",
                 should_enable_config_link)
             needs_docker_restart = True
-        return self.update(needs_docker_restart=needs_docker_restart)
+        if needs_docker_restart:
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect("expert")
 
     def _set_docker_concurrent_downloads(self, enable_concurrent_downloads):
         daemon_config_file = pathlib.Path("/etc/docker/daemon.json")
