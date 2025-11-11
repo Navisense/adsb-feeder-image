@@ -37,7 +37,7 @@
         <div class="col-12 col-lg-6">
           <input type="text"
                  id="station-name"
-                 name="set_config--str--site_name"
+                 name="station-name"
                  required
                  placeholder="my-awesome-antenna"
                  class="form-control m-1"
@@ -50,12 +50,12 @@
     <div class="form-group align-items-center">
       <div class="row">
         <div class="col-12 col-lg-6">
-          <label for="lat" class="m-1">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
+          <label for="latitude" class="m-1">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
         </div>
         <div class="col-12 col-lg-6">
           <input type="text"
-                 id="lat"
-                 name="set_config--float--lat"
+                 id="latitude"
+                 name="latitude"
                  required
                  placeholder="Antenna latitude"
                  class="form-control m-1"
@@ -68,12 +68,14 @@
     <div class="form-group align-items-center">
       <div class="row">
         <div class="col-12 col-lg-6">
-          <label for="lon" class="m-1">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
+          <label for="longitude" class="m-1">
+            Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)
+          </label>
         </div>
         <div class="col-12 col-lg-6">
           <input type="text"
-                 id="lon"
-                 name="set_config--float--lon"
+                 id="longitude"
+                 name="longitude"
                  required
                  placeholder="Antenna longitude"
                  class="form-control m-1"
@@ -86,12 +88,12 @@
     <div class="form-group align-items-center">
       <div class="row">
         <div class="col-12 col-lg-6">
-          <label for="alt" class="m-1">Altitude above mean sealevel, rounded to whole meters</label>
+          <label for="altitude" class="m-1">Altitude above mean sealevel, rounded to whole meters</label>
         </div>
         <div class="col-12 col-lg-6">
           <input type="text"
-                 id="alt"
-                 name="set_config--float--alt"
+                 id="altitude"
+                 name="altitude"
                  required
                  placeholder="in m - or add 'ft' to enter in ft"
                  class="form-control m-1"
@@ -103,7 +105,7 @@
     <div class="form-group align-items-center">
       <div class="row">
         <div class="col-12 col-lg-6">
-          <label for="tz" class="m-1">Timezone</label>
+          <label for="timezone" class="m-1">Timezone</label>
           <button class="btn btn-secondary"
                   onclick="useBrowserTimezone(); return false; // return false inhibits the form to be submitted">
             Update timezone
@@ -111,8 +113,8 @@
         </div>
         <div class="col-12 col-lg-6">
           <input type="text"
-                 name="tz"
-                 id="tz"
+                 name="timezone"
+                 id="timezone"
                  required
                  placeholder="populate from the browser timezone by clicking the 'update timezone' button"
                  class="form-control  m-1"
@@ -148,16 +150,16 @@
   </form>
   <script>
     function fixAlt() {
-      let altValue = $("#alt").val();
+      let altValue = $("#altitude").val();
       let factor = 1.0;
       if (altValue.toLowerCase().includes("ft")) factor = 0.3048;
       let fixedAlt = Math.round(parseFloat(altValue) * factor);
       if (fixedAlt.toString() == "NaN") fixedAlt = "";
       else fixedAlt = fixedAlt + "m";
-      $("#alt").val(fixedAlt);
+      $("#altitude").val(fixedAlt);
     }
     fixAlt();
-    $("#alt").on("blur", fixAlt);
+    $("#altitude").on("blur", fixAlt);
 
     function getBrowserTimezone() {
       let timezone = "";
@@ -170,10 +172,10 @@
     }
 
     function useBrowserTimezone() {
-      $("#tz").val(getBrowserTimezone());
+      $("#timezone").val(getBrowserTimezone());
     }
     // Set timezone field to browser timezone if not set already.
-    if (!$("#tz").val()) {
+    if (!$("#timezone").val()) {
       useBrowserTimezone();
     }
   </script>

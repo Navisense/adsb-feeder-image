@@ -1109,54 +1109,6 @@ class AdsbIm:
             subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
         self._maybe_enable_mdns()
 
-    def set_tz(self, timezone):
-        # timezones don't have spaces, only underscores
-        # replace spaces with underscores to correct this common error
-        timezone = timezone.replace(" ", "_")
-
-        success = self.set_system_tz(timezone)
-        if success:
-            self._conf.set("tz", timezone)
-        else:
-            self._logger.warning(
-                f"Timezone {timezone} probably invalid, defaulting to UTC.",
-                flash_message=True)
-            self._conf.set("tz", "UTC")
-            self.set_system_tz("UTC")
-
-    def set_system_tz(self, timezone):
-        # timedatectl can fail on dietpi installs (Failed to connect to bus: No
-        # such file or directory) thus don't rely on timedatectl and just set
-        # environment for containers regardless of timedatectl working
-        try:
-            self._logger.info(f"Calling timedatectl set-timezone {timezone}")
-            subprocess.run(["timedatectl", "set-timezone", f"{timezone}"],
-                           check=True)
-        except subprocess.SubprocessError:
-            self._logger.exception(
-                f"Failed to set up timezone ({timezone}) using timedatectl, "
-                "try dpkg-reconfigure instead")
-            try:
-                subprocess.run(
-                    ["test", "-f", f"/usr/share/zoneinfo/{timezone}"],
-                    check=True)
-            except:
-                self._logger.exception(
-                    f"Setting timezone: /usr/share/zoneinfo/{timezone} "
-                    "doesn't exist")
-                return False
-            try:
-                subprocess.run([
-                    "ln", "-sf", f"/usr/share/zoneinfo/{timezone}",
-                    "/etc/localtime"])
-                subprocess.run(
-                    "dpkg-reconfigure --frontend noninteractive tzdata",
-                    shell=True)
-            except:
-                pass
-
-        return True
-
     def render_other_app_in_iframe(self, title, port, path):
         return render_template(
             "iframe.html", title=title, url=self._make_proxy_url(port, path))
@@ -1951,10 +1903,6 @@ class AdsbIm:
             if key == "clear_range" and util.checkbox_checked(value):
                 self._logger.debug("Clear range requested.")
                 self.clear_range_outline()
-            # Next up are text fields.
-            if key == "tz":
-                self._logger.debug(f"Time zone changed to {value}.")
-                self.set_tz(value)
             # Form data can directly set config variables if the key has the
             # format set_config--<data_type>--<key_path>, where data_type is
             # one of str, bool, or float, and key_path is the one in the
@@ -1984,10 +1932,6 @@ class AdsbIm:
                         f"Error parsing config setting {key_path}.",
                         flash_message=True)
                     continue
-                if key_path == "site_name":
-                    value = "".join(
-                        c for c in value if c.isalnum() or c == "-")
-                    value = value.strip("-")[:63]
                 self._conf.set(key_path, value)
 
         # Done handling form data. See if the new config implies any other
@@ -2416,10 +2360,31 @@ class AdsbIm:
                 request.form["enable-all-aggregators"])
             needs_docker_restart = self._enable_accountless_aggregators(
                 must_have_privacy_policy=must_have_privacy_policy)
+        if request.form["timezone"] != self._conf.get("tz"):
+            self._set_timezone(request.form["timezone"])
+        if request.form["station-name"] != self._conf.get("site_name"):
+            site_name = "".join(
+                c for c in request.form["station-name"]
+                if c.isalnum() or c == "-")
+            site_name = site_name.strip("-")[:63]
+            self._conf.set("site_name", site_name)
+            needs_docker_restart = True
+            self._logger.info(f"Updated station name to {site_name}.")
+        for form_key, config_key in [("latitude", "lat"), ("longitude", "lon"),
+                                     ("altitude", "alt")]:
+            try:
+                # Remove letters, spaces, degree symbols before parsing.
+                value = float(re.sub("[a-zA-Z° ]", "", request.form[form_key]))
+                if self._conf.get(config_key) != value:
+                    self._conf.set(config_key, value)
+                    needs_docker_restart = True
+            except Exception as e:
+                self._logger.exception(
+                    f"Error parsing {form_key}: {e}.", flash_message=True)
         if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
-        return self.update()
+        return redirect(url_for("index"))
 
     def _enable_accountless_aggregators(
             self, must_have_privacy_policy: bool) -> bool:
@@ -2446,6 +2411,55 @@ class AdsbIm:
                 self._conf.set(f"aggregators.{agg_key}.is_enabled", True)
                 has_changed = True
         return has_changed
+
+    def _set_timezone(self, timezone):
+        # timezones don't have spaces, only underscores
+        # replace spaces with underscores to correct this common error
+        timezone = timezone.replace(" ", "_")
+
+        success = self._set_system_timezone(timezone)
+        if success:
+            self._conf.set("tz", timezone)
+        else:
+            self._logger.warning(
+                f"Timezone {timezone} probably invalid, defaulting to UTC.",
+                flash_message=True)
+            self._conf.set("tz", "UTC")
+            self._set_system_timezone("UTC")
+
+    def _set_system_timezone(self, timezone):
+        # timedatectl can fail on dietpi installs (Failed to connect to bus: No
+        # such file or directory) thus don't rely on timedatectl and just set
+        # environment for containers regardless of timedatectl working
+        try:
+            self._logger.info(f"Calling timedatectl set-timezone {timezone}")
+            subprocess.run(["timedatectl", "set-timezone", f"{timezone}"],
+                           check=True)
+        except subprocess.SubprocessError:
+            self._logger.exception(
+                f"Failed to set up timezone ({timezone}) using timedatectl, "
+                "try dpkg-reconfigure instead")
+            try:
+                subprocess.run(
+                    ["test", "-f", f"/usr/share/zoneinfo/{timezone}"],
+                    check=True)
+            except:
+                self._logger.exception(
+                    f"Setting timezone: /usr/share/zoneinfo/{timezone} "
+                    "doesn't exist")
+                return False
+            try:
+                subprocess.run([
+                    "ln", "-sf", f"/usr/share/zoneinfo/{timezone}",
+                    "/etc/localtime"])
+                subprocess.run(
+                    "dpkg-reconfigure --frontend noninteractive tzdata",
+                    shell=True)
+            except:
+                pass
+
+        self._logger.info(f"Time zone changed to {timezone}.")
+        return True
 
     def temperatures(self):
         temperature_file = pathlib.Path(
