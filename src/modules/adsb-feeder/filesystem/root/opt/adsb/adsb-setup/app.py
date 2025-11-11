@@ -426,6 +426,7 @@ class AdsbIm:
             return {
                 "get_conf": self._conf.get,
                 "url_for": url_for_with_empty_parameters,
+                "query_parameter_string": query_parameter_string,
                 "is_reception_enabled": self.is_reception_enabled,}
 
         def set_no_cache(response: Response):
@@ -2045,8 +2046,7 @@ class AdsbIm:
 
     def expert(self):
         if request.method == "GET":
-            return render_template(
-                "expert.html", query_parameter_string=query_parameter_string)
+            return render_template("expert.html")
         assert request.method == "POST"
         needs_docker_restart = False
         try:
