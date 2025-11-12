@@ -508,16 +508,14 @@
             <div class="row align-items-center">
               <div class="col-12 col-md-8">
                 <div class="row align-items-center">
-                  <label for="log_persistence_toggle" class="m-1">
-                    Currently the log is
-                    {% if not persistent_journal %}not{% endif %}
-                    written to disk.
-                  </label>
+                  Currently the log is
+                  {% if not get_conf("journal.is_persistent") %}not{% endif %}
+                  written to disk.
                 </div>
               </div>
               <div class="col-12 col-md-4">
                 <button type="submit" class="btn btn-primary m-1 w-100">
-                  {% if persistent_journal %}
+                  {% if get_conf("journal.is_persistent") %}
                     Disable
                   {% else %}
                     Enable

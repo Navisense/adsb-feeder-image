@@ -326,6 +326,7 @@ class Aggregator(abc.ABC):
 class UltrafeederAggregator(Aggregator):
     """Simple, ultrafeeder-based aggregator."""
     ULTRAFEEDER_PATH = pathlib.Path("/run/adsb-feeder-ultrafeeder")
+    _uuid_config_key = "ultrafeeder_uuid"
 
     def __init__(
             self, conf: config.Config, system: system.System, *, agg_key: str,
@@ -351,6 +352,12 @@ class UltrafeederAggregator(Aggregator):
     @property
     def needs_key(self) -> bool:
         return False
+
+    def configure(self, enabled: bool, *args, **kwargs) -> None:
+        # Before we enable, make sure we have a UUID.
+        if enabled and not self._conf.get(self._uuid_config_key):
+            self._conf.set(self._uuid_config_key, str(uuid.uuid4()))
+        super().configure(enabled, *args, **kwargs)
 
     def _check_aggregator_status(self) -> AggregatorStatus:
         data_status = self._get_data_status()
@@ -456,6 +463,7 @@ class AdsbLolAggregator(UltrafeederAggregator):
         adsblol_link: str = ""
 
     AdsbStatus = AdsbLolAdsbStatus
+    _uuid_config_key = "adsblol_uuid"
 
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(

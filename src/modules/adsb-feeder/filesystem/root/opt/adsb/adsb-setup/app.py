@@ -23,7 +23,6 @@ import tempfile
 import threading
 import time
 from typing import Optional
-import uuid
 import re
 import sys
 import zipfile
@@ -416,8 +415,7 @@ class AdsbIm:
         else:
             self._conf.set("rbthermalhack", "")
 
-        self.update_meminfo()
-        self.update_journal_state()
+        self._ensure_desired_journal_persistence()
 
     def _make_app(self) -> flask_util.App:
         app = flask_util.App(__name__)
@@ -1008,8 +1006,6 @@ class AdsbIm:
                 "images.planefinder",
                 "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64")
 
-        self.handle_implied_settings()
-
     def stop(self):
         if not self._server:
             raise RuntimeError("not started")
@@ -1066,33 +1062,29 @@ class AdsbIm:
         self._conf.set("mdns.domains", mdns_domains)
         subprocess.run(args + mdns_domains)
 
-    def update_meminfo(self):
-        self._memtotal = 0
+    def _ensure_desired_journal_persistence(self):
+        if (self._conf.get("journal.should_be_persistent")
+                and not self._conf.get("journal.is_persistent")):
+            self._logger.info(
+                "Journal should be persistent, but isn't. Toggling setting.")
+            script_path = "/opt/adsb/scripts/journal-set-persist.sh"
+        elif (not self._conf.get("journal.should_be_persistent")
+              and self._conf.get("journal.is_persistent")):
+            script_path = "/opt/adsb/scripts/journal-set-volatile.sh"
+            self._logger.info(
+                "Journal should be volatile, but is persistent. Toggling "
+                "setting.")
+        else:
+            # Persistence setting already correct.
+            return
         try:
-            with open("/proc/meminfo", "r") as f:
-                for line in f:
-                    if line.startswith("MemTotal:"):
-                        self._memtotal = util.make_int(line.split()[1])
-                        break
+            subprocess.run(script_path, shell=True, timeout=5.0)
         except:
-            pass
-
-    def update_journal_state(self):
-        # with no config setting or an 'auto' setting, the journal is
-        # persistent IFF /var/log/journal exists
-        self._persistent_journal = pathlib.Path("/var/log/journal").exists()
-        # read journald.conf line by line and check if we override the default
-        try:
-            result = subprocess.run(
-                "systemd-analyze cat-config systemd/journald.conf", shell=True,
-                capture_output=True, timeout=2.0)
-            config = result.stdout.decode("utf-8")
-        except:
-            config = "Storage=auto"
-        for line in config:
-            if line.startswith("Storage=volatile"):
-                self._persistent_journal = False
-                break
+            self._logger.exception("Error toggling log persistence.")
+        if (self._conf.get("journal.should_be_persistent")
+                != self._conf.get("journal.is_persistent")):
+            self._logger.error(
+                "Toggling log persistence didn't work.", flash_message=True)
 
     def update_dns_state(self):
         def update_dns():
@@ -1818,45 +1810,6 @@ class AdsbIm:
             self.waitSetGainRace()
             util.string2file(path=set_gain_path, string=f"{gain}\n")
 
-    def handle_implied_settings(self):
-        ac_db = True
-        if self._memtotal < 900000:
-            ac_db = False
-            # save 100 MB of memory for low memory setups
-
-        self._conf.set("tar1090_ac_db", ac_db)
-
-        # make sure the uuids are populated:
-        if not self._conf.get("adsblol_uuid"):
-            self._conf.set("adsblol_uuid", str(uuid.uuid4()))
-        if not self._conf.get("ultrafeeder_uuid"):
-            self._conf.set("ultrafeeder_uuid", str(uuid.uuid4()))
-
-        for agg in aggregators.all_aggregators().values():
-            if (agg.enabled() and agg.needs_key
-                    and not self._conf.get(f"aggregators.{agg.agg_key}.key")):
-                self._logger.warning(f"Empty key, disabling {agg}.")
-                self._conf.set(f"aggregators.{agg.agg_key}.is_enabled", False)
-
-        self._conf.set(
-            "ports.tar1090adjusted", self._conf.get("ports.tar1090"))
-
-        # for regular feeders or micro feeders a max range of 300nm seem reasonable
-        self._conf.set("max_range", 300)
-
-        # finally, check if this has given us enough configuration info to
-        # start the containers
-        if self._conf.get("mandatory_config_is_complete"):
-            if not self._conf.get("journal_configured"):
-                try:
-                    subprocess.run(
-                        "/opt/adsb/scripts/journal-set-volatile.sh",
-                        shell=True, timeout=5.0)
-                    self.update_journal_state()
-                    self._conf.set("journal_configured", True)
-                except:
-                    pass
-
     def update(self, *, needs_docker_restart=False):
         """
         Update a bunch of stuff from various requests.
@@ -1919,10 +1872,6 @@ class AdsbIm:
                         flash_message=True)
                     continue
                 self._conf.set(key_path, value)
-
-        # Done handling form data. See if the new config implies any other
-        # settings.
-        self.handle_implied_settings()
 
         if needs_docker_restart:
             self._system._restart.bg_run(
@@ -2073,7 +2022,6 @@ class AdsbIm:
             rpw=self.rpw,
             stable_versions=stable_versions,
             containers=self._system.containers,
-            persistent_journal=self._persistent_journal,
             wifi=self.wifi_ssid,
             Semver=util.Semver,
         )
@@ -2337,6 +2285,8 @@ class AdsbIm:
             return render_template("setup.html")
         assert request.method == "POST"
         needs_docker_restart = False
+
+        # Check if aggregators should be bulk-enabled.
         should_enable_accountless_aggregators = (
             util.checkbox_checked(request.form["enable-all-aggregators"])
             or util.checkbox_checked(
@@ -2576,7 +2526,7 @@ class AdsbIm:
         kernel = simple_cmd_result("uname -rvmo")
         memory = simple_cmd_result("free -h")
         top = simple_cmd_result("top -b -n1 | head -n5")
-        if self._persistent_journal:
+        if self._conf.get("journal.is_persistent"):
             journal = "persistent on disk"
         else:
             journal = "in memory"
@@ -2695,15 +2645,10 @@ class AdsbIm:
         return redirect(url_for("systemmgmt"))
 
     def toggle_log_persistence(self):
-        if self._persistent_journal:
-            cmd = "/opt/adsb/scripts/journal-set-volatile.sh"
-        else:
-            cmd = "/opt/adsb/scripts/journal-set-persist.sh"
-        try:
-            subprocess.run(cmd, shell=True, timeout=5.0)
-            self.update_journal_state()
-        except:
-            self._logger.exception("Error toggling log persistence.")
+        self._conf.set(
+            "journal.should_be_persistent",
+            not self._conf.get("journal.should_be_persistent"))
+        self._ensure_desired_journal_persistence()
         return redirect(url_for("systemmgmt"))
 
     def feeder_update(self):

@@ -230,6 +230,39 @@ def _generate_tar1090_image_config_link(conf: "Config") -> str:
         return ""
 
 
+def _has_enough_memory_for_ac_db(conf: "Config") -> bool:
+    try:
+        with pathlib.Path("/proc/meminfo").open() as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    memtotal = int(line.split()[1])
+                    return memtotal >= 900_000
+            else:
+                raise ValueError("No MemTotal found in /proc/meminfo.")
+    except:
+        logger.exception(
+            "Error while checking total memory. Assuming we don't have enough "
+            "for AC DB.")
+    return False
+
+
+def _journal_is_persistent(conf: "Config") -> bool:
+    try:
+        proc = util.shell_with_combined_output(
+            "systemd-analyze cat-config systemd/journald.conf", timeout=2,
+            check=True)
+    except:
+        logger.exception(
+            "Error while checking whether journal is persistent. Assuming it"
+            "is.")
+        return True
+    for line in proc.stdout.split("\n"):
+        if line.startswith("Storage=volatile"):
+            return False
+    # The default is a persistent journal.
+    return True
+
+
 class Setting(abc.ABC):
     """
     Abstract setting.
@@ -816,7 +849,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 13
+    CONFIG_VERSION = 14
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1140,9 +1173,6 @@ class Config(CompoundSetting):
                 "tar1090": ft.partial(
                     IntSetting, default=8080,
                     env_variable_name="AF_TAR1090_PORT"),
-                "tar1090adjusted": ft.partial(
-                    IntSetting, default=8080,
-                    env_variable_name="AF_TAR1090_PORT_ADJUSTED"),
                 "uat": ft.partial(
                     IntSetting, default=9780,
                     env_variable_name="AF_UAT978_PORT"),
@@ -1185,7 +1215,12 @@ class Config(CompoundSetting):
                     env_variable_name="FEEDER_AIRSPY_PORT"),}),
         "sdrplay": BoolSetting,
         "sdrplay_license_accepted": BoolSetting,
-        "journal_configured": ft.partial(BoolSetting, default=False),
+        "journal": ft.partial(
+            CompoundSetting, schema={
+                "should_be_persistent": ft.partial(BoolSetting, default=False),
+                "is_persistent": ft.partial(
+                    GeneratedSetting, value_generator=_journal_is_persistent),
+            }),
         "ssh_configured": BoolSetting,
         "mandatory_config_is_complete": ft.partial(
             GeneratedSetting, value_generator=_mandatory_config_is_complete),
@@ -1201,7 +1236,7 @@ class Config(CompoundSetting):
         "ultrafeeder_extra_env": StringSetting,
         "ultrafeeder_extra_args": StringSetting,
         "tar1090_ac_db": ft.partial(
-            BoolSetting, default=True,
+            GeneratedSetting, value_generator=_has_enough_memory_for_ac_db,
             env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
         "remote_sdr": StringSetting,
         "dns_state": ft.partial(BoolSetting, norestore=True),
@@ -1741,6 +1776,19 @@ class Config(CompoundSetting):
         del config_dict["mlathub_enable"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_13_to_14(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is generated now.
+        del config_dict["tar1090_ac_db"]
+        # We store whether the journal should be persistent now.
+        del config_dict["journal_configured"]
+        config_dict["journal"] = {"should_be_persistent": False}
+        # This isn't used anymore.
+        del config_dict["ports"]["tar1090adjusted"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1753,7 +1801,8 @@ class Config(CompoundSetting):
                          (9, 10): _upgrade_config_dict_from_9_to_10,
                          (10, 11): _upgrade_config_dict_from_10_to_11,
                          (11, 12): _upgrade_config_dict_from_11_to_12,
-                         (12, 13): _upgrade_config_dict_from_12_to_13}
+                         (12, 13): _upgrade_config_dict_from_12_to_13,
+                         (13, 14): _upgrade_config_dict_from_13_to_14}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
