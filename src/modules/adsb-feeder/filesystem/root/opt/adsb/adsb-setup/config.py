@@ -816,7 +816,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 12
+    CONFIG_VERSION = 13
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -877,6 +877,10 @@ class Config(CompoundSetting):
             BoolSetting, default=False, env_variable_name="MLAT_PRIVACY"),
         "mlat_enable": ft.partial(
             BoolSetting, default=True, env_variable_name="MLAT_ENABLE"),
+        "mlathub_disable": ft.partial(
+            BoolSetting, default=False, env_string_false="",
+            env_string_true="true",
+            env_variable_name="FEEDER_MLATHUB_DISABLE"),
         "route_api": ft.partial(
             BoolSetting, default=True,
             env_variable_name="FEEDER_TAR1090_USEROUTEAPI",
@@ -1199,12 +1203,6 @@ class Config(CompoundSetting):
         "tar1090_ac_db": ft.partial(
             BoolSetting, default=True,
             env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
-        "mlathub_disable": ft.partial(
-            BoolSetting, default=False,
-            env_variable_name="FEEDER_MLATHUB_DISABLE"),
-        "mlathub_enable": ft.partial(
-            BoolSetting, default=True,
-            env_variable_name="FEEDER_MLATHUB_ENABLE"),
         "remote_sdr": StringSetting,
         "dns_state": ft.partial(BoolSetting, norestore=True),
         "under_voltage": ft.partial(BoolSetting, norestore=True),
@@ -1735,6 +1733,14 @@ class Config(CompoundSetting):
         del config_dict["aggregator_choice"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_12_to_13(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This was never really used in the first place.
+        del config_dict["mlathub_enable"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1746,7 +1752,8 @@ class Config(CompoundSetting):
                          (8, 9): _upgrade_config_dict_from_8_to_9,
                          (9, 10): _upgrade_config_dict_from_9_to_10,
                          (10, 11): _upgrade_config_dict_from_10_to_11,
-                         (11, 12): _upgrade_config_dict_from_11_to_12}
+                         (11, 12): _upgrade_config_dict_from_11_to_12,
+                         (12, 13): _upgrade_config_dict_from_12_to_13}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

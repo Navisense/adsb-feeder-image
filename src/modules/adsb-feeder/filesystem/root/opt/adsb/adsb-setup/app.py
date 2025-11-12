@@ -1819,8 +1819,6 @@ class AdsbIm:
             util.string2file(path=set_gain_path, string=f"{gain}\n")
 
     def handle_implied_settings(self):
-        self._conf.set("mlathub_disable", False)
-
         ac_db = True
         if self._memtotal < 900000:
             ac_db = False
@@ -1839,9 +1837,6 @@ class AdsbIm:
                     and not self._conf.get(f"aggregators.{agg.agg_key}.key")):
                 self._logger.warning(f"Empty key, disabling {agg}.")
                 self._conf.set(f"aggregators.{agg.agg_key}.is_enabled", False)
-
-        # Explicitly enable mlathub unless disabled.
-        self._conf.set("mlathub_enable", not self._conf.get("mlathub_disable"))
 
         self._conf.set(
             "ports.tar1090adjusted", self._conf.get("ports.tar1090"))
@@ -2100,6 +2095,9 @@ class AdsbIm:
                 self._logger.exception(
                     f"Error enabling/disabling Prometheus metrics: {e}",
                     flash_message=True)
+            self._conf.set(
+                "mlathub_disable",
+                not util.checkbox_checked(request.form["mlathub-enable"]))
             return self.update(needs_docker_restart=True)
         assert request.method == "GET"
         any_non_adsblol_uf_aggregators = any(
