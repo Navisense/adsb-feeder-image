@@ -2032,32 +2032,37 @@ class AdsbIm:
         return render_template("sdrplay_license.html")
 
     def aggregators(self):
-        if request.method == "POST":
-            self._configure_aggregators(request.form)
-            # The Porttracker aggregator has the option of enabling Prometheus
-            # metrics being sent to Porttracker. Enable/disable the systemd
-            # unit here if necessary.
-            try:
-                self._ensure_prometheus_metrics_state()
-            except SystemOperationError as e:
-                self._logger.exception(
-                    f"Error enabling/disabling Prometheus metrics: {e}",
-                    flash_message=True)
-            self._conf.set(
-                "mlathub_disable",
-                not util.checkbox_checked(request.form["mlathub-enable"]))
-            return self.update(needs_docker_restart=True)
-        assert request.method == "GET"
-        any_non_adsblol_uf_aggregators = any(
-            agg.enabled()
-            for agg in aggregators.all_aggregators().values()
-            if isinstance(agg, aggregators.UltrafeederAggregator)
-            and not isinstance(agg, aggregators.AdsbLolAggregator))
-        return render_template(
-            "aggregators.html",
-            aggregators=aggregators.all_aggregators(),
-            any_non_adsblol_uf_aggregators=any_non_adsblol_uf_aggregators,
-        )
+        if request.method == "GET":
+            any_non_adsblol_uf_aggregators = any(
+                agg.enabled()
+                for agg in aggregators.all_aggregators().values()
+                if isinstance(agg, aggregators.UltrafeederAggregator)
+                and not isinstance(agg, aggregators.AdsbLolAggregator))
+            return render_template(
+                "aggregators.html", aggregators=aggregators.all_aggregators(),
+                any_non_adsblol_uf_aggregators=any_non_adsblol_uf_aggregators)
+        assert request.method == "POST"
+        self._configure_aggregators(request.form)
+        # The Porttracker aggregator has the option of enabling Prometheus
+        # metrics being sent to Porttracker. Enable/disable the systemd
+        # unit here if necessary.
+        try:
+            self._ensure_prometheus_metrics_state()
+        except SystemOperationError as e:
+            self._logger.exception(
+                f"Error enabling/disabling Prometheus metrics: {e}",
+                flash_message=True)
+        self._conf.set(
+            "mlat_enable", util.checkbox_checked(request.form["mlat-enable"]))
+        self._conf.set(
+            "mlat_privacy",
+            util.checkbox_checked(request.form["mlat-privacy"]))
+        self._conf.set(
+            "mlathub_disable",
+            not util.checkbox_checked(request.form["mlathub-enable"]))
+        self._system._restart.bg_run(
+            cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("index"))
 
     def _configure_aggregators(self, form: dict[str, str]):
         for agg_key in ["flightradar", "flightaware", "radarbox", "opensky"]:

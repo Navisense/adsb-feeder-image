@@ -189,10 +189,10 @@
             <div class="form-check">
               <input class="form-check-input me-1"
                      type="checkbox"
-                     name="set_config--bool--mlat_privacy"
-                     id="mlat_privacy"
+                     name="mlat-privacy"
+                     id="mlat-privacy"
                      {% if get_conf('mlat_privacy') %}checked{% endif %}>
-              <label class="mx-1 w-auto" for="mlat_privacy">
+              <label class="mx-1 w-auto" for="mlat-privacy">
                 Enable privacy flag (ON = your site won't be visible at all on
                 <a href="https://mlat.adsb.lol/syncmap/#lat={{ get_conf('lat', default=0) }}#lon={{ get_conf('lon', default=0) }}#zoom=10">
                   public aggregator maps
@@ -203,10 +203,10 @@
             <div class="form-check">
               <input class="form-check-input me-1"
                      type="checkbox"
-                     name="set_config--bool--mlat_enable"
-                     id="mlat_enable"
+                     name="mlat-enable"
+                     id="mlat-enable"
                      {% if get_conf('mlat_enable') %}checked{% endif %}>
-              <label class="mx-1 w-auto" for="mlat_enable">Enable MLAT (for selected aggregators supporting MLAT)</label>
+              <label class="mx-1 w-auto" for="mlat-enable">Enable MLAT (for selected aggregators supporting MLAT)</label>
             </div>
             <div class="form-check">
               <input class="form-check-input me-1"
