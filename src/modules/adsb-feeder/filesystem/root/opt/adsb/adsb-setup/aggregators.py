@@ -307,9 +307,9 @@ class Aggregator(abc.ABC):
             )
 
         status = self._check_aggregator_status()
-        if not self._conf.get("mlat_enable") and status["adsb"]:
+        if not self._conf.get("mlat_enable") and status.adsb:
             # If mlat isn't enabled, ignore status check results.
-            status["adsb"]["mlat_status"] = MlatStatus.DISABLED
+            status.adsb.mlat_status = MlatStatus.DISABLED
         return status
 
     @abc.abstractmethod
