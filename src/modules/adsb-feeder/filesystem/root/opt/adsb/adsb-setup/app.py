@@ -562,7 +562,7 @@ class AdsbIm:
             "visualization",
             view_func=self.visualization,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode,
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
@@ -798,6 +798,15 @@ class AdsbIm:
             view_func=self.view_logs,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
+        )
+        app.add_url_rule(
+            "/clear-range-outline",
+            "clear-range-outline",
+            view_func=self.clear_range_outline,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._require_login],
+            methods=["POST"],
         )
         # Catch-all rules for the hotspot app.
         app.add_url_rule(
@@ -1720,28 +1729,31 @@ class AdsbIm:
             "containers": containers,}
 
     def visualization(self):
-        if request.method == "POST":
-            return self.update()
-        return render_template("visualization.html")
+        if request.method == "GET":
+            return render_template("visualization.html")
+        assert request.method == "POST"
+        needs_docker_restart = False
+        should_enable_route_api = util.checkbox_checked(
+            request.form["enable-route-api"])
+        if self._conf.get("route_api") != should_enable_route_api:
+            self._conf.set("route_api", should_enable_route_api)
+            needs_docker_restart = True
+        heywhatsthat_id = request.form["heywhatsthat-id"]
+        if self._conf.get("heywhatsthat_id") != heywhatsthat_id:
+            self._conf.set("heywhatsthat_id", heywhatsthat_id)
+            needs_docker_restart = True
+        if needs_docker_restart:
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("visualization"))
 
     def clear_range_outline(self):
         self._logger.info("Resetting range outline for ultrafeeder.")
         set_gain_path = pathlib.Path(
-            f"/run/adsb-feeder-ultrafeeder/readsb/setGain")
-
-        self.waitSetGainRace()
-        util.string2file(
-            path=set_gain_path, string="resetRangeOutline", verbose=True)
-
-    def waitSetGainRace(self):
-        # readsb checks this the setGain file every 0.2 seconds
-        # avoid races by only writing to it every 0.25 seconds
-        wait = self.lastSetGainWrite + 0.25 - time.time()
-
-        if wait > 0:
-            time.sleep(wait)
-
-        self.lastSetGainWrite = time.time()
+            "/run/adsb-feeder-ultrafeeder/readsb/setGain")
+        util.write_string_to_file("resetRangeOutline", set_gain_path)
+        flash("Range outline reset successful.", category="success")
+        return redirect(url_for("visualization"))
 
     def set_rpw(self):
         issues_encountered = False
@@ -1804,11 +1816,8 @@ class AdsbIm:
             (gaindir / "suspend").touch(exist_ok=True)
 
             # this file sets the gain on readsb start
-            util.string2file(path=(gaindir / "gain"), string=f"{gain}\n")
-
-            # this adjusts the gain while readsb is running
-            self.waitSetGainRace()
-            util.string2file(path=set_gain_path, string=f"{gain}\n")
+            util.write_string_to_file(f"{gain}\n", gaindir / "gain")
+            util.write_string_to_file(f"{gain}\n", set_gain_path)
 
     def update(self, *, needs_docker_restart=False):
         """
@@ -1835,43 +1844,6 @@ class AdsbIm:
                 self._logger.debug("sdrplay license rejected.")
                 needs_docker_restart, next_url = True, None
                 self._conf.set("sdrplay_license_accepted", False)
-            # That's submit buttons done. Next are checkboxes where we check
-            # key and value. A lot of them just cause a one-time effect, where
-            # you check the box, submit the form, and something happens once.
-            # Pretty weird.
-            if key == "clear_range" and util.checkbox_checked(value):
-                self._logger.debug("Clear range requested.")
-                self.clear_range_outline()
-            # Form data can directly set config variables if the key has the
-            # format set_config--<data_type>--<key_path>, where data_type is
-            # one of str, bool, or float, and key_path is the one in the
-            # config. The data_type is used to parse the input into the
-            # appropriate type.
-            set_config_match = re.match(
-                r"set_config--(?P<data_type>\S+)--(?P<key_path>\S+)", key)
-            if set_config_match:
-                data_type = set_config_match.group("data_type")
-                key_path = set_config_match.group("key_path")
-                try:
-                    if data_type == "bool":
-                        # Only checkboxes can be used as bool inputs. There is
-                        # a small script hooking into any form submit that sets
-                        # enabled checkboxes' values to "1", and disabled ones'
-                        # to "0" (rather than leaving them out of the form
-                        # altogether).
-                        value = util.checkbox_checked(value)
-                    elif data_type == "float":
-                        # Remove letters, spaces, degree symbols before
-                        # parsing.
-                        value = float(re.sub("[a-zA-Z° ]", "", value))
-                    else:
-                        assert data_type == "str"
-                except:
-                    self._logger.exception(
-                        f"Error parsing config setting {key_path}.",
-                        flash_message=True)
-                    continue
-                self._conf.set(key_path, value)
 
         if needs_docker_restart:
             self._system._restart.bg_run(

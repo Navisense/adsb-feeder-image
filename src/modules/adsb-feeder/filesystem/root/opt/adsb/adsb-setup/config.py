@@ -849,7 +849,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 14
+    CONFIG_VERSION = 15
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -947,7 +947,6 @@ class Config(CompoundSetting):
                     true_value="relay", false_value="",
                     env_variable_name="FEEDER_PIAWARE_UAT978"),}),
         # Misc
-        "heywhatsthat": ft.partial(BoolSetting, default=False),
         "heywhatsthat_id": ft.partial(
             StringSetting, env_variable_name="FEEDER_HEYWHATSTHAT_ID"),
         # Aggregators
@@ -1789,6 +1788,14 @@ class Config(CompoundSetting):
         del config_dict["ports"]["tar1090adjusted"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_14_to_15(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is was never needed.
+        del config_dict["heywhatsthat_id"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1802,7 +1809,8 @@ class Config(CompoundSetting):
                          (10, 11): _upgrade_config_dict_from_10_to_11,
                          (11, 12): _upgrade_config_dict_from_11_to_12,
                          (12, 13): _upgrade_config_dict_from_12_to_13,
-                         (13, 14): _upgrade_config_dict_from_13_to_14}
+                         (13, 14): _upgrade_config_dict_from_13_to_14,
+                         (14, 15): _upgrade_config_dict_from_14_to_15}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

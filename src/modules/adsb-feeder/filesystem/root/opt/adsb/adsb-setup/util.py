@@ -123,17 +123,16 @@ def create_fake_cpu_info():
     return not pathlib.Path("/sys/class/thermal/thermal_zone0/temp").exists()
 
 
-def string2file(path=None, string=None, verbose=False):
+def write_string_to_file(string: str, file: pathlib.Path):
+    if file.exists() and not file.is_file():
+        raise ValueError(f"{file} exists, but is not a file")
     try:
-        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path))
-        with os.fdopen(fd, "w") as file:
-            file.write(string)
-        os.rename(tmp, path)
-    except Exception as e:
-        logger.exception(f'Error writing "{string}" to {path}.')
-    else:
-        if verbose:
-            logger.debug(f'Wrote "{string}" to {path}.')
+        fd, tmp_path = tempfile.mkstemp(dir=file.parent, text=True)
+        with open(fd, "w") as f:
+            f.write(string)
+        os.rename(tmp_path, file)
+    except Exception:
+        logger.exception(f'Error writing "{string}" to {file}.')
 
 
 def get_plain_url(plain_url):
