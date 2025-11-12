@@ -164,7 +164,7 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
     """
     import aggregators
     args = set()
-    for aggregator in aggregators.all_aggregators().items():
+    for aggregator in aggregators.all_aggregators().values():
         if (not isinstance(aggregator, aggregators.UltrafeederAggregator)
                 or not aggregator.enabled()):
             continue
