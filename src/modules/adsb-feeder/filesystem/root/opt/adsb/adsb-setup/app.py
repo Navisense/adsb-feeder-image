@@ -1104,11 +1104,6 @@ class AdsbIm:
         self.last_dns_check = time.time()
         self._executor.submit(update_dns)
 
-    def set_hostname_and_enable_mdns(self):
-        if self.hostname:
-            subprocess.run(["/usr/bin/hostnamectl", "hostname", self.hostname])
-        self._maybe_enable_mdns()
-
     def render_other_app_in_iframe(self, title, port, path):
         return render_template(
             "iframe.html", title=title, url=self._make_proxy_url(port, path))
@@ -1833,10 +1828,6 @@ class AdsbIm:
 
         self._conf.set("tar1090_ac_db", ac_db)
 
-        # Set hostname and restart mDNS services in case the user changed the
-        # hostname.
-        self.set_hostname_and_enable_mdns()
-
         # make sure the uuids are populated:
         if not self._conf.get("adsblol_uuid"):
             self._conf.set("adsblol_uuid", str(uuid.uuid4()))
@@ -2360,16 +2351,35 @@ class AdsbIm:
                 request.form["enable-all-aggregators"])
             needs_docker_restart = self._enable_accountless_aggregators(
                 must_have_privacy_policy=must_have_privacy_policy)
+
+        # Time zone.
         if request.form["timezone"] != self._conf.get("tz"):
             self._set_timezone(request.form["timezone"])
+
+        # Station name.
         if request.form["station-name"] != self._conf.get("site_name"):
             site_name = "".join(
                 c for c in request.form["station-name"]
                 if c.isalnum() or c == "-")
             site_name = site_name.strip("-")[:63]
-            self._conf.set("site_name", site_name)
-            needs_docker_restart = True
-            self._logger.info(f"Updated station name to {site_name}.")
+            if not site_name:
+                self._logger.error(
+                    "Empty station name provided, keeping it as "
+                    f"{self.hostname}.", flash_message=True)
+            else:
+                self._conf.set("site_name", site_name)
+                try:
+                    subprocess.run(
+                        ["/usr/bin/hostnamectl", "hostname", self.hostname],
+                        check=True)
+                except Exception as e:
+                    self._logger.exception(
+                        f"Error changing hostname: {e}", flash_message=True)
+                self._maybe_enable_mdns()
+                needs_docker_restart = True
+                self._logger.info(f"Updated station name to {site_name}.")
+
+        # Lat, lon, altitude.
         for form_key, config_key in [("latitude", "lat"), ("longitude", "lon"),
                                      ("altitude", "alt")]:
             try:
@@ -2381,6 +2391,7 @@ class AdsbIm:
             except Exception as e:
                 self._logger.exception(
                     f"Error parsing {form_key}: {e}.", flash_message=True)
+
         if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
