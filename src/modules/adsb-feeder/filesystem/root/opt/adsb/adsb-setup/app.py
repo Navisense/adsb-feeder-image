@@ -858,7 +858,7 @@ class AdsbIm:
         """Redirect to the restarting page if necessary."""
         def handle_request(*args, **kwargs):
             if self._system.is_restarting:
-                return redirect("/restarting")
+                return redirect(url_for("restarting"))
             return view_func(*args, **kwargs)
 
         return handle_request
@@ -869,7 +869,8 @@ class AdsbIm:
 
         Redirects the request to the basic setup page if that's not finished
         yet. If there are any inconsistencies with the configuration of SDR
-        devices, redirects to the SDR setup page.
+        devices, redirects to the SDR setup page or the SDRplay license page as
+        appropriate.
         """
         def handle_request(*args, **kwargs):
             # Check basic setup.
@@ -879,6 +880,19 @@ class AdsbIm:
                     "Mandatory config not complete, redirecting to setup.")
                 flash("Please complete the initial setup.")
                 return redirect(url_for("setup"))
+
+            # Check if the user wants to use an SDRplay device but hasn't
+            # accepted the license yet.
+            needs_to_accept_sdrplay_license = (
+                self._conf.get("serial_devices.sdrplay_waitlist")
+                and not self._conf.get("sdrplay_license_accepted"))
+            if needs_to_accept_sdrplay_license:
+                if request.endpoint in ["sdrplay_license", "sdr_setup"]:
+                    return view_func(*args, **kwargs)
+                self._logger.info(
+                    "User wants to use an SDRplay device but hasn't accepted "
+                    "the license yet. Redirecting to license page.")
+                return redirect(url_for("sdrplay_license"))
 
             # Check if any used SDR devices are missing.
             missing_serials = self._missing_sdr_devices()
@@ -1648,6 +1662,9 @@ class AdsbIm:
         unused_serials |= set(self._conf.get("serial_devices.unused"))
         unused_serials -= set(assignments.values())
         self._conf.set("serial_devices.unused", sorted(unused_serials))
+        # Mark the 1090 device as not being an SDRplay device. We'll change
+        # this below if it turns out that it actually is.
+        self._conf.set("1090_device_is_sdrplay", False)
         for purpose in self._sdrdevices.purposes:
             self._conf.set(
                 f"serial_devices.{purpose}", assignments.get(purpose))
@@ -1691,17 +1708,27 @@ class AdsbIm:
                     "Stratuxv3 configured for something other than 978MHz. "
                     "This won't work.")
         # SDRplay devices.
-        self._conf.set("sdrplay", False)
+        sdrplay_waitlist = []
         for purpose in self._sdrdevices.purposes:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("sdrplay", []):
                 continue
-            if purpose == "1090":
-                self._conf.set("sdrplay", True)
+            if (purpose == "1090"
+                    and not self._conf.get("sdrplay_license_accepted")):
+                self._logger.info(
+                    f"SDRplay device {assigned_serial} assigned to {purpose}, "
+                    "but the license hasn't yet been accepted. Putting it on "
+                    "the waitlist.")
+                self._conf.set(f"serial_devices.{purpose}", None)
+                sdrplay_waitlist.append(assigned_serial)
+            elif purpose == "1090":
+                self._conf.set("1090_device_is_sdrplay", True)
             else:
+                self._conf.set(f"serial_devices.{purpose}", None)
                 self._logger.error(
-                    "Sdrplay configured for something other than 1090MHz. "
-                    "This won't work.")
+                    "SDRplay configured for something other than 1090MHz. "
+                    "This won't work, disabling it again.", flash_message=True)
+        self._conf.set("serial_devices.sdrplay_waitlist", sdrplay_waitlist)
         # Set readsb_device_type to rtlsdr or modesbeast.
         adsb_serial = self._conf.get("serial_devices.1090")
         if adsb_serial in serials_by_type.get("rtlsdr", []):
@@ -2003,12 +2030,46 @@ class AdsbIm:
             return render_template("sdrplay_license.html")
         assert request.method == "POST"
         accepted = util.checkbox_checked(request.form["accept-license"])
-        if self._conf.get("sdrplay_license_accepted") != accepted:
-            self._logger.info(
-                f"SDRplay license acceptance changed to {accepted}.")
-            self._conf.set("sdrplay_license_accepted", accepted)
-            self._system._restart.bg_run(
-                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        if self._conf.get("sdrplay_license_accepted") == accepted:
+            return redirect(url_for("index"))
+        self._conf.set("sdrplay_license_accepted", accepted)
+        if accepted:
+            self._logger.info("SDRplay license accepted.", flash_message=True)
+            # If there is an SDRplay device the user wants to use, we can use
+            # it now.
+            sdrplay_waitlist = self._conf.get(
+                "serial_devices.sdrplay_waitlist")
+            self._conf.set("serial_devices.sdrplay_waitlist", [])
+            if len(sdrplay_waitlist) > 1:
+                self._logger.error(
+                    "SDRplay waitlist has more than one element: "
+                    f"{sdrplay_waitlist}. This doesn't make sense. Using only "
+                    "the first one.")
+                sdrplay_waitlist = sdrplay_waitlist[:1]
+            if sdrplay_waitlist:
+                serial = sdrplay_waitlist[0]
+                # SDRplay only supports 1090MHz, so just assign it to that.
+                self._conf.set("serial_devices.1090", serial)
+                self._conf.set("1090_device_is_sdrplay", True)
+                self._logger.info(
+                    f"Assigned SDRplay device {serial} to 1090MHz.")
+        else:
+            self._logger.info("SDRplay license rejected.", flash_message=True)
+            sdrplay_serials = {
+                sdr.serial
+                for sdr in self._sdrdevices.sdrs
+                if sdr.type == "sdrplay"}
+            for purpose in self._sdrdevices.purposes:
+                assigned_serial = self._conf.get(f"serial_devices.{purpose}")
+                if assigned_serial not in sdrplay_serials:
+                    continue
+                self._conf.set(f"serial_devices.{purpose}", None)
+                self._conf.set("1090_device_is_sdrplay", False)
+                self._logger.info(
+                    f"SDRplay device {assigned_serial} was in use when the "
+                    "license was rejected. Disabling it.", flash_message=True)
+        self._system._restart.bg_run(
+            cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("index"))
 
     def aggregators(self):

@@ -189,7 +189,7 @@ def _generate_ultrafeeder_config_string(conf: "Config") -> str:
         pass
     elif conf.get("airspy.is_enabled"):
         args.add("adsb,airspy_adsb,30005,beast_in")
-    elif conf.get("sdrplay"):
+    elif conf.get("1090_device_is_sdrplay"):
         args.add("adsb,sdrplay-beast1090,30005,beast_in")
     elif (remote_sdr := conf.get("remote_sdr")):
         if remote_sdr.find(",") == -1:
@@ -849,7 +849,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 15
+    CONFIG_VERSION = 16
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -878,7 +878,8 @@ class Config(CompoundSetting):
             StringSetting, default="autogain",
             env_variable_name="UAT_SDR_GAIN"),
         "serial_devices": ft.partial(
-            CompoundSetting, schema={
+            CompoundSetting,
+            schema={
                 "1090": ft.partial(
                     StringSetting, env_variable_name="FEEDER_SERIAL_1090"),
                 "978": ft.partial(
@@ -886,7 +887,13 @@ class Config(CompoundSetting):
                 "ais": ft.partial(
                     StringSetting, env_variable_name="FEEDER_SERIAL_AIS"),
                 "unused": ft.partial(
+                    ListSetting, required_value_type=str, default=[]),
+                # List of serials of sdrplay devices the user would like to
+                # use, but is only allowed to once they accept the license.
+                "sdrplay_waitlist": ft.partial(
                     ListSetting, required_value_type=str, default=[]),}),
+        "1090_device_is_sdrplay": ft.partial(BoolSetting, default=False),
+        "sdrplay_license_accepted": ft.partial(BoolSetting, default=False),
         "uat_device_type": ft.partial(
             StringSetting, default="rtlsdr",
             env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
@@ -1212,8 +1219,6 @@ class Config(CompoundSetting):
                 "port": ft.partial(
                     ConstantSetting, constant_value=8070,
                     env_variable_name="FEEDER_AIRSPY_PORT"),}),
-        "sdrplay": BoolSetting,
-        "sdrplay_license_accepted": BoolSetting,
         "journal": ft.partial(
             CompoundSetting, schema={
                 "should_be_persistent": ft.partial(BoolSetting, default=False),
@@ -1796,6 +1801,17 @@ class Config(CompoundSetting):
         del config_dict["heywhatsthat_id"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_15_to_16(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # SDRplay license checking is now done via a waitlist in the serials
+        # config.
+        config_dict["1090_device_is_sdrplay"] = config_dict["sdrplay"]
+        del config_dict["sdrplay"]
+        config_dict["serial_devices"]["sdrplay_waitlist"] = []
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1810,7 +1826,8 @@ class Config(CompoundSetting):
                          (11, 12): _upgrade_config_dict_from_11_to_12,
                          (12, 13): _upgrade_config_dict_from_12_to_13,
                          (13, 14): _upgrade_config_dict_from_13_to_14,
-                         (14, 15): _upgrade_config_dict_from_14_to_15}
+                         (14, 15): _upgrade_config_dict_from_14_to_15,
+                         (15, 16): _upgrade_config_dict_from_15_to_16}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
