@@ -637,7 +637,7 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
-            "/sdplay_license",
+            "/sdrplay-license",
             "sdrplay_license",
             view_func=self.sdrplay_license,
             view_func_wrappers=[
@@ -1999,9 +1999,17 @@ class AdsbIm:
         )
 
     def sdrplay_license(self):
-        if request.method == "POST":
-            return self.update()
-        return render_template("sdrplay_license.html")
+        if request.method == "GET":
+            return render_template("sdrplay_license.html")
+        assert request.method == "POST"
+        accepted = util.checkbox_checked(request.form["accept-license"])
+        if self._conf.get("sdrplay_license_accepted") != accepted:
+            self._logger.info(
+                f"SDRplay license acceptance changed to {accepted}.")
+            self._conf.set("sdrplay_license_accepted", accepted)
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("index"))
 
     def aggregators(self):
         if request.method == "GET":
