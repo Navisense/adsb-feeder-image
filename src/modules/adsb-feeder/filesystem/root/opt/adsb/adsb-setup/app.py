@@ -1846,47 +1846,6 @@ class AdsbIm:
             util.write_string_to_file(f"{gain}\n", gaindir / "gain")
             util.write_string_to_file(f"{gain}\n", set_gain_path)
 
-    def update(self, *, needs_docker_restart=False):
-        """
-        Update a bunch of stuff from various requests.
-
-        This big mess of a function processes POSTed forms from various pages
-        and takes actions based on form keys and values.
-        """
-        self._logger.debug(
-            f"Updating with input from {request.headers.get('referer')}.")
-        # By default, redirect to the same page again. We can override this
-        # below.
-        next_url = request.url
-        for key, value in request.form.items():
-            self._logger.debug(
-                f"Update: handling {key} -> {value if value else '\"\"'}")
-            # The following are keys of submit buttons, so we don't need to
-            # check the value.
-            if key == "sdrplay_license_accept":
-                self._logger.debug("sdrplay license accepted.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("sdrplay_license_accepted", True)
-            elif key == "sdrplay_license_reject":
-                self._logger.debug("sdrplay license rejected.")
-                needs_docker_restart, next_url = True, None
-                self._conf.set("sdrplay_license_accepted", False)
-
-        if needs_docker_restart:
-            self._system._restart.bg_run(
-                cmdline="/opt/adsb/docker-compose-start", silent=False)
-
-        if next_url:
-            return redirect(next_url)
-        if self._conf.get("mandatory_config_is_complete"):
-            self._logger.debug("Base config is complete.")
-            if (self._conf.get("sdrplay")
-                    and not self._conf.get("sdrplay_license_accepted")):
-                return redirect(url_for("sdrplay_license"))
-            return render_template("/restarting.html")
-        self._logger.debug("Base config not complete.")
-        return redirect(url_for("index"))
-
     def _ensure_prometheus_metrics_state(self):
         currently_enabled = system.systemctl().unit_is_active(
             "adsb-push-prometheus-metrics.timer")
