@@ -188,17 +188,22 @@ class Hotspot(abc.ABC):
         raise NotImplementedError
 
     def _setup_config_files(self):
-        # Set the correct wlan device in config files.
-        has_replaced = False
+        # Set the correct wlan device and ssid in the hostapd config file.
+        config_keys_to_replace = {"interface", "ssid"}
         with self.HOSTAPD_SRC_PATH.open("r") as hostapd_in:
             hostapd_config = []
             for line in hostapd_in:
                 if line.startswith("interface="):
                     line = f"interface={self.wlan}\n"
-                    has_replaced = True
+                    config_keys_to_replace.discard("interface")
+                elif line.startswith("ssid="):
+                    line = f"ssid={self._conf.get('feeder_name')}\n"
+                    config_keys_to_replace.discard("ssid")
                 hostapd_config.append(line)
-        if not has_replaced:
-            self._logger.warning("Interface not replaced in hostapd config.")
+        if not config_keys_to_replace:
+            self._logger.warning(
+                f"Config keys {config_keys_to_replace} not replaced in "
+                "hostapd config.")
         with self.HOSTAPD_DEST_PATH.open("w") as hostapd_out:
             hostapd_out.writelines(hostapd_config)
         with self.KEA_SRC_PATH.open("r") as kea_in:
