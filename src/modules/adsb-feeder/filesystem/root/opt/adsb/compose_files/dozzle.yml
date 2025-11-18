@@ -27,3 +27,7 @@ services:
     command: tail -n0 -f /opt/adsb-setup.log
     volumes:
       - /run/porttracker-sdr-feeder.log:/opt/adsb-setup.log
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

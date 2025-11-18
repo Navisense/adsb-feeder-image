@@ -120,3 +120,7 @@ services:
       - /var/log:size=32M
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

@@ -34,3 +34,7 @@ services:
       - /run:exec,size=64M
       - /tmp:size=16M
       - /var/log:size=16M
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

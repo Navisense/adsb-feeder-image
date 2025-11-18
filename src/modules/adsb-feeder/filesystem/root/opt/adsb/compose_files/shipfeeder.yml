@@ -35,3 +35,7 @@ services:
       - "/etc/localtime:/etc/localtime:ro"
       - "/etc/timezone:/etc/timezone:ro"
       - /dev:/dev:rw
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

@@ -9,7 +9,7 @@ services:
     hostname: airspy_adsb
     restart: unless-stopped
     device_cgroup_rules:
-      - 'c 189:* rwm'
+      - "c 189:* rwm"
     ports:
       - ${FEEDER_AIRSPY_PORT:-8070}:80
     environment:
@@ -34,3 +34,7 @@ services:
     tmpfs:
       - /tmp:size=128M
       - /var/log:size=32M
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

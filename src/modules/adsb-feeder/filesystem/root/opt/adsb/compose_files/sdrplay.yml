@@ -9,7 +9,7 @@ services:
     hostname: sdrplay-beast1090
     restart: unless-stopped
     device_cgroup_rules:
-      - 'c 189:* rwm'
+      - "c 189:* rwm"
     volumes:
       - /dev/bus/usb:/dev/bus/usb:ro
       - /dev/shm:/dev/shm:rw
@@ -23,3 +23,7 @@ services:
       - DUMP1090_EXTRA_ARGS=--fix --max-range 500 --phase-enhance --lat ${FEEDER_LAT} --lon ${FEEDER_LONG} --adsbMode 1
       # USER_PROVIDED_ENV_START
       # USER_PROVIDED_ENV_END
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

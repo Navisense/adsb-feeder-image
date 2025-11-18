@@ -25,3 +25,7 @@ services:
     tmpfs:
       - /run:exec,size=64M
       - /var/log
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"

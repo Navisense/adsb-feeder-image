@@ -10,8 +10,8 @@ services:
     restart: unless-stopped
     tty: false # work-around for /dev read-only mount + /dev/console error
     device_cgroup_rules:
-      - 'c 189:* rwm'
-      - 'c 188:* rwm'
+      - "c 189:* rwm"
+      - "c 188:* rwm"
     environment:
       - TZ=${FEEDER_TZ}
       - LAT=${FEEDER_LAT}
@@ -38,4 +38,7 @@ services:
       - /run/skyaware978:size=32M
       - /run/autogain:size=32M
       - /var/log
-
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+      - "9.9.9.9"
