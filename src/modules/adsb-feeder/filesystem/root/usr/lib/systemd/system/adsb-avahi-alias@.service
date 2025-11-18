@@ -2,6 +2,10 @@
 Description=Advertise mDNS entry %i
 Requires=avahi-daemon.service network-online.target
 After=avahi-daemon.service
+# Disable a rate limit for restarts. If we come out of the hotspot, the script
+# may fail a couple of times while we don't have a network yet. But we want to
+# keep trying in that case.
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
