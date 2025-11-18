@@ -1077,7 +1077,7 @@ class AdsbIm:
         if not self._conf.get("mdns.is_enabled"):
             return
         args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash"]
-        mdns_domains = ["porttracker-sdr-feeder.local"]
+        mdns_domains = [f"{self._conf.get('feeder_name')}.local"]
         if self.hostname:
             # If we have a hostname, make the mDNS script create an alias for
             # it as well.

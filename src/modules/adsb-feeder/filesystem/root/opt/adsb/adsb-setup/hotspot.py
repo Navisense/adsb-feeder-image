@@ -266,7 +266,7 @@ class Hotspot(abc.ABC):
         system.systemctl().run(["unmask", "start"],
                                ["isc-kea-dhcp4-server.service"])
         if self._conf.get("mdns.is_enabled"):
-            mdns_domains = set(["porttracker-sdr-feeder.local"]
+            mdns_domains = set([f"{self._conf.get('feeder_name')}.local"]
                                + self._conf.get("mdns.domains"))
             util.shell_with_combined_output(
                 ["/opt/adsb/scripts/mdns-alias-setup.bash"]

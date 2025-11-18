@@ -51,8 +51,8 @@
         <p class="my-3">
           Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will
           attempt to connect to the network that you specified. If that WiFi connection is successful, the feeder should
-          become available on that WiFi network as <code>porttracker-sdr-feeder.local</code>. This requires mDNS to be
-          enabled on your system (it typically is). The test below checks whether it is working right now.
+          become available on that WiFi network as <code>{{ get_conf("feeder_name") }}.local</code>. This requires mDNS
+          to be enabled on your system (it typically is). The test below checks whether it is working right now.
         </p>
         <p class="my-3">
           If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
@@ -76,27 +76,28 @@
       const statusDiv = $("#mdns-status");
       if (hasTimedOut) {
         statusDiv.html(makeNotificationCardHtml(
-          "error", "mDNS is not working", "Unable to contact the feeder as porttracker-sdr-feeder.local."));
+          "error", "mDNS is not working", "Unable to contact the feeder as {{ get_conf("feeder_name") }}.local."));
       } else if (stati.get("example.org") != "success") {
         statusDiv.html(makeNotificationCardHtml(
           "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
-      } else if (stati.get("porttracker-sdr-feeder.local") != "success") {
+      } else if (stati.get("{{ get_conf("feeder_name") }}.local") != "success") {
         statusDiv.html(makeNotificationCardHtml(
           "warning", "Checking mDNS status",
-          "The feeder can be reached, but not yet as porttracker-sdr-feeder.local."));
+          "The feeder can be reached, but not yet as {{ get_conf("feeder_name") }}.local."));
       } else {
         statusDiv.html(makeNotificationCardHtml(
           "success", "mDNS is working",
-          "The feeder can be reached as porttracker-sdr-feeder.local, looks like mDNS is working."));
+          "The feeder can be reached as {{ get_conf("feeder_name") }}.local, looks like mDNS is working."));
       }
     }
 
     if (!{{ get_conf('mdns.is_enabled') | tojson }}) {
       $("#mdns-status").html(makeNotificationCardHtml(
         "info", "mDNS is disabled",
-        "mDNS is disabled in this installation. The feeder will not be reachable as porttracker-sdr-feeder.local."));
+        "mDNS is disabled in this installation. The feeder will not be reachable as "
+        + "{{ get_conf("feeder_name") }}.local."));
     } else {
-      const checkDomains = ["example.org", "porttracker-sdr-feeder.local"];
+      const checkDomains = ["example.org", "{{ get_conf("feeder_name") }}.local"];
       const connectivityChecker = new FeederConnectivityChecker(checkDomains, updateMdnsStatusDiv, 300 * 1000);
       connectivityChecker.start();
     }
