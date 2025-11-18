@@ -200,7 +200,7 @@ class Hotspot(abc.ABC):
                     line = f"ssid={self._conf.get('feeder_name')}\n"
                     config_keys_to_replace.discard("ssid")
                 hostapd_config.append(line)
-        if not config_keys_to_replace:
+        if config_keys_to_replace:
             self._logger.warning(
                 f"Config keys {config_keys_to_replace} not replaced in "
                 "hostapd config.")
