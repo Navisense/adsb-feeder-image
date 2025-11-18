@@ -57,6 +57,20 @@ def read_or_create_flask_secret_key() -> bytes:
         return secret_key
 
 
+def _generate_feeder_name(conf: "Config") -> str:
+    """
+    Generate the name of this feeder.
+
+    The feeder name is porttracker-sdr-feeder-<xxxxxxxx>, where <xxxxxxxx> is
+    the beginning of the unique machine ID.
+    """
+    try:
+        machine_id = _read_file(conf, file=pathlib.Path("/etc/machine-id"))
+    except:
+        raise ValueError("Missing /etc/machine-id.")
+    return f"porttracker-sdr-feeder-{machine_id[:8]}"
+
+
 def _mandatory_config_is_complete(conf: "Config") -> bool:
     """Check whether all mandatory settings are set."""
     mandatory_setting_key_paths = {"lon", "lat", "alt", "site_name"}
@@ -66,9 +80,13 @@ def _mandatory_config_is_complete(conf: "Config") -> bool:
 
 
 def _read_file(conf: "Config", *, file: pathlib.Path) -> str:
+    with file.open() as f:
+        return f.read().strip()
+
+
+def _safe_read_file(conf: "Config", *, file: pathlib.Path) -> str:
     try:
-        with file.open() as f:
-            return f.read().strip()
+        return _read_file(conf, file=file)
     except FileNotFoundError:
         return "unknown"
 
@@ -859,6 +877,8 @@ class Config(CompoundSetting):
         "alt": ft.partial(RealNumberSetting, env_variable_name="FEEDER_ALT_M"),
         "tz": ft.partial(StringSetting, env_variable_name="FEEDER_TZ"),
         "site_name": ft.partial(StringSetting, env_variable_name="SITE_NAME"),
+        "feeder_name": ft.partial(
+            GeneratedSetting, value_generator=_generate_feeder_name),
         # --- Mandatory site data end ---
         # Misnomer, FEEDER_RTL_SDR is used as follows:
         # READSB_DEVICE_TYPE=${FEEDER_RTL_SDR}
@@ -1157,11 +1177,10 @@ class Config(CompoundSetting):
         # ADSB.im specific
         "base_version": ft.partial(
             CachedGeneratedSetting,
-            value_generator=ft.partial(_read_file, file=VERSION_FILE)),
+            value_generator=ft.partial(_safe_read_file, file=VERSION_FILE)),
         "previous_version": ft.partial(
-            CachedGeneratedSetting,
-            value_generator=ft.partial(_read_file,
-                                       file=PREVIOUS_VERSION_FILE)),
+            CachedGeneratedSetting, value_generator=ft.partial(
+                _safe_read_file, file=PREVIOUS_VERSION_FILE)),
         "board_name": ft.partial(
             CachedGeneratedSetting, value_generator=_get_boardname),
         "mdns": ft.partial(
@@ -1198,8 +1217,8 @@ class Config(CompoundSetting):
                     IntSetting, default=41580,
                     env_variable_name="AF_AIS_CATCHER_PORT"),}),
         "image_name": ft.partial(
-            CachedGeneratedSetting,
-            value_generator=ft.partial(_read_file, file=FRIENDLY_NAME_FILE)),
+            CachedGeneratedSetting, value_generator=ft.partial(
+                _safe_read_file, file=FRIENDLY_NAME_FILE)),
         "admin_login": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(
