@@ -874,8 +874,9 @@ class AdsbIm:
         """
         def handle_request(*args, **kwargs):
             # Check basic setup.
-            if (not self._conf.get("mandatory_config_is_complete")
-                    and request.endpoint != "setup"):
+            if request.endpoint == "setup":
+                return view_func(*args, **kwargs)
+            if not self._conf.get("mandatory_config_is_complete"):
                 self._logger.info(
                     "Mandatory config not complete, redirecting to setup.")
                 flash("Please complete the initial setup.")
@@ -883,20 +884,22 @@ class AdsbIm:
 
             # Check if the user wants to use an SDRplay device but hasn't
             # accepted the license yet.
+            if request.endpoint == "sdrplay_license":
+                return view_func(*args, **kwargs)
             needs_to_accept_sdrplay_license = (
                 self._conf.get("serial_devices.sdrplay_waitlist")
                 and not self._conf.get("sdrplay_license_accepted"))
             if needs_to_accept_sdrplay_license:
-                if request.endpoint in ["sdrplay_license", "sdr_setup"]:
-                    return view_func(*args, **kwargs)
                 self._logger.info(
                     "User wants to use an SDRplay device but hasn't accepted "
                     "the license yet. Redirecting to license page.")
                 return redirect(url_for("sdrplay_license"))
 
             # Check if any used SDR devices are missing.
+            if request.endpoint == "sdr_setup":
+                return view_func(*args, **kwargs)
             missing_serials = self._missing_sdr_devices()
-            if missing_serials and request.endpoint != "sdr_setup":
+            if missing_serials:
                 self._logger.warning(
                     f"Configured devices {missing_serials} appear to not be "
                     "attached, redirecting to SDR setup.")
