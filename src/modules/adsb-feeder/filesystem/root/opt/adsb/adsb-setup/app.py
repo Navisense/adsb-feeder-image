@@ -1082,9 +1082,9 @@ class AdsbIm:
 
     def _maybe_enable_mdns(self):
         if self._conf.get("mdns.is_enabled"):
-            subprocess.run([
-                "/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash",
-                f"{self._conf.get('feeder_name')}.local"])
+            subprocess.run(
+                ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash"]
+                + self._conf.get("mdns.domains"))
 
     def _ensure_desired_journal_persistence(self):
         if (self._conf.get("journal.should_be_persistent")
