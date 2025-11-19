@@ -1072,10 +1072,9 @@ class AdsbIm:
 
     def _ensure_hostname(self):
         try:
-            # TODO doesn't work on pmos+++++++++++++++
-            subprocess.run([
-                "/usr/bin/hostnamectl", "hostname",
-                self._conf.get("feeder_name")], check=True)
+            subprocess.run(
+                ["/usr/bin/hostname",
+                 self._conf.get("feeder_name")], check=True)
         except:
             self._logger.exception("Error changing hostname.")
 
