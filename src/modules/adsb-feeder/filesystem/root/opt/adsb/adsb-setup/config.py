@@ -885,11 +885,9 @@ class Config(CompoundSetting):
             GeneratedSetting, value_generator=_generate_feeder_name,
             env_variable_name="FEEDER_NAME"),
         # --- Mandatory site data end ---
-        # Misnomer, FEEDER_RTL_SDR is used as follows:
-        # READSB_DEVICE_TYPE=${FEEDER_RTL_SDR}
         "readsb_device_type": ft.partial(
             StringSetting, default="rtlsdr",
-            env_variable_name="FEEDER_RTL_SDR"),
+            env_variable_name="READSB_DEVICE_TYPE"),
         "biast": ft.partial(
             BoolSetting, default=False,
             env_variable_name="FEEDER_ENABLE_BIASTEE", env_string_false="",
