@@ -281,6 +281,10 @@ def _journal_is_persistent(conf: "Config") -> bool:
     return True
 
 
+def _generate_mdns_domains(conf: "Config") -> list[str]:
+    return [conf.get("feeder_name") + ".local"]
+
+
 class Setting(abc.ABC):
     """
     Abstract setting.
@@ -867,7 +871,7 @@ class Config(CompoundSetting):
     should introduce a new config version, for which there must be a migration
     function.
     """
-    CONFIG_VERSION = 16
+    CONFIG_VERSION = 17
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1188,7 +1192,8 @@ class Config(CompoundSetting):
             CompoundSetting, schema={
                 "is_enabled": ft.partial(BoolSetting, default=True),
                 "domains": ft.partial(
-                    ListSetting, required_value_type=str, default=[]),}),
+                    GeneratedSetting, value_generator=_generate_mdns_domains),
+            }),
         "ports": ft.partial(
             CompoundSetting, schema={
                 "web": ft.partial(
@@ -1832,6 +1837,14 @@ class Config(CompoundSetting):
         config_dict["serial_devices"]["sdrplay_waitlist"] = []
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_16_to_17(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This is generated now.
+        del config_dict["mdns"]["domains"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1847,7 +1860,8 @@ class Config(CompoundSetting):
                          (12, 13): _upgrade_config_dict_from_12_to_13,
                          (13, 14): _upgrade_config_dict_from_13_to_14,
                          (14, 15): _upgrade_config_dict_from_14_to_15,
-                         (15, 16): _upgrade_config_dict_from_15_to_16}
+                         (15, 16): _upgrade_config_dict_from_15_to_16,
+                         (16, 17): _upgrade_config_dict_from_16_to_17}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

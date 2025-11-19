@@ -1079,12 +1079,10 @@ class AdsbIm:
             self._logger.exception("Error changing hostname.")
 
     def _maybe_enable_mdns(self):
-        if not self._conf.get("mdns.is_enabled"):
-            return
-        args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash"]
-        mdns_domains = [f"{self._conf.get('feeder_name')}.local"]
-        self._conf.set("mdns.domains", mdns_domains)
-        subprocess.run(args + mdns_domains)
+        if self._conf.get("mdns.is_enabled"):
+            subprocess.run([
+                "/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash",
+                f"{self._conf.get('feeder_name')}.local"])
 
     def _ensure_desired_journal_persistence(self):
         if (self._conf.get("journal.should_be_persistent")
