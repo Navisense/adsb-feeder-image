@@ -243,7 +243,7 @@ class Hotspot(abc.ABC):
                 and self._wifi_test_thread is not threading.current_thread()):
             # Wait for the test thread to finish.
             self._wifi_test_thread.join(15)
-            if self._wifi_test_thread.is_alive():
+            if self._wifi_test_thread and self._wifi_test_thread.is_alive():
                 self._logger.warning(
                     "Wifi test thread failed to finish within timeout.")
         with self._hotspot_lock:
