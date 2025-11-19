@@ -103,7 +103,7 @@ The script allows a few options, which are appended to the bash command after
   1099).
 - `--enable-mdns`: Whether an mDNS service should be started, which makes it
   easier to access the machine from the outside as
-  `porttracker-sdr-feeder-xxxxxxxx.local`.
+  `xxxxxxxx-porttracker-sdr.local`.
 - `--expand-rootfs`: Whether a service should be started that automatically
   expands the root filesystem. This really only makes sense for generating
   images and shouldn't be used on existing systems.
@@ -127,7 +127,7 @@ the application. You need root SSH access to the devices. You can specify the
 host using the `HOST` environment variable, e.g.
 
 ```
-HOST=porttracker-sdr-feeder-xxxxxxxx.local make sync-and-update
+HOST=xxxxxxxx-porttracker-sdr.local make sync-and-update
 ```
 
 ### Checkboxes in form data

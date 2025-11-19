@@ -1,4 +1,4 @@
-HOST ?= porttracker-sdr-feeder-xxxxxxxx.local
+HOST ?= xxxxxxxx-porttracker-sdr.local
 SSH_CONTROL=/tmp/adsb-setup-ssh-control-${HOST}
 
 ssh-control:

@@ -61,14 +61,14 @@ def _generate_feeder_name(conf: "Config") -> str:
     """
     Generate the name of this feeder.
 
-    The feeder name is porttracker-sdr-feeder-<xxxxxxxx>, where <xxxxxxxx> is
-    the beginning of the unique machine ID.
+    The feeder name is <xxxxxxxx>-porttracker-sdr, where <xxxxxxxx> is the
+    beginning of the unique machine ID.
     """
     try:
         machine_id = _read_file(conf, file=pathlib.Path("/etc/machine-id"))
     except:
         raise ValueError("Missing /etc/machine-id.")
-    return f"porttracker-sdr-feeder-{machine_id[:8]}"
+    return machine_id[:8] + "-porttracker-sdr"
 
 
 def _mandatory_config_is_complete(conf: "Config") -> bool:
