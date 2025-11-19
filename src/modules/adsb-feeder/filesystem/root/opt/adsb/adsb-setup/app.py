@@ -1075,9 +1075,8 @@ class AdsbIm:
 
     def _ensure_hostname(self):
         try:
-            subprocess.run(
-                ["/usr/bin/hostname",
-                 self._conf.get("feeder_name")], check=True)
+            subprocess.run(["/bin/hostname",
+                            self._conf.get("feeder_name")], check=True)
         except:
             self._logger.exception("Error changing hostname.")
 
