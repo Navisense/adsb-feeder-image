@@ -580,7 +580,7 @@
         }
         // Some extra info and links for particular aggregators.
         if (agg.agg_key == "adsblol" && typeKey == "adsb") {
-          let mlatComment = "(your feeder will be at an approximate location as {{ get_conf('feeder_name') }})";
+          let mlatComment = "(your feeder will be at an approximate location as {{ get_conf('site_name') }})";
           if (agg.adsb.mlat_privacy) {
             mlatComment = "(since you have MLAT privacy enabled, your feeder won't be shown)";
           }

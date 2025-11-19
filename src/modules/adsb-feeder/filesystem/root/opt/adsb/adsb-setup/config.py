@@ -73,7 +73,7 @@ def _generate_feeder_name(conf: "Config") -> str:
 
 def _mandatory_config_is_complete(conf: "Config") -> bool:
     """Check whether all mandatory settings are set."""
-    mandatory_setting_key_paths = {"lon", "lat", "alt"}
+    mandatory_setting_key_paths = {"lon", "lat", "alt", "site_name"}
     return all(
         conf.get(key_path) is not None
         for key_path in mandatory_setting_key_paths)
@@ -876,7 +876,7 @@ class Config(CompoundSetting):
         "lon": ft.partial(RealNumberSetting, env_variable_name="FEEDER_LONG"),
         "alt": ft.partial(RealNumberSetting, env_variable_name="FEEDER_ALT_M"),
         "tz": ft.partial(StringSetting, env_variable_name="FEEDER_TZ"),
-        "site_name": StringSetting,
+        "site_name": ft.partial(StringSetting, env_variable_name="SITE_NAME"),
         "feeder_name": ft.partial(
             GeneratedSetting, value_generator=_generate_feeder_name,
             env_variable_name="FEEDER_NAME"),

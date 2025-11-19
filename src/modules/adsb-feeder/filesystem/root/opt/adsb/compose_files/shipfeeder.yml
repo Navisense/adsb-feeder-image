@@ -8,7 +8,7 @@ services:
     restart: unless-stopped
     environment:
       # ais-catcher general and website related parameters
-      - STATION_NAME=${FEEDER_NAME}
+      - STATION_NAME=${SITE_NAME}
       - FEEDER_LONG=${FEEDER_LONG}
       - FEEDER_LAT=${FEEDER_LAT}
       - SITESHOW=on

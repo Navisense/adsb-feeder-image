@@ -2311,6 +2311,21 @@ class AdsbIm:
         if request.form["timezone"] != self._conf.get("tz"):
             self._set_timezone(request.form["timezone"])
 
+        # Station name.
+        if request.form["station-name"] != self._conf.get("site_name"):
+            station_name = "".join(
+                c for c in request.form["station-name"]
+                if c.isalnum() or c == "-")
+            station_name = station_name.strip("-")[:63]
+            if not station_name:
+                station_name = self._conf.get("feeder_name")
+                self._logger.error(
+                    f"Empty station name provided, using {station_name} "
+                    "instead.", flash_message=True)
+            self._conf.set("site_name", station_name)
+            needs_docker_restart = True
+            self._logger.info(f"Updated station name to {station_name}.")
+
         # Lat, lon, altitude.
         for form_key, config_key in [("latitude", "lat"), ("longitude", "lon"),
                                      ("altitude", "alt")]:
