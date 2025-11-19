@@ -42,7 +42,7 @@
     <link rel="stylesheet"
           href="{{ url_for('static', filename='css/fontawesome.min.css') }}" />
     <title>
-      {% if get_conf('site_name') %}{{ get_conf("site_name") }}:{% endif %}
+      {{ get_conf("feeder_name") }}:
       {% block title required %}
       {% endblock title %}
     </title>

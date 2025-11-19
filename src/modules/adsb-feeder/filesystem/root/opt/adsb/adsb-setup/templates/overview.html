@@ -54,7 +54,7 @@
         </button>
       </div>
       <h5 class="card-title">Device info</h5>
-      This is <strong>{{ get_conf("site_name") }}</strong>.
+      This is <strong>{{ get_conf("feeder_name") }}</strong>.
       {% if request.remote_addr in ["127.0.0.1", "::1"] %}
         You are viewing this page on the device itself.
         {% if device_hosts %}
@@ -580,7 +580,7 @@
         }
         // Some extra info and links for particular aggregators.
         if (agg.agg_key == "adsblol" && typeKey == "adsb") {
-          let mlatComment = "(your feeder will be at an approximate location as {{ get_conf('site_name') }})";
+          let mlatComment = "(your feeder will be at an approximate location as {{ get_conf('feeder_name') }})";
           if (agg.adsb.mlat_privacy) {
             mlatComment = "(since you have MLAT privacy enabled, your feeder won't be shown)";
           }

@@ -11,7 +11,7 @@ ENV_FILE=$1
 source ${ENV_FILE}
 
 LOCKFILE=/var/lock/push-prometheus-metrics.lock
-PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${SITE_NAME}/station_id/${FEEDER_PORTTRACKER_STATION_ID}"
+PUSH_URL="https://pushgateway.porttracker.co/metrics/job/sharing_devices/instance/${FEEDER_NAME}/station_id/${FEEDER_PORTTRACKER_STATION_ID}"
 
 source /opt/adsb/scripts/lib-common.bash
 

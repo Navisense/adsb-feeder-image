@@ -18,7 +18,7 @@ for i in range(int((len(sys.argv) - 1) / 2)):
 sanitize_vars = [
     "FEEDER_LAT",
     "FEEDER_LONG",
-    "SITE_NAME",
+    "FEEDER_NAME",
     "ADSBLOL_UUID",
     "AF_MICRO_IP",
     "ULTRAFEEDER_UUID",
@@ -44,8 +44,7 @@ sanitize_vars = [
     "_ADSBIM_STATE_TAILSCALE_LOGIN_LINK",
     "_ADSBIM_STATE_TAILSCALE_NAME",
     "FEEDER_SM_USERNAME",
-    "FEEDER_SM_PASSWORD",
-]
+    "FEEDER_SM_PASSWORD",]
 
 for name in sanitize_vars:
     item = config[name]
@@ -77,4 +76,3 @@ for line in sys.stdin:
     for search, replace in sr:
         line = line.replace(search, replace)
     sys.stdout.write(line)
-

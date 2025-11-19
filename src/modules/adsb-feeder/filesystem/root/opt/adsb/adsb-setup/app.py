@@ -978,10 +978,6 @@ class AdsbIm:
         # in and out of hotspot mode.
         self._maybe_enable_mdns()
 
-    @property
-    def hostname(self):
-        return self._conf.get("site_name")
-
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
             return bool(self._conf.get("serial_devices.ais"))
@@ -1050,6 +1046,7 @@ class AdsbIm:
         self._server = self._server_thread = None
 
     def _ensure_running_dependencies(self):
+        self._ensure_hostname()
         self._maybe_enable_mdns()
         try:
             self._ensure_prometheus_metrics_state()
@@ -1073,15 +1070,20 @@ class AdsbIm:
                 self._logger.exception(
                     "Error enabling Tailscale during startup.")
 
+    def _ensure_hostname(self):
+        try:
+            # TODO doesn't work on pmos+++++++++++++++
+            subprocess.run([
+                "/usr/bin/hostnamectl", "hostname",
+                self._conf.get("feeder_name")], check=True)
+        except:
+            self._logger.exception("Error changing hostname.")
+
     def _maybe_enable_mdns(self):
         if not self._conf.get("mdns.is_enabled"):
             return
         args = ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash"]
         mdns_domains = [f"{self._conf.get('feeder_name')}.local"]
-        if self.hostname:
-            # If we have a hostname, make the mDNS script create an alias for
-            # it as well.
-            mdns_domains.append(f"{self.hostname}.local")
         self._conf.set("mdns.domains", mdns_domains)
         subprocess.run(args + mdns_domains)
 
@@ -1301,7 +1303,8 @@ class AdsbIm:
         ts = datetime.datetime.now(
             datetime.UTC).isoformat(timespec="seconds").replace(":", "-")
         file_name = (
-            f"porttracker-sdr-feeder-config_{self.hostname}_{ts}.backup.zip")
+            "porttracker-sdr-feeder-config_{name}_{ts}.backup.zip".format(
+                name=self._conf.get("feeder_name"), ts=ts))
         return flask.Response(
             assemble_and_stream_zip(), headers={
                 "Content-Type": "application/zip",
@@ -2309,29 +2312,6 @@ class AdsbIm:
         if request.form["timezone"] != self._conf.get("tz"):
             self._set_timezone(request.form["timezone"])
 
-        # Station name.
-        if request.form["station-name"] != self._conf.get("site_name"):
-            site_name = "".join(
-                c for c in request.form["station-name"]
-                if c.isalnum() or c == "-")
-            site_name = site_name.strip("-")[:63]
-            if not site_name:
-                self._logger.error(
-                    "Empty station name provided, keeping it as "
-                    f"{self.hostname}.", flash_message=True)
-            else:
-                self._conf.set("site_name", site_name)
-                try:
-                    subprocess.run(
-                        ["/usr/bin/hostnamectl", "hostname", self.hostname],
-                        check=True)
-                except Exception as e:
-                    self._logger.exception(
-                        f"Error changing hostname: {e}", flash_message=True)
-                self._maybe_enable_mdns()
-                needs_docker_restart = True
-                self._logger.info(f"Updated station name to {site_name}.")
-
         # Lat, lon, altitude.
         for form_key, config_key in [("latitude", "lat"), ("longitude", "lon"),
                                      ("altitude", "alt")]:
@@ -2508,7 +2488,8 @@ class AdsbIm:
 
         now = datetime.datetime.now().replace(
             microsecond=0).isoformat().replace(":", "-")
-        download_name = f"adsb-feeder-config-{self.hostname}-{now}.txt"
+        download_name = "adsb-feeder-config-{name}-{ts}.txt".format(
+            name=self._conf.get("feeder_name"), ts=now)
         return send_file(
             pipeOut,
             as_attachment=as_attachment,
@@ -2796,7 +2777,7 @@ class AdsbIm:
                 "/usr/bin/tailscale",
                 "up",
                 "--reset",
-                f"--hostname={self.hostname}",
+                f"--hostname={self._conf.get('feeder_name')}",
                 "--accept-dns=false",]
             if login_server_url:
                 cmd += [f"--login-server={shlex.quote(login_server_url)}"]

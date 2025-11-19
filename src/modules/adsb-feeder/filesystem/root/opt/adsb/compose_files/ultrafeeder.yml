@@ -63,7 +63,7 @@ services:
       # Sources and Aggregator connections:
       # (Note - remove the ones you are not using / feeding)
       - ULTRAFEEDER_CONFIG=${FEEDER_ULTRAFEEDER_CONFIG}
-      - MLAT_USER=${SITE_NAME}
+      - MLAT_USER=${FEEDER_NAME}
       - UUID=${ULTRAFEEDER_UUID}
       # reduce delay starting up various mlat-clients, default is 15 seconds
       - MLAT_STARTUP_STAGGER=1
@@ -72,8 +72,8 @@ services:
       # TAR1090 (Map Web Page) parameters:
       - UPDATE_TAR1090=${UPDATE_TAR1090:-true}
       - TAR1090_MESSAGERATEINTITLE=true
-      - TAR1090_PAGETITLE=${SITE_NAME}
-      - TAR1090_SITENAME=${SITE_NAME}
+      - TAR1090_PAGETITLE=${FEEDER_NAME}
+      - TAR1090_SITENAME=${FEEDER_NAME}
       - TAR1090_PLANECOUNTINTITLE=true
       - TAR1090_FLIGHTAWARELINKS=true
       - TAR1090_CONFIGJS_APPEND=""
