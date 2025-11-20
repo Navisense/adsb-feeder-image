@@ -44,6 +44,6 @@ build-and-upload-image:
           - raspberry-pi3
           - raspberry-pi4
           - raspberry-pi5
-      - VARIANT:
+        VARIANT:
           - headless
           - plasma-mobile
