@@ -381,10 +381,13 @@ class AdsbIm:
             "port_key_path": "ports.fr",
             "path": "/monitor.json",},]
 
-    def __init__(self, conf: config.Config, sys: system.System, hotspot_app):
+    def __init__(
+            self, conf: config.Config, sys: system.System,
+            connectivity_monitor: hotspot.ConnectivityMonitor, hotspot_app):
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
         self._system = sys
+        self._connectivity_monitor = connectivity_monitor
         self._hotspot_app = hotspot_app
         self._hotspot_mode = False
         self._server = self._server_thread = None
@@ -2240,6 +2243,14 @@ class AdsbIm:
             self.set_rpw()
             os.remove("/opt/adsb/adsb.im.passwd.and.keys")
 
+        # Check whether we have a router and internet access.
+        has_router = has_internet = False
+        for check, ok in self._connectivity_monitor.current_stati.items():
+            if check == "reachable_gateway":
+                has_router = ok
+            elif ok:
+                has_internet = True
+
         if self.local_address:
             local_address = self.local_address
         else:
@@ -2276,6 +2287,8 @@ class AdsbIm:
             or self._conf.get("aggregators_chosen"))
         return render_template(
             "overview.html",
+            has_router=has_router,
+            has_internet=has_internet,
             local_address=local_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
@@ -2901,23 +2914,23 @@ class Manager:
         self._conf = conf
         self._sys = sys
         self._event_queue = queue.Queue(maxsize=10)
-        self._connectivity_monitor = None
+        self._connectivity_monitor = hotspot.ConnectivityMonitor(
+            self._sys, self._event_queue,
+            check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = None
         self._hotspot_app = HotspotApp(self._conf, self._on_wifi_credentials)
         self._hotspot = hotspot.make_hotspot(
             self._conf, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(self._conf, self._sys, self._hotspot_app)
+        self._adsb_im = AdsbIm(
+            self._conf, self._sys, self._connectivity_monitor,
+            self._hotspot_app)
         self._hotspot_timer = None
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
 
     def __enter__(self):
-        assert self._connectivity_monitor is None
         assert self._connectivity_change_thread is None
         self._keep_running = True
-        self._connectivity_monitor = hotspot.ConnectivityMonitor(
-            self._sys, self._event_queue,
-            check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
         self._connectivity_change_thread.start()
@@ -2926,11 +2939,9 @@ class Manager:
         return self
 
     def __exit__(self, *_):
-        assert self._connectivity_monitor is not None
         assert self._connectivity_change_thread is not None
         self._keep_running = False
         self._connectivity_monitor.stop()
-        self._connectivity_monitor = None
         self._connectivity_change_thread.join(2)
         if self._connectivity_change_thread.is_alive():
             self._logger.error(
@@ -3102,7 +3113,7 @@ def main():
         aggregators.init_aggregators(conf, sys_)
         if "--update-config" in sys.argv:
             # Just get AdsbIm to do some housekeeping and exit.
-            AdsbIm(conf, sys_, None).update_config()
+            AdsbIm(conf, sys_, None, None).update_config()
             sys.exit(0)
         _run_app(conf, sys_)
 

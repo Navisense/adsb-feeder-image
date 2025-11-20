@@ -79,6 +79,13 @@ class ConnectivityMonitor:
         self._logger = logging.getLogger(type(self).__name__)
 
     @property
+    def current_stati(self):
+        try:
+            return self._status_history[-1]
+        except IndexError:
+            return {}
+
+    @property
     def current_status(self):
         try:
             return any(self._status_history[-1].values())
