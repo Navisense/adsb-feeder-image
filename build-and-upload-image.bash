@@ -2,7 +2,14 @@
 
 # Build and upload device images.
 #
-# Usage: build-and-upload-image.bash <version> <device>
+# Usage: build-and-upload-image.bash <version> <device> <variant>
+#
+# <version>: Version of the feeder that should be checked out (i.e. the tag).
+# <device>: The name of the device as in pmbootstrap, e.g. raspberry-pi4.
+# <variant>: Variant of the image. Can be the special value "headless", in which
+#     case the "console" UI is chosen, and the hotspot is disabled. Other values
+#     must be valid names of UIs in postmarketOS, e.g. "plasma-mobile" or
+#     "phosh".
 #
 # This script uses pmbootstrap and the app-install.bash script to create a
 # postmarketOS image with default username and password for the specified feeder
@@ -14,7 +21,7 @@
 # this run in parallel.
 #
 # Once the image has been created, it is zipped up and uploaded to S3 with the
-# file name porttracker-sdr-feeder_${version}_${device}.img.
+# file name porttracker-sdr-feeder_${version}_${device}_${variant}.img.
 
 PMBOOTSTRAP_VERSION="3.6.0"
 PMAPORTS_BRANCH="v25.06"
@@ -25,6 +32,12 @@ S3_BUCKET="s3://navisense-api-files-production/public/device_images"
 
 version="${1}"
 device="${2}"
+variant="${3}"
+
+if [ -z "${version}" ] || [ -z "${device}" ] || [ -z "${variant}" ] ; then
+    echo "Missing parameter."
+    exit 1
+fi
 
 echo "Building image ${version} for device ${device}."
 
@@ -49,15 +62,20 @@ yes "" | pmbootstrap --as-root init --shallow-initial-clone
 echo "Configuring pmbootstrap for device."
 pmbootstrap --as-root config build_pkgs_on_install True
 pmbootstrap --as-root config device ${device}
-pmbootstrap --as-root config extra_packages bash,curl,firefox,jq
 pmbootstrap --as-root config hostname ${HOSTNAME}
 pmbootstrap --as-root config locale en_US.UTF-8
 pmbootstrap --as-root config ssh_keys False
 pmbootstrap --as-root config systemd always
 pmbootstrap --as-root config timezone GMT
-pmbootstrap --as-root config ui plasma-mobile
 pmbootstrap --as-root config ui_extras True
 pmbootstrap --as-root config user ${USERNAME}
+if [ "${variant}" = "headless" ] ; then
+    pmbootstrap --as-root config ui console
+    pmbootstrap --as-root config extra_packages bash,curl,jq
+else
+    pmbootstrap --as-root config ui "${variant}"
+    pmbootstrap --as-root config extra_packages bash,curl,firefox,jq
+fi
 
 echo "Checking out pmaports branch ${PMAPORTS_BRANCH}."
 cd $(pmbootstrap --as-root config aports) \
@@ -69,10 +87,17 @@ cd ~
 echo "Installing base system."
 pmbootstrap --as-root install --password "${PASSWORD}" --no-image
 
-echo "Installing porttracker-sdr-feeder."
+feeder_install_args="--ref ${version} --web-port 80 --enable-mdns \
+    --expand-rootfs --auto-install-dependencies"
+if [ "${variant}" = "headless" ] ; then
+    feeder_install_args="${feeder_install_args} --disable-hotspot"
+fi
+echo "Installing porttracker-sdr-feeder with args ${feeder_install_args}."
+# TODO this command can fail and still exit success. when the image is complete,
+# check that the correct feeder verstion file is in it+++++++++++
 pmbootstrap --as-root chroot -r -- bash -c \
     "curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
-    | bash -s -- --ref ${version} --web-port 80 --enable-mdns --expand-rootfs --auto-install-dependencies"
+    | bash -s -- ${feeder_install_args}"
 # We need to shutdown the chroot now and do the install again to generate the
 # image with the feeder installed.
 pmbootstrap --as-root shutdown
@@ -82,7 +107,7 @@ pmbootstrap --as-root shutdown
 
 pmbootstrap_work=$(pmbootstrap --as-root config work)
 device_file="${pmbootstrap_work}/chroot_native/home/pmos/rootfs/${device}.img"
-image_file="porttracker-sdr-feeder_${version}_${device}.img"
+image_file="porttracker-sdr-feeder_${version}_${device}_${variant}.img"
 mv ${device_file} ${image_file}
 zip --junk-paths ${image_file}.zip ${image_file}
 echo "Uploading ${image_file}.zip to S3."

@@ -37,10 +37,13 @@ build-and-upload-image:
     - if: $CI_COMMIT_TAG
   tags:
     - device-image
-  script: ./build-and-upload-image.bash $CI_COMMIT_TAG $DEVICE
+  script: ./build-and-upload-image.bash $CI_COMMIT_TAG $DEVICE $VARIANT
   parallel:
     matrix:
       - DEVICE:
           - raspberry-pi3
           - raspberry-pi4
           - raspberry-pi5
+      - VARIANT:
+          - headless
+          - plasma-mobile
