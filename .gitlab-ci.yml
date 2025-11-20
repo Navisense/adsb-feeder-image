@@ -7,6 +7,7 @@ variables:
 stages:
   - tag
   - build-install-script
+  - build-and-upload-image
 
 tag:
   stage: tag
@@ -29,3 +30,17 @@ build-install-script:
   artifacts:
     paths:
       - app-install.bash
+
+build-and-upload-image:
+  stage: build-and-upload-image
+  rules:
+    - if: $CI_COMMIT_TAG
+  tags:
+    - device-image
+  script: ./build-and-upload-image.bash $CI_COMMIT_TAG $DEVICE
+  parallel:
+    matrix:
+      - DEVICE:
+          - raspberry-pi3
+          - raspberry-pi4
+          - raspberry-pi5
