@@ -49,7 +49,7 @@ yes "" | pmbootstrap --as-root init --shallow-initial-clone
 echo "Configuring pmbootstrap for device."
 pmbootstrap --as-root config build_pkgs_on_install True
 pmbootstrap --as-root config device ${device}
-pmbootstrap --as-root config extra_packages bash,curl,jq
+pmbootstrap --as-root config extra_packages bash,curl,firefox,jq
 pmbootstrap --as-root config hostname ${HOSTNAME}
 pmbootstrap --as-root config locale en_US.UTF-8
 pmbootstrap --as-root config ssh_keys False
