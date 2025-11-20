@@ -93,8 +93,6 @@ if [ "${variant}" = "headless" ] ; then
     feeder_install_args="${feeder_install_args} --enable-hotspot"
 fi
 echo "Installing porttracker-sdr-feeder with args ${feeder_install_args}."
-# TODO this command can fail and still exit success. when the image is complete,
-# check that the correct feeder verstion file is in it+++++++++++
 pmbootstrap --as-root chroot -r -- bash -c \
     "curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
     | bash -s -- ${feeder_install_args}"
@@ -105,10 +103,26 @@ echo "Creating final image."
 pmbootstrap --as-root install --password "${PASSWORD}"
 pmbootstrap --as-root shutdown
 
+# Rename and move the image.
 pmbootstrap_work=$(pmbootstrap --as-root config work)
 device_file="${pmbootstrap_work}/chroot_native/home/pmos/rootfs/${device}.img"
 image_file="porttracker-sdr-feeder_${version}_${device}_${variant}.img"
 mv ${device_file} ${image_file}
+
+echo "Checking image for successful feeder installation."
+mount_dir=$(mktemp -d)
+loop_device=$(losetup -P --show -f ${image_file})
+mount -o ro ${loop_device}p2 ${mount_dir}
+version_in_image=$(cat ${mount_dir}/opt/adsb/porttracker_sdr_feeder_install_metadata/version.txt)
+umount ${mount_dir}
+losetup -d ${loop_device}
+if [ "${version_in_image}" != "${version}" ] ; then
+    echo "Didn't fint the correct version file in the created image. Got \
+        ${version_in_image}, expected ${version}."
+    exit 1
+fi
+
+echo "Zipping ${image_file}."
 zip --junk-paths ${image_file}.zip ${image_file}
 echo "Uploading ${image_file}.zip to S3."
 aws --profile cli s3 cp ${image_file}.zip ${S3_BUCKET}/${image_file}.zip
