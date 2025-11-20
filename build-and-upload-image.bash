@@ -90,7 +90,7 @@ pmbootstrap --as-root install --password "${PASSWORD}" --no-image
 feeder_install_args="--ref ${version} --web-port 80 --enable-mdns \
     --expand-rootfs --auto-install-dependencies"
 if [ "${variant}" = "headless" ] ; then
-    feeder_install_args="${feeder_install_args} --disable-hotspot"
+    feeder_install_args="${feeder_install_args} --enable-hotspot"
 fi
 echo "Installing porttracker-sdr-feeder with args ${feeder_install_args}."
 # TODO this command can fail and still exit success. when the image is complete,
