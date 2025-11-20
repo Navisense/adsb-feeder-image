@@ -439,12 +439,33 @@ class System:
             return TailscaleInfo(status=TailscaleStatus.ERROR)
 
     def has_graphical_system(self):
-        """Check whether the system has a graphical UI that can be used."""
-        possible_window_manager_services = [
-            "plasma-mobile.service", "tinydm.service", "sddm.service"]
-        return any(
-            systemctl().unit_is_active(service)
-            for service in possible_window_manager_services)
+        """
+        Check whether the system has a graphical UI that can be used.
+
+        There is no really good way of determining this. What we're doing here
+        is check if there is any process matching "/usr/bin/X" or "wayland". If
+        not, there can't be a graphical system.
+
+        If there is we keep checking for a few seconds that it stays. We have
+        to do this because even on a headless system, these can be installed
+        and be stuck in a restarting loop where they exist for a short time. If
+        we don't see it vanish, we assume there is a graphical system.
+        """
+        check_seconds = 20
+        check_until = time.monotonic() + check_seconds
+        while time.monotonic() <= check_until:
+            proc = util.shell_with_combined_output(
+                "ps aux | grep -E '/usr/bin/X|wayland' | grep -v grep")
+            if proc.returncode != 0:
+                self._logger.debug(
+                    "No trace of X or wayland in processes, assuming there is "
+                    "no graphical system.")
+                return False
+            time.sleep(0.5)
+        self._logger.debug(
+            "A process matching X or wayland has been running for "
+            f"{check_seconds}, assuming the graphical system is available.")
+        return True
 
 
 _systemctl: Systemctl = None
