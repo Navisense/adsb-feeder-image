@@ -2916,7 +2916,8 @@ class Manager:
         assert self._connectivity_change_thread is None
         self._keep_running = True
         self._connectivity_monitor = hotspot.ConnectivityMonitor(
-            self._event_queue, check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
+            self._sys, self._event_queue,
+            check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = threading.Thread(
             target=self._connectivity_change_loop)
         self._connectivity_change_thread.start()

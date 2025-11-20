@@ -6,7 +6,6 @@ import json
 import logging
 import pathlib
 import queue
-import re
 import socket
 import threading
 import time
@@ -50,13 +49,21 @@ def _find_wlan_device():
 
 class ConnectivityMonitor:
     """
-    Monitor that regularly checks whether we have internet access.
+    Monitor that regularly checks whether we still have network connection.
+
+    Does a number of checks, and considers the network connection
+    non-functional if all of them fail. The checks are
+    - HTTP HEAD to Google DNS (8.8.8.8)
+    - HTTP HEAD to quad 1 DNS (1.1.1.1)
+    - Ping to any router (i.e. check if at least one of the gateways according
+      to `ip route` respond to an ICMP echo)
 
     If the state changes, puts an item into its event queue.
     """
     NETWORK_TIMEOUT = 2
 
-    def __init__(self, event_queue, *, check_interval):
+    def __init__(self, sys: system.System, event_queue, *, check_interval):
+        self._sys = sys
         self._event_queue = event_queue
         self.check_interval = check_interval
         self._keep_running = None
@@ -66,7 +73,8 @@ class ConnectivityMonitor:
             "google_quad8_https_head": ft.partial(
                 self._check_https_head, "8.8.8.8"),
             "cloudflare_quad1_https_head": ft.partial(
-                self._check_https_head, "1.1.1.1"),}
+                self._check_https_head, "1.1.1.1"),
+            "reachable_gateway": self._check_has_reachable_gateway,}
         self._status_history = collections.deque(maxlen=2)
         self._logger = logging.getLogger(type(self).__name__)
 
@@ -151,6 +159,17 @@ class ConnectivityMonitor:
             return True
         except:
             return False
+
+    def _check_has_reachable_gateway(self):
+        for ndi in self._sys.system_info.network_device_infos:
+            try:
+                util.shell_with_combined_output(
+                    f"ping -c 1 -W 3 {ndi.gateway}", check=True)
+                return True
+            except:
+                self._logger.exception(
+                    f"Unable to reach gateway {ndi.gateway}.")
+        return False
 
 
 class Hotspot(abc.ABC):
