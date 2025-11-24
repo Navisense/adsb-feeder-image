@@ -9,8 +9,8 @@
       <h5 class="card-title">Wifi setup</h5>
       <div class="alert alert-info">
         {% if comment == "" %}
-          The Feeder wasn't able to connect to a network. Please enter an SSID and password so that we can connect to
-          the network and continue the setup.
+          The Feeder wasn't able to connect to a network. Please select a network below so that we can connect and
+          continue the setup.
         {% else %}
           {{ comment }}
         {% endif %}
@@ -18,41 +18,67 @@
       {% if not comment.startswith("Success") %}
         <form method="post" class="my-4">
           <div class="row align-items-center">
-            <div class="col-12 col-lg-5">
-              <div class="d-flex align-items-center">
-                <input type="text"
-                       id="ssid"
-                       class="form-control m-2"
-                       list="ssidlist"
-                       name="ssid"
-                       placeholder="Pick or enter SSID">
-                <datalist id="ssidlist">
-                  {% for network in networks.values() %}<option value="{{ network.ssid }}"></option>{% endfor %}
-                </datalist>
-                <label for="ssid">SSID</label>
+            {% for network in networks %}
+              <div class="col-12 col-lg-6 col-xl-4">
+                <label class="w-100">
+                  <input type="radio"
+                         required
+                         class="form-check-input d-none"
+                         name="ssid"
+                         value="{{ network.ssid }}"
+                         onchange="updateSsidSelection(this.value);">
+                  <div class="card my-2 select-ssid-card" data-ssid="{{ network.ssid }}">
+                    <div class="card-body">
+                      <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                        <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                      </div>
+                      <h5 class="card-title">{{ network.ssid }}</h5>
+                      <input type="text"
+                             class="form-control my-2 network-input network-input-password d-none"
+                             name="password"
+                             placeholder="Password">
+                      <div class="text-muted">signal strength: {{ network.signal_strength }}</div>
+                      <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
+                    </div>
+                  </div>
+                </label>
               </div>
-            </div>
-            <div class="col-12 col-lg-5">
-              <div class="d-flex align-items-center">
-                <input type="text"
-                       id="password"
-                       class="form-control m-2"
-                       name="passwd"
+            {% endfor %}
+            <div class="col-12 col-lg-6 col-xl-4">
+              <label class="w-100">
+                <input type="radio"
                        required
-                       placeholder="Password">
-                <label for="password">Password</label>
-              </div>
-            </div>
-            <div class="col-12 col-lg-2">
-              <button type="submit" class="btn btn-primary ms-2">Configure</button>
+                       class="form-check-input d-none"
+                       name="ssid"
+                       value=""
+                       onchange="updateSsidSelection('');">
+                <div class="card my-2 select-ssid-card" data-ssid="">
+                  <div class="card-body">
+                    <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                      <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                    </div>
+                    <h5 class="card-title">Manually enter an SSID</h5>
+                    If your network isn't shown here, you can also enter the SSID manually.
+                    <input type="text"
+                           class="form-control my-2 network-input d-none"
+                           name="manual-ssid"
+                           placeholder="SSID">
+                    <input type="text"
+                           class="form-control my-2 network-input network-input-password d-none"
+                           name="password"
+                           placeholder="Password">
+                    <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
+                  </div>
+                </div>
+              </label>
             </div>
           </div>
         </form>
         <p class="my-3">
-          Once you click the <strong>Configure</strong> button, the Hotspot connection will drop and the feeder will
-          attempt to connect to the network that you specified. If that WiFi connection is successful, the feeder should
-          become available on that WiFi network as <code>{{ get_conf("feeder_name") }}.local</code>. This requires mDNS
-          to be enabled on your system (it typically is). The test below checks whether it is working right now.
+          Once you configure a network, the Hotspot connection will drop and the feeder will attempt to connect to the
+          network that you specified. If that WiFi connection is successful, the feeder should become available on that
+          WiFi network as <code>{{ get_conf("feeder_name") }}.local</code>. This requires mDNS to be enabled on your
+          system (it typically is). The test below checks whether it is working right now.
         </p>
         <p class="my-3">
           If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
@@ -72,6 +98,26 @@
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
+    function updateSsidSelection(selectedSsid) {
+      const card = $(`.select-ssid-card[data-ssid="${selectedSsid}"]`);
+
+      $(".network-input").required = false;
+      $(".network-input").addClass("d-none");
+      card.find(".network-input").required = true;
+      card.find(".network-input").removeClass("d-none");
+
+      $(".network-input-password").attr("name", "password-disabled");
+      card.find(".network-input-password").attr("name", "password");
+
+      const selectedCardClasses = "border border-3 border-success";
+      $(".select-ssid-card").each(function() {
+        $(this).removeClass(selectedCardClasses);
+      });
+      $(".select-ssid-card .selected-checkmark").addClass("d-none");
+      card.addClass(selectedCardClasses);
+      card.find(".selected-checkmark").removeClass("d-none");
+    }
+
     function updateMdnsStatusDiv(stati, hasTimedOut) {
       const statusDiv = $("#mdns-status");
       if (hasTimedOut) {

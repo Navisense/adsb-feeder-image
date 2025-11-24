@@ -263,8 +263,11 @@ class HotspotApp:
         return self._restart_state
 
     def hotspot(self):
+        sorted_networks = sorted(
+            self.networks.values(), key=op.attrgetter("signal_strength"),
+            reverse=True)
         return flask.render_template(
-            "hotspot.html", comment=self._message, networks=self.networks)
+            "hotspot.html", comment=self._message, networks=sorted_networks)
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -286,9 +289,15 @@ class HotspotApp:
         return self.hotspot()
 
     def _get_request_wifi_credentials(self):
+        if request.method != "POST":
+            raise ValueError("not a POST")
         ssid = request.form.get("ssid")
-        password = request.form.get("passwd")
-        if request.method != "POST" or None in [ssid, password]:
+        if ssid == "" and request.form.get("manual-ssid"):
+            # This means the user entered an SSID manually and we should use
+            # that.
+            ssid = request.form.get("manual-ssid")
+        password = request.form.get("password")
+        if not all([ssid, password]):
             raise ValueError("no credentials")
         return ssid, password
 

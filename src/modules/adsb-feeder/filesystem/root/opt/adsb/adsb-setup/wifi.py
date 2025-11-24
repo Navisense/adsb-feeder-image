@@ -339,11 +339,15 @@ class NetworkManagerWifi(GenericWifi):
 
             networks = {}
             for line in proc.stdout.split("\n"):
+                if not line.strip():
+                    continue
                 try:
                     ssid, signal_strength_str = line.rsplit(":", maxsplit=1)
                     signal_strength = float(signal_strength_str)
                 except:
-                    self._logger.exception("Error parsing nmcli output.")
+                    self._logger.exception(
+                        f"Error parsing nmcli output line {line}")
+                    continue
                 network_info = WifiNetworkInfo(
                     ssid=ssid, signal_strength=signal_strength)
                 if (ssid not in networks
