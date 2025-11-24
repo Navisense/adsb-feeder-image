@@ -27,7 +27,7 @@
                        name="ssid"
                        placeholder="Pick or enter SSID">
                 <datalist id="ssidlist">
-                  {% for ssid in ssids %}<option value="{{ ssid }}"></option>{% endfor %}
+                  {% for network in networks.values() %}<option value="{{ network.ssid }}"></option>{% endfor %}
                 </datalist>
                 <label for="ssid">SSID</label>
               </div>

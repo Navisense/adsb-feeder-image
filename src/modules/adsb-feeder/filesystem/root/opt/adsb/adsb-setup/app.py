@@ -245,7 +245,7 @@ class HotspotApp:
     def __init__(self, conf: config.Config, on_wifi_credentials):
         self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
-        self.ssids = []
+        self.networks = {}
         self._restart_state = "done"
         self._message = ""
 
@@ -264,7 +264,7 @@ class HotspotApp:
 
     def hotspot(self):
         return flask.render_template(
-            "hotspot.html", comment=self._message, ssids=self.ssids)
+            "hotspot.html", comment=self._message, networks=self.networks)
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -3054,8 +3054,8 @@ class Manager:
             return
         self._maybe_stop_hotspot_timer()
         self._adsb_im.hotspot_mode = True
-        ssids = self._hotspot.start()
-        self._hotspot_app.ssids = ssids
+        networks = self._hotspot.start()
+        self._hotspot_app.networks = networks
         self._hotspot_timer = threading.Timer(
             self.HOTSPOT_TIMEOUT, self._event_queue.put,
             args=(("hotspot_timeout", None),))

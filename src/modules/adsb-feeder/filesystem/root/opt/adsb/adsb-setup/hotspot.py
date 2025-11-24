@@ -240,29 +240,29 @@ class Hotspot(abc.ABC):
             json.dump(kea_config, kea_out, indent=4)
 
     def _scan_for_ssids(self):
-        self._logger.info("Scanning for SSIDs.")
+        self._logger.info("Scanning for wifi networks.")
         start_time = time.time()
         while time.time() - start_time < 20:
             self.wifi.scan_ssids()
-            if len(self.wifi.ssids) > 0:
+            if len(self.wifi.networks) > 0:
                 break
             time.sleep(0.5)
-        return self.wifi.ssids
+        return self.wifi.networks
 
     @property
     def active(self):
         return self._hotspot_is_running
 
-    def start(self):
-        ssids = self._scan_for_ssids()
+    def start(self) -> dict[str, wifi.WifiNetworkInfo]:
+        networks = self._scan_for_ssids()
         with self._hotspot_lock:
             if self._hotspot_is_running:
                 self._logger.error(
                     "start() was called, but the hotspot was already running. "
-                    "Unable to scan for SSIDs now.")
-                return []
+                    "Unable to scan for wifi networks now.")
+                return {}
             self._setup_hotspot_locked()
-        return ssids
+        return networks
 
     def stop(self):
         if (self._wifi_test_thread

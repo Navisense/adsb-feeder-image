@@ -1,9 +1,16 @@
+import dataclasses as dc
 import logging
 import os
 import subprocess
 import time
 
 import util
+
+
+@dc.dataclass(eq=True, frozen=True)
+class WifiNetworkInfo:
+    ssid: str
+    signal_strength: float
 
 
 def make_wifi(wlan="wlan0"):
@@ -22,7 +29,7 @@ class GenericWifi:
     def __init__(self, wlan):
         self._logger = logging.getLogger(type(self).__name__)
         self.wlan = wlan
-        self.ssids = []
+        self.networks: dict[str, WifiNetworkInfo] = {}
 
     def get_ssid(self):
         try:
@@ -280,7 +287,9 @@ p2p_disabled=1
 
             if len(ssids) > 0:
                 self._logger.info(f"Found SSIDs: {ssids}")
-                self.ssids = ssids
+                self.networks = {
+                    ssid: WifiNetworkInfo(ssid=ssid, signal_strength=0)
+                    for ssid in ssids}
             else:
                 self._logger.error("No SSIDs found.")
         except:
@@ -323,21 +332,29 @@ class NetworkManagerWifi(GenericWifi):
         try:
             try:
                 proc = util.shell_with_separate_output(
-                    "nmcli --terse --fields SSID dev wifi", check=True)
-            except subprocess.CalledProcessError as e:
+                    "nmcli --terse --fields SSID,SIGNAL dev wifi", check=True)
+            except subprocess.CalledProcessError:
                 self._logger.exception("Error scanning for SSIDs.")
                 return
 
-            ssids = []
+            networks = {}
             for line in proc.stdout.split("\n"):
-                if line and line != "--" and line not in ssids:
-                    ssids.append(line)
+                try:
+                    ssid, signal_strength_str = line.rsplit(":", maxsplit=1)
+                    signal_strength = float(signal_strength_str)
+                except:
+                    self._logger.exception("Error parsing nmcli output.")
+                network_info = WifiNetworkInfo(
+                    ssid=ssid, signal_strength=signal_strength)
+                if (ssid not in networks
+                        or networks[ssid].signal_strength < signal_strength):
+                    networks[ssid] = network_info
 
-            if len(ssids) > 0:
-                self._logger.info(f"Found SSIDs: {ssids}")
-                self.ssids = ssids
+            if len(networks) > 0:
+                self._logger.info(f"Found wifi networks {networks}.")
+                self.networks = networks
             else:
-                self._logger.info("No SSIDs found.")
+                self._logger.info("No wifi networks found.")
 
-        except Exception as e:
+        except Exception:
             self._logger.exception("Error scanning for SSIDs.")
