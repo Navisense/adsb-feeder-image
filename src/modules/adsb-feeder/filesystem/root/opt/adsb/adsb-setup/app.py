@@ -57,14 +57,16 @@ logger = None
 
 def setup_logging():
     logging.setLoggerClass(util.FlashingLogger)
-    fmt = '%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s'
+    fmt = "%(asctime)s|||%(module)s|||%(name)s|||%(levelname)s|||%(message)s"
     logging.config.dictConfig({
-        'version': 1,
-        'formatters': {'simple': {'format': fmt}},
-        'handlers': {
-            'stream_handler': {
-                'class': 'logging.StreamHandler', 'formatter': 'simple'}},
-        'root': {'level': 'DEBUG', 'handlers': ['stream_handler']},})
+        "version": 1,
+        "formatters": {"simple": {"format": fmt}},
+        "handlers": {
+            "stream_handler": {
+                "class": "logging.StreamHandler", "formatter": "simple"}},
+        "root": {
+            "level": config.get_log_level_string(),
+            "handlers": ["stream_handler"]},})
 
     class NoStatic(logging.Filter):
         def filter(self, record: logging.LogRecord):

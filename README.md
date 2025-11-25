@@ -139,6 +139,10 @@ unchecked ones and "1" for checked ones.
 
 ### Logging setup
 
+The default log level is `INFO`. You can change this by creating a file at
+`/etc/adsb/log_level` and writing your desired log level into it, which must be
+one of `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
+
 To save on unnecessary disk writes, all parts of the application log to
 `/run/porttracker-sdr-feeder.log` (`/run` is a tmpfs in memory). This file is
 regularly spilled over to the permanent log file

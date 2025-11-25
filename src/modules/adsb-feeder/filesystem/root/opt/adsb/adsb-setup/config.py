@@ -36,11 +36,29 @@ CONFIG_FILE_BACKUP_TEMPLATE = (
     "config.json.backup.from:{from_version}.to:{to_version}.{ts}")
 ENV_FILE = CONFIG_DIR / ".env"
 FLASK_SECRET_KEY_FILE = CONFIG_DIR / "flask_secret_key.bin"
+LOG_LEVEL_FILE = CONFIG_DIR / "log_level"
 VERSION_FILE = METADATA_DIR / "version.txt"
 PREVIOUS_VERSION_FILE = METADATA_DIR / "previous_version.txt"
 FRIENDLY_NAME_FILE = METADATA_DIR / "friendly_name.txt"
 DOCKER_COMPOSE_UP_FAILED_FILE = pathlib.Path(
     "/run/porttracker-sdr-feeder-docker-compose-up-failed")
+
+
+def get_log_level_string(
+) -> t.Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+    try:
+        with LOG_LEVEL_FILE.open() as f:
+            log_level = f.read().strip()
+        if log_level not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+            print(
+                f"Invalid log level {log_level} in log level file, using INFO "
+                "instead", file=sys.stderr, flush=True)
+            log_level = "INFO"
+    except FileNotFoundError:
+        log_level = "INFO"
+    print(f"Using log level {log_level}", flush=True)
+    return log_level
+
 
 logger = logging.getLogger(__name__)
 
