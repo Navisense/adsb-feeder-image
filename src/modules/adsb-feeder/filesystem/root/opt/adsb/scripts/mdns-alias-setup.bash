@@ -3,8 +3,9 @@
 # Start system services advertising mDNS names for this machine.
 #
 # This script ensures that the adsb-avahi-alias@ service runs exactly for each
-# of the mDNS domains specified as arguments. All other ones are stopped and
-# disabled. Arguments must be valid mDNS domains.
+# of the mDNS hostnames specified as arguments. All other ones are stopped and
+# disabled. Arguments must be valid hostnames, to which the service will add the
+# .local suffix.
 
 if [ ! -f /opt/adsb/scripts/lib-common.bash ] ; then
     echo "Missing /opt/adsb/scripts/lib-common.bash, unable to continue."

@@ -1,5 +1,5 @@
 [Unit]
-Description=Advertise mDNS entry %i
+Description=Advertise mDNS service and address for %i
 Requires=avahi-daemon.service network-online.target
 After=avahi-daemon.service
 # Disable a rate limit for restarts. If we come out of the hotspot, the script
@@ -10,6 +10,7 @@ StartLimitIntervalSec=0
 [Service]
 Type=simple
 ExecStart=/opt/adsb/scripts/mdns-advertise.bash %i
+EnvironmentFile=/etc/adsb/.env
 Restart=always
 
 [Install]

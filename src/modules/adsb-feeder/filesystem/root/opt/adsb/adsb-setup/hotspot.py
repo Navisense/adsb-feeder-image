@@ -292,10 +292,9 @@ class Hotspot(abc.ABC):
         system.systemctl().run(["unmask", "start"],
                                ["isc-kea-dhcp4-server.service"])
         if self._conf.get("mdns.is_enabled"):
-            mdns_domains = [
-                f"{n}.local" for n in self._conf.get("mdns.hostnames")]
             util.shell_with_combined_output(
-                ["/opt/adsb/scripts/mdns-alias-setup.bash"] + mdns_domains)
+                ["/opt/adsb/scripts/mdns-alias-setup.bash"]
+                + self._conf.get("mdns.hostnames"))
         self._logger.info("Starting DNS server.")
         try:
             self._dns_server.start()
