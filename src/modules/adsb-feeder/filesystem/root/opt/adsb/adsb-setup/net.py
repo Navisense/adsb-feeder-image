@@ -125,6 +125,12 @@ class FeederDiscoverer(zc.ServiceListener):
             feeder_name=other_feeder_name, ip_addresses=ip_addresses)
         self._other_feeders_timeout.pop(other_feeder_name, None)
 
+    def update_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
+        if (other_feeder_name := self._extract_other_feeder_name(name)):
+            self._logger.info(f"Received update for {other_feeder_name}.")
+            with self._dict_lock:
+                self._add_feeder_info(type_, name, other_feeder_name)
+
     def remove_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
         if (other_feeder_name := self._extract_other_feeder_name(name)):
             with self._dict_lock:
@@ -161,6 +167,3 @@ class FeederDiscoverer(zc.ServiceListener):
         if feeder_name == self._own_feeder_name:
             return None
         return feeder_name
-
-    def update_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
-        pass
