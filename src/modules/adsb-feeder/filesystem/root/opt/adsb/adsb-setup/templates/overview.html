@@ -739,16 +739,20 @@
             $("#device-discovery").html(`
               <p>${otherFeeders.length} other device(s) have been found on the network.</p>
               <div id="other-devices"></div>`);
-            for (const feederName of otherFeeders) {
-              $("#other-devices").append(`
-              <div class="col-12 col-xl-6">
-                <div class="card my-2">
-                  <div class="card-body">
-                    <h5 class="card-title">${feederName}</h5>
-                    <a href="http://${feederName}.local">http://${feederName}.local</a>
+            for (const feeder of otherFeeders) {
+              const card = $(`
+                <div class="col-12 col-xl-6">
+                  <div class="card my-2">
+                    <div class="card-body">
+                      <h5 class="card-title">${feeder.name}</h5>
+                      <ul class="device-link-list"></ul>
+                    </div>
                   </div>
-                </div>
-              </div>`);
+                </div>`);
+              for (const host of [`${feeder.name}.local`].concat(feeder.ip_addresses)) {
+                card.find(".device-link-list").append(`<li><a href="http://${host}">http://${host}</a></li>`);
+              }
+              card.appendTo("#other-devices");
             }
           }
           otherFeederUpdateCounter.reset();

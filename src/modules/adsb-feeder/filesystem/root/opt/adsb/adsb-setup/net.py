@@ -1,3 +1,5 @@
+import dataclasses as dc
+import ipaddress
 import itertools as it
 import json
 import logging
@@ -48,18 +50,24 @@ def gitlab_repo() -> GitlabRepo:
     return _gitlab_repo
 
 
+@dc.dataclass
+class FeederInfo:
+    feeder_name: str
+    ip_addresses: list[ipaddress.IPv4Address]
+
+
 class FeederDiscoverer(zc.ServiceListener):
     """
     Service discovering other feeder devices.
 
     Uses zeroconf to discover services advertised on the network that look like
     Porttracker SDR services (i.e. <xxxxxxxx>-porttracker-sdr). Provides the
-    other_feeder_names property, which contains the names of all other feeders
-    that have been discovered.
+    other_feeders property, which contains info on all other feeders that have
+    been discovered.
 
     When a service announces that it goes offline, it will only be removed from
-    other_feeder_names after a short grace period. That's because we restart
-    the avahi-publish process regularly, but the service should remain visible.
+    other_feeders after a short grace period. That's because we restart the
+    avahi-publish process regularly, but the service should remain visible.
     """
     REMOVE_GRACE_PERIOD = 5
     _service_name_regex = re.compile(
@@ -68,16 +76,16 @@ class FeederDiscoverer(zc.ServiceListener):
     def __init__(self, own_feeder_name):
         """
         :param own_feeder_name: The name of this feeder. Will be excluded from
-            the other_feeder_names set.
+            other_feeders.
         """
         self._logger = logging.getLogger(type(self).__name__)
         self._own_feeder_name = own_feeder_name
         self._zeroconf = zc.Zeroconf()
         self._service_browser = zc.ServiceBrowser(
             self._zeroconf, "_http._tcp.local.", self)
-        self._other_feeder_names = set()
-        self._other_feeder_names_timeout = set()
-        self._set_lock = threading.Lock()
+        self._other_feeders = {}
+        self._other_feeders_timeout = {}
+        self._dict_lock = threading.Lock()
 
     def start(self):
         # Zeroconf starts on construction.
@@ -88,46 +96,62 @@ class FeederDiscoverer(zc.ServiceListener):
         self._zeroconf.close()
 
     @property
-    def other_feeder_names(self) -> frozenset[str]:
-        with self._set_lock:
-            return frozenset(
+    def other_feeders(self) -> list[FeederInfo]:
+        with self._dict_lock:
+            return list(
                 it.chain(
-                    self._other_feeder_names,
-                    self._other_feeder_names_timeout))
+                    self._other_feeders.values(),
+                    self._other_feeders_timeout.values()))
 
     def add_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
         if (other_feeder_name := self._extract_other_feeder_name(name)):
-            with self._set_lock:
-                if other_feeder_name in self._other_feeder_names_timeout:
+            with self._dict_lock:
+                if other_feeder_name in self._other_feeders_timeout:
                     self._logger.debug(f"{other_feeder_name} is back.")
                 else:
                     self._logger.info(
                         f"Discovered new other feeder {other_feeder_name}.")
-                self._other_feeder_names.add(other_feeder_name)
-                self._other_feeder_names_timeout.discard(other_feeder_name)
+                self._add_feeder_info(type_, name, other_feeder_name)
+
+    def _add_feeder_info(self, type_, name, other_feeder_name):
+        service_info = self._zeroconf.get_service_info(type_, name)
+        if service_info is None:
+            self._logger.error(f"Unable to get service info for {name}")
+            return
+        ip_addresses = sorted(
+            ipaddress.IPv4Address(a)
+            for a in service_info.addresses_by_version(zc.IPVersion.V4Only))
+        self._other_feeders[other_feeder_name] = FeederInfo(
+            feeder_name=other_feeder_name, ip_addresses=ip_addresses)
+        self._other_feeders_timeout.pop(other_feeder_name, None)
 
     def remove_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
         if (other_feeder_name := self._extract_other_feeder_name(name)):
-            with self._set_lock:
+            with self._dict_lock:
                 self._logger.debug(
                     f"Other feeder {other_feeder_name} has gone away, moving "
-                    "it into timeout set to be removed in "
+                    "it into timeout dict to be removed in "
                     f"{self.REMOVE_GRACE_PERIOD}s.")
-                # Move the name to the timeout set so it will still be returned
-                # for a while.
-                self._other_feeder_names_timeout.add(other_feeder_name)
-                self._other_feeder_names.discard(other_feeder_name)
-                # Start a timer to remove the name even from the timeout set so
-                # it disappears completely. If it reappears in the meantime, it
-                # will be in the regular set again.
+                try:
+                    # Move the name to the timeout dict so it will still be
+                    # returned for a while.
+                    other_feeder = self._other_feeders.pop(other_feeder_name)
+                    self._other_feeders_timeout[other_feeder_name] = (
+                        other_feeder)
+                except KeyError:
+                    # This feeder wasn't known anyway, nothing to do.
+                    return
+                # Start a timer to remove the name even from the timeout dict
+                # so it disappears completely. If it reappears in the meantime,
+                # it will be in the regular dict again.
                 threading.Timer(
                     self.REMOVE_GRACE_PERIOD,
                     self._maybe_remove_other_feeder_completely,
                     args=(other_feeder_name,))
 
     def _maybe_remove_other_feeder_completely(self, other_feeder_name):
-        with self._set_lock:
-            self._other_feeder_names_timeout.discard(other_feeder_name)
+        with self._dict_lock:
+            self._other_feeders_timeout.pop(other_feeder_name, None)
 
     def _extract_other_feeder_name(self, service_name):
         match = self._service_name_regex.match(service_name)

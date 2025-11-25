@@ -2907,7 +2907,12 @@ class AdsbIm:
         return redirect(url_for("systemmgmt"))
 
     def feeder_discovery(self):
-        return list(self._feeder_discoverer.other_feeder_names)
+        other_feeders = []
+        for feeder in self._feeder_discoverer.other_feeders:
+            ip_addresses = [str(a) for a in feeder.ip_addresses]
+            other_feeders.append({
+                "name": feeder.feeder_name, "ip_addresses": ip_addresses})
+        return other_feeders
 
 
 class Manager:
