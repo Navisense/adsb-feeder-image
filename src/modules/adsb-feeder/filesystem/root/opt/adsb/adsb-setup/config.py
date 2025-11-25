@@ -281,8 +281,8 @@ def _journal_is_persistent(conf: "Config") -> bool:
     return True
 
 
-def _generate_mdns_domains(conf: "Config") -> list[str]:
-    return [conf.get("feeder_name") + ".local"]
+def _generate_mdns_hostnames(conf: "Config") -> list[str]:
+    return [conf.get("feeder_name")]
 
 
 class Setting(abc.ABC):
@@ -1189,9 +1189,9 @@ class Config(CompoundSetting):
         "mdns": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(BoolSetting, default=True),
-                "domains": ft.partial(
-                    GeneratedSetting, value_generator=_generate_mdns_domains),
-            }),
+                "hostnames": ft.partial(
+                    GeneratedSetting,
+                    value_generator=_generate_mdns_hostnames),}),
         "ports": ft.partial(
             CompoundSetting, schema={
                 "web": ft.partial(

@@ -1100,9 +1100,11 @@ class AdsbIm:
 
     def _maybe_enable_mdns(self):
         if self._conf.get("mdns.is_enabled"):
+            mdns_domains = [
+                f"{n}.local" for n in self._conf.get("mdns.hostnames")]
             subprocess.run(
                 ["/bin/bash", "/opt/adsb/scripts/mdns-alias-setup.bash"]
-                + self._conf.get("mdns.domains"))
+                + mdns_domains)
 
     def _ensure_desired_journal_persistence(self):
         if (self._conf.get("journal.should_be_persistent")
@@ -2288,8 +2290,8 @@ class AdsbIm:
             "host": di.ip, "type": "local_ip", "device": di.device,
             "gateway": di.gateway
         } for di in self._system.system_info.network_device_infos]
-        device_hosts += [{"host": domain, "type": "mdns"}
-                         for domain in self._conf.get("mdns.domains")]
+        device_hosts += [{"host": f"{hostname}.local", "type": "mdns"}
+                         for hostname in self._conf.get("mdns.hostnames")]
         if tailscale_info.dns_name:
             device_hosts.append({
                 "host": tailscale_info.dns_name, "type": "tailscale"})
