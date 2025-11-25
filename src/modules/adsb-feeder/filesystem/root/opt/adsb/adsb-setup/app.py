@@ -45,7 +45,7 @@ import hotspot
 import aggregators
 import config
 import flask_util
-import gitlab
+import net
 import sdr
 import stats
 import system
@@ -1762,8 +1762,7 @@ class AdsbIm:
             self._conf.set("readsb_device_type", "")
 
     def version_info(self):
-        stable_versions = [
-            str(v) for v in gitlab.gitlab_repo().get_semver_tags()]
+        stable_versions = [str(v) for v in net.gitlab_repo().get_semver_tags()]
         containers = [{
             "image": c.image,
             "name": c.name,
@@ -1992,7 +1991,7 @@ class AdsbIm:
         # it.
         alphabet = string.ascii_letters + string.digits
         self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
-        stable_versions = gitlab.gitlab_repo().get_semver_tags()
+        stable_versions = net.gitlab_repo().get_semver_tags()
         return render_template(
             "systemmgmt.html",
             tailscale_info=tailscale_info,
