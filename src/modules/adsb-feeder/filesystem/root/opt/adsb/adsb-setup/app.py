@@ -1091,6 +1091,12 @@ class AdsbIm:
                             self._conf.get("feeder_name")], check=True)
         except:
             self._logger.exception("Error changing hostname.")
+        # Restart the avahi daemon, since it caches the hostname.
+        try:
+            system.systemctl().run(["restart"], ["avahi-daemon.service"])
+        except:
+            self._logger.exception(
+                "Error restarting avahi-daemon after hostname change.")
 
     def _maybe_enable_mdns(self):
         if self._conf.get("mdns.is_enabled"):
