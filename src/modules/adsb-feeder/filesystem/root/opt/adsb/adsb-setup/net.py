@@ -1,6 +1,8 @@
+import itertools as it
 import json
 import logging
 import re
+import threading
 import urllib.request
 
 import zeroconf as zc
@@ -54,7 +56,12 @@ class FeederDiscoverer(zc.ServiceListener):
     Porttracker SDR services (i.e. <xxxxxxxx>-porttracker-sdr). Provides the
     other_feeder_names property, which contains the names of all other feeders
     that have been discovered.
+
+    When a service announces that it goes offline, it will only be removed from
+    other_feeder_names after a short grace period. That's because we restart
+    the avahi-publish process regularly, but the service should remain visible.
     """
+    REMOVE_GRACE_PERIOD = 5
     _service_name_regex = re.compile(
         r'(?P<hostname>[0-9a-fA-F]{8}-porttracker-sdr)\._http\._tcp\.local\.')
 
@@ -69,6 +76,8 @@ class FeederDiscoverer(zc.ServiceListener):
         self._service_browser = zc.ServiceBrowser(
             self._zeroconf, "_http._tcp.local.", self)
         self._other_feeder_names = set()
+        self._other_feeder_names_timeout = set()
+        self._set_lock = threading.Lock()
 
     def start(self):
         # Zeroconf starts on construction.
@@ -80,21 +89,45 @@ class FeederDiscoverer(zc.ServiceListener):
 
     @property
     def other_feeder_names(self) -> frozenset[str]:
-        return frozenset(self._other_feeder_names)
-
-    def update_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
-        pass
-
-    def remove_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
-        if (other_feeder_name := self._extract_other_feeder_name(name)):
-            self._logger.info(
-                f"Other feeder {other_feeder_name} has gone away.")
-            self._other_feeder_names.discard(other_feeder_name)
+        with self._set_lock:
+            return frozenset(
+                it.chain(
+                    self._other_feeder_names,
+                    self._other_feeder_names_timeout))
 
     def add_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
         if (other_feeder_name := self._extract_other_feeder_name(name)):
-            self._logger.info(f"Discovered other feeder {other_feeder_name}.")
-            self._other_feeder_names.add(other_feeder_name)
+            with self._set_lock:
+                if other_feeder_name in self._other_feeder_names_timeout:
+                    self._logger.debug(f"{other_feeder_name} is back.")
+                else:
+                    self._logger.info(
+                        f"Discovered new other feeder {other_feeder_name}.")
+                self._other_feeder_names.add(other_feeder_name)
+                self._other_feeder_names_timeout.discard(other_feeder_name)
+
+    def remove_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
+        if (other_feeder_name := self._extract_other_feeder_name(name)):
+            with self._set_lock:
+                self._logger.debug(
+                    f"Other feeder {other_feeder_name} has gone away, moving "
+                    "it into timeout set to be removed in "
+                    f"{self.REMOVE_GRACE_PERIOD}s.")
+                # Move the name to the timeout set so it will still be returned
+                # for a while.
+                self._other_feeder_names_timeout.add(other_feeder_name)
+                self._other_feeder_names.discard(other_feeder_name)
+                # Start a timer to remove the name even from the timeout set so
+                # it disappears completely. If it reappears in the meantime, it
+                # will be in the regular set again.
+                threading.Timer(
+                    self.REMOVE_GRACE_PERIOD,
+                    self._maybe_remove_other_feeder_completely,
+                    args=(other_feeder_name,))
+
+    def _maybe_remove_other_feeder_completely(self, other_feeder_name):
+        with self._set_lock:
+            self._other_feeder_names_timeout.discard(other_feeder_name)
 
     def _extract_other_feeder_name(self, service_name):
         match = self._service_name_regex.match(service_name)
@@ -104,3 +137,6 @@ class FeederDiscoverer(zc.ServiceListener):
         if feeder_name == self._own_feeder_name:
             return None
         return feeder_name
+
+    def update_service(self, zc: zc.Zeroconf, type_: str, name: str) -> None:
+        pass
