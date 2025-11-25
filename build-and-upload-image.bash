@@ -117,7 +117,7 @@ version_in_image=$(cat ${mount_dir}/opt/adsb/porttracker_sdr_feeder_install_meta
 umount ${mount_dir}
 losetup -d ${loop_device}
 if [ "${version_in_image}" != "${version}" ] ; then
-    echo "Didn't fint the correct version file in the created image. Got \
+    echo "Didn't find the correct version file in the created image. Got \
         ${version_in_image}, expected ${version}."
     exit 1
 fi
