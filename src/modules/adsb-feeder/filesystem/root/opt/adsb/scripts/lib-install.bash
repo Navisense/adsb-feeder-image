@@ -25,6 +25,7 @@ find_missing_packages() {
     local PKG_NAME_PYTHON3_FLASK_LOGIN="python3-flask-login"
     local PKG_NAME_PYTHON3_REQUESTS="python3-requests"
     local PKG_NAME_PYTHON3_BCRYPT="python3-bcrypt"
+    local PKG_NAME_PYTHON3_ZEROCONF="python3-zeroconf"
     local PKG_NAME_CURL="curl"
     local PKG_NAME_GIT="git"
     local PKG_NAME_DOCKER="docker"
@@ -50,6 +51,7 @@ find_missing_packages() {
         PKG_NAME_PYTHON3_FLASK_LOGIN="py3-flask-login"
         PKG_NAME_PYTHON3_REQUESTS="py3-requests"
         PKG_NAME_PYTHON3_BCRYPT="py3-bcrypt"
+        PKG_NAME_PYTHON3_ZEROCONF="py3-zeroconf"
         PKG_NAME_DOCKER_COMPOSE="docker-cli-compose"
     fi
     local missing=""
@@ -60,6 +62,7 @@ find_missing_packages() {
         python3 -c "import flask" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
         python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
         python3 -c "import flask_login" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK_LOGIN} "
+        python3 -c "import zeroconf" &>/dev/null || missing+="${PKG_NAME_PYTHON3_ZEROCONF} "
         python3 -c "import bcrypt" &>/dev/null || missing+="${PKG_NAME_PYTHON3_BCRYPT} "
     else
         missing+="${PKG_NAME_PYTHON3} ${PKG_NAME_PYTHON3_FLASK} ${PKG_NAME_PYTHON3_FLASK_LOGIN} ${PKG_NAME_PYTHON3_REQUESTS} ${PKG_NAME_PYTHON3_BCRYPT} "
