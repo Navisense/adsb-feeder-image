@@ -2409,53 +2409,64 @@ class AdsbIm:
         return has_changed
 
     def _set_timezone(self, timezone):
-        # timezones don't have spaces, only underscores
-        # replace spaces with underscores to correct this common error
+        # Time zones don't have spaces, only underscores. Replace spaces with
+        # underscores to correct this common error.
         timezone = timezone.replace(" ", "_")
-
-        success = self._set_system_timezone(timezone)
-        if success:
-            self._conf.set("tz", timezone)
-        else:
-            self._logger.warning(
-                f"Timezone {timezone} probably invalid, defaulting to UTC.",
-                flash_message=True)
-            self._conf.set("tz", "UTC")
-            self._set_system_timezone("UTC")
-
-    def _set_system_timezone(self, timezone):
-        # timedatectl can fail on dietpi installs (Failed to connect to bus: No
-        # such file or directory) thus don't rely on timedatectl and just set
-        # environment for containers regardless of timedatectl working
         try:
-            self._logger.info(f"Calling timedatectl set-timezone {timezone}")
-            subprocess.run(["timedatectl", "set-timezone", f"{timezone}"],
-                           check=True)
-        except subprocess.SubprocessError:
+            self._set_system_timezone(timezone)
+        except:
             self._logger.exception(
-                f"Failed to set up timezone ({timezone}) using timedatectl, "
-                "try dpkg-reconfigure instead")
+                f"Error setting time zone {timezone} (probably invalid), "
+                "defaulting to UTC.", flash_message=True)
+            timezone = "UTC"
             try:
-                subprocess.run(
-                    ["test", "-f", f"/usr/share/zoneinfo/{timezone}"],
-                    check=True)
+                self._set_system_timezone(timezone)
             except:
                 self._logger.exception(
-                    f"Setting timezone: /usr/share/zoneinfo/{timezone} "
-                    "doesn't exist")
-                return False
-            try:
-                subprocess.run([
-                    "ln", "-sf", f"/usr/share/zoneinfo/{timezone}",
-                    "/etc/localtime"])
-                subprocess.run(
-                    "dpkg-reconfigure --frontend noninteractive tzdata",
-                    shell=True)
-            except:
-                pass
-
+                    "Error setting time zone to UTC.", flash_message=True)
+                return
+        self._conf.set("tz", timezone)
         self._logger.info(f"Time zone changed to {timezone}.")
-        return True
+
+    def _set_system_timezone(self, timezone):
+        try:
+            util.shell_with_combined_output(
+                f"timedatectl set-timezone {timezone}", check=True)
+            return
+        except:
+            self._logger.exception(
+                f"Failed to set timezone {timezone} using timedatectl, trying "
+                "to link timezone file instead.")
+        # timedatectl can fail on dietpi installs (Failed to connect to
+        # bus: No such file or directory), and on postmarketOS (Access denied,
+        # even as root). Just link the time zone file and restart the
+        # corresponding service.
+        timezone_file = pathlib.Path(f"/usr/share/zoneinfo/{timezone}")
+        if not timezone_file.is_file():
+            raise ValueError(f"Timezone file {timezone_file} doesn't exist.")
+        try:
+            util.shell_with_combined_output(
+                f"ln -sf {timezone_file} /etc/localtime", check=True)
+        except Exception as e:
+            raise ValueError(
+                "Unable to set time zone by linking timezone file.") from e
+        self._logger.debug("Linked time zone file.")
+        try:
+            procs = system.systemctl().run(["restart"], ["systemd-timedated"])
+            procs[0].check_returncode()
+            return
+        except:
+            self._logger.exception(
+                "Unable to apply time zone change by restarting "
+                "systemd-timedated.")
+        try:
+            util.shell_with_combined_output(
+                "dpkg-reconfigure --frontend noninteractive tzdata",
+                check=True)
+        except Exception as e:
+            raise ValueError(
+                "Unable to apply time zone change by running dpkg-reconfigure."
+            )
 
     def temperatures(self):
         temperature_file = pathlib.Path(
