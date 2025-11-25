@@ -397,6 +397,8 @@ class AdsbIm:
         self._conf = conf
         self._system = sys
         self._connectivity_monitor = connectivity_monitor
+        self._feeder_discoverer = net.FeederDiscoverer(
+            self._conf.get("feeder_name"))
         self._hotspot_app = hotspot_app
         self._hotspot_mode = False
         self._server = self._server_thread = None
@@ -680,6 +682,11 @@ class AdsbIm:
             "version_info",
             view_func=self.version_info,
             view_func_wrappers=[self._decide_route_hotspot_mode],
+        )
+        app.add_url_rule(
+            "/api/feeder-discovery",
+            "feeder_discovery",
+            view_func=self.feeder_discovery,
         )
         app.add_url_rule(
             "/api/get_temperatures.json",
@@ -1021,6 +1028,7 @@ class AdsbIm:
         # reset undervoltage indicator
         self._conf.set("under_voltage", False)
 
+        self._feeder_discoverer.start()
         self._dmesg_monitor.start()
         self._reception_monitor.start()
 
@@ -1048,6 +1056,7 @@ class AdsbIm:
         self.exiting = True
         self._reception_monitor.stop()
         self._dmesg_monitor.stop()
+        self._feeder_discoverer.stop()
         for task in self._background_tasks.values():
             task.stop_and_wait()
         self._executor.shutdown()
@@ -2894,6 +2903,9 @@ class AdsbIm:
         else:
             return "Invalid hotspot mode.", 400
         return redirect(url_for("systemmgmt"))
+
+    def feeder_discovery(self):
+        return list(self._feeder_discoverer.other_feeder_names)
 
 
 class Manager:

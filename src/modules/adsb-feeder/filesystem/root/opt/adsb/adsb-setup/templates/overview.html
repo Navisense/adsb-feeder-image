@@ -193,6 +193,24 @@
       <div id="version-info"></div>
     </div>
   </div>
+  <div class="card my-2">
+    <div class="card-body">
+      <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
+        <span class="text-muted me-2 d-none d-sm-inline">
+          Last update: <span id="last-update-device-discovery-counter">never</span>
+        </span>
+        <button id="last-update-device-discovery-button"
+                type="button"
+                class="btn btn-secondary btn-floating"
+                onclick="updateOtherFeeders()">
+          <span class="fas fa-arrows-rotate"></span>
+        </button>
+      </div>
+      <h5 class="card-title">Other devices</h5>
+      <div id="device-discovery" class="row my-3"></div>
+      <p class="text-muted">Note that only devices that have mDNS enabled can be discovered here.</p>
+    </div>
+  </div>
   <script src="{{ url_for('static', filename='js/chart.js') }}"
           integrity="sha256-QvTb/nDEMP/CLHEo82yujVmcrJC4zTfI9CpZ5WXl3rc="
           crossorigin="anonymous"></script>
@@ -712,6 +730,35 @@
         });
     }
 
+    function updateOtherFeeders(versionInfo) {
+        $.ajax("{{ url_for('feeder_discovery') }}").done(function (otherFeeders) {
+          if (!otherFeeders.length) {
+            $("#device-discovery").html(makeNotificationCardRowHtml(
+              "info", "No other devices", "No other Porttracker SDR devices have been found on the network."));
+          } else {
+            $("#device-discovery").html(`
+              <p>${otherFeeders.length} other device(s) have been found on the network.</p>
+              <div id="other-devices"></div>`);
+            for (const feederName of otherFeeders) {
+              $("#other-devices").append(`
+              <div class="col-12 col-xl-6">
+                <div class="card my-2">
+                  <div class="card-body">
+                    <h5 class="card-title">${feederName}</h5>
+                    <a href="http://${feederName}.local">http://${feederName}.local</a>
+                  </div>
+                </div>
+              </div>`);
+            }
+          }
+          otherFeederUpdateCounter.reset();
+        }).fail(function(jqXHR) {
+          $("#device-discovery").html(makeNotificationCardRowHtml(
+            "error", "Error getting other devices",
+            "Error getting info about other Porttracker SDR devices on the network."));
+        });
+    }
+
     const connectivityUpdateCounter = new UpdateTimeCounter(
       "last-update-connectivity-counter", "last-update-connectivity-button");
     const sdrDevicesUpdateCounter = new UpdateTimeCounter(
@@ -722,10 +769,13 @@
       "last-update-aggregators-counter", "last-update-aggregators-button");
     const versionUpdateCounter = new UpdateTimeCounter(
       "last-update-version-counter", "last-update-version-button");
+    const otherFeederUpdateCounter = new UpdateTimeCounter(
+      "last-update-device-discovery-counter", "last-update-device-discovery-button");
     registerTask("Update connectivity info", 60000, updateConnectivityInfo);
     registerTask("Update SDR devices", 15000, updateSdrDevices);
     registerTask("Update reception stats", 15000, updateReceptionStats);
     registerTask("Update aggregator infos", 60000, updateAggregatorInfos);
     registerTask("Update version info", 60000, updateVersionInfo);
+    registerTask("Update other feeder info", 60000, updateOtherFeeders);
   </script>
 {% endblock content %}
