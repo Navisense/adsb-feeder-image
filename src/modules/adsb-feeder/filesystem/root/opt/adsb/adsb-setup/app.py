@@ -1042,13 +1042,7 @@ class AdsbIm:
         self._server_thread.start()
 
     def update_config(self):
-        # hopefully very temporary hack to deal with a broken container that
-        # doesn't run on Raspberry Pi 5 boards
-        board = self._conf.get("board_name", default="")
-        if board.startswith("Raspberry Pi 5"):
-            self._conf.set(
-                "images.planefinder",
-                "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64")
+        pass
 
     def stop(self):
         if not self._server:

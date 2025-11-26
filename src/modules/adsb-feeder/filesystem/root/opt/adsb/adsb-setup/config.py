@@ -303,6 +303,16 @@ def _generate_mdns_hostnames(conf: "Config") -> list[str]:
     return [conf.get("feeder_name")]
 
 
+def _generate_planefinder_image(conf: "Config") -> str:
+    # Hopefully very temporary hack to deal with a broken container that
+    # doesn't run on Raspberry Pi 5 boards.
+    # TODO Turn this setting back into a constant once the latest image works
+    # on the Raspi 5 again.
+    if conf.get("board_name", default="").startswith("Raspberry Pi 5"):
+        return "ghcr.io/sdr-enthusiasts/docker-planefinder:5.0.161_arm64"
+    return "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464"
+
+
 class Setting(abc.ABC):
     """
     Abstract setting.
@@ -1326,8 +1336,8 @@ class Config(CompoundSetting):
                     "ghcr.io/sdr-enthusiasts/docker-opensky-network:latest-build-772",
                     env_variable_name="DOCKER_IMAGE_OPENSKY"),
                 "planefinder": ft.partial(
-                    ConstantSetting, constant_value=
-                    "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464",
+                    GeneratedSetting,
+                    value_generator=_generate_planefinder_image,
                     env_variable_name="DOCKER_IMAGE_PLANEFINDER"),
                 "adsbhub": ft.partial(
                     ConstantSetting, constant_value=
