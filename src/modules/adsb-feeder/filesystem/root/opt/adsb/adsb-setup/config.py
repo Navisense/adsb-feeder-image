@@ -909,7 +909,7 @@ class Config(CompoundSetting):
     of the underlying config dictionary (e.g. changes to default values and
     environment variables) don't require a new config version.
     """
-    CONFIG_VERSION = 17
+    CONFIG_VERSION = 18
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1286,7 +1286,6 @@ class Config(CompoundSetting):
                 "is_persistent": ft.partial(
                     GeneratedSetting, value_generator=_journal_is_persistent),
             }),
-        "ssh_configured": BoolSetting,
         "mandatory_config_is_complete": ft.partial(
             GeneratedSetting, value_generator=_mandatory_config_is_complete),
         "aggregators_chosen": ft.partial(BoolSetting, default=False),
@@ -1881,6 +1880,14 @@ class Config(CompoundSetting):
         del config_dict["mdns"]["domains"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_17_to_18(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This setting is no longer used.
+        del config_dict["ssh_configured"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1897,7 +1904,8 @@ class Config(CompoundSetting):
                          (13, 14): _upgrade_config_dict_from_13_to_14,
                          (14, 15): _upgrade_config_dict_from_14_to_15,
                          (15, 16): _upgrade_config_dict_from_15_to_16,
-                         (16, 17): _upgrade_config_dict_from_16_to_17}
+                         (16, 17): _upgrade_config_dict_from_16_to_17,
+                         (17, 18): _upgrade_config_dict_from_17_to_18}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
