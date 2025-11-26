@@ -1800,6 +1800,25 @@ class AdsbIm:
         flash("Range outline reset successful.", category="success")
         return redirect(url_for("visualization"))
 
+    def set_ssh_credentials(self):
+        ssh_dir = pathlib.Path("/root/.ssh")
+        ssh_dir.mkdir(mode=0o700, exist_ok=True)
+        try:
+            with (ssh_dir / "authorized_keys").open("a+") as authorized_keys:
+                authorized_keys.write(f"{request.form['ssh-public-key']}\n")
+        except:
+            self._logger.exception(
+                "Failed to write ssh public key.", flash_message=True)
+        try:
+            system.systemctl().run(["enable --now"], ["sshd.service"])
+            self._logger.info(
+                "Added public key to authorized keys.", flash_message=True,
+                flash_category="success")
+        except:
+            self._logger.exception(
+                "Failed to enable sshd.", flash_message=True)
+        return redirect(url_for("systemmgmt"))
+
     def create_root_password(self):
         password_plain = request.form["password"]
         if not password_plain:
@@ -2616,25 +2635,6 @@ class AdsbIm:
                         time.sleep(0.2)
 
         return Response(tail(), mimetype="text/event-stream")
-
-    def set_ssh_credentials(self):
-        ssh_dir = pathlib.Path("/root/.ssh")
-        ssh_dir.mkdir(mode=0o700, exist_ok=True)
-        with open(ssh_dir / "authorized_keys", "a+") as authorized_keys:
-            authorized_keys.write(f"{request.form['ssh-public-key']}\n")
-        self._conf.set("ssh_configured", True)
-        proc = util.shell_with_combined_output(
-            "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
-            + "systemctl enable --now ssh || systemctl enable --now dropbear",
-            timeout=60)
-        try:
-            proc.check_returncode()
-        except:
-            self._logger.exception(
-                f"Failed to enable ssh: {proc.stdout}",
-                flash_message="Failed to enable ssh - check the logs "
-                "for details.")
-        return redirect(url_for("systemmgmt"))
 
     def set_admin_password(self):
         password_plain = request.form["password"]
