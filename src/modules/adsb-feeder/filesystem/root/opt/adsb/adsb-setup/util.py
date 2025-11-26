@@ -9,7 +9,8 @@ import requests
 import subprocess
 import tempfile
 import threading
-from typing import Optional
+import typing as t
+from typing import Literal, Optional
 
 import flask
 
@@ -293,58 +294,69 @@ class FlashingLogger(logging.getLoggerClass()):
 
     flash_message may be the message to show, or a boolean. If simply set to
     True, the same message that is logged will be flashed.
+
+    A flash_category may be specified, which must be one of "success", "info",
+    "warning", "error", or "message". If unset, it is based on the log level.
     """
+    FlashCategory = Literal["success", "info", "warning", "error", "message"]
+
     def log(
             self, level: int, msg: str, *args,
-            flash_message: bool | str = False, **kwargs):
-        if level in [logging.DEBUG, logging.INFO]:
-            category = "info"
+            flash_message: bool | str = False,
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        if flash_category is not None:
+            # Custom category, we want to use this.
+            pass
+        elif level in [logging.DEBUG, logging.INFO]:
+            flash_category = "info"
         elif level == logging.WARNING:
-            category = "warning"
+            flash_category = "warning"
         elif level in [logging.ERROR, logging.CRITICAL]:
-            category = "error"
+            flash_category = "error"
         else:
-            category = "message"
-        self._maybe_flash(flash_message, msg, category)
+            flash_category = "message"
+        self._maybe_flash(flash_message, msg, flash_category)
         return super().log(level, msg, *args, **kwargs)
 
     def debug(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "info")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "info")
         return super().debug(msg, *args, **kwargs)
 
     def info(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "info")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "info")
         return super().info(msg, *args, **kwargs)
 
     def warning(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "warning")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "warning")
         return super().warning(msg, *args, **kwargs)
 
     def error(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "error")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "error")
         return super().error(msg, *args, **kwargs)
 
     def critical(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "error")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "error")
         return super().critical(msg, *args, **kwargs)
 
     def exception(
             self, msg: str, *args, flash_message: bool | str = False,
-            **kwargs):
-        self._maybe_flash(flash_message, msg, "error")
+            flash_category: Optional[FlashCategory] = None, **kwargs):
+        self._maybe_flash(flash_message, msg, flash_category or "error")
         return super().exception(msg, *args, **kwargs)
 
-    def _maybe_flash(self, flash_message, msg, category):
+    def _maybe_flash(self, flash_message, msg, flash_category):
+        if flash_category not in t.get_args(self.FlashCategory):
+            raise ValueError("Invalid flash category.")
         if not flash_message:
             return
         elif flash_message is True:
@@ -354,7 +366,7 @@ class FlashingLogger(logging.getLoggerClass()):
                 "This logger was used to try and flash a message, but the "
                 "necessary Flask request context is not available.")
         else:
-            flask.flash(flash_message, category)
+            flask.flash(flash_message, flash_category)
 
 
 class RepeatingTask:
