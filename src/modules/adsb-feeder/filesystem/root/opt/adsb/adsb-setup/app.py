@@ -1802,6 +1802,12 @@ class AdsbIm:
 
     def create_root_password(self):
         password_plain = request.form["password"]
+        if not password_plain:
+            self._logger.error(
+                "Not updating root password because it was empty.",
+                flash_message="An empty password is not allowed. Please try "
+                "again.")
+            return redirect(url_for("systemmgmt"))
         if password_plain != request.form["password-repeated"]:
             self._logger.error(
                 "Not updating root password because passwords don't match.",
