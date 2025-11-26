@@ -146,22 +146,20 @@
       <div class="card h-100">
         <div class="card-body">
           <h5 class="card-title m-1">Install SSH credentials</h5>
-          <form method="post"
-                action="{{ url_for('set-ssh-credentials') }}"
-                onsubmit="showSpinner(); return true;">
+          <form method="post" action="{{ url_for('set-ssh-credentials') }}">
             <div class="row align-items-center">
               <div class="col-12">
                 <label for="ssh-public-key" class="m-1">
-                  Enter or paste your public key below. This will allow you to then log in as root on the feeder SBC.
+                  Enter or paste your public key below. This will allow you to log in as root on the device.
                 </label>
               </div>
               <div class="col-12 col-md-8">
-                <input class="m-1 w-100"
-                       id="ssh-public-key"
-                       name="ssh-public-key"
-                       type="text"
-                       placeholder="Enter your public key"
-                       required>
+                <textarea class="m-1 w-100"
+                          id="ssh-public-key"
+                          name="ssh-public-key"
+                          placeholder="Enter your public key"
+                          rows="5"
+                          required></textarea>
               </div>
               <div class="col-12 col-md-4">
                 <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
@@ -175,9 +173,7 @@
       <div class="card h-100">
         <div class="card-body">
           <h5 class="card-title m-1">Set new root password</h5>
-          <form method="post"
-                action="{{ url_for('create-root-password') }}"
-                onsubmit="showSpinner(); return true;">
+          <form method="post" action="{{ url_for('create-root-password') }}">
             <div class="row align-items-center">
               <div class="col-12">
                 <label for="root_password" class="m-1">
