@@ -1803,49 +1803,51 @@ class AdsbIm:
     def create_root_password(self):
         password_plain = request.form["password"]
         if password_plain != request.form["password-repeated"]:
-            flash(
-                "The repeated password does not match. Password was not "
-                "updated. Please try again.", category="error")
+            self._logger.error(
+                "Not updating root password because passwords don't match.",
+                flash_message="The repeated password does not match. "
+                "Password was not updated. Please try again.")
             return redirect(url_for("systemmgmt"))
 
-        self._logger.info("Updating the root password.")
-        issues_encountered = False
-        proc = util.shell_with_combined_output(
-            f"echo 'root:{password_plain}' | chpasswd")
         try:
-            proc.check_returncode()
-        except:
-            self._logger.exception("Failed to overwrite root password.")
-            issues_encountered = True
-
-        if os.path.exists("/etc/ssh/sshd_config"):
             proc = util.shell_with_combined_output(
-                "sed -i '/^PermitRootLogin.*/d' /etc/ssh/sshd_config &&"
-                + "echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config && "
-                + "systemctl restart sshd", timeout=5)
-            try:
-                proc.check_returncode()
-            except:
-                self._logger.exception("Failed to enable root login in sshd.")
-                issues_encountered = True
-
-        proc = util.shell_with_combined_output(
-            "systemctl is-enabled sshd || systemctl is-enabled dropbear || "
-            + "systemctl enable --now sshd || systemctl enable --now dropbear",
-            timeout=60)
-        try:
-            proc.check_returncode()
+                f"echo 'root:{password_plain}' | chpasswd", check=True)
         except:
-            self._logger.exception("Failed to enable ssh.")
-            issues_encountered = True
+            self._logger.exception(
+                "Failed to change root password.", flash_message=True)
+            return redirect(url_for("systemmgmt"))
 
-        if issues_encountered:
-            self._logger.error(
-                "Failure while setting root password, check logs for details",
+        sshd_config = pathlib.Path("/etc/ssh/sshd_config")
+        if sshd_config.exists():
+            try:
+                proc = util.shell_with_combined_output(
+                    f"sed -i '/^PermitRootLogin.*/d' {sshd_config}",
+                    check=True)
+            except:
+                self._logger.exception(
+                    "Failed to remove root login setting in sshd config.",
+                    flash_message=True)
+                return redirect(url_for("systemmgmt"))
+        try:
+            proc = util.shell_with_combined_output(
+                f"echo 'PermitRootLogin yes' >> {sshd_config}", check=True)
+            system.systemctl().run(["restart"], ["sshd.service"])
+        except:
+            self._logger.exception(
+                "Failed to enable root login in sshd config.",
                 flash_message=True)
-        else:
-            flash("Root password updated.", category="success")
+            return redirect(url_for("systemmgmt"))
 
+        try:
+            system.systemctl().run(["enable --now"], ["sshd.service"])
+        except:
+            self._logger.exception(
+                "Failed to enable sshd.", flash_message=True)
+            return redirect(url_for("systemmgmt"))
+
+        self._logger.info(
+            "Root password updated.", flash_message=True,
+            flash_category="success")
         return redirect(url_for("systemmgmt"))
 
     def set_rtl_gain(self):
