@@ -13,11 +13,9 @@ import pathlib
 import queue
 import re
 import shlex
-import secrets
 import select
 import signal
 import shutil
-import string
 import subprocess
 import tempfile
 import threading
@@ -1802,10 +1800,18 @@ class AdsbIm:
         flash("Range outline reset successful.", category="success")
         return redirect(url_for("visualization"))
 
-    def set_rpw(self):
+    def create_root_password(self):
+        password_plain = request.form["password"]
+        if password_plain != request.form["password-repeated"]:
+            flash(
+                "The repeated password does not match. Password was not "
+                "updated. Please try again.", category="error")
+            return redirect(url_for("systemmgmt"))
+
+        self._logger.info("Updating the root password.")
         issues_encountered = False
         proc = util.shell_with_combined_output(
-            f"echo 'root:{self.rpw}' | chpasswd")
+            f"echo 'root:{password_plain}' | chpasswd")
         try:
             proc.check_returncode()
         except:
@@ -1820,12 +1826,12 @@ class AdsbIm:
             try:
                 proc.check_returncode()
             except:
-                self._logger.exception("Failed to allow root ssh login.")
+                self._logger.exception("Failed to enable root login in sshd.")
                 issues_encountered = True
 
         proc = util.shell_with_combined_output(
-            "systemctl is-enabled ssh || systemctl is-enabled dropbear || "
-            + "systemctl enable --now ssh || systemctl enable --now dropbear",
+            "systemctl is-enabled sshd || systemctl is-enabled dropbear || "
+            + "systemctl enable --now sshd || systemctl enable --now dropbear",
             timeout=60)
         try:
             proc.check_returncode()
@@ -1837,6 +1843,10 @@ class AdsbIm:
             self._logger.error(
                 "Failure while setting root password, check logs for details",
                 flash_message=True)
+        else:
+            flash("Root password updated.", category="success")
+
+        return redirect(url_for("systemmgmt"))
 
     def set_rtl_gain(self):
         gaindir = (config.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
@@ -1988,16 +1998,11 @@ class AdsbIm:
         zerotier_running = False
         proc = util.shell_with_combined_output("ps -e", timeout=2)
         zerotier_running = "zerotier-one" in proc.stdout
-        # Create a potential new root password in case the user wants to change
-        # it.
-        alphabet = string.ascii_letters + string.digits
-        self.rpw = "".join(secrets.choice(alphabet) for i in range(12))
         stable_versions = net.gitlab_repo().get_semver_tags()
         return render_template(
             "systemmgmt.html",
             tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
-            rpw=self.rpw,
             stable_versions=stable_versions,
             containers=self._system.containers,
             wifi=self.wifi_ssid,
@@ -2621,11 +2626,6 @@ class AdsbIm:
                 f"Failed to enable ssh: {proc.stdout}",
                 flash_message="Failed to enable ssh - check the logs "
                 "for details.")
-        return redirect(url_for("systemmgmt"))
-
-    def create_root_password(self):
-        self._logger.info("Updating the root password.")
-        self.set_rpw()
         return redirect(url_for("systemmgmt"))
 
     def set_admin_password(self):

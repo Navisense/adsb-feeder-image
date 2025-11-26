@@ -174,36 +174,43 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
-          <h5 class="card-title m-1">Create new random root password</h5>
+          <h5 class="card-title m-1">Set new root password</h5>
           <form method="post"
                 action="{{ url_for('create-root-password') }}"
                 onsubmit="showSpinner(); return true;">
             <div class="row align-items-center">
               <div class="col-12">
                 <label for="root_password" class="m-1">
-                  If you need to be able to log into the image as root user (and really, you almost never should need
-                  to), click on 'Show New Random Password' below, copy the random password shown, and then click
-                  'Accept'.
-                  <br>
-                  After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
-                  macOS or Linux).
+                  <p>
+                    If you need to be able to log into the device as root user (and really, you almost never should need
+                    to), you can set a password here.
+                  </p>
+                  <p>
+                    After that you'll be able to log in as root using an ssh client (e.g. putty on Windows or ssh on
+                    macOS or Linux). Note that this will also ensure that sshd is running, and enable password
+                    authentication for the root user. This is often considered a security concern, so you may want to
+                    use public key authentication instead.
+                  </p>
                 </label>
               </div>
-              <div class="row fw-light collapse align-right" id="show-root-password">
-                <div class="col-12 col-sm-9">
-                  <pre class="align-middle m-1"><code class="text-light bg-danger">{{ rpw }}</code></pre>
-                </div>
-                <div class="col-12 col-sm-3">
-                  <button type="submit" class="align-middle btn btn-primary m-1">Accept</button>
-                </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       name="password"
+                       type="password"
+                       placeholder="Password"
+                       required>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       name="password-repeated"
+                       type="password"
+                       placeholder="Password (repeated)"
+                       required>
+              </div>
+              <div class="col-12 col-lg-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Set root password</button>
               </div>
             </div>
-            <button class="btn btn-secondary btn-rounded"
-                    type="button"
-                    data-mdb-toggle="collapse"
-                    data-mdb-target="#show-root-password"
-                    aria-expanded="false"
-                    aria-controls="show-root-password">Show New Random Password</button>
           </form>
         </div>
       </div>
