@@ -1017,7 +1017,6 @@ class AdsbIm:
             raise RuntimeError("already started")
         assert self._server_thread is None
         self._ensure_running_dependencies()
-        self.update_config()
 
         # if using gpsd, try to update the location
         if self._conf.get("use_gpsd"):
@@ -1040,9 +1039,6 @@ class AdsbIm:
         self._server_thread = threading.Thread(
             target=self._server.serve_forever, name="AdsbIm")
         self._server_thread.start()
-
-    def update_config(self):
-        pass
 
     def stop(self):
         if not self._server:
@@ -3146,17 +3142,6 @@ class Manager:
 
 
 def main():
-    with system.System() as sys_:
-        conf = config.ensure_config_exists()
-        aggregators.init_aggregators(conf, sys_)
-        if "--update-config" in sys.argv:
-            # Just get AdsbIm to do some housekeeping and exit.
-            AdsbIm(conf, sys_, None, None).update_config()
-            sys.exit(0)
-        _run_app(conf, sys_)
-
-
-def _run_app(conf, sys_):
     shutdown_event = threading.Event()
 
     def signal_handler(sig, frame):
@@ -3168,9 +3153,12 @@ def _run_app(conf, sys_):
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGHUP, signal_handler)
 
-    with PidFile(), Manager(conf, sys_):
-        shutdown_event.wait()
-    logger.info("Shut down.")
+    with system.System() as sys_:
+        conf = config.ensure_config_exists()
+        aggregators.init_aggregators(conf, sys_)
+        with PidFile(), Manager(conf, sys_):
+            shutdown_event.wait()
+        logger.info("Shut down.")
 
 
 if __name__ == "__main__":

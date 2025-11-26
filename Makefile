@@ -25,9 +25,6 @@ sync-and-update:
 	# sync over changes from local repo
 	make sync-py-control
 
-	# update config
-	ssh -S "${SSH_CONTROL}" root@$(HOST) python3 /opt/adsb/adsb-setup/app.py --update-config || true
-
 	# start webinterface back up
 	ssh -S "${SSH_CONTROL}" root@$(HOST) systemctl restart adsb-setup
 
