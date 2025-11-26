@@ -898,6 +898,16 @@ class Config(CompoundSetting):
     file, and upgrade the config across versions. Any changes to the schema
     should introduce a new config version, for which there must be a migration
     function.
+
+    When the schema of the configuration changes (adding a new setting,
+    renaming an existing one, or changing a setting's type), the
+    `CONFIG_VERSION` must be incremented. A corresponding migration function
+    must be added to handle the conversion of older config file formats to the
+    new schema. This ensures backward compatibility and allows users to upgrade
+    without manually reconfiguring their settings, preserving data integrity
+    across different software versions. Changes that don't change the structure
+    of the underlying config dictionary (e.g. changes to default values and
+    environment variables) don't require a new config version.
     """
     CONFIG_VERSION = 17
     _file_lock = threading.Lock()
