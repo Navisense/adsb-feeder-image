@@ -1596,11 +1596,11 @@ class AdsbIm:
             assignments[serial] = purpose
         # For any serials that haven't explicitly been assigned a purpose in
         # the config, make a guess what they could do.
-        guessed_assignment = self._sdrdevices.get_best_guess_assignment()
         for sdr in self._sdrdevices.sdrs:
             if sdr.serial in assignments:
                 continue
-            for purpose in guessed_assignment.get(sdr.serial, []):
+            guessed_assignments = sdr.get_best_guess_assignments()
+            for purpose in guessed_assignments:
                 if purpose not in assignments.values():
                     self._logger.info(
                         f"Automatically assigning device {sdr.serial} to "

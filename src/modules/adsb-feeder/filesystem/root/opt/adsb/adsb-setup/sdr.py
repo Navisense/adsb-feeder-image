@@ -50,6 +50,17 @@ class SDR:
             return ""
         return self._info.product
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, SDR) and self._type == other._type
+            and self._address == other._address
+            and self.serial == other.serial)
+
+    def __repr__(self):
+        return (
+            f"SDR(type: '{self._type}' address: '{self._address}', "
+            f"serial: '{self.serial}')")
+
     def _probe_info(self) -> Optional[SDRInfo]:
         cmdline = f"lsusb -s {self._address} -v"
         try:
@@ -96,14 +107,31 @@ class SDR:
             return ""
         return match.group(1).strip()
 
-    def __eq__(self, other):
-        return (
-            isinstance(other, SDR) and self._type == other._type
-            and self._address == other._address
-            and self.serial == other.serial)
+    def get_best_guess_assignments(self) -> list[Literal[*PURPOSES]]:
+        """
+        Guess what this device should be used for.
 
-    def __repr__(self):
-        return f"SDR(type: '{self._type}' address: '{self._address}', serial: '{self.serial}')"
+        The returned list of purposes is ordered by descending likelihood. The
+        list may be empty if we can't figure out what to do with this device.
+        """
+        if self.type in ["airspy", "modesbeast", "sdrplay"]:
+            # These only support ADS-B (1090).
+            return ["1090"]
+        elif self.type == "stratuxv3":
+            # This only supports UAT (978).
+            return ["978"]
+        elif self.type == "rtlsdr":
+            if "1090" in self.serial:
+                # If it has 1090 in the serial, it's probably for ADS-B.
+                return ["1090", "ais", "978"]
+            elif "978" in self.serial:
+                # If it has 978 in the serial, it's probably for UAT.
+                return ["978", "ais", "1090"]
+            else:
+                return ["ais", "1090", "978"]
+        else:
+            self._logger.warning(f"Unknown SDR type {self.type}.")
+            return []
 
 
 class SDRDevices:
@@ -247,33 +275,3 @@ class SDRDevices:
         if match:
             address = f"{match.group(1)}:{match.group(2)}"
         return address
-
-    def get_best_guess_assignment(self) -> dict[str, list[Literal[*PURPOSES]]]:
-        """
-        Map SDR serials to likely purposes.
-
-        The returned dictionary maps SDR serials to a list of possible
-        purposes, ordered by descending likelihood.
-        """
-        device_purposes = {}
-        for sdr in self.sdrs:
-            if sdr.type in ["airspy", "modesbeast", "sdrplay"]:
-                # These only support ADS-B (1090).
-                purposes = ["1090"]
-            elif sdr.type == "stratuxv3":
-                # This only supports UAT (978).
-                purposes = ["978"]
-            elif sdr.type == "rtlsdr":
-                if "1090" in sdr.serial:
-                    # If it has 1090 in the serial, it's probably for ADS-B.
-                    purposes = ["1090", "ais", "978"]
-                elif "978" in sdr.serial:
-                    # If it has 978 in the serial, it's probably for UAT.
-                    purposes = ["978", "ais", "1090"]
-                else:
-                    purposes = ["ais", "1090", "978"]
-            else:
-                self._logger.warning(f"Unknown SDR type {sdr.type}.")
-                purposes = []
-            device_purposes[sdr.serial] = purposes
-        return device_purposes
