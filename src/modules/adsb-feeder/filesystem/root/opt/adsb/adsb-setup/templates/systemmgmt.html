@@ -176,7 +176,7 @@
           <form method="post" action="{{ url_for('set-root-password') }}">
             <div class="row align-items-center">
               <div class="col-12">
-                <label for="root_password" class="m-1">
+                <label for="root-password" class="m-1">
                   <p>
                     If you need to be able to log into the device as root user (and really, you almost never should need
                     to), you can set a password here.
@@ -191,6 +191,7 @@
               </div>
               <div class="col-12 col-md-6 col-lg-4">
                 <input class="m-1 w-100"
+                       id="root-password"
                        name="password"
                        type="password"
                        placeholder="Password"
