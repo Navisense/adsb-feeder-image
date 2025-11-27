@@ -25,6 +25,12 @@ USAGE="
                               # hotspot if no window manager is detected. These
                               # options can be used to override this and force
                               # the hotspot to always or never be used.
+  --managed-user username     # Modify the config to indicate that this install
+                              # comes with a user account with default password
+                              # on the device, e.g. on a ready-made image. This
+                              # will enable warnings in the interface that a
+                              # default password is in use, along with an option
+                              # to change it.
 "
 
 ROOT_REQUIRED="
@@ -45,6 +51,7 @@ ENABLE_MDNS="False"
 EXPAND_ROOTFS="False"
 AUTO_INSTALL_DEPENDENCIES="False"
 ENABLE_HOTSPOT=""
+MANAGED_USER=""
 
 while (( $# ))
 do
@@ -70,6 +77,8 @@ do
                 exit_message "Both enable/disable hotspot specified."
             fi
             ENABLE_HOTSPOT="False"
+            ;;
+        '--managed-user') shift; MANAGED_USER=$1
             ;;
         *) exit_message "$USAGE"
     esac
@@ -134,6 +143,9 @@ echo "Creating a default config at /etc/adsb/config.json."
 /opt/adsb/adsb-setup/config.py set mdns.is_enabled ${ENABLE_MDNS}
 if [ -n "${ENABLE_HOTSPOT}" ] ; then
     /opt/adsb/adsb-setup/config.py set enable_hotspot ${ENABLE_HOTSPOT}
+fi
+if [ -n "${MANAGED_USER}" ] ; then
+    /opt/adsb/adsb-setup/config.py set managed_user ${MANAGED_USER}
 fi
 
 # Run the final steps of the setup and then enable the service.
