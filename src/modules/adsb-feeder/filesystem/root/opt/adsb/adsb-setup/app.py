@@ -2543,13 +2543,12 @@ class AdsbIm:
             return render_template("support.html", url=url)
 
         if target == "termbin.com":
-            proc = util.shell_with_combined_output(
-                "bash /opt/adsb/log-sanitizer.sh 2>&1 | nc termbin.com 9999",
-                timeout=60)
             try:
-                proc.check_returncode()
-                self._logger.info(
-                    f"Uploaded logs to {proc.stdout.strip('\0\n').strip()}")
+                proc = util.shell_with_combined_output(
+                    "bash /opt/adsb/log-sanitizer.sh 2>&1 "
+                    "| nc termbin.com 9999", timeout=60, check=True)
+                url = proc.stdout.strip("\0\n").strip()
+                self._logger.info(f"Uploaded logs to {url}")
             except:
                 self._logger.exception(
                     "Failed to upload logs.", flash_message=True)
