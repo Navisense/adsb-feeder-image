@@ -706,6 +706,14 @@ class AdsbIm:
             methods=["POST"],
         )
         app.add_url_rule(
+            "/set-managed-user-password",
+            "set-managed-user-password",
+            view_func=self.set_managed_user_password,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._require_login],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/set-admin-password",
             "set-admin-password",
             view_func=self.set_admin_password,
@@ -1826,6 +1834,22 @@ class AdsbIm:
                 "root", request.form["password"],
                 request.form["password-repeated"])
             self._ensure_root_ssh_login_enabled()
+        except:
+            # The setter will log and show messages.
+            pass
+        return redirect(url_for("systemmgmt"))
+
+    def set_managed_user_password(self):
+        managed_user = self._conf.get("managed_user")
+        if not managed_user:
+            return "No managed user configured.", 400
+        try:
+            self._set_user_password(
+                managed_user, request.form["password"],
+                request.form["password-repeated"])
+            # Now that we've set a password, unset the managed user so we don't
+            # show the form again.
+            self._conf.set("managed_user", None)
         except:
             # The setter will log and show messages.
             pass

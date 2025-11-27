@@ -5,6 +5,44 @@
 {% endblock title %}
 {% block content %}
   <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
+    {% if get_conf('managed_user') %}
+      <div class="col">
+        <div class="card h-100 bg-warning">
+          <div class="card-body">
+            <h5 class="card-title m-1">Set device user password</h5>
+            <form method="post" action="{{ url_for('set-managed-user-password') }}">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <label for="managed-user-password" class="m-1">
+                    This device's configuration indicates that it has been installed from an image with a default user
+                    named <strong>{{ get_conf("managed_user") }}</strong>. The default user also has a weak default
+                    password set. You should change it here.
+                  </label>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                  <input class="m-1 w-100"
+                         id="managed-user-password"
+                         name="password"
+                         type="password"
+                         placeholder="Password"
+                         required>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                  <input class="m-1 w-100"
+                         name="password-repeated"
+                         type="password"
+                         placeholder="Password (repeated)"
+                         required>
+                </div>
+                <div class="col-12 col-lg-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Set password</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
     <div class="col">
       <div class="card h-100">
         <div class="card-body">

@@ -909,7 +909,7 @@ class Config(CompoundSetting):
     of the underlying config dictionary (e.g. changes to default values and
     environment variables) don't require a new config version.
     """
-    CONFIG_VERSION = 18
+    CONFIG_VERSION = 19
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1261,6 +1261,7 @@ class Config(CompoundSetting):
         "image_name": ft.partial(
             CachedGeneratedSetting, value_generator=ft.partial(
                 _safe_read_file, file=FRIENDLY_NAME_FILE)),
+        "managed_user": StringSetting,
         "admin_login": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(
@@ -1888,6 +1889,13 @@ class Config(CompoundSetting):
         del config_dict["ssh_configured"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_18_to_19(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        config_dict["managed_user"] = None
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1905,7 +1913,8 @@ class Config(CompoundSetting):
                          (14, 15): _upgrade_config_dict_from_14_to_15,
                          (15, 16): _upgrade_config_dict_from_15_to_16,
                          (16, 17): _upgrade_config_dict_from_16_to_17,
-                         (17, 18): _upgrade_config_dict_from_17_to_18}
+                         (17, 18): _upgrade_config_dict_from_17_to_18,
+                         (18, 19): _upgrade_config_dict_from_18_to_19}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
