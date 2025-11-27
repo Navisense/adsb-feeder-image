@@ -698,9 +698,9 @@ class AdsbIm:
             methods=["POST"],
         )
         app.add_url_rule(
-            "/create-root-password",
-            "create-root-password",
-            view_func=self.create_root_password,
+            "/set-root-password",
+            "set-root-password",
+            view_func=self.set_root_password,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._require_login],
             methods=["POST"],
@@ -1820,29 +1820,54 @@ class AdsbIm:
                 "Failed to enable sshd.", flash_message=True)
         return redirect(url_for("systemmgmt"))
 
-    def create_root_password(self):
-        password_plain = request.form["password"]
+    def set_root_password(self):
+        try:
+            self._set_user_password(
+                "root", request.form["password"],
+                request.form["password-repeated"])
+            self._ensure_root_ssh_login_enabled()
+        except:
+            # The setter will log and show messages.
+            pass
+        return redirect(url_for("systemmgmt"))
+
+    def _set_user_password(self, username, password_plain, password_repeated):
         if not password_plain:
             self._logger.error(
-                "Not updating root password because it was empty.",
+                f"Not updating password for user {username} because it was "
+                "empty.",
                 flash_message="An empty password is not allowed. Please try "
                 "again.")
-            return redirect(url_for("systemmgmt"))
-        if password_plain != request.form["password-repeated"]:
+            raise ValueError("Password must not be empty.")
+        if password_plain != password_repeated:
             self._logger.error(
-                "Not updating root password because passwords don't match.",
+                f"Not updating password for user {username} because "
+                "passwords don't match.",
                 flash_message="The repeated password does not match. "
                 "Password was not updated. Please try again.")
-            return redirect(url_for("systemmgmt"))
+            raise ValueError("Repeated password does not match.")
 
         try:
             proc = util.shell_with_combined_output(
-                f"echo 'root:{password_plain}' | chpasswd", check=True)
+                f"echo '{username}:{password_plain}' | chpasswd", check=True)
         except:
             self._logger.exception(
-                "Failed to change root password.", flash_message=True)
-            return redirect(url_for("systemmgmt"))
+                f"Failed to change password for user {username}.",
+                flash_message=True)
+            raise
 
+        try:
+            system.systemctl().run(["enable --now"], ["sshd.service"])
+        except:
+            self._logger.exception(
+                "Failed to enable sshd.", flash_message=True)
+            raise
+
+        self._logger.info(
+            f"Password for user {username} updated.", flash_message=True,
+            flash_category="success")
+
+    def _ensure_root_ssh_login_enabled(self):
         sshd_config = pathlib.Path("/etc/ssh/sshd_config")
         if sshd_config.exists():
             try:
@@ -1853,7 +1878,6 @@ class AdsbIm:
                 self._logger.exception(
                     "Failed to remove root login setting in sshd config.",
                     flash_message=True)
-                return redirect(url_for("systemmgmt"))
         try:
             proc = util.shell_with_combined_output(
                 f"echo 'PermitRootLogin yes' >> {sshd_config}", check=True)
@@ -1862,19 +1886,6 @@ class AdsbIm:
             self._logger.exception(
                 "Failed to enable root login in sshd config.",
                 flash_message=True)
-            return redirect(url_for("systemmgmt"))
-
-        try:
-            system.systemctl().run(["enable --now"], ["sshd.service"])
-        except:
-            self._logger.exception(
-                "Failed to enable sshd.", flash_message=True)
-            return redirect(url_for("systemmgmt"))
-
-        self._logger.info(
-            "Root password updated.", flash_message=True,
-            flash_category="success")
-        return redirect(url_for("systemmgmt"))
 
     def set_rtl_gain(self):
         gaindir = (config.CONFIG_DIR / "ultrafeeder/globe_history/autogain")
