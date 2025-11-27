@@ -4,7 +4,7 @@ import re
 import subprocess
 import threading
 import time
-from typing import Optional
+from typing import Literal, Optional
 
 
 @dc.dataclass
@@ -104,6 +104,8 @@ class SDR:
 
 
 class SDRDevices:
+    PURPOSES = frozenset(["978", "1090", "ais"])
+
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self.sdrs: list[SDR] = []
@@ -243,40 +245,33 @@ class SDRDevices:
             address = f"{match.group(1)}:{match.group(2)}"
         return address
 
-    def get_best_guess_assignment(self):
+    def get_best_guess_assignment(self) -> dict[str, list[Literal[*PURPOSES]]]:
+        """
+        Map SDR serials to likely purposes.
+
+        The returned dictionary maps SDR serials to a list of possible
+        purposes, ordered by descending likelihood.
+        """
         self.ensure_populated()
-        # - if we find an airspy, that's for 1090
-        # - if we find an stratuxv3, that's for 978
-        # - if we find an RTL SDR with serial 1090 or 00001090 - well, that's for 1090 (unless it's an airspy)
-        # - if we find an RTL SDR with serial 978 or 00000978 - that's for 978 (if you have more than one SDR)
-        # - if we find an RTL SDR with a different serial, that's for 1090 (if we don't have one already)
-        # - if, at the end, an RTL SDR is unassigned, that's for AIS
-        # Make sure one SDR is used per frequency at most...
-        assignment = {}
+        device_purposes = {}
         for sdr in self.sdrs:
             if sdr.type in ["airspy", "modesbeast", "sdrplay"]:
-                assignment.setdefault("1090", sdr.serial)
+                # These only support ADS-B (1090).
+                purposes = ["1090"]
             elif sdr.type == "stratuxv3":
-                assignment.setdefault("978", sdr.serial)
+                # This only supports UAT (978).
+                purposes = ["978"]
             elif sdr.type == "rtlsdr":
                 if "1090" in sdr.serial:
-                    assignment.setdefault("1090", sdr.serial)
-                elif "978" in sdr.serial and len(self.sdrs) > 1:
-                    assignment.setdefault("978", sdr.serial)
+                    # If it has 1090 in the serial, it's probably for ADS-B.
+                    purposes = ["1090", "978", "ais"]
+                elif "978" in sdr.serial:
+                    # If it has 978 in the serial, it's probably for UAT.
+                    purposes = ["978", "1090", "ais"]
                 else:
-                    assignment.setdefault("1090", sdr.serial)
+                    purposes = ["1090", "978", "ais"]
             else:
                 self._logger.warning(f"Unknown SDR type {sdr.type}.")
-        if not assignment and self.sdrs:
-            # Nothing is assigned, but we have devices. Use the first one for
-            # 1090.
-            assignment["1090"] = self.sdrs[0].serial
-        try:
-            unassigned_rtlsdr = next(
-                sdr for sdr in self.sdrs if sdr.type == "rtlsdr"
-                and sdr.serial not in assignment.values())
-            # This one isn't assigned yet, use it for AIS.
-            assignment.setdefault("ais", unassigned_rtlsdr.serial)
-        except StopIteration:
-            pass
-        return assignment
+                purposes = []
+            device_purposes[sdr.serial] = purposes
+        return device_purposes

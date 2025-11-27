@@ -1599,14 +1599,19 @@ class AdsbIm:
                     "purpose. This is a configuration error.")
                 continue
             assignments[serial] = purpose
-        # For any serials without a job, make a guess what they could do.
+        # For any serials that haven't explicitly been assigned a purpose in
+        # the config, make a guess what they could do.
         guessed_assignment = self._sdrdevices.get_best_guess_assignment()
-        for purpose, serial in guessed_assignment.items():
-            if (serial not in assignments
-                    and purpose not in assignments.values()):
-                self._logger.info(
-                    f"Automatically assigning device {serial} to {purpose}.")
-                assignments[serial] = purpose
+        for sdr in self._sdrdevices.sdrs:
+            if sdr.serial in assignments:
+                continue
+            for purpose in guessed_assignment.get(sdr.serial, []):
+                if purpose not in assignments.values():
+                    self._logger.info(
+                        f"Automatically assigning device {sdr.serial} to "
+                        f"{purpose}.")
+                    assignments[sdr.serial] = purpose
+                    break
         sdr_device_dicts = []
         for sdr in self._sdrdevices.sdrs:
             sdr_device_dicts.append({
