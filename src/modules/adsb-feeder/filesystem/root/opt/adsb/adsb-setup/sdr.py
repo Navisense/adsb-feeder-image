@@ -264,12 +264,12 @@ class SDRDevices:
             elif sdr.type == "rtlsdr":
                 if "1090" in sdr.serial:
                     # If it has 1090 in the serial, it's probably for ADS-B.
-                    purposes = ["1090", "978", "ais"]
+                    purposes = ["1090", "ais", "978"]
                 elif "978" in sdr.serial:
                     # If it has 978 in the serial, it's probably for UAT.
-                    purposes = ["978", "1090", "ais"]
+                    purposes = ["978", "ais", "1090"]
                 else:
-                    purposes = ["1090", "978", "ais"]
+                    purposes = ["ais", "1090", "978"]
             else:
                 self._logger.warning(f"Unknown SDR type {sdr.type}.")
                 purposes = []
