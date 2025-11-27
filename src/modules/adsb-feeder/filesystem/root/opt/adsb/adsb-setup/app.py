@@ -171,8 +171,7 @@ class PidFile:
 
 
 class DmesgMonitor:
-    def __init__(self, *, on_usb_change, on_undervoltage):
-        self._on_usb_change = on_usb_change
+    def __init__(self, *, on_undervoltage):
         self._on_undervoltage = on_undervoltage
         self._monitor_thread = None
         self._keep_running = True
@@ -224,9 +223,6 @@ class DmesgMonitor:
                     new_output += proc.stdout.readline()
                 if not new_output:
                     continue
-                if ("New USB device found" in new_output
-                        or "USB disconnect" in new_output):
-                    self._on_usb_change()
                 if ("Undervoltage" in new_output
                         or "under-voltage" in new_output):
                     self._on_undervoltage
@@ -412,7 +408,6 @@ class AdsbIm:
         self.undervoltage_epoch = 0
         self.lastSetGainWrite = 0
         self._dmesg_monitor = DmesgMonitor(
-            on_usb_change=self._sdrdevices.ensure_populated,
             on_undervoltage=self._set_undervoltage)
 
         self.exiting = False
@@ -2235,8 +2230,6 @@ class AdsbIm:
         # make sure DNS works, every 5 minutes is sufficient
         if time.time() - self.last_dns_check > 300:
             self.update_dns_state()
-
-        self._sdrdevices.ensure_populated()
 
         self.update_net_dev()
 

@@ -108,11 +108,11 @@ class SDRDevices:
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
-        self.sdrs: list[SDR] = []
+        self._sdrs = []
         self.lsusb_output = ""
-        self.last_probe = 0
-        self.last_debug_out = ""
-        self.lock = threading.Lock()
+        self._last_probe = 0
+        self._last_debug_out = ""
+        self._sdr_lock = threading.Lock()
 
     def __len__(self):
         return len(self.sdrs)
@@ -124,8 +124,16 @@ class SDRDevices:
     def purposes(self):
         return ("978", "1090", "ais")
 
-    def _update_sdrs(self):
-        self.debug_out = "_update_sdrs() found:\n"
+    @property
+    def sdrs(self) -> list[SDR]:
+        with self._sdr_lock:
+            if time.monotonic() - self._last_probe > 1:
+                self._last_probe = time.monotonic()
+                self._sdrs = self._get_sdrs()
+            return self._sdrs
+
+    def _get_sdrs(self):
+        debug_out = "_get_sdrs() found:\n"
         try:
             result = subprocess.run("lsusb", shell=True, capture_output=True)
         except subprocess.SubprocessError:
@@ -135,9 +143,10 @@ class SDRDevices:
         self.lsusb_output = f"lsusb: {lsusb_text}"
 
         output = lsusb_text.split("\n")
-        self.sdrs = []
+        sdrs = []
 
         def check_pidvid(pv_list=[], sdr_type=None):
+            nonlocal debug_out
             if not sdr_type:
                 self._logger.warning("Bad code in check_pidvid.")
 
@@ -146,12 +155,15 @@ class SDRDevices:
                     address = self._get_address_for_pid_vid(pidvid, line)
                     if address:
                         new_sdr = SDR(sdr_type, address)
-                        self.sdrs.append(new_sdr)
-                        self.debug_out += f"sdr_info: type: {sdr_type} serial: {new_sdr.serial} address: {address} pidvid: {pidvid}\n"
+                        sdrs.append(new_sdr)
+                        debug_out += (
+                            f"sdr_info: type: {sdr_type} "
+                            f"serial: {new_sdr.serial} address: {address} "
+                            f"pidvid: {pidvid}\n")
 
-        # list from rtl-sdr drivers
-        # lots of these are likely not gonna work / work well but it's still better
-        # for them to be selectable by the user at least so they can see if it works or not
+        # List of rtl-sdr drivers. Lots of these are likely not gonna work or
+        # work well, but it's still better for them to be selectable by the
+        # user. At least so they can see if it works or not.
         rtlsdr_pv_list = [
             "0bda:2832",  # Generic RTL2832U
             "0bda:2838",  # Generic RTL2832U OEM
@@ -214,7 +226,7 @@ class SDRDevices:
 
         found_serials = set()
         duplicate_serials = set()
-        for sdr in self.sdrs:
+        for sdr in sdrs:
             self.lsusb_output += f"\nSDR detected with serial: {sdr.serial}\n"
             self.lsusb_output += sdr.lsusb_output
             if sdr.serial in found_serials:
@@ -223,19 +235,13 @@ class SDRDevices:
         if duplicate_serials:
             self._logger.warning(f"Duplicate SDR serials {duplicate_serials}.")
 
-        if len(self.sdrs) == 0:
-            self.debug_out = "_update_sdrs() could not find any SDRs"
+        if len(sdrs) == 0:
+            debug_out = "_get_sdrs() could not find any SDRs"
 
-        if self.last_debug_out != self.debug_out:
-            self.last_debug_out = self.debug_out
-            self._logger.info(self.debug_out.rstrip("\n"))
-
-    def ensure_populated(self):
-        with self.lock:
-            if time.time() - self.last_probe < 1:
-                return
-            self.last_probe = time.time()
-            self._update_sdrs()
+        if self._last_debug_out != debug_out:
+            self._last_debug_out = debug_out
+            self._logger.info(debug_out.rstrip("\n"))
+        return sdrs
 
     def _get_address_for_pid_vid(self, pidvid: str, line: str):
         address = ""
@@ -252,7 +258,6 @@ class SDRDevices:
         The returned dictionary maps SDR serials to a list of possible
         purposes, ordered by descending likelihood.
         """
-        self.ensure_populated()
         device_purposes = {}
         for sdr in self.sdrs:
             if sdr.type in ["airspy", "modesbeast", "sdrplay"]:
