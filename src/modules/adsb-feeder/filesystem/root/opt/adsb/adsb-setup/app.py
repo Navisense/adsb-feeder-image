@@ -2148,6 +2148,9 @@ class AdsbIm:
         self._conf.set(
             "mlathub_disable",
             not util.checkbox_checked(request.form["mlathub-enable"]))
+        # The user has made an explicit choice about aggregators now (even if
+        # it is to not share with anyone), so we can stop showing the reminder.
+        self._conf.set("aggregators_chosen", True)
         self._system._restart.bg_run(
             cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("index"))
