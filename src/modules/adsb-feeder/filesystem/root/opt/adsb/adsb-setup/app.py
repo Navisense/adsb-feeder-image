@@ -943,7 +943,7 @@ class AdsbIm:
         available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
         used_serials = {
             self._conf.get(f"serial_devices.{purpose}")
-            for purpose in self._sdrdevices.purposes}
+            for purpose in sdr.PURPOSES}
         used_serials = {serial for serial in used_serials if serial}
         return used_serials - available_serials
 
@@ -952,7 +952,7 @@ class AdsbIm:
         available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
         used_serials = {
             self._conf.get(f"serial_devices.{purpose}")
-            for purpose in self._sdrdevices.purposes}
+            for purpose in sdr.PURPOSES}
         configured_serials = (
             used_serials | set(self._conf.get("serial_devices.unused")))
         return available_serials - configured_serials
@@ -1584,7 +1584,7 @@ class AdsbIm:
         assignments = {
             serial: None
             for serial in self._conf.get("serial_devices.unused")}
-        for purpose in self._sdrdevices.purposes:
+        for purpose in sdr.PURPOSES:
             serial = self._conf.get(f"serial_devices.{purpose}")
             if not serial:
                 continue
@@ -1669,7 +1669,7 @@ class AdsbIm:
             if value == "unused":
                 unused_serials.add(serial)
                 continue
-            if value not in self._sdrdevices.purposes:
+            if value not in sdr.PURPOSES:
                 return f"Unknown SDR assignment {value}", 400
             if value in assignments:
                 return f"{value} assigned to more than one device.", 400
@@ -1684,7 +1684,7 @@ class AdsbIm:
         # Mark the 1090 device as not being an SDRplay device. We'll change
         # this below if it turns out that it actually is.
         self._conf.set("1090_device_is_sdrplay", False)
-        for purpose in self._sdrdevices.purposes:
+        for purpose in sdr.PURPOSES:
             self._conf.set(
                 f"serial_devices.{purpose}", assignments.get(purpose))
         self._logger.info(
@@ -1704,7 +1704,7 @@ class AdsbIm:
             serials_by_type.setdefault(sdr.type, set()).add(sdr.serial)
         # Airspy devices.
         self._conf.set("airspy.is_enabled", False)
-        for purpose in self._sdrdevices.purposes:
+        for purpose in sdr.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("airspy", []):
                 continue
@@ -1716,7 +1716,7 @@ class AdsbIm:
                     "won't work.")
         # Stratuxv3 devices.
         self._conf.set("uat_device_type", "rtlsdr")
-        for purpose in self._sdrdevices.purposes:
+        for purpose in sdr.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("stratuxv3", []):
                 continue
@@ -1728,7 +1728,7 @@ class AdsbIm:
                     "This won't work.")
         # SDRplay devices.
         sdrplay_waitlist = []
-        for purpose in self._sdrdevices.purposes:
+        for purpose in sdr.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("sdrplay", []):
                 continue
@@ -2070,7 +2070,7 @@ class AdsbIm:
                 sdr.serial
                 for sdr in self._sdrdevices.sdrs
                 if sdr.type == "sdrplay"}
-            for purpose in self._sdrdevices.purposes:
+            for purpose in sdr.PURPOSES:
                 assigned_serial = self._conf.get(f"serial_devices.{purpose}")
                 if assigned_serial not in sdrplay_serials:
                     continue

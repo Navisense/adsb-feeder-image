@@ -6,6 +6,9 @@ import threading
 import time
 from typing import Literal, Optional
 
+PURPOSES = frozenset(["978", "1090", "ais"])
+"""Possible purposes for which an SDR can be used."""
+
 
 @dc.dataclass
 class SDRInfo:
@@ -104,8 +107,6 @@ class SDR:
 
 
 class SDRDevices:
-    PURPOSES = frozenset(["978", "1090", "ais"])
-
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self._sdrs = []
@@ -119,10 +120,6 @@ class SDRDevices:
 
     def __repr__(self):
         return f"SDRDevices({','.join([s for s in self.sdrs])})"
-
-    @property
-    def purposes(self):
-        return ("978", "1090", "ais")
 
     @property
     def sdrs(self) -> list[SDR]:
