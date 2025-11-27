@@ -88,7 +88,7 @@ echo "Installing base system."
 pmbootstrap --as-root install --password "${PASSWORD}" --no-image
 
 feeder_install_args="--ref ${version} --web-port 80 --enable-mdns \
-    --expand-rootfs --auto-install-dependencies"
+    --expand-rootfs --auto-install-dependencies --managed-user ${USERNAME}"
 if [ "${variant}" = "headless" ] ; then
     feeder_install_args="${feeder_install_args} --enable-hotspot"
 fi
