@@ -46,6 +46,13 @@
       <a href="{{ url_for('aggregators') }}">data sharing page</a>.
     </div>
   {% endif %}
+  {% if get_conf('managed_user') %}
+    <div class="alert alert-warning">
+      This device is running a ready-made image with a default password for the user
+      <strong>{{ get_conf("managed_user") }}</strong>. You should set your own password on the
+      <a href="{{ url_for('systemmgmt') }}">system management page</a>.
+    </div>
+  {% endif %}
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
