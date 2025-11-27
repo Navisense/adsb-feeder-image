@@ -1596,25 +1596,25 @@ class AdsbIm:
             assignments[serial] = purpose
         # For any serials that haven't explicitly been assigned a purpose in
         # the config, make a guess what they could do.
-        for sdr in self._sdrdevices.sdrs:
-            if sdr.serial in assignments:
+        for sdr_device in self._sdrdevices.sdrs:
+            if sdr_device.serial in assignments:
                 continue
-            guessed_assignments = sdr.get_best_guess_assignments()
+            guessed_assignments = sdr_device.get_best_guess_assignments()
             for purpose in guessed_assignments:
                 if purpose not in assignments.values():
                     self._logger.info(
-                        f"Automatically assigning device {sdr.serial} to "
-                        f"{purpose}.")
-                    assignments[sdr.serial] = purpose
+                        f"Automatically assigning device {sdr_device.serial} "
+                        f"to {purpose}.")
+                    assignments[sdr_device.serial] = purpose
                     break
         sdr_device_dicts = []
-        for sdr in self._sdrdevices.sdrs:
+        for sdr_device in self._sdrdevices.sdrs:
             sdr_device_dicts.append({
-                "serial": sdr.serial,
-                "vendor": sdr.vendor,
-                "product": sdr.product,
-                "type": sdr.type,
-                "assignment": assignments.get(sdr.serial),})
+                "serial": sdr_device.serial,
+                "vendor": sdr_device.vendor,
+                "product": sdr_device.product,
+                "type": sdr_device.type,
+                "assignment": assignments.get(sdr_device.serial),})
         # Sort devices to always get the same order.
         sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
@@ -1700,8 +1700,9 @@ class AdsbIm:
 
     def _configure_sdr_assignment_settings(self):
         serials_by_type = {}
-        for sdr in self._sdrdevices.sdrs:
-            serials_by_type.setdefault(sdr.type, set()).add(sdr.serial)
+        for sdr_device in self._sdrdevices.sdrs:
+            serials_by_type.setdefault(sdr_device.type,
+                                       set()).add(sdr_device.serial)
         # Airspy devices.
         self._conf.set("airspy.is_enabled", False)
         for purpose in sdr.PURPOSES:
