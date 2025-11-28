@@ -427,8 +427,8 @@ class AdsbIm:
             return response
 
         app.secret_key = config.read_or_create_flask_secret_key()
-        # set Cache-Control max-age for static files served
-        # cachebust.sh ensures that the browser doesn't get outdated files
+        # Cache static files for a long time. We serve static files with a
+        # hash, so updates will work immediately.
         app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 1209600
         app.jinja_env.add_extension("jinja2.ext.loopcontrols")
         app.context_processor(env_functions)

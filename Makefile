@@ -49,16 +49,13 @@ sync-py-control:
 	src/modules/adsb-feeder/filesystem/root/etc/ \
 	root@$(HOST):/etc/
 
-# For good measure, copy this Makefile, run cachebust, set metadata, and do a
-# daemon-reload.
+# For good measure, copy this Makefile, set metadata, and do a daemon-reload.
 	rsync -av \
 	-e "ssh -S ${SSH_CONTROL}" \
 	Makefile \
 	root@$(HOST):/opt/adsb/adsb-setup/Makefile
 
 	ssh -S "${SSH_CONTROL}" root@$(HOST) '\
-		rm -f /opt/adsb/.cachebust_done; \
-		bash /opt/adsb/scripts/cachebust.sh Makefile; \
 		mkdir -p /opt/adsb/porttracker_sdr_feeder_install_metadata; \
 		echo "Makefile-sync install" > /opt/adsb/porttracker_sdr_feeder_install_metadata/previous_version.txt; \
 		echo "Porttracker Feeder from Makefile-sync" > /opt/adsb/porttracker_sdr_feeder_install_metadata/friendly_name.txt; \
