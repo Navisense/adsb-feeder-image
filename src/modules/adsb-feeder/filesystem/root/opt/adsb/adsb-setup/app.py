@@ -3,6 +3,7 @@ import concurrent.futures
 import datetime
 import filecmp
 import functools as ft
+import hashlib
 import json
 import logging
 import logging.config
@@ -21,8 +22,6 @@ import tempfile
 import threading
 import time
 from typing import Optional
-import re
-import sys
 import zipfile
 
 import bcrypt
@@ -76,28 +75,6 @@ def setup_logging():
             return True
 
     logging.getLogger("werkzeug").addFilter(NoStatic())
-
-
-def url_for_with_empty_parameters(*args, **kwargs):
-    empty_parameters = set()
-    for parameter in list(kwargs):
-        if parameter.startswith("_"):
-            # Internal kwarg.
-            continue
-        if kwargs[parameter] is None:
-            del kwargs[parameter]
-            empty_parameters.add(parameter)
-    url = flask.url_for(*args, **kwargs)
-    if not empty_parameters:
-        return url
-    if "_anchor" in kwargs:
-        raise ValueError("adding an anchor is not supported")
-    parameter_string = "&".join(empty_parameters)
-    if "?" in url:
-        # At least one parameter already, append after &.
-        return f"{url}&{parameter_string}"
-    # No other parameters, append after ?.
-    return f"{url}?{parameter_string}"
 
 
 def query_parameter_string(params: Optional[dict]):
@@ -325,6 +302,12 @@ class AdminUser:
 
 class AdsbIm:
     RESTORE_STAGING_DIR = pathlib.Path("/run/adsb-restore-stage")
+    STATIC_FILES_DIR = pathlib.Path(__file__).parent / "static"
+    # Regex that matches static files with infixed hash of the form
+    # <name>.<hash>.<ext>, where <hash> is 8 hex characters, and <ext> along
+    # with the dot before it are optional.
+    _hashed_static_file_regex = re.compile(
+        r"^(?P<name>.*)\.(?P<hash>[0-9a-f]{8})(|\.(?P<ext>.*?))$")
     _embedded_app_specs = [
         {
             "rule": "/ais-catcher",
@@ -392,6 +375,7 @@ class AdsbIm:
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
         self._system = sys
+        self._static_file_hashes = self._compute_static_file_hashes()
         self._connectivity_monitor = connectivity_monitor
         self._feeder_discoverer = net.FeederDiscoverer(
             self._conf.get("feeder_name"))
@@ -427,12 +411,14 @@ class AdsbIm:
         self._ensure_desired_journal_persistence()
 
     def _make_app(self) -> flask_util.App:
-        app = flask_util.App(__name__)
+        # Set static_folder to None to disable the default static view. We
+        # provide our own.
+        app = flask_util.App(__name__, static_folder=None)
 
         def env_functions():
             return {
                 "get_conf": self._conf.get,
-                "url_for": url_for_with_empty_parameters,
+                "url_for": self._url_for,
                 "query_parameter_string": query_parameter_string,
                 "is_reception_enabled": self.is_reception_enabled,}
 
@@ -481,6 +467,13 @@ class AdsbIm:
                 view_func_wrappers=[self._decide_route_hotspot_mode],
             )
 
+        # Provide our own static file view that handles stripping hashes off of
+        # file names.
+        app.add_url_rule(
+            "/static/<path:filename>",
+            "static",
+            view_func=self.static_files,
+        )
         app.add_url_rule(
             "/healthz",
             "healthz",
@@ -846,6 +839,86 @@ class AdsbIm:
             methods=["GET", "POST"],
         )
         return app
+
+    def _compute_static_file_hashes(self) -> dict[str, str]:
+        static_file_hashes = {}
+        if not self.STATIC_FILES_DIR.is_dir():
+            return static_file_hashes
+        for root, _, files in self.STATIC_FILES_DIR.walk():
+            for file in files:
+                path = root / file
+                try:
+                    with path.open("rb") as f:
+                        file_hash = hashlib.md5(f.read()).hexdigest()[:8]
+                    relative_filename = str(
+                        path.relative_to(self.STATIC_FILES_DIR))
+                    static_file_hashes[relative_filename] = file_hash
+                except:
+                    self._logger.exception(
+                        f"Error computing hash for static file {path}.")
+        self._logger.info(
+            f"Computed hashes for {len(static_file_hashes)} static files.")
+        return static_file_hashes
+
+    def static_files(self, filename: str):
+        match = self._hashed_static_file_regex.match(filename)
+        if match:
+            # This looks like a static file that has had a hash infixed by
+            # url_for(). Get the original filename that we can find on disk.
+            original_name = match.group("name")
+            if (ext := match.group("ext")):
+                original_name += f".{ext}"
+            try:
+                # Check that the hash in the filename actually matches the one
+                # we computed, and only then modify the requested file.
+                hash_ = self._static_file_hashes[original_name]
+                if hash_ == match.group("hash"):
+                    filename = original_name
+            except KeyError:
+                self._logger.exception(
+                    "Unable to find hash computed for static file. This "
+                    "indicates a problem in computing hashes, or that static "
+                    "files were changed while the application was running.")
+        return flask.send_from_directory(self.STATIC_FILES_DIR, filename)
+
+    def _url_for(self, *args, **kwargs):
+        if args and args[0] == "static":
+            try:
+                filename = kwargs["filename"]
+            except KeyError:
+                raise ValueError(
+                    f"url_for() for static view needs a filename.")
+            kwargs["filename"] = self._static_filename_with_hash(filename)
+        empty_parameters = set()
+        for parameter in list(kwargs):
+            if parameter.startswith("_"):
+                # Internal kwarg.
+                continue
+            if kwargs[parameter] is None:
+                del kwargs[parameter]
+                empty_parameters.add(parameter)
+        url = flask.url_for(*args, **kwargs)
+        if not empty_parameters:
+            return url
+        if "_anchor" in kwargs:
+            raise ValueError("adding an anchor is not supported")
+        parameter_string = "&".join(empty_parameters)
+        if "?" in url:
+            # At least one parameter already, append after &.
+            return f"{url}&{parameter_string}"
+        # No other parameters, append after ?.
+        return f"{url}?{parameter_string}"
+
+    def _static_filename_with_hash(self, filename):
+        try:
+            hash_ = self._static_file_hashes[filename]
+            # Inject hash: name.ext -> name.<hash>.ext
+            name, ext = os.path.splitext(filename)
+            # ext includes the dot.
+            return f"{name}.{hash_}{ext}"
+        except KeyError:
+            self._logger.exception(
+                "Request for static file that hasn't been hashed.")
 
     def _decide_route_hotspot_mode(self, view_func):
         """
