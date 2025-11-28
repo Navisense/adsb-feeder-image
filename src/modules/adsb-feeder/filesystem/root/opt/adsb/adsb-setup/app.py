@@ -841,6 +841,16 @@ class AdsbIm:
         return app
 
     def _compute_static_file_hashes(self) -> dict[str, str]:
+        """
+        Compute hashes for all static files.
+
+        Walks through the static files directory and computes an MD5 hash for
+        each file. Only the first 8 characters of the MD5 hash are used.
+
+        These hashes are used to generate unique URLs for static assets,
+        ensuring that clients always receive the most up-to-date version of a
+        file when it changes.
+        """
         static_file_hashes = {}
         if not self.STATIC_FILES_DIR.is_dir():
             return static_file_hashes
@@ -861,6 +871,19 @@ class AdsbIm:
         return static_file_hashes
 
     def static_files(self, filename: str):
+        """
+        Custom view for serving static files.
+
+        This view handles requests for static files, including those with
+        hashes infixed in their filenames (e.g. style.12345678.css). If a
+        hashed filename is requested, it strips the hash and verifies it
+        against the pre-computed hash for the original file. If the hash
+        matches, the original file is served. Otherwise, it attempts to serve
+        the file as requested.
+
+        For filename without hash, this works like Flask's normal static file
+        view.
+        """
         match = self._hashed_static_file_regex.match(filename)
         if match:
             # This looks like a static file that has had a hash infixed by
@@ -882,6 +905,21 @@ class AdsbIm:
         return flask.send_from_directory(self.STATIC_FILES_DIR, filename)
 
     def _url_for(self, *args, **kwargs):
+        """
+        Custom url_for implementation.
+
+        This is a wrapper around the default flask.url_for() with some custom
+        handling.
+
+        It injects hashes into filenames for the 'static' endpoint to work
+        together with our static_files() view. This ensures that generated URLs
+        for static assets include the file's hash, enabling effective cache
+        busting.
+
+        It also handles empty query parameters that can be specified as kwargs:
+        if a value is None, it is appended to the query string without a value
+        (e.g. ?flag).
+        """
         if args and args[0] == "static":
             try:
                 filename = kwargs["filename"]

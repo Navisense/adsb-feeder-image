@@ -137,6 +137,24 @@ simply omitted. In this application, there is a small Javascript hook executed
 on every sumbit that ensures each checkbox is contained, with the value "0" for
 unchecked ones and "1" for checked ones.
 
+### Cache busting
+
+To prevent browsers from serving stale static assets (CSS, JS) after an update,
+we implement a cache busting mechanism:
+
+1. Hash Computation: On startup, the application computes (shortened) MD5 hashes
+   for all files in the `static/` directory.
+2. URL Generation: We wrap `flask.url_for` to automatically inject these hashes
+   into the filenames of static assets (e.g. `style.css` becomes
+   `style.<hash>.css`).
+3. Request Handling: A custom view handler intercepts requests for static files
+   (this replaces the one that comes with Flask). It detects hashed filenames,
+   strips the hash, verifies it against the computed hash, and serves the
+   original file from disk.
+
+This ensures that whenever a static file changes, its URL changes, forcing the
+browser to fetch the new version.
+
 ### Logging setup
 
 The default log level is `INFO`. You can change this by creating a file at
