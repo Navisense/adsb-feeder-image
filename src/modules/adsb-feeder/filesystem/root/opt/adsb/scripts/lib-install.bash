@@ -56,7 +56,7 @@ find_missing_packages() {
     fi
     local missing=""
 
-    python_check_command="import sys; sys.exit(0 if sys.version_info.major == 3 and sys.version_info.minor >= 11 else 1)"
+    python_check_command="import sys; sys.exit(0 if sys.version_info.major == 3 and sys.version_info.minor >= 12 else 1)"
     if which python3 &> /dev/null ; then
         python3 -c "${python_check_command}" || missing+="${PKG_NAME_PYTHON3} "
         python3 -c "import requests" &>/dev/null || missing+="${PKG_NAME_PYTHON3_REQUESTS} "
