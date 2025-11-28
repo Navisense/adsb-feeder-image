@@ -56,8 +56,9 @@ find_missing_packages() {
     fi
     local missing=""
 
+    python_check_command="import sys; sys.exit(0 if sys.version_info.major == 3 and sys.version_info.minor >= 11 else 1)"
     if which python3 &> /dev/null ; then
-        python3 -c "import sys; sys.exit(1) if sys.version_info.major != 3 or sys.version_info.minor < 11" &> /dev/null && missing+="${PKG_NAME_PYTHON3} "
+        python3 -c "${python_check_command}" || missing+="${PKG_NAME_PYTHON3} "
         python3 -c "import requests" &>/dev/null || missing+="${PKG_NAME_PYTHON3_REQUESTS} "
         python3 -c "import flask" &>/dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
         python3 -c "import sys; import flask; sys.exit(1) if flask.__version__ < '2.0' else sys.exit(0)" &> /dev/null || missing+="${PKG_NAME_PYTHON3_FLASK} "
@@ -66,6 +67,11 @@ find_missing_packages() {
         python3 -c "import bcrypt" &>/dev/null || missing+="${PKG_NAME_PYTHON3_BCRYPT} "
     else
         missing+="${PKG_NAME_PYTHON3} ${PKG_NAME_PYTHON3_FLASK} ${PKG_NAME_PYTHON3_FLASK_LOGIN} ${PKG_NAME_PYTHON3_REQUESTS} ${PKG_NAME_PYTHON3_BCRYPT} "
+    fi
+    # Make sure we actually have the required Python version.
+    if ! python3 -c "${python_check_command}" ; then
+        echo "Required Python version is not available."
+        exit 1
     fi
 
     which curl &> /dev/null || missing+="${PKG_NAME_CURL} "
