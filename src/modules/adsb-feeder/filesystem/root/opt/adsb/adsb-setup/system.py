@@ -268,16 +268,6 @@ class System:
         self._dmesg_monitor = DmesgMonitor(
             on_undervoltage=self._set_undervoltage)
 
-    def _set_undervoltage(self):
-        self._last_undervoltage_time = time.monotonic()
-
-    @property
-    def undervoltage(self) -> bool:
-        """Whether undervoltage has been detected recently."""
-        earliest_undervoltage_time = (
-            time.monotonic() - self.UNDERVOLTAGE_RESET_TIMEOUT)
-        return self._last_undervoltage_time > earliest_undervoltage_time
-
     def __enter__(self):
         for task in self._refresh_tasks.values():
             task.start(execute_now=True)
@@ -292,6 +282,16 @@ class System:
                 self._logger.exception("Error stopping refresh task.")
         self._dmesg_monitor.stop()
         return False
+
+    def _set_undervoltage(self):
+        self._last_undervoltage_time = time.monotonic()
+
+    @property
+    def undervoltage(self) -> bool:
+        """Whether undervoltage has been detected recently."""
+        earliest_undervoltage_time = (
+            time.monotonic() - self.UNDERVOLTAGE_RESET_TIMEOUT)
+        return self._last_undervoltage_time > earliest_undervoltage_time
 
     @property
     def system_info(self) -> SystemInfo:
