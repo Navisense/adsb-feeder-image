@@ -4,6 +4,7 @@ import ipaddress
 import json
 import logging
 import select
+import shutil
 import socket
 import subprocess
 import threading
@@ -27,6 +28,7 @@ class SystemInfo:
     external_ip: Optional[str]
     network_device_infos: list[NetworkDeviceInfo]
     dns_is_working: bool
+    has_low_disk: bool
 
 
 @dc.dataclass
@@ -251,6 +253,7 @@ class System:
     INFO_REFRESH_INTERVAL = 300
     CONTAINERS_REFRESH_INTERVAL = 10
     UNDERVOLTAGE_RESET_TIMEOUT = 2 * 3600
+    LOW_DISK_THRESHOLD = 1024 * 1024 * 1024
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
@@ -322,7 +325,8 @@ class System:
             self._system_info = SystemInfo(
                 external_ip=external_ip,
                 network_device_infos=network_device_infos,
-                dns_is_working=self._dns_is_working())
+                dns_is_working=self._dns_is_working(),
+                has_low_disk=self._has_low_disk())
 
     @property
     def containers(self) -> list[ContainerInfo]:
@@ -407,6 +411,9 @@ class System:
             pass
         self._logger.exception("DNS seems to not be working.")
         return False
+
+    def _has_low_disk(self):
+        return shutil.disk_usage("/").free < self.LOW_DISK_THRESHOLD
 
     @property
     def is_restarting(self):

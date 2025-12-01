@@ -35,7 +35,7 @@
     aggregators below may be incorrect.
   </div>
   <div id="low-disk"
-       class="alert alert-info {% if not get_conf('low_disk') %}d-none{% endif %}"
+       class="alert alert-info {% if not system.system_info.has_low_disk %}d-none{% endif %}"
        role="alert">
     You are running low on disk space on the your feeder. This can lead to odd problems and even crashes. Consider
     upgrading to a larger storage device.

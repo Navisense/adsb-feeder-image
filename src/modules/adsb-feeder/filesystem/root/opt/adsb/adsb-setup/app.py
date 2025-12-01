@@ -2314,11 +2314,6 @@ class PorttrackerSdrFeeder:
         else:
             self.zerotier_address = ""
 
-        # Now let's check for disk space.
-        self._conf.set(
-            "low_disk",
-            shutil.disk_usage("/").free < 1024 * 1024 * 1024)
-
     def overview(self):
         for aggregator in aggregators.all_aggregators().values():
             if aggregator.enabled():
