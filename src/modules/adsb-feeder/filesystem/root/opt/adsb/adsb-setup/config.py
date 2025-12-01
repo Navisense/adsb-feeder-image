@@ -1304,7 +1304,6 @@ class Config(CompoundSetting):
             GeneratedSetting, value_generator=_has_enough_memory_for_ac_db,
             env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
         "remote_sdr": StringSetting,
-        "dns_state": ft.partial(BoolSetting, norestore=True),
         "low_disk": ft.partial(BoolSetting, norestore=True),
         "enable_hotspot": BoolSetting,
         "images": ft.partial(
@@ -1899,8 +1898,9 @@ class Config(CompoundSetting):
     def _upgrade_config_dict_from_19_to_20(
             config_dict: dict[str, Any]) -> dict[str, Any]:
         config_dict = config_dict.copy()
-        # This setting is no longer used.
+        # These settings are no longer used.
         del config_dict["under_voltage"]
+        del config_dict["dns_state"]
         return config_dict
 
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,

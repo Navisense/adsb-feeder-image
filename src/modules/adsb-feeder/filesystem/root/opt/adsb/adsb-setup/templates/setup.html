@@ -4,7 +4,7 @@
   Setup required parameters
 {% endblock title %}
 {% block content %}
-  <div class="{%- if get_conf('dns_state') %} d-none {%- endif -%}">
+  <div class="{%- if system.system_info.dns_is_working %} d-none {%- endif -%}">
     <div class="alert alert-danger" role="alert">
       The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
     </div>

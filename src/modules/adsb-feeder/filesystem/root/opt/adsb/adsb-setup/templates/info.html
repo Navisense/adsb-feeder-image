@@ -12,7 +12,7 @@
     {% if not system.undervoltage %}not{% endif %} reported</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Journal:</strong></span> {{ journal }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>DNS:</strong></span>
-    {% if get_conf('dns_state') %} DNS appears to be working{% else %} The feeder cannot resolve DNS queries
+    {% if system.system_info.dns_is_working %} DNS appears to be working{% else %} The feeder cannot resolve DNS queries
     {% endif %}
   </li>
   <li><span style="display: inline-block; width: 6em;"><strong>IPv6:</strong></span> {{ ipv6 }}</li>

@@ -328,7 +328,6 @@ class PorttrackerSdrFeeder:
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
         self._sdrdevices = sdr.SDRDevices()
 
-        self.last_dns_check = 0
         self.lastSetGainWrite = 0
 
         self.exiting = False
@@ -1169,16 +1168,6 @@ class PorttrackerSdrFeeder:
                 != self._conf.get("journal.is_persistent")):
             self._logger.error(
                 "Toggling log persistence didn't work.", flash_message=True)
-
-    def update_dns_state(self):
-        def update_dns():
-            dns_state = self._system.check_dns()
-            self._conf.set("dns_state", dns_state)
-            if not dns_state:
-                self._logger.error("We appear to have lost DNS.")
-
-        self.last_dns_check = time.time()
-        self._executor.submit(update_dns)
 
     def render_other_app_in_iframe(self, title, port, path):
         return render_template(
@@ -2306,10 +2295,6 @@ class PorttrackerSdrFeeder:
             self.wifi_ssid = ""
 
     def every_minute(self):
-        # make sure DNS works, every 5 minutes is sufficient
-        if time.time() - self.last_dns_check > 300:
-            self.update_dns_state()
-
         self.update_net_dev()
 
         zt_network = self._conf.get("zerotierid")
@@ -2398,9 +2383,7 @@ class PorttrackerSdrFeeder:
 
     def setup(self):
         if request.method == "GET":
-            # Make sure DNS works.
-            self.update_dns_state()
-            return render_template("setup.html")
+            return render_template("setup.html", system=self._system)
         assert request.method == "POST"
         needs_docker_restart = False
 

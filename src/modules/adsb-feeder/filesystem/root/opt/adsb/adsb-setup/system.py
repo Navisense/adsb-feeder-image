@@ -26,6 +26,7 @@ class NetworkDeviceInfo:
 class SystemInfo:
     external_ip: Optional[str]
     network_device_infos: list[NetworkDeviceInfo]
+    dns_is_working: bool
 
 
 @dc.dataclass
@@ -320,7 +321,8 @@ class System:
                 network_device_infos = []
             self._system_info = SystemInfo(
                 external_ip=external_ip,
-                network_device_infos=network_device_infos)
+                network_device_infos=network_device_infos,
+                dns_is_working=self._dns_is_working())
 
     @property
     def containers(self) -> list[ContainerInfo]:
@@ -394,6 +396,18 @@ class System:
                 continue
         return device_infos
 
+    def _dns_is_working(self):
+        try:
+            for addr_info in socket.getaddrinfo("porttracker.co", 0):
+                sock_addr = addr_info[4]
+                if sock_addr[0]:
+                    # We're able to resolve the hostname.
+                    return True
+        except:
+            pass
+        self._logger.exception("DNS seems to not be working.")
+        return False
+
     @property
     def is_restarting(self):
         return self._restart.is_restarting
@@ -433,18 +447,6 @@ class System:
         util.shell_with_combined_output(
             "systemd-run --wait -u adsb-feeder-update-os "
             "/bin/bash /opt/adsb/scripts/update-os.bash")
-
-    def check_dns(self):
-        try:
-            responses = list(
-                i[4][0]  # raw socket structure/internet protocol info/address
-                for i in socket.getaddrinfo("adsb.im", 0)
-                # if i[0] is socket.AddressFamily.AF_INET
-                # and i[1] is socket.SocketKind.SOCK_RAW
-            )
-        except:
-            return False
-        return responses != list()
 
     def is_ipv6_broken(self):
         try:
