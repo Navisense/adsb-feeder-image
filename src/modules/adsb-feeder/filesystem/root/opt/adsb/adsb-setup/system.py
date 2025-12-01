@@ -3,6 +3,7 @@ import enum
 import ipaddress
 import json
 import logging
+import select
 import socket
 import subprocess
 import threading
@@ -178,6 +179,66 @@ class Restart:
         return self.lock.locked()
 
 
+class DmesgMonitor:
+    def __init__(self, *, on_undervoltage):
+        self._on_undervoltage = on_undervoltage
+        self._monitor_thread = None
+        self._keep_running = True
+        self._logger = logging.getLogger(type(self).__name__)
+
+    def start(self):
+        assert self._monitor_thread is None
+        self._monitor_thread = threading.Thread(
+            target=self._monitor_loop, daemon=True)
+        self._monitor_thread.start()
+
+    def stop(self):
+        assert self._monitor_thread is not None
+        self._keep_running = False
+        self._monitor_thread.join(2)
+        if self._monitor_thread.is_alive():
+            self._logger.warning("dmesg monitor thread failed to stop.")
+        else:
+            self._logger.info("Stopped dmesg monitor.")
+
+    def _monitor_loop(self):
+        while self._keep_running:
+            poll = select.poll()
+            try:
+                self._monitor(poll)
+            except:
+                self._logger.exception(
+                    "Error monitoring dmesg. Trying to restart in a few "
+                    "seconds.")
+                time.sleep(10)
+
+    def _monitor(self, poll):
+        self._logger.info("Starting dmesg monitor.")
+        # --follow-new: Wait and print only new messages. bufsize=0 so we can
+        # poll() repeatedly (otherwise the buffer hides new output).
+        proc = subprocess.Popen(
+            ["dmesg", "--follow-new"],
+            stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE,
+            stdin=subprocess.PIPE,
+            text=True,
+            bufsize=0,
+        )
+        poll.register(proc.stdout, select.POLLIN)
+        try:
+            while self._keep_running:
+                new_output = ""
+                while poll.poll(500):
+                    new_output += proc.stdout.readline()
+                if not new_output:
+                    continue
+                if ("Undervoltage" in new_output
+                        or "under-voltage" in new_output):
+                    self._on_undervoltage()
+        finally:
+            poll.unregister(proc.stdout)
+
+
 class System:
     """
     Access to system functions.
@@ -202,10 +263,21 @@ class System:
             "containers": util.RepeatingTask(
                 self.CONTAINERS_REFRESH_INTERVAL,
                 self._update_docker_containers)}
+        self._undervoltage_detected = False
+        self._dmesg_monitor = DmesgMonitor(
+            on_undervoltage=self._set_undervoltage_flag)
+
+    def _set_undervoltage_flag(self):
+        self._undervoltage_detected = True
+
+    @property
+    def undervoltage(self) -> bool:
+        return self._undervoltage_detected
 
     def __enter__(self):
         for task in self._refresh_tasks.values():
             task.start(execute_now=True)
+        self._dmesg_monitor.start()
         return self
 
     def __exit__(self, *_):
@@ -214,6 +286,7 @@ class System:
                 task.stop_and_wait()
             except:
                 self._logger.exception("Error stopping refresh task.")
+        self._dmesg_monitor.stop()
         return False
 
     @property
