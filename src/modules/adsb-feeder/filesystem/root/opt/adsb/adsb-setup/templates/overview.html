@@ -697,7 +697,7 @@
         $.ajax("/api/version-info").done(function (versionInfo) {
           $("#version-info").html(`<p>This device is currently running <strong>${versionInfo.version}</strong></p>`);
           if (versionInfo.version == versionInfo.stable_versions[0]) {
-            $("#version-info p").append("(this is the latest stable version)");
+            $("#version-info p").append(" (this is the latest stable version)");
           } else {
             $("#version-info p").append(`
               (the latest stable version is <strong>${versionInfo.stable_versions[0]}</strong>, see `
