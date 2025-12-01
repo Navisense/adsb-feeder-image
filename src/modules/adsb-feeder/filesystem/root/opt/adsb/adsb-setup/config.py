@@ -909,7 +909,7 @@ class Config(CompoundSetting):
     of the underlying config dictionary (e.g. changes to default values and
     environment variables) don't require a new config version.
     """
-    CONFIG_VERSION = 19
+    CONFIG_VERSION = 20
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -1305,7 +1305,6 @@ class Config(CompoundSetting):
             env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
         "remote_sdr": StringSetting,
         "dns_state": ft.partial(BoolSetting, norestore=True),
-        "under_voltage": ft.partial(BoolSetting, norestore=True),
         "low_disk": ft.partial(BoolSetting, norestore=True),
         "enable_hotspot": BoolSetting,
         "images": ft.partial(
@@ -1896,6 +1895,14 @@ class Config(CompoundSetting):
         config_dict["managed_user"] = None
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_19_to_20(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # This setting is no longer used.
+        del config_dict["under_voltage"]
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1914,7 +1921,8 @@ class Config(CompoundSetting):
                          (15, 16): _upgrade_config_dict_from_15_to_16,
                          (16, 17): _upgrade_config_dict_from_16_to_17,
                          (17, 18): _upgrade_config_dict_from_17_to_18,
-                         (18, 19): _upgrade_config_dict_from_18_to_19}
+                         (18, 19): _upgrade_config_dict_from_18_to_19,
+                         (19, 20): _upgrade_config_dict_from_19_to_20}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,

@@ -14,7 +14,6 @@ import pathlib
 import queue
 import re
 import shlex
-import select
 import signal
 import shutil
 import subprocess
@@ -145,66 +144,6 @@ class PidFile:
     def __exit__(self, *_):
         self.PID_FILE.unlink()
         return False
-
-
-class DmesgMonitor:
-    def __init__(self, *, on_undervoltage):
-        self._on_undervoltage = on_undervoltage
-        self._monitor_thread = None
-        self._keep_running = True
-        self._logger = logging.getLogger(type(self).__name__)
-
-    def start(self):
-        assert self._monitor_thread is None
-        self._monitor_thread = threading.Thread(
-            target=self._monitor_loop, daemon=True)
-        self._monitor_thread.start()
-
-    def stop(self):
-        assert self._monitor_thread is not None
-        self._keep_running = False
-        self._monitor_thread.join(2)
-        if self._monitor_thread.is_alive():
-            self._logger.warning("dmesg monitor thread failed to stop.")
-        else:
-            self._logger.info("Stopped dmesg monitor.")
-
-    def _monitor_loop(self):
-        while self._keep_running:
-            poll = select.poll()
-            try:
-                self._monitor(poll)
-            except:
-                self._logger.exception(
-                    "Error monitoring dmesg. Trying to restart in a few "
-                    "seconds.")
-                time.sleep(10)
-
-    def _monitor(self, poll):
-        self._logger.info("Starting dmesg monitor.")
-        # --follow-new: Wait and print only new messages. bufsize=0 so we can
-        # poll() repeatedly (otherwise the buffer hides new output).
-        proc = subprocess.Popen(
-            ["dmesg", "--follow-new"],
-            stderr=subprocess.STDOUT,
-            stdout=subprocess.PIPE,
-            stdin=subprocess.PIPE,
-            text=True,
-            bufsize=0,
-        )
-        poll.register(proc.stdout, select.POLLIN)
-        try:
-            while self._keep_running:
-                new_output = ""
-                while poll.poll(500):
-                    new_output += proc.stdout.readline()
-                if not new_output:
-                    continue
-                if ("Undervoltage" in new_output
-                        or "under-voltage" in new_output):
-                    self._on_undervoltage
-        finally:
-            poll.unregister(proc.stdout)
 
 
 class HotspotApp:
@@ -390,10 +329,7 @@ class PorttrackerSdrFeeder:
         self._sdrdevices = sdr.SDRDevices()
 
         self.last_dns_check = 0
-        self.undervoltage_epoch = 0
         self.lastSetGainWrite = 0
-        self._dmesg_monitor = DmesgMonitor(
-            on_undervoltage=self._set_undervoltage)
 
         self.exiting = False
 
@@ -1100,10 +1036,6 @@ class PorttrackerSdrFeeder:
 
         return handle_request
 
-    def _set_undervoltage(self):
-        self._conf.set("under_voltage", True)
-        self.undervoltage_epoch = time.time()
-
     @property
     def hotspot_mode(self):
         return self._hotspot_mode
@@ -1139,11 +1071,7 @@ class PorttrackerSdrFeeder:
         every_minute_task.start(execute_now=True)
         self._background_tasks["every_minute"] = every_minute_task
 
-        # reset undervoltage indicator
-        self._conf.set("under_voltage", False)
-
         self._feeder_discoverer.start()
-        self._dmesg_monitor.start()
         self._reception_monitor.start()
 
         self._server = werkzeug.serving.make_server(
@@ -1161,7 +1089,6 @@ class PorttrackerSdrFeeder:
         self._logger.info("Shutting down.")
         self.exiting = True
         self._reception_monitor.stop()
-        self._dmesg_monitor.stop()
         self._feeder_discoverer.stop()
         for task in self._background_tasks.values():
             task.stop_and_wait()
@@ -2401,12 +2328,6 @@ class PorttrackerSdrFeeder:
             self.zerotier_address = result
         else:
             self.zerotier_address = ""
-
-        # Reset undervoltage warning after 2h.
-        if self._conf.get("under_voltage"):
-            time_since_warning = time.time() - self.undervoltage_epoch
-            if time_since_warning > 2 * 3600:
-                self._conf.set("under_voltage", False)
 
         # Now let's check for disk space.
         self._conf.set(
