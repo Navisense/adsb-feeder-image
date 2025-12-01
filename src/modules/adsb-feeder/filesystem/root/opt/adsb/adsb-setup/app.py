@@ -2469,7 +2469,7 @@ class PorttrackerSdrFeeder:
             local_address=local_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
-            system_info=self._system.system_info,
+            system=self._system,
             device_hosts=device_hosts,
             str=str,
             aggregators_chosen=aggregators_chosen,
@@ -2746,7 +2746,7 @@ class PorttrackerSdrFeeder:
             for _, image_setting in self._conf.get_setting("images")]
         return render_template(
             "info.html",
-            system_info=self._system.system_info,
+            system=self._system,
             memory=memory,
             top=top,
             storage=storage,

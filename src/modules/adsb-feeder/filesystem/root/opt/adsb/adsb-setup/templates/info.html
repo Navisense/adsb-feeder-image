@@ -9,7 +9,7 @@
   <li><span style="display: inline-block; width: 6em;"><strong>Base image:</strong></span> {{ get_conf('image_name') }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Kernel:</strong></span> {{ kernel }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Power:</strong></span> Undervoltage
-    {% if not get_conf('under_voltage') %}not{% endif %} reported</li>
+    {% if not system.undervoltage %}not{% endif %} reported</li>
   <li><span style="display: inline-block; width: 6em;"><strong>Journal:</strong></span> {{ journal }}</li>
   <li><span style="display: inline-block; width: 6em;"><strong>DNS:</strong></span>
     {% if get_conf('dns_state') %} DNS appears to be working{% else %} The feeder cannot resolve DNS queries
@@ -51,8 +51,8 @@
 </ul>
 <script>
   let browser_ip = null;
-  {% if system_info.external_ip %}
-    const feeder_ip = "{{ system_info.external_ip }}";
+  {% if system.system_info.external_ip %}
+    const feeder_ip = "{{ system.system_info.external_ip }}";
   {% else %}
     const feeder_ip = null;
   {% endif %}

@@ -25,7 +25,7 @@
       <button type="submit" class="btn btn-primary">Retry</button>
     </form>
   </div>
-  <div class="alert alert-danger {% if not get_conf('under_voltage') %}d-none{% endif %}"
+  <div class="alert alert-danger {% if not system.undervoltage %}d-none{% endif %}"
        role="alert">
     The feeder system kernel detected under-voltage. This can lead to random crashes and various issues with clock
     stability, reduced reception, failing SDRs, etc. Please check and likely replace your power supply.
@@ -110,8 +110,8 @@
       {% else %}
         Unfortunately, we have no information on how to reach this device.
       {% endif %}
-      {% if system_info.external_ip %}
-        This device's external IP (on the public internet) is <strong>{{ system_info.external_ip }}</strong>
+      {% if system.system_info.external_ip %}
+        This device's external IP (on the public internet) is <strong>{{ system.system_info.external_ip }}</strong>
         <span id="feeder-external-ip-comment"></span>
       {% else %}
         Unfortunately, we have no information on the device's external IP (on the public internet).
@@ -343,9 +343,9 @@
       const browserIp = (await browserIpData)["ip"];
 
       // Internal vs. external IP.
-      {% if system_info.external_ip %}
+      {% if system.system_info.external_ip %}
         if (browserIp) {
-          if ("{{ system_info.external_ip }}" == browserIp) {
+          if ("{{ system.system_info.external_ip }}" == browserIp) {
             $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
             $("#ip-mismatch").addClass("d-none");
           } else {
