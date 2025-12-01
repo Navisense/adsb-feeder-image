@@ -249,6 +249,7 @@ class System:
     """
     INFO_REFRESH_INTERVAL = 300
     CONTAINERS_REFRESH_INTERVAL = 10
+    UNDERVOLTAGE_RESET_TIMEOUT = 2 * 3600
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
@@ -263,16 +264,19 @@ class System:
             "containers": util.RepeatingTask(
                 self.CONTAINERS_REFRESH_INTERVAL,
                 self._update_docker_containers)}
-        self._undervoltage_detected = False
+        self._last_undervoltage_time = -self.UNDERVOLTAGE_RESET_TIMEOUT
         self._dmesg_monitor = DmesgMonitor(
-            on_undervoltage=self._set_undervoltage_flag)
+            on_undervoltage=self._set_undervoltage)
 
-    def _set_undervoltage_flag(self):
-        self._undervoltage_detected = True
+    def _set_undervoltage(self):
+        self._last_undervoltage_time = time.monotonic()
 
     @property
     def undervoltage(self) -> bool:
-        return self._undervoltage_detected
+        """Whether undervoltage has been detected recently."""
+        earliest_undervoltage_time = (
+            time.monotonic() - self.UNDERVOLTAGE_RESET_TIMEOUT)
+        return self._last_undervoltage_time > earliest_undervoltage_time
 
     def __enter__(self):
         for task in self._refresh_tasks.values():
