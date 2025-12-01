@@ -300,7 +300,8 @@ class AdminUser:
         return "admin"
 
 
-class AdsbIm:
+class PorttrackerSdrFeeder:
+    """Main application."""
     RESTORE_STAGING_DIR = pathlib.Path("/run/adsb-restore-stage")
     STATIC_FILES_DIR = pathlib.Path(__file__).parent / "static"
     # Regex that matches static files with infixed hash of the form
@@ -1149,7 +1150,8 @@ class AdsbIm:
             host="0.0.0.0", port=int(self._conf.get("ports.web")),
             app=self._app, threaded=True)
         self._server_thread = threading.Thread(
-            target=self._server.serve_forever, name="AdsbIm")
+            target=self._server.serve_forever,
+            name="porttracker-sdr-feeder-server-thread")
         self._server_thread.start()
 
     def stop(self):
@@ -3090,7 +3092,7 @@ class Manager:
         self._hotspot_app = HotspotApp(self._conf, self._on_wifi_credentials)
         self._hotspot = hotspot.make_hotspot(
             self._conf, self._on_wifi_test_status)
-        self._adsb_im = AdsbIm(
+        self._feeder = PorttrackerSdrFeeder(
             self._conf, self._sys, self._connectivity_monitor,
             self._hotspot_app)
         self._hotspot_timer = None
@@ -3104,7 +3106,7 @@ class Manager:
             target=self._connectivity_change_loop)
         self._connectivity_change_thread.start()
         self._connectivity_monitor.start()
-        self._adsb_im.start()
+        self._feeder.start()
         return self
 
     def __exit__(self, *_):
@@ -3116,7 +3118,7 @@ class Manager:
             self._logger.error(
                 "Connectivity change thread failed to terminate.")
         self._maybe_stop_hotspot_timer()
-        self._adsb_im.stop()
+        self._feeder.stop()
         self._maybe_stop_hotspot()
         return False
 
@@ -3142,7 +3144,7 @@ class Manager:
 
     def _handle_connectivity_change(self, has_access):
         if has_access:
-            if not self._adsb_im.hotspot_mode:
+            if not self._feeder.hotspot_mode:
                 self._logger.info(
                     "Connectivity monitor says we have connection, but we're "
                     "already in regular mode.")
@@ -3155,7 +3157,7 @@ class Manager:
                 "Connectivity monitor says we don't have connection, but we "
                 "don't have a hotspot we could start. Enabling regular mode.")
             self._enable_regular_mode()
-        elif self._adsb_im.hotspot_mode:
+        elif self._feeder.hotspot_mode:
             self._logger.info(
                 "Connectivity monitor says we don't have connection, but "
                 "we're already in hotspot mode.")
@@ -3207,7 +3209,7 @@ class Manager:
 
     def _enable_regular_mode(self, *, hotspot_recheck=False):
         self._maybe_stop_hotspot_timer()
-        self._adsb_im.hotspot_mode = False
+        self._feeder.hotspot_mode = False
         self._maybe_stop_hotspot()
         if hotspot_recheck:
             # We're starting this to see if we have connectivity again. Switch
@@ -3219,10 +3221,10 @@ class Manager:
 
     def _enable_hotspot_mode(self):
         assert self._hotspot is not None
-        if self._adsb_im.hotspot_mode:
+        if self._feeder.hotspot_mode:
             return
         self._maybe_stop_hotspot_timer()
-        self._adsb_im.hotspot_mode = True
+        self._feeder.hotspot_mode = True
         networks = self._hotspot.start()
         self._hotspot_app.networks = networks
         self._hotspot_timer = threading.Timer(
