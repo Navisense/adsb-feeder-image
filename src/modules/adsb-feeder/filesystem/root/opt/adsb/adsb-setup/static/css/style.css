@@ -137,6 +137,6 @@ font-size: 50%;
   font-weight: 500 !important;
 }
 
-#logout-icon:hover {
+.hover-accent:hover {
   color: var(--mdb-accent) !important;
 }
