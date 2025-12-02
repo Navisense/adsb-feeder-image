@@ -9,13 +9,20 @@
       The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
     </div>
   </div>
+  <div class="row justify-content-center">
+    <div class="col-10 col-lg-6">
+      <p class="text-center">
+        This is the location setup of your antenna. This data is required to make reception of messages work.
+      </p>
+    </div>
+  </div>
   <form method="post" onsubmit="showSpinner(); return true;">
     <div class="card my-2">
       <div class="card-body">
         <p>
           The data below should match the exact location of your antenna. You can use the
           <a href="https://www.freemaptools.com/elevation-finder.htm"
-             target="_blank">location and elevation finder tool</a> to find your Latitude, Longitude, and Altitude based
+             target="_blank">location and elevation finder tool</a> to find your latitude, longitude, and altitude based
           on your address.
         </p>
         <div class="row align-items-center">
@@ -50,7 +57,12 @@
         <div class="form-group">
           <div class="row my-1 align-items-center">
             <div class="col-12 col-lg-6">
-              <label for="latitude">Latitude (-90 .. +90 -- please use 5 decimals, e.g. 45.12345)</label>
+              <label for="latitude">
+                Latitude
+                <span class="far fa-circle-question"
+                      data-mdb-toggle="tooltip"
+                      title="degrees of latitude between -90 and +90. Negative numbers mean South, e.g. -12.5 means 12.5°S"></span>
+              </label>
             </div>
             <div class="col-12 col-lg-6">
               <input type="text"
@@ -68,7 +80,12 @@
         <div class="form-group">
           <div class="row my-1 align-items-center">
             <div class="col-12 col-lg-6">
-              <label for="longitude">Longitude (-180 .. +180 -- please use 5 decimals , e.g. -122.12345)</label>
+              <label for="longitude">
+                Longitude
+                <span class="far fa-circle-question"
+                      data-mdb-toggle="tooltip"
+                      title="degrees of longitude between -180 and +180. Negative numbers mean West, e.g. -12.5 means 12.5°W"></span>
+              </label>
             </div>
             <div class="col-12 col-lg-6">
               <input type="text"
@@ -86,7 +103,7 @@
         <div class="form-group">
           <div class="row my-1 align-items-center">
             <div class="col-12 col-lg-6">
-              <label for="altitude">Altitude above mean sealevel, rounded to whole meters</label>
+              <label for="altitude">Altitude above mean sealevel</label>
             </div>
             <div class="col-12 col-lg-6">
               <input type="text"
@@ -107,7 +124,7 @@
                 <label for="timezone">Timezone</label>
                 <button class="btn btn-secondary ms-5"
                         onclick="useBrowserTimezone(); return false; // return false inhibits the form to be submitted">
-                  Update timezone
+                  Fill in browser timezone
                 </button>
               </div>
             </div>
