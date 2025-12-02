@@ -208,7 +208,10 @@
     <nav class="navbar navbar-expand-md">
       <div class="container-fluid">
         <a class="navbar-brand ms-0 me-1 me-sm-3 hover-container"
-           href="{{ url_for('index') }}">
+           href="{{ url_for('index') }}"
+           data-mdb-toggle="tooltip"
+           title="Home"
+           data-mdb-placement="bottom">
           Porttracker SDR Feeder <span class="ms-3 fas fa-house fa-lg text-accent-alternate hover-accent"></span>
         </a>
         {# Live map buttons in the nav bar. These will be hidden for small screens. #}
