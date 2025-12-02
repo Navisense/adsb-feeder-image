@@ -207,7 +207,8 @@
     </script>
     <nav class="navbar navbar-expand-md">
       <div class="container-fluid">
-        <a class="navbar-brand ms-0 me-1 me-sm-3" href="{{ url_for('index') }}">
+        <a class="navbar-brand ms-0 me-1 me-sm-3 hover-container"
+           href="{{ url_for('index') }}">
           Porttracker SDR Feeder <span class="ms-3 fas fa-house fa-lg text-accent-alternate hover-accent"></span>
         </a>
         {# Live map buttons in the nav bar. These will be hidden for small screens. #}
@@ -422,7 +423,7 @@
           <form method="post"
                 action="{{ url_for('logout', next=request.full_path) }}">
             <button type="submit"
-                    class="btn btn-tertiary"
+                    class="btn btn-tertiary hover-container"
                     data-mdb-toggle="tooltip"
                     title="Admin logout"
                     data-mdb-placement="bottom">

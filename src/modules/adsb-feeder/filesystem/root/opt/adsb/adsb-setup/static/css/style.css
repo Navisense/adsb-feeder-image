@@ -137,6 +137,8 @@ font-size: 50%;
   font-weight: 500 !important;
 }
 
-.hover-accent:hover {
+/* Put a .hover-accent into a .hover-container and the .hover-accent will change
+color to the accent color when the .hover-container is hovered over. */
+.hover-container:hover .hover-accent {
   color: var(--mdb-accent) !important;
 }
