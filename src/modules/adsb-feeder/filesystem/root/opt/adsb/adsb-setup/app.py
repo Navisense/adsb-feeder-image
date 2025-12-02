@@ -566,9 +566,9 @@ class PorttrackerSdrFeeder:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
-            "/setup",
-            "setup",
-            view_func=self.setup,
+            "/location-setup",
+            "location-setup",
+            view_func=self.location_setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config, self._require_login],
@@ -936,20 +936,21 @@ class PorttrackerSdrFeeder:
         """
         Redirect if necessary setup is missing.
 
-        Redirects the request to the basic setup page if that's not finished
+        Redirects the request to the location setup page if that's not finished
         yet. If there are any inconsistencies with the configuration of SDR
         devices, redirects to the SDR setup page or the SDRplay license page as
         appropriate.
         """
         def handle_request(*args, **kwargs):
-            # Check basic setup.
-            if request.endpoint == "setup":
+            # Check location.
+            if request.endpoint == "location-setup":
                 return view_func(*args, **kwargs)
             if not self._conf.get("mandatory_config_is_complete"):
                 self._logger.info(
-                    "Mandatory config not complete, redirecting to setup.")
-                flash("Please complete the initial setup.")
-                return redirect(url_for("setup"))
+                    "Mandatory config not complete, redirecting to location "
+                    "setup.")
+                flash("Please complete the location setup.")
+                return redirect(url_for("location-setup"))
 
             # Check if the user wants to use an SDRplay device but hasn't
             # accepted the license yet.
@@ -2376,9 +2377,9 @@ class PorttrackerSdrFeeder:
             aggregators_chosen=aggregators_chosen,
         )
 
-    def setup(self):
+    def location_setup(self):
         if request.method == "GET":
-            return render_template("setup.html", system=self._system)
+            return render_template("location_setup.html", system=self._system)
         assert request.method == "POST"
         needs_docker_restart = False
 
