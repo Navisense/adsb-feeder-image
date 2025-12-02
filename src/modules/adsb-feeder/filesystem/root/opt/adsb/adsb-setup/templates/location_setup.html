@@ -12,7 +12,6 @@
   <form method="post" onsubmit="showSpinner(); return true;">
     <div class="card my-2">
       <div class="card-body">
-        <h5 class="card-title">Basic parameters</h5>
         <p>
           The data below should match the exact location of your antenna. You can use the
           <a href="https://www.freemaptools.com/elevation-finder.htm"
@@ -122,35 +121,6 @@
                      value="{{ get_conf('tz', default='') }}">
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="card my-2">
-      <div class="card-body">
-        <h5 class="card-title">Bulk aggregator selection</h5>
-        <p>
-          Here you can conveniently select many aggregators with one click (this only works for ADS-B aggregators that don't
-          require any registration). Check the boxes below to send data to all account-less aggregators, or to those that
-          have a privacy policy. You can also make this choice later or disable individual aggregators on the data sharing
-          setup page.
-        </p>
-        <div class="form-check">
-          <input type="checkbox"
-                 name="enable-all-aggregators"
-                 id="enable-all-aggregators"
-                 class="form-check-input">
-          <label class="form-check-label" for="enable-all-aggregators">
-            Enable all aggregators that don't require accounts
-          </label>
-        </div>
-        <div class="form-check">
-          <input type="checkbox"
-                 name="enable-aggregators-with-privacy"
-                 id="enable-aggregators-with-privacy"
-                 class="form-check-input">
-          <label class="form-check-label" for="enable-aggregators-with-privacy">
-            Enable all aggregators that don't require accounts and have a privacy policy
-          </label>
         </div>
       </div>
     </div>

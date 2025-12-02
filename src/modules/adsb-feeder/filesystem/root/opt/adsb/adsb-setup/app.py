@@ -2383,20 +2383,6 @@ class PorttrackerSdrFeeder:
         assert request.method == "POST"
         needs_docker_restart = False
 
-        # Check if aggregators should be bulk-enabled.
-        should_enable_accountless_aggregators = (
-            util.checkbox_checked(request.form["enable-all-aggregators"])
-            or util.checkbox_checked(
-                request.form["enable-aggregators-with-privacy"]))
-        if should_enable_accountless_aggregators:
-            # First, record that the user has already made a choice about
-            # aggregators so we don't display annoying reminders.
-            self._conf.set("aggregators_chosen", True)
-            must_have_privacy_policy = not util.checkbox_checked(
-                request.form["enable-all-aggregators"])
-            needs_docker_restart = self._enable_accountless_aggregators(
-                must_have_privacy_policy=must_have_privacy_policy)
-
         # Time zone.
         if request.form["timezone"] != self._conf.get("tz"):
             self._set_timezone(request.form["timezone"])
@@ -2433,32 +2419,6 @@ class PorttrackerSdrFeeder:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("index"))
-
-    def _enable_accountless_aggregators(
-            self, must_have_privacy_policy: bool) -> bool:
-        """
-        Enable all aggregators that don't require further configuration.
-
-        Return whether anything was changed.
-        """
-        has_changed = False
-        for agg_key, aggregator in aggregators.all_aggregators().items():
-            try:
-                netconfig = aggregator.netconfig
-            except AttributeError:
-                # Not an Ultrafeedeer aggregator with a netconfig, ignore.
-                continue
-            assert isinstance(aggregator, aggregators.UltrafeederAggregator)
-            if aggregator.enabled():
-                # Already enabled, ignore.
-                continue
-            should_be_enabled = (
-                not must_have_privacy_policy or netconfig.has_policy)
-            if should_be_enabled:
-                logger.info(f"Enabling {aggregator}.")
-                self._conf.set(f"aggregators.{agg_key}.is_enabled", True)
-                has_changed = True
-        return has_changed
 
     def _set_timezone(self, timezone):
         # Time zones don't have spaces, only underscores. Replace spaces with
