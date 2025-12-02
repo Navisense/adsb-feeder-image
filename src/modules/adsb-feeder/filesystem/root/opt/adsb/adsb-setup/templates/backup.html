@@ -69,7 +69,10 @@
     <div class="card my-2">
       <div class="card-body">
         <h5 class="card-title">Restore uploaded backup</h5>
-        <div class="alert alert-success">A backup file has been uploaded and can be used to restore the config.</div>
+        <div class="alert alert-success">
+          A backup file has been uploaded and can be used to restore the config. You can inspect the contents of the
+          backup here. Use the button below to apply the backup.
+        </div>
         <div class="accordion my-3">
           <div class="accordion-item">
             <h2 class="accordion-header" id="heading-new-files">
@@ -219,7 +222,9 @@
       {% endif %}
       The file will be extracted on the device and analyzed. The results will be shown here, and you can choose whether
       you want to restore this backup.
-      <form method="post" action="{{ url_for('restore') }}" enctype="multipart/form-data">
+      <form method="post"
+            action="{{ url_for('restore') }}"
+            enctype="multipart/form-data">
         <input class="form-control" type="file" name="file">
         <button class="btn btn-primary mt-3" type="submit" name="upload-file">Upload backup file</button>
       </form>
