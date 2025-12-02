@@ -364,7 +364,8 @@
                  role="button"
                  data-mdb-toggle="dropdown"
                  aria-expanded="false">Setup</a>
-              <ul class="dropdown-menu" aria-labelledby="navbar-dropdown-setup">
+              <ul class="dropdown-menu dropdown-menu-start dropdown-menu-md-end"
+                  aria-labelledby="navbar-dropdown-setup">
                 <li>
                   <a class="dropdown-item" href="{{ url_for('setup') }}">Basic</a>
                 </li>
@@ -382,18 +383,6 @@
                      class="dropdown-item"
                      href="{{ url_for('visualization') }}">Map options</a>
                 </li>
-              </ul>
-            </li>
-            {# System dropdown menu. #}
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle"
-                 href="#"
-                 id="navbar-dropdown-logs"
-                 role="button"
-                 data-mdb-toggle="dropdown"
-                 aria-expanded="false">System</a>
-              <ul class="dropdown-menu dropdown-menu-start dropdown-menu-md-end"
-                  aria-labelledby="navbar-dropdown-logs">
                 <li>
                   <a class="dropdown-item" href="{{ url_for('dozzle') }}">Dozzle (Docker logs)</a>
                 </li>
