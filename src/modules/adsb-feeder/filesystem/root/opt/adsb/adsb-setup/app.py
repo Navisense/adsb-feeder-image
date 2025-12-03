@@ -2826,13 +2826,14 @@ class PorttrackerSdrFeeder:
         def connect_wifi():
             try:
                 self._system.wifi.connect(ssid, password)
-                self._logger.info(
-                    f"Connected to wifi {ssid}.", flash_message=True)
+                self._logger.info(f"Connected to wifi {ssid}.")
             except:
-                self._logger.exception(
-                    f"Error connecting to wifi {ssid}.", flash_message=True)
+                self._logger.exception(f"Error connecting to wifi {ssid}.")
 
         self._system._restart.bg_run(func=connect_wifi)
+        self._logger.info(
+            f"Started connecting to wifi {ssid}.", flash_message=True,
+            flash_category="success")
         return redirect(url_for("network-setup"))
 
     def configure_hotspot(self):
