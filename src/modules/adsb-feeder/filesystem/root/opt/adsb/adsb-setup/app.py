@@ -523,6 +523,15 @@ class PorttrackerSdrFeeder:
             methods=["GET"],
         )
         app.add_url_rule(
+            "/network-setup",
+            "network-setup",
+            view_func=self.network_setup,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config, self._require_login],
+            methods=["GET"],
+        )
+        app.add_url_rule(
             "/aggregators",
             "aggregators",
             view_func=self.aggregators,
@@ -2082,6 +2091,15 @@ class PorttrackerSdrFeeder:
         self._conf.set("docker_concurrent", enable_concurrent_downloads)
 
     def systemmgmt(self):
+        stable_versions = net.gitlab_repo().get_semver_tags()
+        return render_template(
+            "systemmgmt.html",
+            stable_versions=stable_versions,
+            containers=self._system.containers,
+            Semver=util.Semver,
+        )
+
+    def network_setup(self):
         tailscale_info = self._system.get_tailscale_info()
         if tailscale_info.status in [system.TailscaleStatus.ERROR,
                                      system.TailscaleStatus.NOT_INSTALLED,
@@ -2091,15 +2109,11 @@ class PorttrackerSdrFeeder:
         zerotier_running = False
         proc = util.shell_with_combined_output("ps -e", timeout=2)
         zerotier_running = "zerotier-one" in proc.stdout
-        stable_versions = net.gitlab_repo().get_semver_tags()
         return render_template(
-            "systemmgmt.html",
+            "network_setup.html",
             tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
-            stable_versions=stable_versions,
-            containers=self._system.containers,
             wifi=self.wifi_ssid,
-            Semver=util.Semver,
         )
 
     def sdrplay_license(self):
@@ -2757,7 +2771,7 @@ class PorttrackerSdrFeeder:
                 or "zerotierid" not in request.form):
             self._conf.set("zerotierid", "")
             system.systemctl().run(["disable --now", "mask"], ["zerotier-one"])
-            return redirect(url_for("systemmgmt"))
+            return redirect(url_for("network-setup"))
         zerotier_id = request.form["zerotierid"]
         try:
             system.systemctl().run(["unmask", "enable --now"],
@@ -2769,7 +2783,7 @@ class PorttrackerSdrFeeder:
             self._logger.exception(
                 "Exception trying to set up zerotier - giving up",
                 flash_message=True)
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def configure_tailscale(self):
         try:
@@ -2778,7 +2792,7 @@ class PorttrackerSdrFeeder:
                 request.form.get("tailscale-extras", ""))
         except ValueError as e:
             flash(f"Error setting up Tailscale: {e}.", category="error")
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def _configure_tailscale(self, enabled: bool, extra_args: Optional[str]):
         if self._system.get_tailscale_info().status in [
@@ -2890,7 +2904,7 @@ class PorttrackerSdrFeeder:
             self.update_net_dev()
 
         self._system._restart.bg_run(func=connect_wifi)
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def configure_hotspot(self):
         mode = request.form.get("hotspot-mode")
@@ -2902,7 +2916,7 @@ class PorttrackerSdrFeeder:
             self._conf.set("enable_hotspot", True)
         else:
             return "Invalid hotspot mode.", 400
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def feeder_discovery(self):
         other_feeders = []

@@ -1,0 +1,258 @@
+{% extends "base-regular.html" %}
+{% set active_page = "network-setup" %}
+{% block title %}
+  Network Setup
+{% endblock title %}
+{% block content %}
+  <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">
+            {% if wifi != "" %}
+              Reconfigure
+            {% else %}
+              Connect to
+            {% endif %}
+            WiFi
+          </h5>
+          <form method="post"
+                action="{{ url_for('configure-wifi') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12 m-1">
+                {% if wifi %}
+                  This feeder is connected to the <strong>{{ wifi }}</strong> WiFi network.
+                {% else %}
+                  This feeder is connected via Ethernet.
+                {% endif %}
+              </div>
+              <div class="col-12 m-1">
+                Enter the SSID and password of the WiFi network you want to connect to. Note that it can take several
+                minutes for the connection to be established and tested. And in some cases a forced reboot (pull
+                power) may be required. Depending on the exact version of the base OS of the feeder image that you are
+                using, the user experience may be slightly different, but when the process appears stuck even after a
+                longer wait, a reboot may be the way to go.
+              </div>
+              <div class="col-12 m-1">
+                Remember that if the change is successful, you need to connect to the feeder on that new network.
+                There is no way for the feeder to automatically forward you to that.
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       id="wifi_ssid"
+                       name="wifi_ssid"
+                       type="text"
+                       placeholder="SSID"
+                       required>
+              </div>
+              <div class="col-12 col-md-6 col-lg-4">
+                <input class="m-1 w-100"
+                       id="wifi_password"
+                       name="wifi_password"
+                       type="text"
+                       placeholder="Password"
+                       required>
+              </div>
+              <div class="col-12 col-lg-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Configure Tailscale VPN</h5>
+          {% if tailscale_info.status in ["not_installed", "error"] %}
+            <div class="alert alert-warning m-1">
+              The image can establish and manage a Tailscale connection, but Tailscale is not installed or there is an
+              error with it (check the logs). You have to install it manually using <code>apk add tailscale</code>.
+            </div>
+          {% else %}
+            <form method="post"
+                  action="{{ url_for('configure-tailscale') }}"
+                  onsubmit="showSpinner(); return true;">
+              <div class="row align-items-center">
+                <div class="col-12">
+                  <label for="tailscale" class="m-1">
+                    Tailscale support allows to connect your ADS-B Feeder to your own tailnet.
+                    <br />
+                    {% if not get_conf("tailscale.is_enabled") %}
+                      In order to do this, we will start the <code>tailscale</code> client on the feeder SBC and then
+                      redirect you back here and add a link to the login page so you can authenticate the device on
+                      your tailnet.
+                    {% endif %}
+                    {% if tailscale_info.status == "logged_out" %}
+                      Click this <a href="{{ get_conf('tailscale.login_link') }}" target="_blank">link to open
+                      {{ get_conf("tailscale.login_link") }}</a>. After you have logged in, please come back to this
+                      tab and reload this page.
+                    {% endif %}
+                    {% if tailscale_info.status == "logged_in" %}
+                      This device should now be on your tailnet as '{{ tailscale_info.hostname }}'.
+                    {% elif not get_conf("tailscale.login_link") %}
+                      You can add options like a specific <code>--login-server</code> below. But please note that
+                      <code>--authkey</code> isn't supported at this point.
+                    {% endif %}
+                  </label>
+                </div>
+                <div class="col-12 col-md-8">
+                  <div class="row">
+                    <div class="col-12">
+                      <div class="m-1">
+                        <input id="tailscale-enabled"
+                               class="form-check-input"
+                               name="enabled"
+                               type="checkbox"
+                               {% if get_conf('tailscale.is_enabled') -%}checked{%- endif %}>
+                        <label for="tailscale-enabled" class="form-check-label">Enable</label>
+                      </div>
+                      <div class="col-12">
+                        {% if not get_conf('tailscale.is_enabled') %}
+                          <input class="m-1 w-100"
+                                 id="tailscale-extras"
+                                 name="tailscale-extras"
+                                 type="text"
+                                 value="{{ get_conf('tailscale.extras', default='') }}"
+                                 placeholder="Enter additional tailscale options you need">
+                        {% else %}
+                          <div class="alert alert-danger m-1">
+                            Tailscale is enabled. Disabling it will prevent you from accessing this feeder if you use
+                            the Tailscale network to connect to it.
+                          </div>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-12 col-md-4">
+                  <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+                </div>
+              </div>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Configure Zerotier VPN</h5>
+          <form method="post"
+                action="{{ url_for('configure-zerotier') }}"
+                onsubmit="showSpinner(); return true;">
+            <div class="row align-items-center">
+              <div class="col-12">
+                <label for="zerotierid" class="m-1">
+                  Zerotier support allows to connect your ADS-B Feeder to your own global area network.
+                  {% if not zerotier_running %}
+                    Please add your Zerotier Network ID below.
+                    <br>
+                    Once this process has completed, you need to accept the new device into the network on the
+                    Zerotier website.
+                  {% else %}
+                    <br>
+                    This device should now be on your Zerotier network.
+                  {% endif %}
+                </label>
+              </div>
+              <div class="col-12 col-md-8">
+                <div class="row">
+                  <div class="col-12">
+                    <div class="m-1">
+                      <input id="zerotier-enabled"
+                             class="form-check-input"
+                             name="enabled"
+                             type="checkbox"
+                             {% if zerotier_running -%}checked{%- endif %}>
+                      <label for="zerotier-enabled" class="form-check-label">Enable</label>
+                    </div>
+                    <div class="col-12">
+                      {% if not zerotier_running %}
+                        <input class="m-1 w-100"
+                               id="zerotierid"
+                               name="zerotierid"
+                               type="text"
+                               value="{{ get_conf('zerotierid', default='') }}"
+                               placeholder="Enter your Zerotier Network ID"
+                               required>
+                      {% else %}
+                        <div class="alert alert-danger m-1">
+                          Zerotier is running. Disabling it will prevent you from accessing this feeder if you use the
+                          Zerotier network to connect to it.
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title m-1">Configure hotspot behavior</h5>
+          <p>
+            The system continuously checks whether it can still reach the internet. If there is no connectivity, it
+            can start a wifi hotspot to which you can connect and configure a wifi network to use (e.g. because the
+            device doesn't have a display attached). If this setting is <strong>on</strong>, the hotspot will be
+            started when there is no connectivity, if it is <strong>off</strong>, it will never be started. In the
+            setting <strong>auto</strong>, the system will try to determine if a graphical interface is running, and
+            only start the hotspot if it can't find one.
+          </p>
+          <form method="post" action="{{ url_for('configure-hotspot') }}">
+            <div class="d-flex align-items-center">
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="auto"
+                         {%- if get_conf("enable_hotspot") is none -%}
+                         checked
+                         {%- endif -%}>
+                  auto
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="on"
+                         {%- if get_conf("enable_hotspot") is true -%}
+                         checked
+                         {%- endif -%}>
+                  on
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                  <input type="radio"
+                         class="form-check-input"
+                         name="hotspot-mode"
+                         value="off"
+                         {%- if get_conf("enable_hotspot") is false -%}
+                         checked
+                         {%- endif -%}>
+                  off
+                </label>
+              </div>
+              <div class="form-check form-check-inline">
+                <button type="submit" class="btn btn-primary m-1 w-100">Submit</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
