@@ -25,11 +25,15 @@ def make_wifi(device_name="wlan0"):
 
 class GenericWifi:
     """Generic wifi that can't scan or connect."""
-    def __init__(self, device_name):
+    def __init__(self, device_name: str):
         self._logger = logging.getLogger(type(self).__name__)
         self._device_name = device_name
         self._ssid = None
         self.networks: dict[str, WifiNetworkInfo] = {}
+
+    @property
+    def device_name(self) -> str:
+        return self._device_name
 
     @property
     def ssid(self) -> Optional[str]:

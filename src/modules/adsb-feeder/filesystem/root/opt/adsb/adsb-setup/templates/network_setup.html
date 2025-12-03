@@ -24,9 +24,11 @@
                 <div class="row align-items-center">
                   <div class="col-12 m-1">
                     {% if current_ssid %}
-                      This feeder is connected to the <strong>{{ current_ssid }}</strong> WiFi network.
+                      This feeder is connected to the <strong>{{ current_ssid }}</strong> WiFi network (using device
+                      <strong>{{ system.wifi.device_name }}</strong>).
                     {% else %}
-                      This feeder is connected via Ethernet.
+                      This feeder is connected via Ethernet. You can also connect it to WiFi using device
+                      <strong>{{ system.wifi.device_name }}</strong>
                     {% endif %}
                   </div>
                   <div class="col-12 m-1">
