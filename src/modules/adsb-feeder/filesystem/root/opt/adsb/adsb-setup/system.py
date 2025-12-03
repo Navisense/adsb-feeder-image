@@ -21,9 +21,14 @@ import wifi
 
 @dc.dataclass
 class NetworkDeviceInfo:
-    gateway: str
     device: str
-    ip: str
+    """Device name."""
+    used_for_network_access: bool
+    """Whether the device is used for network access."""
+    ip: Optional[str]
+    """IP address, set if the device is used for network access."""
+    gateway: Optional[str]
+    """Gateway IP address, set if the device is used for network access."""
     wifi: Optional[wifi.GenericWifi]
     """Wifi control, set if the device is a wifi device."""
 
@@ -447,28 +452,44 @@ class System:
 
     def _get_network_device_infos(self) -> list[NetworkDeviceInfo]:
         """Get information about network devices."""
-        proc = util.shell_with_combined_output("ip --json route show")
-        proc.check_returncode()
-        route_infos = json.loads(proc.stdout)
+        # First, get all network interfaces.
+        link_proc = util.shell_with_combined_output(
+            "ip --json link show", check=True)
+        link_infos = json.loads(link_proc.stdout)
+        device_names = [i["ifname"] for i in link_infos]
+        # Then, get routing information to determine default routes and IPs.
+        route_proc = util.shell_with_combined_output(
+            "ip --json route show", check=True)
+        route_infos = json.loads(route_proc.stdout)
+
         device_infos = []
-        for route_info in route_infos:
+        for device_name in device_names:
+            ip, gateway, wifi_control = None, None, None
             try:
-                if route_info["dst"] != "default":
-                    continue
-                device_name = route_info["dev"]
-                wifi = None
-                if any(device_name.startswith(prefix)
-                       for prefix in ["wlan", "wlp", "ath"]):
-                    wifi = wifi.make_wifi(device_name)
-                device_infos.append(
-                    NetworkDeviceInfo(
-                        gateway=route_info["gateway"],
-                        device=device_name,
-                        ip=route_info["prefsrc"],
-                        wifi=wifi,
-                    ))
-            except KeyError:
-                continue
+                default_route_info = next(
+                    ri for ri in route_infos
+                    if ri["dev"] == device_name and ri["dst"] == "default")
+                gateway = default_route_info["gateway"]
+                ip = default_route_info["prefsrc"]
+                # This device has a default route, so it is used for network
+                # access.
+                used_for_network_access = True
+            except StopIteration:
+                # This device does not have a default route, so it is not used
+                # for network access.
+                used_for_network_access = False
+            if any(device_name.startswith(prefix)
+                   for prefix in ["wlan", "wlp", "ath"]):
+                wifi_control = wifi.make_wifi(device_name)
+
+            device_infos.append(
+                NetworkDeviceInfo(
+                    device=device_name,
+                    used_for_network_access=used_for_network_access,
+                    ip=ip,
+                    gateway=gateway,
+                    wifi=wifi_control,
+                ))
         return device_infos
 
     def _dns_is_working(self):

@@ -169,6 +169,8 @@ class ConnectivityMonitor:
 
     def _check_has_reachable_gateway(self):
         for ndi in self._sys.system_info.network_device_infos:
+            if not ndi.used_for_network_access:
+                continue
             try:
                 util.shell_with_combined_output(
                     f"ping -c 1 -W 3 {ndi.gateway}", check=True)
