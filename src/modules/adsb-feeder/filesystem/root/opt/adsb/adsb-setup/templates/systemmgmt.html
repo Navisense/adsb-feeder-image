@@ -180,6 +180,79 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
+          <h5 class="card-title my-1">CSS Theme</h5>
+          <p>You can select a CSS theme here that will affect the style of the web interface.</p>
+          <form method="post" action="{{ url_for('set-css-theme') }}">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <input type="radio"
+                       name="css-theme"
+                       id="css-light"
+                       value="light"
+                       {% if get_conf("css_theme")=="light" %}checked{% endif %}>
+                <label class="form-check-label mr-3" for="css-light">Light Theme</label>
+                <input type="radio"
+                       name="css-theme"
+                       id="css-dark"
+                       value="dark"
+                       {% if get_conf("css_theme")=="dark" %}checked{% endif %}>
+                <label class="form-check-label mr-3" for="css-dark">Dark Theme</label>
+                <input type="radio"
+                       name="css-theme"
+                       id="css-auto"
+                       value="auto"
+                       {% if get_conf("css_theme")=="auto" %}checked{% endif %}>
+                <label class="form-check-label mr-3" for="css-auto">Auto</label>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">Apply</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5 class="card-title my-1">Parallel Docker downloads</h5>
+          <p>
+            On initial install and during updates, Docker images need to be downloaded onto the feeder. The default
+            behavior is for multiple downloads to be started at once. This works well on most connections and most
+            devices. However, it can be helpful on slow connections or weak devices to force Docker to only download one
+            thing at a time. This can help avoid update failures or improve update speed slightly.
+          </p>
+          <form method="post"
+                action="{{ url_for('toggle-docker-concurrent-downloads') }}">
+            <div class="row align-items-center">
+              <div class="col-12 col-md-8">
+                <p class="row align-items-center m-1">
+                  Currently, parallel downloads are
+                  {% if get_conf('docker_concurrent') %}
+                    enabled.
+                  {% else %}
+                    disabled.
+                  {% endif %}
+                </p>
+              </div>
+              <div class="col-12 col-md-4">
+                <button type="submit" class="btn btn-primary m-1 w-100">
+                  {% if get_conf("docker_concurrent") %}
+                    Disable
+                  {% else %}
+                    Enable
+                  {% endif %}
+                  parallel downloads
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card h-100">
+        <div class="card-body">
           <h5 class="card-title m-1">Reboot</h5>
           <form method="post"
                 action="{{ url_for('shutdown-reboot') }}"

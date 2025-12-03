@@ -89,53 +89,6 @@
           </div>
         </div>
       </div>
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title my-1">CSS Theme</h5>
-            <p>You can select a CSS theme here that will affect the style of the web interface.</p>
-            <div>
-              <input type="radio"
-                     name="css-theme"
-                     id="css-light"
-                     value="light"
-                     {% if get_conf("css_theme")=="light" %}checked{% endif %}>
-              <label class="form-check-label mr-3" for="css-light">Light Theme</label>
-              <input type="radio"
-                     name="css-theme"
-                     id="css-dark"
-                     value="dark"
-                     {% if get_conf("css_theme")=="dark" %}checked{% endif %}>
-              <label class="form-check-label mr-3" for="css-dark">Dark Theme</label>
-              <input type="radio"
-                     name="css-theme"
-                     id="css-auto"
-                     value="auto"
-                     {% if get_conf("css_theme")=="auto" %}checked{% endif %}>
-              <label class="form-check-label mr-3" for="css-auto">Auto</label>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col">
-        <div class="card h-100">
-          <div class="card-body">
-            <h5 class="card-title my-1">Parallel Docker downloads</h5>
-            <p>
-              On initial install and during updates, Docker images need to be downloaded onto the feeder. The default
-              behavior is for multiple downloads to be started at once. This works well on most connections and most
-              devices. However, it can be helpful on slow connections or weak devices to force Docker to only download one
-              thing at a time. This can help avoid update failures or improve update speed slightly.
-            </p>
-            <input id="parallel-docker-downloads"
-                   class="form-check-input"
-                   name="parallel-docker-downloads"
-                   type="checkbox"
-                   {% if get_conf('docker_concurrent') -%}checked{%- endif %}>
-            <label for="parallel-docker-downloads" class="form-check-label">Enable parallel Docker downloads</label>
-          </div>
-        </div>
-      </div>
     </div>
     <button type="submit" class="btn btn-accent btn-block btn-lg my-5">Apply settings</button>
   </form>

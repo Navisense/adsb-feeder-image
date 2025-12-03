@@ -519,6 +519,24 @@ class PorttrackerSdrFeeder:
             methods=["GET"],
         )
         app.add_url_rule(
+            "/set-css-theme",
+            "set-css-theme",
+            view_func=self.set_css_theme,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config, self._require_login],
+            methods=["POST"],
+        )
+        app.add_url_rule(
+            "/toggle-docker-concurrent-downloads",
+            "toggle-docker-concurrent-downloads",
+            view_func=self.toggle_docker_concurrent_downloads,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_for_incomplete_config, self._require_login],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/network-security-setup",
             "network-security-setup",
             view_func=self.network_and_security_setup,
@@ -2013,17 +2031,6 @@ class PorttrackerSdrFeeder:
             "ultrafeeder_extra_args", request.form["ultrafeeder-extra-args"])
         self._conf.set(
             "ultrafeeder_extra_env", request.form["ultrafeeder-extra-env"])
-        css_theme = request.form["css-theme"]
-        if css_theme not in ["light", "dark", "auto"]:
-            self._logger.warning(
-                f"Invalid CSS theme {css_theme}, using auto instead.")
-            css_theme = "auto"
-        self._conf.set("css_theme", css_theme)
-        should_download_parallel = util.checkbox_checked(
-            request.form["parallel-docker-downloads"])
-        if self._conf.get("docker_concurrent") != should_download_parallel:
-            self._set_docker_concurrent_downloads(should_download_parallel)
-            needs_docker_restart = True
         should_enable_config_link = util.checkbox_checked(
             request.form["enable-tar1090-image-config-link"])
         if (self._conf.get("tar1090_image_config_link.is_enabled")
@@ -2037,7 +2044,17 @@ class PorttrackerSdrFeeder:
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect("expert")
 
-    def _set_docker_concurrent_downloads(self, enable_concurrent_downloads):
+    def set_css_theme(self):
+        css_theme = request.form["css-theme"]
+        if css_theme not in ["light", "dark", "auto"]:
+            self._logger.warning(
+                f"Invalid CSS theme {css_theme}, using auto instead.")
+            css_theme = "auto"
+        self._conf.set("css_theme", css_theme)
+        return redirect(url_for("systemmgmt"))
+
+    def toggle_docker_concurrent_downloads(self):
+        enable_concurrent_downloads = not self._conf.get("docker_concurrent")
         daemon_config_file = pathlib.Path("/etc/docker/daemon.json")
         if enable_concurrent_downloads and not daemon_config_file.exists():
             # This is the default, nothing to do.
@@ -2076,6 +2093,9 @@ class PorttrackerSdrFeeder:
                 "Failed to reload docker config while setting concurrent "
                 "downloads.", flash_message=True)
         self._conf.set("docker_concurrent", enable_concurrent_downloads)
+        self._system._restart.bg_run(
+            cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("systemmgmt"))
 
     def systemmgmt(self):
         stable_versions = net.gitlab_repo().get_semver_tags()
