@@ -272,7 +272,7 @@ class System:
         self._containers = None
         self._containers_lock = threading.Lock()
         self._refresh_tasks = {
-            "system_info": util.RepeatingTask(300, self.update_system_info),
+            "system_info": util.RepeatingTask(30, self.update_system_info),
             "containers": util.RepeatingTask(
                 10, self._update_docker_containers),
             "wifi": util.RepeatingTask(10, self._update_wifi_info)}
