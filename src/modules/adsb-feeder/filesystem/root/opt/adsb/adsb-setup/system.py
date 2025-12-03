@@ -260,8 +260,6 @@ class System:
     application. Both are regularly refreshed in background tasks that are
     started and stopped by the class' context manager.
     """
-    INFO_REFRESH_INTERVAL = 300
-    CONTAINERS_REFRESH_INTERVAL = 10
     UNDERVOLTAGE_RESET_TIMEOUT = 2 * 3600
     LOW_DISK_THRESHOLD = 1024 * 1024 * 1024
     ZONEINFO_DIR = pathlib.Path("/usr/share/zoneinfo")
@@ -274,11 +272,10 @@ class System:
         self._containers = None
         self._containers_lock = threading.Lock()
         self._refresh_tasks = {
-            "system_info": util.RepeatingTask(
-                self.INFO_REFRESH_INTERVAL, self._update_system_info),
+            "system_info": util.RepeatingTask(300, self._update_system_info),
             "containers": util.RepeatingTask(
-                self.CONTAINERS_REFRESH_INTERVAL,
-                self._update_docker_containers)}
+                10, self._update_docker_containers),
+            "wifi": util.RepeatingTask(10, self._update_wifi_info)}
         self._last_undervoltage_time = -self.UNDERVOLTAGE_RESET_TIMEOUT
         self._dmesg_monitor = DmesgMonitor(
             on_undervoltage=self._set_undervoltage)
@@ -290,11 +287,12 @@ class System:
         return self
 
     def __exit__(self, *_):
-        for task in self._refresh_tasks.values():
+        for task_name, task in self._refresh_tasks.items():
             try:
                 task.stop_and_wait()
             except:
-                self._logger.exception("Error stopping refresh task.")
+                self._logger.exception(
+                    f"Error stopping refresh task {task_name}.")
         self._dmesg_monitor.stop()
         return False
 
@@ -511,6 +509,11 @@ class System:
     def wifi(self) -> Optional[wifi.GenericWifi]:
         ndis = self.system_info.network_device_infos
         return next(((device.wifi for device in ndis if device.wifi)), None)
+
+    def _update_wifi_info(self):
+        for device_info in self.system_info.network_device_infos:
+            if device_info.wifi:
+                device_info.wifi.refresh_ssid()
 
     @property
     def is_restarting(self):
