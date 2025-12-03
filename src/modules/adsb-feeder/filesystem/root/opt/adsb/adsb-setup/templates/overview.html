@@ -69,7 +69,7 @@
       <h5 class="card-title">Network info</h5>
       <p>
         This is <strong>{{ get_conf("feeder_name") }}</strong>. You can configure network access on the
-        <a href="{{ url_for('network-setup') }}">network setup page</a>.
+        <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
       </p>
       {% if request.remote_addr in ["127.0.0.1", "::1"] %}
         <p>

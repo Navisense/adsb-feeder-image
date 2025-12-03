@@ -519,9 +519,9 @@ class PorttrackerSdrFeeder:
             methods=["GET"],
         )
         app.add_url_rule(
-            "/network-setup",
-            "network-setup",
-            view_func=self.network_setup,
+            "/network-security-setup",
+            "network-security-setup",
+            view_func=self.network_and_security_setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config, self._require_login],
@@ -1861,7 +1861,7 @@ class PorttrackerSdrFeeder:
         except:
             self._logger.exception(
                 "Failed to enable sshd.", flash_message=True)
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def set_root_password(self):
         try:
@@ -1872,7 +1872,7 @@ class PorttrackerSdrFeeder:
         except:
             # The setter will log and show messages.
             pass
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def set_managed_user_password(self):
         managed_user = self._conf.get("managed_user")
@@ -1888,7 +1888,7 @@ class PorttrackerSdrFeeder:
         except:
             # The setter will log and show messages.
             pass
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def _set_user_password(self, username, password_plain, password_repeated):
         if not password_plain:
@@ -2095,7 +2095,7 @@ class PorttrackerSdrFeeder:
             Semver=util.Semver,
         )
 
-    def network_setup(self):
+    def network_and_security_setup(self):
         tailscale_info = self._system.get_tailscale_info()
         if tailscale_info.status in [system.TailscaleStatus.ERROR,
                                      system.TailscaleStatus.NOT_INSTALLED,
@@ -2106,7 +2106,7 @@ class PorttrackerSdrFeeder:
         proc = util.shell_with_combined_output("ps -e", timeout=2)
         zerotier_running = "zerotier-one" in proc.stdout
         return render_template(
-            "network_setup.html",
+            "network_and_security_setup.html",
             tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
         )
@@ -2585,7 +2585,7 @@ class PorttrackerSdrFeeder:
             flash(
                 "The repeated password does not match. Password was not "
                 "updated. Please try again.", category="error")
-            return redirect(url_for("network-setup"))
+            return redirect(url_for("network-security-setup"))
         if password_plain:
             password_bcrypt = bcrypt.hashpw(
                 password_plain.encode(), bcrypt.gensalt())
@@ -2595,7 +2595,7 @@ class PorttrackerSdrFeeder:
             self._conf.set("admin_login.password_bcrypt", None)
             flask_login.logout_user()
             flash("Admin password removed.", category="success")
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def shutdown_reboot(self):
         if "shutdown" in request.form:
@@ -2691,7 +2691,7 @@ class PorttrackerSdrFeeder:
                 or "zerotierid" not in request.form):
             self._conf.set("zerotierid", "")
             system.systemctl().run(["disable --now", "mask"], ["zerotier-one"])
-            return redirect(url_for("network-setup"))
+            return redirect(url_for("network-security-setup"))
         zerotier_id = request.form["zerotierid"]
         try:
             system.systemctl().run(["unmask", "enable --now"],
@@ -2703,7 +2703,7 @@ class PorttrackerSdrFeeder:
             self._logger.exception(
                 "Exception trying to set up zerotier - giving up",
                 flash_message=True)
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def configure_tailscale(self):
         try:
@@ -2712,7 +2712,7 @@ class PorttrackerSdrFeeder:
                 request.form.get("tailscale-extras", ""))
         except ValueError as e:
             flash(f"Error setting up Tailscale: {e}.", category="error")
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def _configure_tailscale(self, enabled: bool, extra_args: Optional[str]):
         if self._system.get_tailscale_info().status in [
@@ -2817,11 +2817,11 @@ class PorttrackerSdrFeeder:
         password = request.form["wifi-password"]
         if not self._system.wifi:
             self._logger.error("No wifi interface found.", flash_message=True)
-            return redirect(url_for("network-setup"))
+            return redirect(url_for("network-security-setup"))
         if self._system.wifi.ssid == ssid:
             self._logger.info(
                 f"Already connected to wifi {ssid}.", flash_message=True)
-            return redirect(url_for("network-setup"))
+            return redirect(url_for("network-security-setup"))
 
         def connect_wifi():
             try:
@@ -2837,7 +2837,7 @@ class PorttrackerSdrFeeder:
         self._logger.info(
             f"Started connecting to wifi {ssid}.", flash_message=True,
             flash_category="success")
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def configure_hotspot(self):
         mode = request.form.get("hotspot-mode")
@@ -2849,7 +2849,7 @@ class PorttrackerSdrFeeder:
             self._conf.set("enable_hotspot", True)
         else:
             return "Invalid hotspot mode.", 400
-        return redirect(url_for("network-setup"))
+        return redirect(url_for("network-security-setup"))
 
     def feeder_discovery(self):
         other_feeders = []
