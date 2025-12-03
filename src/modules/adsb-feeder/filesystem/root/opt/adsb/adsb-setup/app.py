@@ -2818,6 +2818,10 @@ class PorttrackerSdrFeeder:
         if not self._system.wifi:
             self._logger.error("No wifi interface found.", flash_message=True)
             return redirect(url_for("network-setup"))
+        if self._system.wifi.ssid == ssid:
+            self._logger.info(
+                f"Already connected to wifi {ssid}.", flash_message=True)
+            return redirect(url_for("network-setup"))
 
         def connect_wifi():
             try:
