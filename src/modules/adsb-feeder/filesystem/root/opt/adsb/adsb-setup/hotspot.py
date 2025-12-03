@@ -343,10 +343,14 @@ class Hotspot(abc.ABC):
                 self._logger.warning(
                     "Got request to test wifi credentials, but the hotspot "
                     "wasn't active.")
-            success = self.wifi.wifi_connect(ssid, password)
+            try:
+                self.wifi.connect(ssid, password)
+                success = True
+            except:
+                self._logger.exception(f"Failed to connect to '{ssid}'.")
+                success = False
             self.restart_state = "done"
             if not success:
-                self._logger.info(f"Failed to connect to '{ssid}'.")
                 self._setup_hotspot_locked()
             else:
                 # Leave the hotspot disabled.

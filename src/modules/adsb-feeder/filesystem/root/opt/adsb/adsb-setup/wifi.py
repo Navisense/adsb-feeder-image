@@ -51,8 +51,8 @@ class GenericWifi:
             ssid = None
         self._ssid = ssid or None
 
-    def wifi_connect(self, ssid, passwd):
-        return False
+    def connect(self, ssid, passwd):
+        pass
 
     def scan_ssids(self):
         pass
@@ -64,15 +64,15 @@ class NetworkManagerWifi(GenericWifi):
         super().__init__(*args, **kwargs)
         self._device_lock = threading.Lock()
 
-    def wifi_connect(self, ssid, passwd):
+    def connect(self, ssid, passwd):
         with self._device_lock:
-            return self._wifi_connect_locked(ssid, passwd)
+            self._connect_locked(ssid, passwd)
 
-    def _wifi_connect_locked(self, ssid, passwd):
+    def _connect_locked(self, ssid, passwd):
         # Try for a while because it takes a bit for NetworkManager to come
         # back up.
-        startTime = time.time()
-        while time.time() - startTime < 20:
+        try_until = time.monotonic() + 20
+        while time.monotonic() < try_until:
             # Do a wifi scan to ensure the following connect works. This is
             # apparently necessary for NetworkManager.
             self._scan_ssids_locked()
@@ -93,12 +93,12 @@ class NetworkManagerWifi(GenericWifi):
 
             if "successfully activated" in proc.stdout:
                 self.refresh_ssid()
-                return True
+                return
             self._logger.error(f"Failed to connect to '{ssid}': {proc.stdout}")
             # Just to safeguard against super fast spin, sleep a bit.
             time.sleep(2)
 
-        return False
+        raise Exception(f"Failed to connect to '{ssid}' after timeout.")
 
     def scan_ssids(self):
         with self._device_lock:

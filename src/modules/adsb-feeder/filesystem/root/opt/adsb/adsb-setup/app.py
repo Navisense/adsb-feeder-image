@@ -2820,8 +2820,13 @@ class PorttrackerSdrFeeder:
             return redirect(url_for("network-setup"))
 
         def connect_wifi():
-            status = self._system.wifi.wifi_connect(ssid, password)
-            self._logger.debug(f"wifi_connect returned {status}")
+            try:
+                self._system.wifi.connect(ssid, password)
+                self._logger.info(
+                    f"Connected to wifi {ssid}.", flash_message=True)
+            except:
+                self._logger.exception(
+                    f"Error connecting to wifi {ssid}.", flash_message=True)
 
         self._system._restart.bg_run(func=connect_wifi)
         return redirect(url_for("network-setup"))
