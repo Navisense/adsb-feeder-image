@@ -41,6 +41,7 @@ class GenericWifi:
         return self._ssid
 
     def refresh_ssid(self):
+        old_ssid = self._ssid
         try:
             proc = util.shell_with_combined_output(
                 f"iw dev {self._device_name} link | awk '/SSID/{{print $2}}'",
@@ -50,6 +51,10 @@ class GenericWifi:
             self._logger.exception("Error refreshing SSID.")
             ssid = None
         self._ssid = ssid or None
+        if old_ssid != self._ssid:
+            self._logger.info(
+                f"The SSID we're connected to changed from {old_ssid} to "
+                f"{self._ssid}.")
 
     def connect(self, ssid, passwd):
         pass
