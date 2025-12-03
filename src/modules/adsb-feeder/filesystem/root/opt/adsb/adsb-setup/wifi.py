@@ -130,11 +130,11 @@ class NetworkManagerWifi(GenericWifi):
                         or networks[ssid].signal_strength < signal_strength):
                     networks[ssid] = network_info
 
-            if len(networks) > 0:
-                self._logger.info(f"Found wifi networks {networks}.")
+            if networks:
+                self._logger.debug(f"Found wifi networks {networks}.")
                 self.networks = networks
             else:
-                self._logger.info("No wifi networks found.")
+                self._logger.debug("No wifi networks found.")
 
         except Exception:
             self._logger.exception("Error scanning for SSIDs.")
