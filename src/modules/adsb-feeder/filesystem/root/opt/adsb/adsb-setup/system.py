@@ -332,6 +332,46 @@ class System:
                     timezones.append(str(relative_path))
         return sorted(timezones)
 
+    def set_timezone(self, timezone):
+        try:
+            util.shell_with_combined_output(
+                f"timedatectl set-timezone {timezone}", check=True)
+            return
+        except:
+            self._logger.exception(
+                f"Failed to set timezone {timezone} using timedatectl, trying "
+                "to link timezone file instead.")
+        # timedatectl can fail on dietpi installs (Failed to connect to
+        # bus: No such file or directory), and on postmarketOS (Access denied,
+        # even as root). Just link the time zone file and restart the
+        # corresponding service.
+        timezone_file = self.ZONEINFO_DIR / timezone
+        if not timezone_file.is_file():
+            raise ValueError(f"Timezone file {timezone_file} doesn't exist.")
+        try:
+            util.shell_with_combined_output(
+                f"ln -sf {timezone_file} /etc/localtime", check=True)
+        except Exception as e:
+            raise ValueError(
+                "Unable to set time zone by linking timezone file.") from e
+        self._logger.debug("Linked time zone file.")
+        try:
+            procs = systemctl().run(["restart"], ["systemd-timedated"])
+            procs[0].check_returncode()
+            return
+        except:
+            self._logger.exception(
+                "Unable to apply time zone change by restarting "
+                "systemd-timedated.")
+        try:
+            util.shell_with_combined_output(
+                "dpkg-reconfigure --frontend noninteractive tzdata",
+                check=True)
+        except Exception as e:
+            raise ValueError(
+                "Unable to apply time zone change by running dpkg-reconfigure."
+            )
+
     def _update_system_info(self):
         with self._system_info_lock:
             try:
