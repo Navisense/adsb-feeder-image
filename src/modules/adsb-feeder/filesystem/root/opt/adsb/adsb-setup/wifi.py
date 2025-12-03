@@ -1,6 +1,7 @@
 import dataclasses as dc
 import logging
 import subprocess
+import threading
 import time
 from typing import Optional
 
@@ -46,7 +47,7 @@ class GenericWifi:
             ssid = None
         self._ssid = ssid or None
 
-    def wifi_connect(self, ssid, passwd, country_code="00"):
+    def wifi_connect(self, ssid, passwd):
         return False
 
     def scan_ssids(self):
@@ -55,14 +56,22 @@ class GenericWifi:
 
 class NetworkManagerWifi(GenericWifi):
     """Wifi using NetworkManager, e.g. for Raspbian."""
-    def wifi_connect(self, ssid, passwd, country_code="00"):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._device_lock = threading.Lock()
+
+    def wifi_connect(self, ssid, passwd):
+        with self._device_lock:
+            return self._wifi_connect_locked(ssid, passwd)
+
+    def _wifi_connect_locked(self, ssid, passwd):
         # Try for a while because it takes a bit for NetworkManager to come
         # back up.
         startTime = time.time()
         while time.time() - startTime < 20:
             # Do a wifi scan to ensure the following connect works. This is
             # apparently necessary for NetworkManager.
-            self.scan_ssids()
+            self._scan_ssids_locked()
             # Before connecting, delete the connection if it exists.
             # Apparently, not doing this can cause problems with
             # NetworkManager. This will return an error if the connection
@@ -87,6 +96,10 @@ class NetworkManagerWifi(GenericWifi):
         return False
 
     def scan_ssids(self):
+        with self._device_lock:
+            self._scan_ssids_locked()
+
+    def _scan_ssids_locked(self):
         try:
             try:
                 proc = util.shell_with_separate_output(
