@@ -514,6 +514,7 @@ class System:
         for device_info in self.system_info.network_device_infos:
             if device_info.wifi:
                 device_info.wifi.refresh_ssid()
+                device_info.wifi.scan_ssids()
 
     @property
     def is_restarting(self):
