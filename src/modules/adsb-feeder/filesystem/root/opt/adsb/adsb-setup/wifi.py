@@ -1,8 +1,8 @@
 import dataclasses as dc
 import logging
-import os
 import subprocess
 import time
+from typing import Optional
 
 import util
 
@@ -27,21 +27,24 @@ class GenericWifi:
     def __init__(self, device_name):
         self._logger = logging.getLogger(type(self).__name__)
         self._device_name = device_name
+        self._ssid = None
         self.networks: dict[str, WifiNetworkInfo] = {}
 
-    def get_ssid(self):
-        try:
-            # if you aren't on wifi, this will return an empty string
-            ssid = subprocess.run(
-                f"iw dev {self._device_name} link | awk '/SSID/{{print $2}}'",
-                shell=True,
-                capture_output=True,
-                timeout=2.0,
-            ).stdout.decode("utf-8")
-        except:
-            ssid = ""
+    @property
+    def ssid(self) -> Optional[str]:
+        """The SSID this wifi is connected to."""
+        return self._ssid
 
-        return ssid.strip()
+    def refresh_ssid(self):
+        try:
+            proc = util.shell_with_combined_output(
+                f"iw dev {self._device_name} link | awk '/SSID/{{print $2}}'",
+                check=True)
+            ssid = proc.stdout.strip()
+        except:
+            self._logger.exception("Error refreshing SSID.")
+            ssid = None
+        self._ssid = ssid or None
 
     def wifi_connect(self, ssid, passwd, country_code="00"):
         return False
@@ -75,6 +78,7 @@ class NetworkManagerWifi(GenericWifi):
                 continue
 
             if "successfully activated" in proc.stdout:
+                self.refresh_ssid()
                 return True
             self._logger.error(f"Failed to connect to '{ssid}': {proc.stdout}")
             # Just to safeguard against super fast spin, sleep a bit.

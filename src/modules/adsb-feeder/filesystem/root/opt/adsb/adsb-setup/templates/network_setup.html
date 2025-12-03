@@ -8,7 +8,7 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
-          {% with ssid=system.wifi.get_ssid() if system.wifi else none %}
+          {% with ssid = system.wifi.ssid if system.wifi else none %}
             <h5 class="card-title m-1">
               {% if ssid %}
                 Reconfigure
