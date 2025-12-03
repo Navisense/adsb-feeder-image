@@ -355,6 +355,7 @@ class PorttrackerSdrFeeder:
             return {
                 "get_conf": self._conf.get,
                 "url_for": self._url_for,
+                "system": self._system,
                 "query_parameter_string": query_parameter_string,
                 "is_reception_enabled": self.is_reception_enabled,}
 
@@ -2379,7 +2380,6 @@ class PorttrackerSdrFeeder:
             has_internet=has_internet,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
-            system=self._system,
             device_hosts=device_hosts,
             str=str,
             aggregators_chosen=aggregators_chosen,
@@ -2393,7 +2393,7 @@ class PorttrackerSdrFeeder:
                 self._logger.error(
                     f"Configured timezone {configured_timezone} does not "
                     "exist on this system. Please configure it again.")
-            return render_template("location_setup.html", system=self._system)
+            return render_template("location_setup.html")
         assert request.method == "POST"
         needs_docker_restart = False
 
@@ -2580,7 +2580,6 @@ class PorttrackerSdrFeeder:
             for _, image_setting in self._conf.get_setting("images")]
         return render_template(
             "info.html",
-            system=self._system,
             memory=memory,
             top=top,
             storage=storage,
