@@ -509,9 +509,8 @@ class System:
 
     @property
     def wifi(self) -> Optional[wifi.GenericWifi]:
-        return next(
-            (device.wifi for device in self.network_devices if device.wifi),
-            None)
+        ndis = self.system_info.network_device_infos
+        return next(((device.wifi for device in ndis if device.wifi)), None)
 
     @property
     def is_restarting(self):
