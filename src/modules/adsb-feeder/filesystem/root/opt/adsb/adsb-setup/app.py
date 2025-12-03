@@ -2456,9 +2456,9 @@ class PorttrackerSdrFeeder:
             except:
                 self._logger.exception(
                     "Error setting time zone to UTC.", flash_message=True)
-                return
+        else:
+            self._logger.info(f"Time zone changed to {timezone}.")
         self._conf.set("tz", timezone)
-        self._logger.info(f"Time zone changed to {timezone}.")
 
     def _set_system_timezone(self, timezone):
         try:
