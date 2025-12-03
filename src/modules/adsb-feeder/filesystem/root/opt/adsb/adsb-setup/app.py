@@ -1861,7 +1861,7 @@ class PorttrackerSdrFeeder:
         except:
             self._logger.exception(
                 "Failed to enable sshd.", flash_message=True)
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def set_root_password(self):
         try:
@@ -1872,7 +1872,7 @@ class PorttrackerSdrFeeder:
         except:
             # The setter will log and show messages.
             pass
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def set_managed_user_password(self):
         managed_user = self._conf.get("managed_user")
@@ -1888,7 +1888,7 @@ class PorttrackerSdrFeeder:
         except:
             # The setter will log and show messages.
             pass
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def _set_user_password(self, username, password_plain, password_repeated):
         if not password_plain:
@@ -2585,7 +2585,7 @@ class PorttrackerSdrFeeder:
             flash(
                 "The repeated password does not match. Password was not "
                 "updated. Please try again.", category="error")
-            return redirect(url_for("systemmgmt"))
+            return redirect(url_for("network-setup"))
         if password_plain:
             password_bcrypt = bcrypt.hashpw(
                 password_plain.encode(), bcrypt.gensalt())
@@ -2595,7 +2595,7 @@ class PorttrackerSdrFeeder:
             self._conf.set("admin_login.password_bcrypt", None)
             flask_login.logout_user()
             flash("Admin password removed.", category="success")
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("network-setup"))
 
     def shutdown_reboot(self):
         if "shutdown" in request.form:
