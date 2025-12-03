@@ -80,11 +80,12 @@ class NetworkManagerWifi(GenericWifi):
             # Apparently, not doing this can cause problems with
             # NetworkManager. This will return an error if the connection
             # doesn't exist, which we can ignore.
-            util.shell_with_combined_output(f"nmcli connection delete {ssid}")
+            util.shell_with_combined_output(
+                f'nmcli connection delete "{ssid}"')
             try:
                 proc = util.shell_with_combined_output(
-                    f"nmcli dev wifi connect {ssid} password {passwd} "
-                    f"ifname {self._device_name}", timeout=20.0)
+                    f'nmcli dev wifi connect "{ssid}" password "{passwd}" '
+                    f'ifname "{self._device_name}"', timeout=20.0)
             except subprocess.TimeoutExpired:
                 self._logger.exception(
                     "Timeout in process connecting to wifi.")
