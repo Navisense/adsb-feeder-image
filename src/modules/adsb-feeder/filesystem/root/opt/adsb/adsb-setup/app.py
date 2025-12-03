@@ -2321,9 +2321,7 @@ class PorttrackerSdrFeeder:
         tailscale_info = self._system.get_tailscale_info()
         device_hosts = []
         device_hosts += [
-            {
-                "host": di.ip, "type": "local_ip", "device": di.device,
-                "gateway": di.gateway}
+            {"host": di.ip, "type": "local_ip", "device_info": di}
             for di in self._system.system_info.network_device_infos
             if di.used_for_network_access]
         device_hosts += [{"host": f"{hostname}.local", "type": "mdns"}

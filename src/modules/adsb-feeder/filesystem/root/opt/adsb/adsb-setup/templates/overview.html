@@ -66,36 +66,51 @@
           <span class="fas fa-arrows-rotate"></span>
         </button>
       </div>
-      <h5 class="card-title">Device info</h5>
-      This is <strong>{{ get_conf("feeder_name") }}</strong>.
+      <h5 class="card-title">Network info</h5>
+      <p>
+        This is <strong>{{ get_conf("feeder_name") }}</strong>. You can configure network access on the
+        <a href="{{ url_for('network-setup') }}">network setup page</a>.
+      </p>
       {% if request.remote_addr in ["127.0.0.1", "::1"] %}
-        You are viewing this page on the device itself.
-        {% if device_hosts %}
-          You can also reach this device on the network as any one of these:
-          <ul class="list-group list-group-small my-3">
-            {% for device_host in device_hosts %}
-              <li class="list-group-item text-center px-2">
-                <span class="link-primary">{{ device_host['host'] }}</span>
-                {%- if device_host['type'] == 'local_ip' %}
-                  (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
-                {%- elif device_host['type'] == 'tailscale' %}
-                  (via Tailscale)
-                {%- endif -%}
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          Unfortunately, we have no information on other ways to reach this device.
-        {% endif %}
+        <p>
+          You are viewing this page on the device itself.
+          {% if device_hosts %}
+            You can also reach this device on the network as any one of these:
+            <ul class="list-group list-group-small my-3">
+              {% for device_host in device_hosts %}
+                <li class="list-group-item text-center px-2">
+                  <span class="link-primary">{{ device_host['host'] }}</span>
+                  {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
+                    (wifi device <strong>{{ device_host['device_info'].device }}</strong> connected to network
+                    <strong>{{ device_host['device_info'].wifi.ssid }}</strong> using the router
+                    {{ device_host['device_info'].gateway }})
+                  {%- elif device_host['type'] == 'local_ip' %}
+                    (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
+                    {{ device_host['device_info'].gateway }})
+                  {%- elif device_host['type'] == 'tailscale' %}
+                    (via Tailscale)
+                  {%- endif -%}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            Unfortunately, we have no information on other ways to reach this device.
+          {% endif %}
+        </p>
       {% elif device_hosts %}
-        This device is reachable on the network as any one of these:
+        <p>This device is reachable on the network as any one of these:</p>
         <ul class="list-group list-group-small my-3">
           {% for device_host in device_hosts %}
             <li class="list-group-item d-flex justify-content-between align-items-center px-2">
               <span>
                 <a href="http://{{ device_host['host'] }}">{{ device_host['host'] }}</a>
-                {%- if device_host['type'] == 'local_ip' %}
-                  (device {{ device_host['device'] }} using the gateway {{ device_host['gateway'] }})
+                {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
+                  (wifi device <strong>{{ device_host['device_info'].device }}</strong> connected to network
+                  <strong>{{ device_host['device_info'].wifi.ssid }}</strong> using the router
+                  {{ device_host['device_info'].gateway }})
+                {%- elif device_host['type'] == 'local_ip' %}
+                  (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
+                  {{ device_host['device_info'].gateway }})
                 {%- elif device_host['type'] == 'tailscale' %}
                   (via Tailscale)
                 {%- endif -%}
@@ -108,14 +123,16 @@
           {% endfor %}
         </ul>
       {% else %}
-        Unfortunately, we have no information on how to reach this device.
+        <p>Unfortunately, we have no information on how to reach this device.</p>
       {% endif %}
-      {% if system.system_info.external_ip %}
-        This device's external IP (on the public internet) is <strong>{{ system.system_info.external_ip }}</strong>
-        <span id="feeder-external-ip-comment"></span>
-      {% else %}
-        Unfortunately, we have no information on the device's external IP (on the public internet).
-      {% endif %}
+      <p>
+        {% if system.system_info.external_ip %}
+          This device's external IP (on the public internet) is <strong>{{ system.system_info.external_ip }}</strong>
+          <span id="feeder-external-ip-comment"></span>
+        {% else %}
+          Unfortunately, we have no information on the device's external IP (on the public internet).
+        {% endif %}
+      </p>
     </div>
   </div>
   <div class="card my-2">
