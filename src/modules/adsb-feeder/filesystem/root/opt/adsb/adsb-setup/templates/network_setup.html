@@ -8,9 +8,9 @@
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
-          {% with ssid = system.wifi.ssid if system.wifi else none %}
+          {% with current_ssid = system.wifi.ssid if system.wifi else none %}
             <h5 class="card-title m-1">
-              {% if ssid %}
+              {% if current_ssid %}
                 Reconfigure
               {% else %}
                 Connect to
@@ -23,35 +23,36 @@
                     onsubmit="showSpinner(); return true;">
                 <div class="row align-items-center">
                   <div class="col-12 m-1">
-                    {% if ssid %}
-                      This feeder is connected to the <strong>{{ ssid }}</strong> WiFi network.
+                    {% if current_ssid %}
+                      This feeder is connected to the <strong>{{ current_ssid }}</strong> WiFi network.
                     {% else %}
                       This feeder is connected via Ethernet.
                     {% endif %}
                   </div>
                   <div class="col-12 m-1">
-                    Enter the SSID and password of the WiFi network you want to connect to. Note that it can take several
-                    minutes for the connection to be established and tested. And in some cases a forced reboot (pull
-                    power) may be required. Depending on the exact version of the base OS of the feeder image that you are
-                    using, the user experience may be slightly different, but when the process appears stuck even after a
-                    longer wait, a reboot may be the way to go.
+                    Choose the network name (SSID) and enter the password of the WiFi network you want to connect to.
+                    Note that it can take several minutes for the connection to be established and tested. And in some
+                    cases a forced reboot (pull power) may be required.
                   </div>
                   <div class="col-12 m-1">
                     Remember that if the change is successful, you need to connect to the feeder on that new network.
                     There is no way for the feeder to automatically forward you to that.
                   </div>
                   <div class="col-12 col-md-6 col-lg-4">
-                    <input class="m-1 w-100"
-                           id="wifi_ssid"
-                           name="wifi_ssid"
-                           type="text"
-                           placeholder="SSID"
-                           required>
+                    <select class="m-1 w-100" name="wifi-ssid" required>
+                      <option value=""
+                              disabled
+                              {% if current_ssid not in system.wifi.networks %}selected{% endif %}>
+                        Select SSID
+                      </option>
+                      {% for ssid in system.wifi.networks %}
+                        <option value="{{ ssid }}" {% if ssid == current_ssid %}selected{% endif %}>{{ ssid }}</option>
+                      {% endfor %}
+                    </select>
                   </div>
                   <div class="col-12 col-md-6 col-lg-4">
                     <input class="m-1 w-100"
-                           id="wifi_password"
-                           name="wifi_password"
+                           name="wifi-password"
                            type="text"
                            placeholder="Password"
                            required>

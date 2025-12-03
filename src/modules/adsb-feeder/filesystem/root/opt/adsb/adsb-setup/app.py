@@ -46,7 +46,6 @@ import sdr
 import stats
 import system
 import util
-import wifi
 
 logger = None
 
@@ -2814,15 +2813,14 @@ class PorttrackerSdrFeeder:
             raise ValueError("unable to get a login link")
 
     def configure_wifi(self):
-        ssid = request.form.get("wifi_ssid")
-        password = request.form.get("wifi_password")
-        wifi = self._system.wifi
-        if not wifi:
+        ssid = request.form["wifi-ssid"]
+        password = request.form["wifi-password"]
+        if not self._system.wifi:
             self._logger.error("No wifi interface found.", flash_message=True)
             return redirect(url_for("network-setup"))
 
         def connect_wifi():
-            status = wifi.wifi_connect(ssid, password)
+            status = self._system.wifi.wifi_connect(ssid, password)
             self._logger.debug(f"wifi_connect returned {status}")
 
         self._system._restart.bg_run(func=connect_wifi)
