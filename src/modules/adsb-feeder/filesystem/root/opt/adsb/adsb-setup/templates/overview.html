@@ -81,9 +81,12 @@
                 <li class="list-group-item text-center px-2">
                   <span class="link-primary">{{ device_host['host'] }}</span>
                   {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
-                    (wifi device <strong>{{ device_host['device_info'].device }}</strong> connected to network
-                    <strong>{{ device_host['device_info'].wifi.ssid }}</strong> using the router
-                    {{ device_host['device_info'].gateway }})
+                    (wifi device <strong>{{ device_host['device_info'].device }}</strong>
+                    {% if device_host['device_info'].wifi.ssid %}
+                      connected to network <strong>{{ device_host['device_info'].wifi.ssid }}</strong>
+                      using the router {{ device_host['device_info'].gateway }}
+                    {% endif %}
+                    )
                   {%- elif device_host['type'] == 'local_ip' %}
                     (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
                     {{ device_host['device_info'].gateway }})
@@ -105,9 +108,12 @@
               <span>
                 <a href="http://{{ device_host['host'] }}">{{ device_host['host'] }}</a>
                 {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
-                  (wifi device <strong>{{ device_host['device_info'].device }}</strong> connected to network
-                  <strong>{{ device_host['device_info'].wifi.ssid }}</strong> using the router
-                  {{ device_host['device_info'].gateway }})
+                  (wifi device <strong>{{ device_host['device_info'].device }}</strong>
+                  {% if device_host['device_info'].wifi.ssid %}
+                    connected to network <strong>{{ device_host['device_info'].wifi.ssid }}</strong>
+                    using the router {{ device_host['device_info'].gateway }}
+                  {% endif %}
+                  )
                 {%- elif device_host['type'] == 'local_ip' %}
                   (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
                   {{ device_host['device_info'].gateway }})
