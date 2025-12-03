@@ -2826,6 +2826,9 @@ class PorttrackerSdrFeeder:
         def connect_wifi():
             try:
                 self._system.wifi.connect(ssid, password)
+                # Force an update system info, which contains network device
+                # info, in order to show the new connection immediately.
+                self._system.update_system_info()
                 self._logger.info(f"Connected to wifi {ssid}.")
             except:
                 self._logger.exception(f"Error connecting to wifi {ssid}.")

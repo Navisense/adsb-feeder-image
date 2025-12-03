@@ -272,7 +272,7 @@ class System:
         self._containers = None
         self._containers_lock = threading.Lock()
         self._refresh_tasks = {
-            "system_info": util.RepeatingTask(300, self._update_system_info),
+            "system_info": util.RepeatingTask(300, self.update_system_info),
             "containers": util.RepeatingTask(
                 10, self._update_docker_containers),
             "wifi": util.RepeatingTask(10, self._update_wifi_info)}
@@ -378,7 +378,7 @@ class System:
                 "Unable to apply time zone change by running dpkg-reconfigure."
             )
 
-    def _update_system_info(self):
+    def update_system_info(self):
         with self._system_info_lock:
             try:
                 external_ip = self._get_external_ip()
