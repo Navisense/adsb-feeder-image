@@ -144,6 +144,27 @@
         </div>
       </div>
     </div>
+    <div class="card my-2">
+      <div class="card-body">
+        <h5 class="card-title my-1">GPS based location</h5>
+        <p>
+          {% if get_conf('has_gpsd') %}
+            You have gpsd installed and configured. You can use this checkbox to decide whether it should be used
+            for the feeder's position.
+          {% else %}
+            This device doesn't have gpsd available. If it were, you could select it here to determine the feeder's
+            position via GPS.
+          {% endif %}
+        </p>
+        <input id="use-gpsd"
+               class="form-check-input"
+               name="use-gpsd"
+               type="checkbox"
+               {% if get_conf('use_gpsd') -%}checked{%- endif %}
+               {% if not get_conf('has_gpsd') -%}disabled{%- endif %}>
+        <label for="use-gpsd" class="form-check-label">Enable gpsd</label>
+      </div>
+    </div>
     <button type="submit" class="btn btn-accent btn-block btn-lg my-5">Submit</button>
   </form>
   <script>

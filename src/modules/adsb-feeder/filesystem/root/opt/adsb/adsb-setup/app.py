@@ -2019,15 +2019,6 @@ class PorttrackerSdrFeeder:
                 f"Invalid CSS theme {css_theme}, using auto instead.")
             css_theme = "auto"
         self._conf.set("css_theme", css_theme)
-        should_use_gpsd = util.checkbox_checked(request.form["use-gpsd"])
-        if self._conf.get("use_gpsd") != should_use_gpsd:
-            if should_use_gpsd and not self._conf.get("has_gpsd"):
-                self._logger.warning(
-                    "Request to enable gpsd, but it's not even available.")
-                should_use_gpsd = False
-            self._conf.set("use_gpsd", should_use_gpsd)
-            self._logger.debug(f"Set gpsd to {should_use_gpsd}.")
-            needs_docker_restart = True
         should_download_parallel = util.checkbox_checked(
             request.form["parallel-docker-downloads"])
         if self._conf.get("docker_concurrent") != should_download_parallel:
@@ -2389,6 +2380,17 @@ class PorttrackerSdrFeeder:
             except Exception as e:
                 self._logger.exception(
                     f"Error parsing {form_key}: {e}.", flash_message=True)
+
+        # GPSD.
+        should_use_gpsd = util.checkbox_checked(request.form["use-gpsd"])
+        if self._conf.get("use_gpsd") != should_use_gpsd:
+            if should_use_gpsd and not self._conf.get("has_gpsd"):
+                self._logger.warning(
+                    "Request to enable gpsd, but it's not even available.")
+                should_use_gpsd = False
+            self._conf.set("use_gpsd", should_use_gpsd)
+            self._logger.debug(f"Set gpsd to {should_use_gpsd}.")
+            needs_docker_restart = True
 
         if needs_docker_restart:
             self._system._restart.bg_run(
