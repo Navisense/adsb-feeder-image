@@ -332,10 +332,6 @@ class PorttrackerSdrFeeder:
 
         self.exiting = False
 
-        # let's only instantiate the Wifi class if we are on WiFi
-        self.wifi = None
-        self.wifi_ssid = ""
-
         # No one should share a CPU serial with AirNav, so always create fake
         # cpuinfo. Also identify if we would use the thermal hack for RB and
         # Ultrafeeder.
@@ -2114,7 +2110,6 @@ class PorttrackerSdrFeeder:
             "network_setup.html",
             tailscale_info=tailscale_info,
             zerotier_running=zerotier_running,
-            wifi=self.wifi_ssid,
         )
 
     def sdrplay_license(self):
@@ -2279,40 +2274,7 @@ class PorttrackerSdrFeeder:
             kwargs["udp_port"] = request.form.get("aishub-udp-port") or None
         return kwargs
 
-    def update_net_dev(self):
-        try:
-            result = subprocess.run(
-                "ip route get 1 | head -1  | cut -d' ' -f5,7",
-                shell=True,
-                capture_output=True,
-                timeout=2.0,
-            ).stdout
-        except:
-            result = ""
-        else:
-            result = result.decode().strip()
-            if " " in result:
-                dev, addr = result.split(" ")
-            else:
-                dev = result
-                addr = ""
-        if result and addr:
-            self.local_address = addr
-            self.local_dev = dev
-        else:
-            self.local_address = ""
-            self.local_dev = ""
-
-        if self.local_dev.startswith("wlan"):
-            if self.wifi is None:
-                self.wifi = wifi.make_wifi()
-            self.wifi_ssid = self.wifi.get_ssid()
-        else:
-            self.wifi_ssid = ""
-
     def every_minute(self):
-        self.update_net_dev()
-
         zt_network = self._conf.get("zerotierid")
         if zt_network:
             try:
@@ -2856,13 +2818,14 @@ class PorttrackerSdrFeeder:
     def configure_wifi(self):
         ssid = request.form.get("wifi_ssid")
         password = request.form.get("wifi_password")
+        wifi = self._system.wifi
+        if not wifi:
+            self._logger.error("No wifi interface found.", flash_message=True)
+            return redirect(url_for("network-setup"))
 
         def connect_wifi():
-            if self.wifi is None:
-                self.wifi = wifi.make_wifi()
-            status = self.wifi.wifi_connect(ssid, password)
+            status = wifi.wifi_connect(ssid, password)
             self._logger.debug(f"wifi_connect returned {status}")
-            self.update_net_dev()
 
         self._system._restart.bg_run(func=connect_wifi)
         return redirect(url_for("network-setup"))
