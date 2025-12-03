@@ -1,9 +1,16 @@
 {% extends "base-regular.html" %}
-{% set active_page = "expert" %}
+{% set active_page = "adsb-setup" %}
 {% block title %}
-  Expert setup
+  ADS-B Setup
 {% endblock title %}
 {% block content %}
+  <div class="row justify-content-center">
+    <div class="col-10 col-lg-6">
+      <p class="text-center">
+        This page contains options specific only to ADS-B and the Tar1090 application decoding the ADS-B messages.
+      </p>
+    </div>
+  </div>
   <form method="post">
     <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
       <div class="col">

@@ -501,9 +501,9 @@ class PorttrackerSdrFeeder:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
-            "/expert",
-            "expert",
-            view_func=self.expert,
+            "/adsb-setup",
+            "adsb-setup",
+            view_func=self.adsb_setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config, self._require_login],
@@ -2012,9 +2012,9 @@ class PorttrackerSdrFeeder:
         if proc.returncode != 0:
             raise SystemOperationError(f"systemctl call failed: {proc.stdout}")
 
-    def expert(self):
+    def adsb_setup(self):
         if request.method == "GET":
-            return render_template("expert.html")
+            return render_template("adsb_setup.html")
         assert request.method == "POST"
         needs_docker_restart = False
         try:
@@ -2025,7 +2025,7 @@ class PorttrackerSdrFeeder:
                 f"Invalid tar1090 query parameter string "
                 f"{request.form['tar1090-query-params']}: {e}.",
                 flash_message=True)
-            return redirect("expert")
+            return redirect(url_for("adsb-setup"))
         self._conf.set("tar1090_query_params", query_params_dict)
         self._conf.set(
             "ultrafeeder_extra_args", request.form["ultrafeeder-extra-args"])
@@ -2042,7 +2042,7 @@ class PorttrackerSdrFeeder:
         if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
-        return redirect("expert")
+        return redirect(url_for("adsb-setup"))
 
     def set_css_theme(self):
         css_theme = request.form["css-theme"]
