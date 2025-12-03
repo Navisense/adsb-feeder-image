@@ -2344,11 +2344,6 @@ class PorttrackerSdrFeeder:
             elif ok:
                 has_internet = True
 
-        if self.local_address:
-            local_address = self.local_address
-        else:
-            local_address = request.host.split(":")[0]
-
         # this indicates that the last docker-compose-adsb up call failed
         compose_up_failed = config.DOCKER_COMPOSE_UP_FAILED_FILE.exists()
 
@@ -2382,7 +2377,6 @@ class PorttrackerSdrFeeder:
             "overview.html",
             has_router=has_router,
             has_internet=has_internet,
-            local_address=local_address,
             zerotier_address=self.zerotier_address,
             compose_up_failed=compose_up_failed,
             system=self._system,
