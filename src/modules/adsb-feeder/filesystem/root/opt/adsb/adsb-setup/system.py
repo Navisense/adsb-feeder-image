@@ -1,8 +1,10 @@
 import dataclasses as dc
 import enum
+import functools as ft
 import ipaddress
 import json
 import logging
+import pathlib
 import select
 import shutil
 import socket
@@ -254,6 +256,7 @@ class System:
     CONTAINERS_REFRESH_INTERVAL = 10
     UNDERVOLTAGE_RESET_TIMEOUT = 2 * 3600
     LOW_DISK_THRESHOLD = 1024 * 1024 * 1024
+    ZONEINFO_DIR = pathlib.Path("/usr/share/zoneinfo")
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
@@ -309,6 +312,25 @@ class System:
             lock = threading.Lock()
         with lock:
             return self._system_info
+
+    @property
+    @ft.cache
+    def timezones(self) -> list[str]:
+        if not self.ZONEINFO_DIR.is_dir():
+            return ["UTC"]
+        timezones = []
+        for root, dirs, files in self.ZONEINFO_DIR.walk():
+            # Filter out common non-timezone directories.
+            dirs[:] = [d for d in dirs if d not in ["Etc", "posix", "right"]]
+            for file in files:
+                # Filter out common non-timezone files.
+                if file not in ["posixrules", "localtime", "rightzone",
+                                "zone.tab", "iso3166.tab", "zone1970.tab",
+                                "leapseconds.list"]:
+                    relative_path = (root / file).relative_to(
+                        self.ZONEINFO_DIR)
+                    timezones.append(str(relative_path))
+        return sorted(timezones)
 
     def _update_system_info(self):
         with self._system_info_lock:

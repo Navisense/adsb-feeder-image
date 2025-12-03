@@ -2393,6 +2393,12 @@ class PorttrackerSdrFeeder:
 
     def location_setup(self):
         if request.method == "GET":
+            configured_timezone = self._conf.get("tz")
+            if configured_timezone not in self._system.timezones:
+                self._conf.set("tz", None)
+                self._logger.error(
+                    f"Configured timezone {configured_timezone} does not "
+                    "exist on this system. Please configure it again.")
             return render_template("location_setup.html", system=self._system)
         assert request.method == "POST"
         needs_docker_restart = False

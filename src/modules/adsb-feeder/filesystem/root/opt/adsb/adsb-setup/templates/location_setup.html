@@ -123,19 +123,22 @@
               <div class="d-flex align-items-center">
                 <label for="timezone">Timezone</label>
                 <button class="btn btn-secondary ms-5"
-                        onclick="useBrowserTimezone(); return false; // return false inhibits the form to be submitted">
+                        onclick="useBrowserTimezone(true); return false; // return false so the form isn't submitted">
                   Fill in browser timezone
                 </button>
               </div>
             </div>
             <div class="col-12 col-lg-6">
-              <input type="text"
-                     name="timezone"
-                     id="timezone"
-                     required
-                     placeholder="populate from the browser timezone by clicking the 'update timezone' button"
-                     class="form-control "
-                     value="{{ get_conf('tz', default='') }}">
+              <select name="timezone" id="timezone" required class="form-select">
+                <option value=""
+                        disabled
+                        {% if get_conf('tz') not in system.timezones %}selected{% endif %}>
+                  Select a timezone...
+                </option>
+                {% for tz in system.timezones %}
+                  <option value="{{ tz }}" {% if get_conf('tz') == tz %}selected{% endif %}>{{ tz }}</option>
+                {% endfor %}
+              </select>
             </div>
           </div>
         </div>
@@ -166,12 +169,24 @@
       return timezone;
     }
 
-    function useBrowserTimezone() {
-      $("#timezone").val(getBrowserTimezone());
+    function useBrowserTimezone(alertIfNotAvailable) {
+      let timezone = getBrowserTimezone();
+      if (!timezone) {
+        if (alertIfNotAvailable) {
+          alert("Could not find browser timezone.");
+        }
+        return;
+      } else if (!{{ system.timezones | tojson }}.includes(timezone)) {
+        if (alertIfNotAvailable) {
+          alert(`Browser timezone ${timezone} does not exist on the device.`);
+        }
+        return;
+      }
+      $("#timezone").val(timezone);
     }
     // Set timezone field to browser timezone if not set already.
     if (!$("#timezone").val()) {
-      useBrowserTimezone();
+      useBrowserTimezone(false);
     }
   </script>
 {% endblock content %}
