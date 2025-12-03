@@ -16,19 +16,16 @@ from typing import Optional
 import requests
 
 import util
-
-
-class NetworkDeviceType(enum.StrEnum):
-    ETHERNET = "ethernet"
-    WIFI = "wifi"
+import wifi
 
 
 @dc.dataclass
 class NetworkDeviceInfo:
-    type: NetworkDeviceType
     gateway: str
     device: str
     ip: str
+    wifi: Optional[wifi.GenericWifi]
+    """Wifi control, set if the device is a wifi device."""
 
 
 @dc.dataclass
@@ -458,16 +455,17 @@ class System:
             try:
                 if route_info["dst"] != "default":
                     continue
-                device_type = NetworkDeviceType.ETHERNET
-                if any(route_info["dev"].startswith(prefix)
+                device_name = route_info["dev"]
+                wifi = None
+                if any(device_name.startswith(prefix)
                        for prefix in ["wlan", "wlp", "ath"]):
-                    device_type = NetworkDeviceType.WIFI
+                    wifi = wifi.make_wifi(device_name)
                 device_infos.append(
                     NetworkDeviceInfo(
-                        type=device_type,
                         gateway=route_info["gateway"],
-                        device=route_info["dev"],
+                        device=device_name,
                         ip=route_info["prefsrc"],
+                        wifi=wifi,
                     ))
             except KeyError:
                 continue
@@ -487,6 +485,12 @@ class System:
 
     def _has_low_disk(self):
         return shutil.disk_usage("/").free < self.LOW_DISK_THRESHOLD
+
+    @property
+    def wifi(self) -> Optional[wifi.GenericWifi]:
+        return next(
+            (device.wifi for device in self.network_devices if device.wifi),
+            None)
 
     @property
     def is_restarting(self):

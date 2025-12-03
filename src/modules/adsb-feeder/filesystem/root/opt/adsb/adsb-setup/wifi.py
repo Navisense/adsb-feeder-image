@@ -13,29 +13,29 @@ class WifiNetworkInfo:
     signal_strength: float
 
 
-def make_wifi(wlan="wlan0"):
+def make_wifi(device_name="wlan0"):
     baseos = util.get_baseos()
     if baseos == "dietpi":
-        return WpaSupplicantWifi(wlan)
+        return WpaSupplicantWifi(device_name)
     elif baseos in ["raspbian", "postmarketos"]:
-        return NetworkManagerWifi(wlan)
+        return NetworkManagerWifi(device_name)
     logging.getLogger(__name__).warning(
         f"Unknown OS {baseos} - wifi will be unable to scan and connect.")
-    return GenericWifi(wlan)
+    return GenericWifi(device_name)
 
 
 class GenericWifi:
     """Generic wifi that can't scan or connect."""
-    def __init__(self, wlan):
+    def __init__(self, device_name):
         self._logger = logging.getLogger(type(self).__name__)
-        self.wlan = wlan
+        self._device_name = device_name
         self.networks: dict[str, WifiNetworkInfo] = {}
 
     def get_ssid(self):
         try:
             # if you aren't on wifi, this will return an empty string
             ssid = subprocess.run(
-                f"iw dev {self.wlan} link | awk '/SSID/{{print $2}}'",
+                f"iw dev {self._device_name} link | awk '/SSID/{{print $2}}'",
                 shell=True,
                 capture_output=True,
                 timeout=2.0,
@@ -76,7 +76,7 @@ class WpaSupplicantWifi(GenericWifi):
         output = ""
         try:
             proc = subprocess.Popen(
-                ["wpa_cli", f"-i{self.wlan}"],
+                ["wpa_cli", f"-i{self._device_name}"],
                 stderr=subprocess.STDOUT,
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
@@ -119,7 +119,7 @@ class WpaSupplicantWifi(GenericWifi):
         ssids = []
         try:
             proc = subprocess.Popen(
-                ["wpa_cli", f"-i{self.wlan}"],
+                ["wpa_cli", f"-i{self._device_name}"],
                 stderr=subprocess.STDOUT,
                 stdout=subprocess.PIPE,
                 stdin=subprocess.PIPE,
@@ -239,14 +239,16 @@ p2p_disabled=1
             lines = current.readlines()
             for line in lines:
                 if line.startswith(
-                        "#") and "allow-hotplug" in line and self.wlan in line:
+                        "#"
+                ) and "allow-hotplug" in line and self._device_name in line:
                     changedInterfaces = True
-                    update.write(f"allow-hotplug {self.wlan}\n")
+                    update.write(f"allow-hotplug {self._device_name}\n")
                 else:
                     update.write(f"{line}")
 
         if changedInterfaces:
-            self._logger.info(f"Uncommenting allow-hotplug for {self.wlan}.")
+            self._logger.info(
+                f"Uncommenting allow-hotplug for {self._device_name}.")
             os.rename("/etc/network/interfaces.new", "/etc/network/interfaces")
             self._restart_networking_noblock()
         else:
@@ -314,7 +316,7 @@ class NetworkManagerWifi(GenericWifi):
             try:
                 proc = util.shell_with_combined_output(
                     f"nmcli dev wifi connect {ssid} password {passwd} "
-                    f"ifname {self.wlan}", timeout=20.0)
+                    f"ifname {self._device_name}", timeout=20.0)
             except subprocess.TimeoutExpired:
                 self._logger.exception(
                     "Timeout in process connecting to wifi.")

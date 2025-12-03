@@ -202,7 +202,7 @@ class Hotspot(abc.ABC):
             response_ip=self.HOTSPOT_IP,
             non_response_domains={"local", "local.porttracker-sdr-feeder.de"})
         self._logger = logging.getLogger(type(self).__name__)
-        self.wifi = wifi.make_wifi(self.wlan)
+        self.wifi = wifi.make_wifi(device_name=self.wlan)
         self._setup_config_files()
 
     @abc.abstractmethod
