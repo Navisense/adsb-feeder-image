@@ -18,8 +18,14 @@ import requests
 import util
 
 
+class NetworkDeviceType(enum.StrEnum):
+    ETHERNET = "ethernet"
+    WIFI = "wifi"
+
+
 @dc.dataclass
 class NetworkDeviceInfo:
+    type: NetworkDeviceType
     gateway: str
     device: str
     ip: str
@@ -452,8 +458,13 @@ class System:
             try:
                 if route_info["dst"] != "default":
                     continue
+                device_type = NetworkDeviceType.ETHERNET
+                if any(route_info["dev"].startswith(prefix)
+                       for prefix in ["wlan", "wlp", "ath"]):
+                    device_type = NetworkDeviceType.WIFI
                 device_infos.append(
                     NetworkDeviceInfo(
+                        type=device_type,
                         gateway=route_info["gateway"],
                         device=route_info["dev"],
                         ip=route_info["prefsrc"],
