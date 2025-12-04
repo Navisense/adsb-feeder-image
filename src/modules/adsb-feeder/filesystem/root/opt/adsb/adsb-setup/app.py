@@ -414,9 +414,9 @@ class PorttrackerSdrFeeder:
             view_func=self.static_files,
         )
         app.add_url_rule(
-            "/healthz",
-            "healthz",
-            view_func=self.healthz,
+            "/api/statusz",
+            "statusz",
+            view_func=self.statusz,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["OPTIONS", "GET"],
         )
@@ -917,7 +917,7 @@ class PorttrackerSdrFeeder:
                     "We've been put into hotspot mode, but don't have a "
                     "hotspot. Disabling it.")
                 self._hotspot_mode = False
-            if request.path in ["/healthz", "/overview"]:
+            if request.path in ["/api/statusz", "/overview"]:
                 return view_func(*args, **kwargs)
             elif self._hotspot_mode:
                 return self._hotspot_app.handle_request(request)
@@ -1196,15 +1196,17 @@ class PorttrackerSdrFeeder:
     def index(self):
         return redirect(url_for("overview"))
 
-    def healthz(self):
+    def statusz(self):
         if request.method == "OPTIONS":
             response = flask.make_response()
             response.headers.add("Access-Control-Allow-Origin", "*")
             response.headers.add("Access-Control-Allow-Headers", "*")
             response.headers.add("Access-Control-Allow-Methods", "*")
-        else:
-            response = flask.make_response("ok")
-            response.headers.add("Access-Control-Allow-Origin", "*")
+            return response
+        assert request.method == "GET"
+        status_dict = {"mode": "hotspot" if self.hotspot_mode else "regular"}
+        response = flask.make_response(status_dict)
+        response.headers.add("Access-Control-Allow-Origin", "*")
         return response
 
     def login(self):

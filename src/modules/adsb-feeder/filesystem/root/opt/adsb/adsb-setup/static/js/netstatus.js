@@ -35,7 +35,7 @@ class FeederConnectivityChecker {
       req.onload = this.maybeUpdateStatus(domain, previousStatus, "success");
       req.onerror = this.maybeUpdateStatus(domain, previousStatus, "error");
       req.ontimeout = this.maybeUpdateStatus(domain, previousStatus, "timeout");
-      req.open("GET", `http://${domain}/healthz`);
+      req.open("GET", `http://${domain}/api/statusz`);
       req.send();
     }
     let recheckInterval = 1000;
