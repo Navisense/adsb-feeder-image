@@ -103,6 +103,8 @@
       </ul>
     </div>
   </div>
+  {# Disabled for the moment, because upload doesn't work, anonymization is spotty, and it's not important enough to fix
+     right away
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Diagnostics file download</h5>
@@ -121,28 +123,11 @@
         Please share this link with the developers who are trying to help you
         (and who most likely asked you to provide this info in the first place).
       </p>
-      <form method="post"
-            action="{{ url_for('download-diagnostics') }}"
-            enctype="multipart/form-data">
-        <button type="submit"
-                class="btn btn-primary btn-rounded p-4 mb-3"
-                name="upload"
-                value="0x0.st"
-                onclick="showSpinner(); return true;">Upload Logs to 0x0.st (curl POST)</button>
-        <button type="submit"
-                class="btn btn-primary btn-rounded p-4 mb-3"
-                name="upload"
-                value="termbin.com"
-                onclick="showSpinner(); return true;">Upload Logs to termbin.com (netcat)</button>
-        <button type="submit"
-                class="btn btn-primary btn-rounded p-4 mb-3"
-                name="upload"
-                value="local_download">Download Logs</button>
-        <button type="submit"
-                class="btn btn-primary btn-rounded p-4 mb-3"
-                name="upload"
-                value="local_view"
-                onclick="showSpinner(); return true;">View Logs</button>
+      <form method="post" action="{{ url_for('download-diagnostics') }}" enctype="multipart/form-data">
+        <button type="submit" class="btn btn-primary btn-rounded p-4 mb-3" name="upload" value="0x0.st" onclick="showSpinner(); return true;">Upload Logs to 0x0.st (curl POST)</button>
+        <button type="submit" class="btn btn-primary btn-rounded p-4 mb-3" name="upload" value="termbin.com" onclick="showSpinner(); return true;">Upload Logs to termbin.com (netcat)</button>
+        <button type="submit" class="btn btn-primary btn-rounded p-4 mb-3" name="upload" value="local_download">Download Logs</button>
+        <button type="submit" class="btn btn-primary btn-rounded p-4 mb-3" name="upload" value="local_view" onclick="showSpinner(); return true;">View Logs</button>
       </form>
       <div class="d-lg-block mt-4">
         <div class="mb-3">
@@ -153,6 +138,7 @@
       </div>
     </div>
   </div>
+  #}
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Dozzle (Docker container management)</h5>

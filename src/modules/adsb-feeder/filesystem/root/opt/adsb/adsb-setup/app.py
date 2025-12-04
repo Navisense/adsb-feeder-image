@@ -756,20 +756,6 @@ class PorttrackerSdrFeeder:
             methods=["POST"],
         )
         app.add_url_rule(
-            "/get-logs",
-            "get-logs",
-            view_func=self.get_logs,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._require_login],
-        )
-        app.add_url_rule(
-            "/view-logs",
-            "view-logs",
-            view_func=self.view_logs,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._require_login],
-        )
-        app.add_url_rule(
             "/clear-range-outline",
             "clear-range-outline",
             view_func=self.clear_range_outline,
@@ -2522,12 +2508,6 @@ class PorttrackerSdrFeeder:
                 self._logger.exception(
                     "Failed to upload logs.", flash_message=True)
         return redirect(url_for("system-info", diagnostics_url=url))
-
-    def get_logs(self):
-        return self.download_logs("local_download")
-
-    def view_logs(self):
-        return self.download_logs("local_view")
 
     def download_logs(self, target):
         as_attachment = target == "local_download"
