@@ -381,7 +381,7 @@
 
       // Reachability of all the device's hosts.
       const connectivityChecker = new FeederConnectivityChecker(
-        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 50 * 1000);
+        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 10 * 1000);
       connectivityChecker.start();
       connectivityUpdateCounter.reset();
     }
