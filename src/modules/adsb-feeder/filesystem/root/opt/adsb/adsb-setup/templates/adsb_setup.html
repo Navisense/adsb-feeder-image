@@ -96,7 +96,66 @@
           </div>
         </div>
       </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">Route API</h5>
+            <div class="form-check">
+              <input class="form-check-input"
+                     type="checkbox"
+                     name="enable-route-api"
+                     id="enable-route-api"
+                     {% if get_conf("route_api") %}checked{% endif %}>
+              <label for="enable-route-api" class="form-check-label">
+                Use Route API to show flight routes when known.
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">Clear range outline</h5>
+            The tar1090 map maintains an outline for the area around your antenna where planes have been observed.
+            Sometimes, it may be desirable to reset this outline (for example after you changed location).
+            <button form="reset-range-outline-form"
+                    type="submit"
+                    class="btn btn-primary btn-block mt-3">Clear range outline</button>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card h-100">
+          <div class="card-body">
+            <h5 class="card-title">HeyWhat'sThat</h5>
+            <p>
+              <a href="https://www.heywhatsthat.com/">HeyWhat'sThat</a> is an incredibly cool web service that allows
+              you to discover what you should be able to see from the location of your antenna - including estimates for
+              how far away you should be able to detect planes (depending on their altitude - and assuming there are no
+              other obstructions).
+            </p>
+            <p>
+              To use it, click on the link, select "New Panorama" at the top, enter your address (or find the location
+              on the map), enter a title on the lower left and click "Submit request". After a couple of minutes you'll
+              be offered to look at your panorama. At the top left you'll see the title you just entered, the latitude
+              and longitude and elevation - and below that a link that ends with <code>/?view=CODE</code>. Enter this
+              code here to see the theoretical range information on your receiver map.
+            </p>
+            <input type="text"
+                   id="heywhatsthat-id"
+                   name="heywhatsthat-id"
+                   class="form-control"
+                   placeholder="HeyWhat'sThat Panorama ID"
+                   value="{{ get_conf('heywhatsthat_id', default='') }}">
+          </div>
+        </div>
+      </div>
     </div>
     <button type="submit" class="btn btn-accent btn-block btn-lg my-5">Apply settings</button>
+  </form>
+  <form id="reset-range-outline-form"
+        action="{{ url_for('clear-range-outline') }}"
+        method="post">
   </form>
 {% endblock content %}

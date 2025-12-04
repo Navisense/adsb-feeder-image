@@ -492,15 +492,6 @@ class PorttrackerSdrFeeder:
             methods=["GET"],
         )
         app.add_url_rule(
-            "/visualization",
-            "visualization",
-            view_func=self.visualization,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting,
-                self._redirect_for_incomplete_config, self._require_login],
-            methods=["GET", "POST"],
-        )
-        app.add_url_rule(
             "/adsb-setup",
             "adsb-setup",
             view_func=self.adsb_setup,
@@ -1835,33 +1826,6 @@ class PorttrackerSdrFeeder:
             "stable_versions": stable_versions,
             "containers": containers,}
 
-    def visualization(self):
-        if request.method == "GET":
-            return render_template("visualization.html")
-        assert request.method == "POST"
-        needs_docker_restart = False
-        should_enable_route_api = util.checkbox_checked(
-            request.form["enable-route-api"])
-        if self._conf.get("route_api") != should_enable_route_api:
-            self._conf.set("route_api", should_enable_route_api)
-            needs_docker_restart = True
-        heywhatsthat_id = request.form["heywhatsthat-id"]
-        if self._conf.get("heywhatsthat_id") != heywhatsthat_id:
-            self._conf.set("heywhatsthat_id", heywhatsthat_id)
-            needs_docker_restart = True
-        if needs_docker_restart:
-            self._system._restart.bg_run(
-                cmdline="/opt/adsb/docker-compose-start", silent=False)
-        return redirect(url_for("visualization"))
-
-    def clear_range_outline(self):
-        self._logger.info("Resetting range outline for ultrafeeder.")
-        set_gain_path = pathlib.Path(
-            "/run/adsb-feeder-ultrafeeder/readsb/setGain")
-        util.write_string_to_file("resetRangeOutline", set_gain_path)
-        flash("Range outline reset successful.", category="success")
-        return redirect(url_for("visualization"))
-
     def set_ssh_credentials(self):
         ssh_dir = pathlib.Path("/root/.ssh")
         ssh_dir.mkdir(mode=0o700, exist_ok=True)
@@ -2039,9 +2003,29 @@ class PorttrackerSdrFeeder:
                 "tar1090_image_config_link.is_enabled",
                 should_enable_config_link)
             needs_docker_restart = True
+        should_enable_route_api = util.checkbox_checked(
+            request.form["enable-route-api"])
+        if self._conf.get("route_api") != should_enable_route_api:
+            self._conf.set("route_api", should_enable_route_api)
+            needs_docker_restart = True
+        heywhatsthat_id = request.form["heywhatsthat-id"]
+        if self._conf.get("heywhatsthat_id") != heywhatsthat_id:
+            self._conf.set("heywhatsthat_id", heywhatsthat_id)
+            needs_docker_restart = True
         if needs_docker_restart:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
+        if needs_docker_restart:
+            self._system._restart.bg_run(
+                cmdline="/opt/adsb/docker-compose-start", silent=False)
+        return redirect(url_for("adsb-setup"))
+
+    def clear_range_outline(self):
+        self._logger.info("Resetting range outline for ultrafeeder.")
+        set_gain_path = pathlib.Path(
+            "/run/adsb-feeder-ultrafeeder/readsb/setGain")
+        util.write_string_to_file("resetRangeOutline", set_gain_path)
+        flash("Range outline reset successful.", category="success")
         return redirect(url_for("adsb-setup"))
 
     def set_css_theme(self):
