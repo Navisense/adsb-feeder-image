@@ -4,95 +4,92 @@
   Porttracker Feeder Hotspot
 {% endblock title %}
 {% block content %}
+  <div class="alert alert-info">
+    This is the wifi hotspot of the Porttracker SDR <strong>{{ get_conf("feeder_name") }}</strong>. You're seeing this
+    page because it is not currently connected to a wifi network. You can configure one here.
+  </div>
+  {% if connect_state == "wrong_credentials" %}
+    <div class="alert alert-danger">Failed to connect, wrong SSID or password, please try again.</div>
+  {% endif %}
   <div class="card my-2">
     <div class="card-body">
       <h5 class="card-title">Wifi setup</h5>
-      <div class="alert alert-info">
-        {% if comment == "" %}
-          The Feeder wasn't able to connect to a network. Please select a network below so that we can connect and
-          continue the setup.
-        {% else %}
-          {{ comment }}
-        {% endif %}
-      </div>
-      {% if not comment.startswith("Success") %}
-        <form method="post" class="my-4">
-          <div class="row align-items-center">
-            {% for network in networks %}
-              <div class="col-12 col-lg-6 col-xl-4">
-                <label class="w-100">
-                  <input type="radio"
-                         required
-                         class="form-check-input d-none"
-                         name="ssid"
-                         value="{{ network.ssid }}"
-                         onchange="updateSsidSelection(this.value);">
-                  <div class="card my-2 select-ssid-card" data-ssid="{{ network.ssid }}">
-                    <div class="card-body">
-                      <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
-                        <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
-                      </div>
-                      <h5 class="card-title">{{ network.ssid }}</h5>
-                      <input type="text"
-                             class="form-control my-2 network-input network-input-password d-none"
-                             name="password"
-                             placeholder="Password">
-                      <div class="text-muted">signal strength: {{ network.signal_strength }}</div>
-                      <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
-                    </div>
-                  </div>
-                </label>
-              </div>
-            {% endfor %}
+      <form method="post" class="my-4">
+        <div class="row align-items-center">
+          {% for network in networks %}
             <div class="col-12 col-lg-6 col-xl-4">
               <label class="w-100">
                 <input type="radio"
                        required
                        class="form-check-input d-none"
                        name="ssid"
-                       value=""
-                       onchange="updateSsidSelection('');">
-                <div class="card my-2 select-ssid-card" data-ssid="">
+                       value="{{ network.ssid }}"
+                       onchange="updateSsidSelection(this.value);">
+                <div class="card my-2 select-ssid-card" data-ssid="{{ network.ssid }}">
                   <div class="card-body">
                     <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
                       <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
                     </div>
-                    <h5 class="card-title">Manually enter an SSID</h5>
-                    If your network isn't shown here, you can also enter the SSID manually.
-                    <input type="text"
-                           class="form-control my-2 network-input d-none"
-                           name="manual-ssid"
-                           placeholder="SSID">
+                    <h5 class="card-title">{{ network.ssid }}</h5>
                     <input type="text"
                            class="form-control my-2 network-input network-input-password d-none"
                            name="password"
                            placeholder="Password">
+                    <div class="text-muted">signal strength: {{ network.signal_strength }}</div>
                     <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
                   </div>
                 </div>
               </label>
             </div>
+          {% endfor %}
+          <div class="col-12 col-lg-6 col-xl-4">
+            <label class="w-100">
+              <input type="radio"
+                     required
+                     class="form-check-input d-none"
+                     name="ssid"
+                     value=""
+                     onchange="updateSsidSelection('');">
+              <div class="card my-2 select-ssid-card" data-ssid="">
+                <div class="card-body">
+                  <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                    <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                  </div>
+                  <h5 class="card-title">Manually enter an SSID</h5>
+                  If your network isn't shown here, you can also enter the SSID manually.
+                  <input type="text"
+                         class="form-control my-2 network-input d-none"
+                         name="manual-ssid"
+                         placeholder="SSID">
+                  <input type="text"
+                         class="form-control my-2 network-input network-input-password d-none"
+                         name="password"
+                         placeholder="Password">
+                  <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
+                </div>
+              </div>
+            </label>
           </div>
-        </form>
-        <p class="my-3">
-          Once you configure a network, the Hotspot connection will drop and the feeder will attempt to connect to the
-          network that you specified. If that WiFi connection is successful, the feeder should become available on that
-          WiFi network as <code>{{ get_conf("feeder_name") }}.local</code>. This requires mDNS to be enabled on your
-          system (it typically is). The test below checks whether it is working right now.
-        </p>
-        <p class="my-3">
-          If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
-          credentials again.
-        </p>
-        <p class="my-3">
-          A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
-          same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
-          connect this device to your router's guest access, but you connect to the internal network. In that case it
-          may help to use guest access yourself, but in some routers you need to enable an option that guest devices can
-          communicate with one another.
-        </p>
-        <div class="my-3" id="mdns-status"></div>
-      {% endif %}
+        </div>
+      </form>
+      <p class="my-3">
+        Once you configure a network, the Hotspot connection will drop and the feeder will attempt to connect to the
+        network that you specified. If that WiFi connection is successful, the feeder should become available on that
+        WiFi network as <code>{{ get_conf("feeder_name") }}.local</code>. This requires mDNS to be enabled on your
+        system (it typically is). The test below checks whether it is working right now.
+      </p>
+      <p class="my-3">
+        If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
+        credentials again.
+      </p>
+      <p class="my-3">
+        A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
+        same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
+        connect this device to your router's guest access, but you connect to the internal network. In that case it
+        may help to use guest access yourself, but in some routers you need to enable an option that guest devices can
+        communicate with one another.
+      </p>
+      <div class="my-3" id="mdns-status"></div>
     </div>
   </div>
   <script type="text/javascript"

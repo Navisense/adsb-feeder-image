@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Optional
+from typing import Literal, Optional
 import zipfile
 
 import bcrypt
@@ -153,12 +153,14 @@ class HotspotApp:
     you can set wifi credentials. Has a catch-all route, since the hotspot
     intercepts (almost) all requests.
     """
+    ConnectState = Literal["no_attempt", "wrong_credentials"]
+
     def __init__(self, conf: config.Config, on_wifi_credentials):
         self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
         self.networks = {}
         self._restart_state = "done"
-        self._message = ""
+        self._connect_state: self.ConnectState = "no_attempt"
 
     def handle_request(self, request):
         if request.path == "/hotspot" and request.method in ["GET"]:
@@ -178,7 +180,8 @@ class HotspotApp:
             self.networks.values(), key=op.attrgetter("signal_strength"),
             reverse=True)
         return flask.render_template(
-            "hotspot.html", comment=self._message, networks=sorted_networks)
+            "hotspot.html", connect_state=self._connect_state,
+            networks=sorted_networks)
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -217,8 +220,7 @@ class HotspotApp:
 
     def on_wifi_test_status(self, success):
         if not success:
-            self._message = (
-                "Failed to connect, wrong SSID or password, please try again.")
+            self._connect_state = "wrong_credentials"
         self._restart_state = "done"
 
 
