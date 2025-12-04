@@ -1,12 +1,122 @@
 {% extends "base-container.html" %}
 {% set active_page = "hotspot" %}
-{% block title %}Trying to connect to WiFi{% endblock title %}
+{% block title %}
+  Trying to connect to WiFi
+{% endblock title %}
 {% block content %}
+  <div class="container mt-4">
+    <div class="row justify-content-center">
+      <div class="col-md-8">
+        <!-- Explanatory Text -->
+        <div class="alert alert-info mb-4" role="alert">
+          <h5 class="alert-heading">
+            <i class="fas fa-info-circle me-2"></i>Device Restart in Progress
+          </h5>
+          <p class="mb-0">
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+            The device is restarting and attempting to connect to the configured network. This process may take a few minutes.
+          </p>
+        </div>
+        <!-- Progress Steps -->
+        <div class="card">
+          <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">
+              <i class="fas fa-tasks me-2"></i>Restart Progress
+            </h5>
+          </div>
+          <ul class="list-group list-group-light list-group-flush">
+            <li class="list-group-item d-flex justify-content-between align-items-center"
+                id="step-1">
+              <div>
+                <i class="fas fa-circle-notch fa-spin text-muted me-3" id="step-1-icon"></i>
+                <span id="step-1-text">Step 1</span>
+              </div>
+              <span class="badge badge-secondary rounded-pill" id="step-1-badge">Pending</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
+                id="step-2">
+              <div>
+                <i class="far fa-circle text-muted me-3" id="step-2-icon"></i>
+                <span id="step-2-text">Step 2</span>
+              </div>
+              <span class="badge badge-secondary rounded-pill" id="step-2-badge">Pending</span>
+            </li>
+            <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
+                id="step-3">
+              <div>
+                <i class="far fa-circle text-muted me-3" id="step-3-icon"></i>
+                <span id="step-3-text">Step 3</span>
+              </div>
+              <span class="badge badge-secondary rounded-pill" id="step-3-badge">Pending</span>
+            </li>
+          </ul>
+        </div>
+        <!-- Status Message -->
+        <div class="alert alert-warning mt-4 d-none"
+             role="alert"
+             id="timeout-message">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Device has probably joined the configured network!
+        </div>
+      </div>
+    </div>
+  </div>
   <script>
+    let currentStep = 0;
+
+    function updateStepStatus(stepNumber, status) {
+      const stepElement = document.getElementById(`step-${stepNumber}`);
+      const iconElement = document.getElementById(`step-${stepNumber}-icon`);
+      const badgeElement = document.getElementById(`step-${stepNumber}-badge`);
+
+      // Remove text-muted class to make it visible
+      stepElement.classList.remove("text-muted");
+
+      if (status === "done") {
+        // Green checkmark for completed steps
+        iconElement.className = "fas fa-check-circle text-success me-3";
+        badgeElement.className = "badge badge-success rounded-pill";
+        badgeElement.textContent = "Done";
+      } else if (status === "error") {
+        // Red X for failed steps
+        iconElement.className = "fas fa-times-circle text-danger me-3";
+        badgeElement.className = "badge badge-danger rounded-pill";
+        badgeElement.textContent = "Failed";
+      } else if (status === "in-progress") {
+        // Spinning icon for current step
+        iconElement.className = "fas fa-circle-notch fa-spin text-primary me-3";
+        badgeElement.className = "badge badge-primary rounded-pill";
+        badgeElement.textContent = "In Progress";
+      }
+    }
+
+    function setStepPending(stepNumber) {
+      const stepElement = document.getElementById(`step-${stepNumber}`);
+      const iconElement = document.getElementById(`step-${stepNumber}-icon`);
+      const badgeElement = document.getElementById(`step-${stepNumber}-badge`);
+
+      // Add text-muted class to grey it out
+      stepElement.classList.add("text-muted");
+      iconElement.className = "far fa-circle text-muted me-3";
+      badgeElement.className = "badge badge-secondary rounded-pill";
+      badgeElement.textContent = "Pending";
+    }
+
+    function simulateProgress() {
+      // This is a placeholder - you can replace this with actual progress tracking
+      // based on the response from checkRestartStatus()
+      if (currentStep < 3) {
+        if (currentStep > 0) {
+          updateStepStatus(currentStep, "done");
+        }
+        currentStep++;
+        updateStepStatus(currentStep, "in-progress");
+      }
+    }
+
     function after60() {
-      // hide spinner after 60 seconds and change the overlay text
-      document.getElementById("loader").style.display = "none";
-      document.getElementById("overlaytext").innerHTML = "Device has probably joined the configured network!";
+      // Show timeout message after 60 seconds
+      document.getElementById("timeout-message").classList.remove("d-none");
     }
 
     function checkRestartStatus() {
@@ -14,15 +124,23 @@
       request.open("GET", "/restart");
       request.onload = function () {
         if (request.status === 200 && request.responseText === "done") {
-          // that means we tested the wifi credentials and are back in Hotspot mode
-          window.location.replace("/");
+          // Mark all steps as done and redirect
+          for (let i = 1; i <= 3; i++) {
+            updateStepStatus(i, "done");
+          }
+          setTimeout(function() {
+            window.location.replace("/");
+          }, 1000);
         } else if (request.status === 200 && request.responseText === "restarting") {
-          // restart is still in progress, show progress and check again after a delay
+          // Simulate progress (you can enhance this based on actual status data)
+          simulateProgress();
           setTimeout(checkRestartStatus, 2000);
         } else {
-          // ops, we got an error from the server - could be it is briefly turned off for
-          // an update or something
+          // Error occurred
           console.log("request to GET /restart resulted in ", request.status);
+          if (currentStep > 0) {
+            updateStepStatus(currentStep, "error");
+          }
           setTimeout(checkRestartStatus, 2000);
         }
       };
@@ -31,17 +149,22 @@
         checkRestartStatus();
       };
       request.onerror = function () {
-        // ops, we got an error trying to talk to the server - could be it is briefly turned off for
-        // an update or something
         console.log("request to GET /restart resulted in an error: ", request.status);
         setTimeout(checkRestartStatus, 2000);
       };
       request.send();
     }
 
-    showSpinner();
-    checkRestartStatus();
+    // Initialize all steps as pending
+    for (let i = 1; i <= 3; i++) {
+      setStepPending(i);
+    }
 
+    // Start with step 1
+    currentStep = 1;
+    updateStepStatus(1, "in-progress");
+
+    checkRestartStatus();
     setTimeout(after60, 60 * 1000);
   </script>
 {% endblock content %}
