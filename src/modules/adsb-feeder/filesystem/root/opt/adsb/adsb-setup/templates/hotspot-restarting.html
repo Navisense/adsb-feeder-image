@@ -15,29 +15,53 @@
   <!-- Progress Steps -->
   <div class="card">
     <ul class="list-group list-group-light list-group-flush px-4">
-      <li class="list-group-item d-flex justify-content-between align-items-center"
-          id="step-1">
-        <div>
-          <span class="step-icon far fa-circle text-muted me-3"></span>
-          <span id="step-1-text">Step 1</span>
+      <li class="list-group-item py-3" id="step-1">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="d-flex align-items-start flex-grow-1">
+            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <div class="flex-grow-1">
+              <div class="fw-bold mb-1">Step 1</div>
+              <div class="step-description text-muted small">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Initializing network configuration.
+              </div>
+            </div>
+          </div>
+          <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
         </div>
-        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
       </li>
-      <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
-          id="step-2">
-        <div>
-          <span class="step-icon far fa-circle text-muted me-3"></span>
-          <span id="step-2-text">Step 2</span>
+      <li class="list-group-item py-3 text-muted" id="step-2">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="d-flex align-items-start flex-grow-1">
+            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <div class="flex-grow-1">
+              <div class="fw-bold mb-1">Step 2</div>
+              <div class="step-description text-muted small">
+                Sed do eiusmod tempor incididunt. Connecting to the configured WiFi network.
+              </div>
+            </div>
+          </div>
+          <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
         </div>
-        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
       </li>
-      <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
-          id="step-3">
-        <div>
-          <span class="step-icon far fa-circle text-muted me-3"></span>
-          <span id="step-3-text">Step 3</span>
+      <li class="list-group-item py-3 text-muted" id="step-3">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="d-flex align-items-start flex-grow-1">
+            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <div class="flex-grow-1">
+              <div class="fw-bold mb-1">Step 3</div>
+              <div class="step-description text-muted small">
+                Ut labore et dolore magna aliqua. Verifying connection and finalizing setup.
+              </div>
+            </div>
+          </div>
+          <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
         </div>
-        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
       </li>
     </ul>
   </div>
@@ -59,6 +83,7 @@
       const stepElement = $(`#step-${stepNumber}`);
       const iconElement = stepElement.find(".step-icon");
       const badgeElement = stepElement.find(".step-badge");
+      const descriptionElement = stepElement.find(".step-description");
 
       // Remove text-muted class to make it visible
       stepElement.removeClass("text-muted");
@@ -66,6 +91,7 @@
         "far fas fa-circle fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-muted text-success text-danger "
           + "text-primary");
       badgeElement.removeClass("badge-secondary badge-success badge-danger badge-primary");
+      descriptionElement.removeClass("text-muted");
 
       if (status === "done") {
         // Green checkmark for completed steps
