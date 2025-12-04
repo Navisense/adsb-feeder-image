@@ -4,94 +4,105 @@
   Support Info
 {% endblock title %}
 {% block content %}
-  <p>Please cut and paste (or provide a screenshot of) this data when asking for help.</p>
-  <ul>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Current version:</strong></span> {{ get_conf("base_version") }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ get_conf("board_name") }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Base image:</strong></span> {{ get_conf("image_name") }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Kernel:</strong></span> {{ kernel }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Power:</strong></span> Undervoltage
-      {% if not system.undervoltage %}not{% endif %}
-      reported
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Journal:</strong></span> {{ journal }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>DNS:</strong></span>
-      {% if system.system_info.dns_is_working %}
-        DNS appears to be working
-      {% else %}
-        The feeder cannot resolve DNS queries
-      {% endif %}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>IPv6:</strong></span> {{ ipv6 }}
-    </li>
-    <li>
-      <span style="display: inline-block; width: 6em;"><strong>Netdog reboots:</strong></span>
-      <br />
-      <pre>{{ netdog }}</pre>
-    </li>
-    <li id="ip-mismatch" class="d-none">
-      <span style="display: inline-block; width: 6em;"><strong>IP:</strong></span>
-      Your browser and the feeder have different external IP addresses.
-    </li>
-    <li id="ip-match" class="d-none">
-      <span style="display: inline-block; width: 6em;"><strong>Network/IP:</strong></span>
-      Your browser and the feeder have the same external IP address.
-    </li>
-    <li>
-      <strong>Configured images:</strong>
+  <div class="row justify-content-center">
+    <div class="col-10 col-lg-6">
+      <p class="text-center">
+        This page contains information about your device and the software that is running on it.
+      </p>
+    </div>
+  </div>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">System data</h5>
       <ul>
-        {% for image in images %}<li>{{ image }}</li>{% endfor %}
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Current version:</strong></span> {{ get_conf("base_version") }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Board:</strong></span> {{ get_conf("board_name") }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Base image:</strong></span> {{ get_conf("image_name") }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Kernel:</strong></span> {{ kernel }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Power:</strong></span> Undervoltage
+          {% if not system.undervoltage %}not{% endif %}
+          reported
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Journal:</strong></span> {{ journal }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>DNS:</strong></span>
+          {% if system.system_info.dns_is_working %}
+            DNS appears to be working
+          {% else %}
+            The feeder cannot resolve DNS queries
+          {% endif %}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>IPv6:</strong></span> {{ ipv6 }}
+        </li>
+        <li>
+          <span style="display: inline-block; width: 6em;"><strong>Netdog reboots:</strong></span>
+          <br />
+          <pre>{{ netdog }}</pre>
+        </li>
+        <li id="ip-mismatch" class="d-none">
+          <span style="display: inline-block; width: 6em;"><strong>IP:</strong></span>
+          Your browser and the feeder have different external IP addresses.
+        </li>
+        <li id="ip-match" class="d-none">
+          <span style="display: inline-block; width: 6em;"><strong>Network/IP:</strong></span>
+          Your browser and the feeder have the same external IP address.
+        </li>
+        <li>
+          <strong>Configured images:</strong>
+          <ul>
+            {% for image in images %}<li>{{ image }}</li>{% endfor %}
+          </ul>
+        </li>
+        <li>
+          <strong>SDR(s):</strong>
+          <ul>
+            {% for sdr in sdrs %}
+              <li>
+                <pre>{{ sdr }}</pre>
+              </li>
+            {% endfor %}
+          </ul>
+        </li>
+        <li>
+          <strong>Ultrafeeder args:</strong>
+          <br />
+          <pre>{{ get_conf('ultrafeeder_extra_args') }}</pre>
+        </li>
+        <li>
+          <strong>Env variables:</strong>
+          <br />
+          <pre>{{ get_conf('ultrafeeder_extra_env') }}</pre>
+        </li>
+        <li>
+          <strong>Memory:</strong>
+          <br />
+          <pre>{{ memory }}</pre>
+        </li>
+        <li>
+          <strong>Storage:</strong>
+          <br />
+          <pre>{{ storage }}</pre>
+        </li>
+        <li>
+          <strong>Top:</strong>
+          <br />
+          <pre>{{ top }}</pre>
+        </li>
       </ul>
-    </li>
-    <li>
-      <strong>SDR(s):</strong>
-      <ul>
-        {% for sdr in sdrs %}
-          <li>
-            <pre>{{ sdr }}</pre>
-          </li>
-        {% endfor %}
-      </ul>
-    </li>
-    <li>
-      <strong>Ultrafeeder args:</strong>
-      <br />
-      <pre>{{ get_conf('ultrafeeder_extra_args') }}</pre>
-    </li>
-    <li>
-      <strong>Env variables:</strong>
-      <br />
-      <pre>{{ get_conf('ultrafeeder_extra_env') }}</pre>
-    </li>
-    <li>
-      <strong>Memory:</strong>
-      <br />
-      <pre>{{ memory }}</pre>
-    </li>
-    <li>
-      <strong>Storage:</strong>
-      <br />
-      <pre>{{ storage }}</pre>
-    </li>
-    <li>
-      <strong>Top:</strong>
-      <br />
-      <pre>{{ top }}</pre>
-    </li>
-  </ul>
+    </div>
+  </div>
   <script>
     let browser_ip = null;
     {% if system.system_info.external_ip %}
