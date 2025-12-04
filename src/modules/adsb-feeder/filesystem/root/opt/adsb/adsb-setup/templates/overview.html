@@ -397,11 +397,11 @@
           badge.attr("data-mdb-original-title", "Reachable from this browser");
         } else if (hasTimedOut) {
           badgeColorClass = "badge-danger";
-          badge.text("error");
-          badge.attr("data-mdb-original-title", "Not reachable, gave up checking");
+          badge.text("not reachable");
+          badge.attr("data-mdb-original-title", "Not reachable from this browser");
         } else {
-          badgeColorClass = "badge-warning";
-          badge.text("checking...");
+          badgeColorClass = "badge-info";
+          badge.text("checking reachability...");
           badge.attr(
             "data-mdb-original-title",
             "Not reachable yet, continuing to check whether this address is reachable from this browser");
