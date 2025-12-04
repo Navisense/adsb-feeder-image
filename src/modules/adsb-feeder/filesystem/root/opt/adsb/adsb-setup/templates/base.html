@@ -250,6 +250,9 @@
               <li>
                 <a class="dropdown-item" href="{{ url_for('tar1090', replay=None) }}">Replay</a>
               </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('tar1090-stats') }}">Stats</a>
+              </li>
             </ul>
           </div>
         </div>
@@ -396,15 +399,6 @@
                 <li>
                   <a class="dropdown-item" href="{{ url_for('support') }}">Share Diagnostics</a>
                 </li>
-                {% if is_reception_enabled('adsb') %}
-                  <li>
-                    <a class="dropdown-item" href="{{ url_for('tar1090-stats') }}">ADS-B stats</a>
-                  </li>
-                {% else %}
-                  <li title="ADS-B reception is disabled">
-                    <a class="dropdown-item disabled" href="{{ url_for('tar1090-stats') }}">ADS-B stats</a>
-                  </li>
-                {% endif %}
               </ul>
             </li>
           </ul>
