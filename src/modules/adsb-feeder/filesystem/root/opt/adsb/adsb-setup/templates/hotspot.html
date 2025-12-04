@@ -4,12 +4,23 @@
   Porttracker Feeder Hotspot
 {% endblock title %}
 {% block content %}
+  <div class="row justify-content-center">
+    <div class="col-10 col-lg-6">
+      <p class="text-center">
+        This is the wifi hotspot of the Porttracker SDR <strong>{{ get_conf("feeder_name") }}</strong>. You're seeing
+        this page because it is not currently connected to a wifi network. You can configure one here. Afterwards, the
+        device should be reachable on the network as
+        <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a> (see also
+        the <a href="#reachability-card">section on how to reach the device</a> below).
+      </p>
+    </div>
+  </div>
   <div class="alert alert-info">
-    This is the wifi hotspot of the Porttracker SDR <strong>{{ get_conf("feeder_name") }}</strong>. You're seeing this
-    page because it is not currently connected to a wifi network. You can configure one here. Afterwards, the device
-    should be reachable on the network as
-    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a> (see also the
-    <a href="#reachability-card">section on how to reach the device</a> below).
+    When you select a network, we'll try to show you the progress of the device connecting to the network. However, your
+    phone may navigate away immediately (if you've chosen "tap here to sign in to the network" to get to this page). If
+    that happens, just try to go to
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>. If there is a
+    problem connecting to the network, the hotspot will come back up and you can try again.
   </div>
   {% if connect_state == "wrong_credentials" %}
     <div class="alert alert-danger">Failed to connect, wrong SSID or password, please try again.</div>
@@ -79,7 +90,7 @@
   </div>
   <div class="card my-2" id="reachability-card">
     <div class="card-body">
-      <h5 class="card-title">Device reachability (mDNS)</h5>
+      <h5 class="card-title">Reaching the device (via mDNS)</h5>
       <div class="my-3" id="mdns-status"></div>
       <p class="my-3">
         Once you configure a network, the Hotspot connection will drop and the feeder will attempt to connect to the
