@@ -724,7 +724,7 @@
           } else {
             $("#version-info p").append(`
               (the latest stable version is <strong>${versionInfo.stable_versions[0]}</strong>, see `
-              + '<a href="{{ url_for('systemmgmt') }}">system management</a> for update)');
+              + '<a href="{{ url_for('system-setup') }}">system management</a> for update)');
           }
           $("#version-info").append(`
             These Docker containers belong to the application (see <a href="{{ url_for('dozzle') }}">Dozzle</a> for

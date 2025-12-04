@@ -501,9 +501,9 @@ class PorttrackerSdrFeeder:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
-            "/systemmgmt",
-            "systemmgmt",
-            view_func=self.systemmgmt,
+            "/system-setup",
+            "system-setup",
+            view_func=self.system_setup,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config, self._require_login],
@@ -2035,7 +2035,7 @@ class PorttrackerSdrFeeder:
                 f"Invalid CSS theme {css_theme}, using auto instead.")
             css_theme = "auto"
         self._conf.set("css_theme", css_theme)
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("system-setup"))
 
     def toggle_docker_concurrent_downloads(self):
         enable_concurrent_downloads = not self._conf.get("docker_concurrent")
@@ -2079,12 +2079,12 @@ class PorttrackerSdrFeeder:
         self._conf.set("docker_concurrent", enable_concurrent_downloads)
         self._system._restart.bg_run(
             cmdline="/opt/adsb/docker-compose-start", silent=False)
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("system-setup"))
 
-    def systemmgmt(self):
+    def system_setup(self):
         stable_versions = net.gitlab_repo().get_semver_tags()
         return render_template(
-            "systemmgmt.html",
+            "system_setup.html",
             stable_versions=stable_versions,
             containers=self._system.containers,
             Semver=util.Semver,
@@ -2618,14 +2618,14 @@ class PorttrackerSdrFeeder:
             self._logger.warning(
                 "Shutdown/reboot endpoint called, but neither shutdown nor "
                 "reboot were in the form.")
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("system-setup"))
 
     def toggle_log_persistence(self):
         self._conf.set(
             "journal.should_be_persistent",
             not self._conf.get("journal.should_be_persistent"))
         self._ensure_desired_journal_persistence()
-        return redirect(url_for("systemmgmt"))
+        return redirect(url_for("system-setup"))
 
     def feeder_update(self):
         if "do-feeder-update-now" in request.form:
@@ -2651,7 +2651,7 @@ class PorttrackerSdrFeeder:
                 request.form["nightly-feeder-update-enabled"])
             self._conf.set("nightly_feeder_update", should_be_enabled)
             self._ensure_nightly_feeder_update_timer()
-            return redirect(url_for("systemmgmt"))
+            return redirect(url_for("system-setup"))
         else:
             return "Invalid form, missing submit button", 400
 
@@ -2672,7 +2672,7 @@ class PorttrackerSdrFeeder:
                 request.form["nightly-system-update-enabled"])
             self._conf.set("nightly_base_update", should_be_enabled)
             self._ensure_nightly_os_update_timer()
-            return redirect(url_for("systemmgmt"))
+            return redirect(url_for("system-setup"))
         else:
             return "Invalid form, missing submit button", 400
 
