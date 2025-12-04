@@ -162,25 +162,28 @@ class HotspotApp:
         self._restart_state = "done"
         self._connect_state: self.ConnectState = "no_attempt"
 
+    @property
+    def restart_state(self):
+        return self._restart_state
+
+    @property
+    def connect_state(self):
+        return self._connect_state
+
     def handle_request(self, request):
         if request.path == "/hotspot" and request.method in ["GET"]:
             return self.hotspot()
         elif request.path == "/restarting":
             return self.restarting()
-        elif request.path == "/restart" and request.method in ["POST", "GET"]:
-            return self.restart()
         else:
             return self.catch_all()
-
-    def restart(self):
-        return self._restart_state
 
     def hotspot(self):
         sorted_networks = sorted(
             self.networks.values(), key=op.attrgetter("signal_strength"),
             reverse=True)
         return flask.render_template(
-            "hotspot.html", connect_state=self._connect_state,
+            "hotspot.html", connect_state=self.connect_state,
             networks=sorted_networks)
 
     def catch_all(self):
@@ -197,7 +200,7 @@ class HotspotApp:
             # Wasn't a request with credentials.
             pass
 
-        if self._restart_state == "restarting":
+        if self.restart_state == "restarting":
             return flask.redirect("/restarting")
 
         return self.hotspot()
@@ -417,7 +420,6 @@ class PorttrackerSdrFeeder:
             "/api/statusz",
             "statusz",
             view_func=self.statusz,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["OPTIONS", "GET"],
         )
         app.add_url_rule(
@@ -582,7 +584,7 @@ class PorttrackerSdrFeeder:
             "overview",
             view_func=self.overview,
             view_func_wrappers=[
-                self._decide_route_hotspot_mode, self._redirect_if_restarting,
+                self._redirect_if_restarting,
                 self._redirect_for_incomplete_config],
             methods=["GET", "POST"],
         )
@@ -917,8 +919,6 @@ class PorttrackerSdrFeeder:
                     "We've been put into hotspot mode, but don't have a "
                     "hotspot. Disabling it.")
                 self._hotspot_mode = False
-            if request.path in ["/api/statusz", "/overview"]:
-                return view_func(*args, **kwargs)
             elif self._hotspot_mode:
                 return self._hotspot_app.handle_request(request)
             elif view_func:
@@ -1204,7 +1204,11 @@ class PorttrackerSdrFeeder:
             response.headers.add("Access-Control-Allow-Methods", "*")
             return response
         assert request.method == "GET"
-        status_dict = {"mode": "hotspot" if self.hotspot_mode else "regular"}
+        status_dict = {
+            "mode": "hotspot" if self.hotspot_mode else "regular",
+            "hotspot_status": {
+                "connect_state": self._hotspot_app.connect_state,
+                "restart_state": self._hotspot_app.restart_state}}
         response = flask.make_response(status_dict)
         response.headers.add("Access-Control-Allow-Origin", "*")
         return response

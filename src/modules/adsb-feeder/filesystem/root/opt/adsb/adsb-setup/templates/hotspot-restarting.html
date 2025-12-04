@@ -120,39 +120,38 @@
     }
 
     function checkRestartStatus() {
-      var request = new XMLHttpRequest();
-      request.open("GET", "/restart");
-      request.onload = function () {
-        if (request.status === 200 && request.responseText === "done") {
-          // Mark all steps as done and redirect
-          for (let i = 1; i <= 3; i++) {
-            updateStepStatus(i, "done");
+      $.ajax({
+        url: "/api/statusz",
+        type: "GET",
+        timeout: 2000, // Timeout after 2 seconds
+        success: function (data) {
+          const restartState = data.hotspot_status.restart_state;
+          if (restartState === "done") {
+            // Mark all steps as done and redirect
+            for (let i = 1; i <= 3; i++) {
+              updateStepStatus(i, "done");
+            }
+            //setTimeout(function () {
+            //  window.location.replace("/");
+            //}, 1000);
+          } else if (restartState === "restarting") {
+            // Simulate progress (you can enhance this based on actual status data)
+            simulateProgress();
+            setTimeout(checkRestartStatus, 2000);
           }
-          setTimeout(function() {
-            window.location.replace("/");
-          }, 1000);
-        } else if (request.status === 200 && request.responseText === "restarting") {
-          // Simulate progress (you can enhance this based on actual status data)
-          simulateProgress();
-          setTimeout(checkRestartStatus, 2000);
-        } else {
-          // Error occurred
-          console.log("request to GET /restart resulted in ", request.status);
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          if (textStatus === "timeout") {
+            console.log("Request to GET /api/statusz timed out.");
+          } else {
+            console.log("Request to GET /api/statusz resulted in an error: ", textStatus, errorThrown);
+          }
           if (currentStep > 0) {
             updateStepStatus(currentStep, "error");
           }
           setTimeout(checkRestartStatus, 2000);
-        }
-      };
-      request.timeout = 2000;
-      request.ontimeout = function () {
-        checkRestartStatus();
-      };
-      request.onerror = function () {
-        console.log("request to GET /restart resulted in an error: ", request.status);
-        setTimeout(checkRestartStatus, 2000);
-      };
-      request.send();
+        },
+      });
     }
 
     // Initialize all steps as pending
