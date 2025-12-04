@@ -562,21 +562,21 @@ class PorttrackerSdrFeeder:
                 self._redirect_for_incomplete_config],
         )
         app.add_url_rule(
+            "/download-diagnostics",
+            "download-diagnostics",
+            view_func=self.download_diagnostics,
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode,
+                self._redirect_for_incomplete_config, self._require_login],
+            methods=["POST"],
+        )
+        app.add_url_rule(
             "/overview",
             "overview",
             view_func=self.overview,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting,
                 self._redirect_for_incomplete_config],
-            methods=["GET", "POST"],
-        )
-        app.add_url_rule(
-            "/support",
-            "support",
-            view_func=self.support,
-            view_func_wrappers=[
-                self._decide_route_hotspot_mode,
-                self._redirect_for_incomplete_config, self._require_login],
             methods=["GET", "POST"],
         )
         app.add_url_rule(
@@ -2434,83 +2434,6 @@ class PorttrackerSdrFeeder:
         temperature_json["age"] = age
         return temperature_json
 
-    def support(self):
-        self._logger.info(f"Support request {request.form}")
-        if request.method != "POST":
-            return render_template("support.html", url="")
-
-        url = "Internal Error uploading logs"
-
-        target = request.form.get("upload")
-        if not target:
-            self._logger.error("Support POST request without target.")
-            return render_template(
-                "support.html", url="Error, unspecified upload target!")
-        self._logger.info(f'Trying to upload the logs with target: "{target}"')
-        if target == "0x0.st":
-            proc = util.shell_with_combined_output(
-                "bash /opt/adsb/log-sanitizer.sh 2>&1 | "
-                "curl -F'expires=168' -F'file=@-'  https://0x0.st", timeout=60)
-            try:
-                proc.check_returncode()
-                self._logger.info(f"Uploaded logs to {proc.stdout.strip()}")
-            except:
-                self._logger.exception(
-                    "Failed to upload logs.", flash_message=True)
-            return render_template("support.html", url=url)
-
-        if target == "termbin.com":
-            try:
-                proc = util.shell_with_combined_output(
-                    "bash /opt/adsb/log-sanitizer.sh 2>&1 "
-                    "| nc termbin.com 9999", timeout=60, check=True)
-                url = proc.stdout.strip("\0\n").strip()
-                self._logger.info(f"Uploaded logs to {url}")
-            except:
-                self._logger.exception(
-                    "Failed to upload logs.", flash_message=True)
-            return render_template("support.html", url=url)
-
-        if target == "local_view" or target == "local_download":
-            return self.download_logs(target)
-
-        return render_template(
-            "support.html", url="upload logs: unexpected code path")
-
-    def get_logs(self):
-        return self.download_logs("local_download")
-
-    def view_logs(self):
-        return self.download_logs("local_view")
-
-    def download_logs(self, target):
-        as_attachment = target == "local_download"
-
-        fdOut, fdIn = os.pipe()
-        pipeOut = os.fdopen(fdOut, "rb")
-        pipeIn = os.fdopen(fdIn, "wb")
-
-        def get_log(fobj):
-            subprocess.run(
-                "bash /opt/adsb/log-sanitizer.sh",
-                shell=True,
-                stdout=fobj,
-                stderr=subprocess.STDOUT,
-                timeout=30,
-            )
-
-        self._executor.submit(get_log, fobj=pipeIn)
-
-        now = datetime.datetime.now().replace(
-            microsecond=0).isoformat().replace(":", "-")
-        download_name = "adsb-feeder-config-{name}-{ts}.txt".format(
-            name=self._conf.get("feeder_name"), ts=now)
-        return send_file(
-            pipeOut,
-            as_attachment=as_attachment,
-            download_name=download_name,
-        )
-
     def system_info(self):
         sdrs = [str(sdr) for sdr in self._sdrdevices.sdrs]
         sdrs = sdrs or ["none"]
@@ -2556,6 +2479,77 @@ class PorttrackerSdrFeeder:
             images=images,
             sdrs=sdrs,
             netdog=netdog,
+            diagnostics_url=request.args.get("diagnostics_url"),
+        )
+
+    def download_diagnostics(self):
+        assert request.method == "POST"
+        target = request.form["upload"]
+        self._logger.info(f"Request to upload diagnostics to {target}.")
+
+        if not target:
+            self._logger.error(
+                "No upload target specified.", flash_message=True)
+            return redirect(url_for("system-info", diagnostics_url=""))
+        if target == "local_view" or target == "local_download":
+            return self.download_logs(target)
+
+        url = ""
+        if target == "0x0.st":
+            try:
+                proc = util.shell_with_combined_output(
+                    "bash /opt/adsb/log-sanitizer.sh 2>&1 | "
+                    "curl -F'expires=168' -F'file=@-'  https://0x0.st",
+                    check=True, timeout=60)
+                url = proc.stdout.strip("\0\n").strip()
+                self._logger.info(f"Uploaded diagnostics to {url}")
+            except:
+                self._logger.exception(
+                    "Failed to upload logs.", flash_message=True)
+        elif target == "termbin.com":
+            try:
+                proc = util.shell_with_combined_output(
+                    "bash /opt/adsb/log-sanitizer.sh 2>&1 "
+                    "| nc termbin.com 9999", timeout=60, check=True)
+                url = proc.stdout.strip("\0\n").strip()
+                self._logger.info(f"Uploaded diagnostics to {url}")
+            except:
+                self._logger.exception(
+                    "Failed to upload logs.", flash_message=True)
+        return redirect(url_for("system-info", diagnostics_url=url))
+
+    def get_logs(self):
+        return self.download_logs("local_download")
+
+    def view_logs(self):
+        return self.download_logs("local_view")
+
+    def download_logs(self, target):
+        as_attachment = target == "local_download"
+
+        fdOut, fdIn = os.pipe()
+        pipeOut = os.fdopen(fdOut, "rb")
+        pipeIn = os.fdopen(fdIn, "wb")
+
+        def get_log(fobj):
+            subprocess.run(
+                "bash /opt/adsb/log-sanitizer.sh",
+                shell=True,
+                stdout=fobj,
+                stderr=subprocess.STDOUT,
+                timeout=30,
+            )
+
+        self._executor.submit(get_log, fobj=pipeIn)
+
+        now = datetime.datetime.now().replace(
+            microsecond=0).isoformat().replace(":", "-")
+        download_name = "adsb-feeder-config-{name}-{ts}.txt".format(
+            name=self._conf.get("feeder_name"), ts=now)
+        return send_file(
+            pipeOut,
+            as_attachment=as_attachment,
+            download_name=download_name,
         )
 
     def waiting(self):

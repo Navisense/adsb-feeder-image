@@ -103,6 +103,56 @@
       </ul>
     </div>
   </div>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Diagnostics file download</h5>
+      <p>
+        This will create an anonymized log that removes IP addresses, locations, and any aggregator keys and other
+        secrets from your logs and upload them to a website for easier sharing with the developers.
+      </p>
+      <p class="{% if diagnostics_url %}d-none{% endif %}">
+        After you click the button, this will display a link that you can share with us (and that you can review first
+        to make sure no personal data is included).
+      </p>
+      <p class="{% if not diagnostics_url %}d-none{% endif %}">
+        The link to the uploaded log is: <a href="{{ diagnostics_url }}">{{ diagnostics_url }}</a>.
+      </p>
+      <p class="{% if not diagnostics_url %}d-none{% endif %}">
+        Please share this link with the developers who are trying to help you
+        (and who most likely asked you to provide this info in the first place).
+      </p>
+      <form method="post"
+            action="{{ url_for('download-diagnostics') }}"
+            enctype="multipart/form-data">
+        <button type="submit"
+                class="btn btn-primary btn-rounded p-4 mb-3"
+                name="upload"
+                value="0x0.st"
+                onclick="showSpinner(); return true;">Upload Logs to 0x0.st (curl POST)</button>
+        <button type="submit"
+                class="btn btn-primary btn-rounded p-4 mb-3"
+                name="upload"
+                value="termbin.com"
+                onclick="showSpinner(); return true;">Upload Logs to termbin.com (netcat)</button>
+        <button type="submit"
+                class="btn btn-primary btn-rounded p-4 mb-3"
+                name="upload"
+                value="local_download">Download Logs</button>
+        <button type="submit"
+                class="btn btn-primary btn-rounded p-4 mb-3"
+                name="upload"
+                value="local_view"
+                onclick="showSpinner(); return true;">View Logs</button>
+      </form>
+      <div class="d-lg-block mt-4">
+        <div class="mb-3">
+          For help and questions, please use the chat function on
+          <a href="https://www.porttracker.co/">porttracker.co</a> or
+          <a href="mailto:info@navisense.de">send us an email</a>.
+        </div>
+      </div>
+    </div>
+  </div>
   <script>
     let browser_ip = null;
     {% if system.system_info.external_ip %}
