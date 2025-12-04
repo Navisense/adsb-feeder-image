@@ -71,7 +71,9 @@
     Device has probably joined the configured network!
   </div>
   <script>
-    let currentStep = 0;
+    let currentStep = 1;
+    let checkTimeoutId = undefined;
+    const startTime = Date.now();
 
     function updateStepStatus(stepNumber, status) {
       if (!["done","error","in-progress"].includes(status)) {
@@ -128,37 +130,96 @@
 
     function checkRestartStatus() {
       $.ajax({
-        url: "/api/statusz",
+        url: "http://{{ get_conf("feeder_name") }}.local/api/statusz",
         type: "GET",
-        timeout: 2000, // Timeout after 2 seconds
-        success: function (data) {
-          const restartState = data.hotspot_status.restart_state;
-          if (restartState === "done") {
-            // Mark all steps as done and redirect
-            for (let i = 1; i <= 3; i++) {
-              updateStepStatus(i, "done");
-            }
-            //setTimeout(function () {
-            //  window.location.replace("/");
-            //}, 1000);
-          } else if (restartState === "restarting") {
-            // Simulate progress (you can enhance this based on actual status data)
-            simulateProgress();
-            setTimeout(checkRestartStatus, 2000);
-          }
+        timeout: 200,
+        success: function (feederStatus) {
+          updateStatus(feederStatus, undefined);
         },
         error: function (jqXHR, textStatus, errorThrown) {
-          if (textStatus === "timeout") {
-            console.log("Request to GET /api/statusz timed out.");
-          } else {
-            console.log("Request to GET /api/statusz resulted in an error: ", textStatus, errorThrown);
-          }
-          if (currentStep > 0) {
-            updateStepStatus(currentStep, "error");
-          }
-          setTimeout(checkRestartStatus, 2000);
+          updateStatus(undefined, textStatus);
         },
       });
+      checkTimeoutId = setTimeout(checkRestartStatus, 200);
+    }
+
+    function updateStatus(feederStatus, errorStatus) {
+      while (true) {
+        switch (currentStep) {
+          case 1:
+            // Step 1: Stop the hotspot
+            // We need to see that the device is disconnected (timeout) or no longer in hotspot mode
+            if (errorStatus === "timeout" || errorStatus === "error") {
+              console.log("Step 1: Can't reach the device, hotspot must have stopped. Progressing to step 2.");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 2
+            } else if (feederStatus?.mode === "hotspot") {
+              console.log("Step 1: Device is still in hotspot mode. Waiting...");
+              return;
+            } else if (feederStatus?.mode === "regular") {
+              // Hotspot stopped and device is already connected
+              console.log("Step 1: Device is no longer in hotspot mode. Progressing to step 2.");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 2
+            } else {
+              // Unknown state, keep waiting
+              return;
+            }
+            break;
+          case 2:
+            // Step 2: Connect to the network
+            // We're trying to reach the device on the network
+            if (errorStatus === "timeout" || errorStatus === "error") {
+              console.log("Step 2: Still can't reach the device. Waiting for connection...");
+              return;
+            } else if (feederStatus?.mode === "regular") {
+              // We can reach the device and it's in regular mode - connection successful!
+              console.log("Step 2: Device is reachable in regular mode. Connection successful!");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 3
+            } else if (feederStatus?.mode === "hotspot") {
+              // Device went back to hotspot mode - connection failed
+              console.log("Step 2: Device is back in hotspot mode. Connection failed.");
+              updateStepStatus(currentStep, "error");
+              if (feederStatus?.hotspot_status?.connect_state === "wrong_credentials") {
+                console.log("Step 2: Wrong credentials detected.");
+              }
+              return;
+            } else {
+              return;
+            }
+            break;
+          case 3:
+            // Step 3: Connection established
+            // Verify the restart process is complete
+            if (feederStatus?.mode === "regular" && feederStatus?.hotspot_status?.restart_state === "done") {
+              console.log("Step 3: Connection fully established. Restart complete!");
+              updateStepStatus(currentStep, "done");
+              // Wait a moment to show the success state, then redirect
+              setTimeout(function () {
+                window.location.replace("http://{{ get_conf("feeder_name") }}.local");
+              }, 15000);
+              return;
+            } else if (feederStatus?.mode === "regular") {
+              // Still in regular mode but restart not done yet
+              console.log("Step 3: Device connected, waiting for restart to complete...");
+              return;
+            } else {
+              // Something went wrong
+              console.log("Step 3: Unexpected state.");
+              return;
+            }
+          default:
+            // All steps complete
+            return;
+        }
+      }
     }
 
     // Start with step 1
