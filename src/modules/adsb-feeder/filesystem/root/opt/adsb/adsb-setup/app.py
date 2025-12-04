@@ -554,9 +554,9 @@ class PorttrackerSdrFeeder:
             methods=["GET"],
         )
         app.add_url_rule(
-            "/info",
-            "info",
-            view_func=self.info,
+            "/system-info",
+            "system-info",
+            view_func=self.system_info,
             view_func_wrappers=[
                 self._decide_route_hotspot_mode,
                 self._redirect_for_incomplete_config],
@@ -2511,7 +2511,7 @@ class PorttrackerSdrFeeder:
             download_name=download_name,
         )
 
-    def info(self):
+    def system_info(self):
         sdrs = [str(sdr) for sdr in self._sdrdevices.sdrs]
         sdrs = sdrs or ["none"]
 
@@ -2546,7 +2546,7 @@ class PorttrackerSdrFeeder:
             image_setting.get("")
             for _, image_setting in self._conf.get_setting("images")]
         return render_template(
-            "info.html",
+            "system_info.html",
             memory=memory,
             top=top,
             storage=storage,
