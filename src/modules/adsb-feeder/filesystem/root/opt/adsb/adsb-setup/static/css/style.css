@@ -1,3 +1,6 @@
+.vh-50 {
+    height: 50vh;
+}
 
 #loader {
   position: absolute;

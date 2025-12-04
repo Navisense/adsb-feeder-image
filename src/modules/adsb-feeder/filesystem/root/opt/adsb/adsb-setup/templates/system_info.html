@@ -153,6 +153,16 @@
       </div>
     </div>
   </div>
+  <div class="card my-2">
+    <div class="card-body">
+      <h5 class="card-title">Dozzle (Docker container management)</h5>
+      <p>
+        Here you can view logs of running Docker containers on the system. This is also available
+        <a href="{{ url_for('dozzle') }}">as a separate page</a>.
+      </p>
+      <iframe class="w-100 vh-50" src="{{ url_for('dozzle-fullscreen') }}"></iframe>
+    </div>
+  </div>
   <script>
     let browser_ip = null;
     {% if system.system_info.external_ip %}

@@ -306,7 +306,12 @@ class PorttrackerSdrFeeder:
             "rule": "/flightradar/monitor.json",
             "endpoint": "flightradar-monitor-json",
             "port_key_path": "ports.fr",
-            "path": "/monitor.json",},]
+            "path": "/monitor.json",},
+        {
+            "rule": "/dozzle-fullscreen",
+            "endpoint": "dozzle-fullscreen",
+            "port_key_path": "ports.dazzle",
+            "path": "",},]
 
     def __init__(
             self, conf: config.Config, sys: system.System,
