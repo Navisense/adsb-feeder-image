@@ -130,17 +130,17 @@
       if (hasTimedOut) {
         statusDiv.html(makeNotificationCardHtml(
           "error", "mDNS is not working", "Unable to contact the feeder as {{ get_conf("feeder_name") }}.local."));
-      } else if (stati.get("example.org") != "success") {
-        statusDiv.html(makeNotificationCardHtml(
-          "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
-      } else if (stati.get("{{ get_conf("feeder_name") }}.local") != "success") {
-        statusDiv.html(makeNotificationCardHtml(
-          "warning", "Checking mDNS status",
-          "The feeder can be reached, but not yet as {{ get_conf("feeder_name") }}.local."));
-      } else {
+      } else if (stati.get("{{ get_conf("feeder_name") }}.local") == "success") {
         statusDiv.html(makeNotificationCardHtml(
           "success", "mDNS is working",
           "The feeder can be reached as {{ get_conf("feeder_name") }}.local, looks like mDNS is working."));
+      } else if (stati.get("example.org") != "success") {
+        statusDiv.html(makeNotificationCardHtml(
+          "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
+      } else {
+        statusDiv.html(makeNotificationCardHtml(
+          "warning", "Checking mDNS status",
+          "The feeder can be reached, but not yet as {{ get_conf("feeder_name") }}.local."));
       }
     }
 
