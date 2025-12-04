@@ -4,102 +4,85 @@
   Trying to connect to WiFi
 {% endblock title %}
 {% block content %}
-  <div class="container mt-4">
-    <div class="row justify-content-center">
-      <div class="col-md-8">
-        <!-- Explanatory Text -->
-        <div class="alert alert-info mb-4" role="alert">
-          <h5 class="alert-heading">
-            <i class="fas fa-info-circle me-2"></i>Device Restart in Progress
-          </h5>
-          <p class="mb-0">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-            The device is restarting and attempting to connect to the configured network. This process may take a few minutes.
-          </p>
+  <!-- Explanatory Text -->
+  <div class="alert alert-info mb-4" role="alert">
+    <h5 class="alert-heading">Device Restart in Progress</h5>
+    <p class="mb-0">
+      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+      The device is restarting and attempting to connect to the configured network. This process may take a few minutes.
+    </p>
+  </div>
+  <!-- Progress Steps -->
+  <div class="card">
+    <ul class="list-group list-group-light list-group-flush px-4">
+      <li class="list-group-item d-flex justify-content-between align-items-center"
+          id="step-1">
+        <div>
+          <span class="step-icon far fa-circle text-muted me-3"></span>
+          <span id="step-1-text">Step 1</span>
         </div>
-        <!-- Progress Steps -->
-        <div class="card">
-          <div class="card-header bg-primary text-white">
-            <h5 class="mb-0">
-              <i class="fas fa-tasks me-2"></i>Restart Progress
-            </h5>
-          </div>
-          <ul class="list-group list-group-light list-group-flush">
-            <li class="list-group-item d-flex justify-content-between align-items-center"
-                id="step-1">
-              <div>
-                <i class="fas fa-circle-notch fa-spin text-muted me-3" id="step-1-icon"></i>
-                <span id="step-1-text">Step 1</span>
-              </div>
-              <span class="badge badge-secondary rounded-pill" id="step-1-badge">Pending</span>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
-                id="step-2">
-              <div>
-                <i class="far fa-circle text-muted me-3" id="step-2-icon"></i>
-                <span id="step-2-text">Step 2</span>
-              </div>
-              <span class="badge badge-secondary rounded-pill" id="step-2-badge">Pending</span>
-            </li>
-            <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
-                id="step-3">
-              <div>
-                <i class="far fa-circle text-muted me-3" id="step-3-icon"></i>
-                <span id="step-3-text">Step 3</span>
-              </div>
-              <span class="badge badge-secondary rounded-pill" id="step-3-badge">Pending</span>
-            </li>
-          </ul>
+        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
+      </li>
+      <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
+          id="step-2">
+        <div>
+          <span class="step-icon far fa-circle text-muted me-3"></span>
+          <span id="step-2-text">Step 2</span>
         </div>
-        <!-- Status Message -->
-        <div class="alert alert-warning mt-4 d-none"
-             role="alert"
-             id="timeout-message">
-          <i class="fas fa-exclamation-triangle me-2"></i>
-          Device has probably joined the configured network!
+        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
+      </li>
+      <li class="list-group-item d-flex justify-content-between align-items-center text-muted"
+          id="step-3">
+        <div>
+          <span class="step-icon far fa-circle text-muted me-3"></span>
+          <span id="step-3-text">Step 3</span>
         </div>
-      </div>
-    </div>
+        <span class="step-badge badge badge-secondary rounded-pill">Pending</span>
+      </li>
+    </ul>
+  </div>
+  <!-- Status Message -->
+  <div class="alert alert-warning mt-4 d-none"
+       role="alert"
+       id="timeout-message">
+    <span class="fas fa-exclamation-triangle me-2"></span>
+    Device has probably joined the configured network!
   </div>
   <script>
     let currentStep = 0;
 
     function updateStepStatus(stepNumber, status) {
-      const stepElement = document.getElementById(`step-${stepNumber}`);
-      const iconElement = document.getElementById(`step-${stepNumber}-icon`);
-      const badgeElement = document.getElementById(`step-${stepNumber}-badge`);
+      if (!["done","error","in-progress"].includes(status)) {
+        console.error(`Invalid step status: ${status}`);
+        return;
+      }
+      const stepElement = $(`#step-${stepNumber}`);
+      const iconElement = stepElement.find(".step-icon");
+      const badgeElement = stepElement.find(".step-badge");
 
       // Remove text-muted class to make it visible
-      stepElement.classList.remove("text-muted");
+      stepElement.removeClass("text-muted");
+      iconElement.removeClass(
+        "far fas fa-circle fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-muted text-success text-danger "
+          + "text-primary");
+      badgeElement.removeClass("badge-secondary badge-success badge-danger badge-primary");
 
       if (status === "done") {
         // Green checkmark for completed steps
-        iconElement.className = "fas fa-check-circle text-success me-3";
-        badgeElement.className = "badge badge-success rounded-pill";
-        badgeElement.textContent = "Done";
+        iconElement.addClass("far fa-circle-check text-success");
+        badgeElement.addClass("badge-success");
+        badgeElement.text("Done");
       } else if (status === "error") {
         // Red X for failed steps
-        iconElement.className = "fas fa-times-circle text-danger me-3";
-        badgeElement.className = "badge badge-danger rounded-pill";
-        badgeElement.textContent = "Failed";
+        iconElement.addClass("far fa-circle-xmark text-danger");
+        badgeElement.addClass("badge-danger");
+        badgeElement.text("Failed");
       } else if (status === "in-progress") {
         // Spinning icon for current step
-        iconElement.className = "fas fa-circle-notch fa-spin text-primary me-3";
-        badgeElement.className = "badge badge-primary rounded-pill";
-        badgeElement.textContent = "In Progress";
+        iconElement.addClass("fas fa-circle-notch fa-spin text-primary");
+        badgeElement.addClass("badge-primary");
+        badgeElement.text("In Progress");
       }
-    }
-
-    function setStepPending(stepNumber) {
-      const stepElement = document.getElementById(`step-${stepNumber}`);
-      const iconElement = document.getElementById(`step-${stepNumber}-icon`);
-      const badgeElement = document.getElementById(`step-${stepNumber}-badge`);
-
-      // Add text-muted class to grey it out
-      stepElement.classList.add("text-muted");
-      iconElement.className = "far fa-circle text-muted me-3";
-      badgeElement.className = "badge badge-secondary rounded-pill";
-      badgeElement.textContent = "Pending";
     }
 
     function simulateProgress() {
@@ -152,11 +135,6 @@
           setTimeout(checkRestartStatus, 2000);
         },
       });
-    }
-
-    // Initialize all steps as pending
-    for (let i = 1; i <= 3; i++) {
-      setStepPending(i);
     }
 
     // Start with step 1
