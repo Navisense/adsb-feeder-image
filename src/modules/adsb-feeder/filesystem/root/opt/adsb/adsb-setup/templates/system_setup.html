@@ -177,6 +177,7 @@
         </div>
       </div>
     </div>
+    {# Disabled, because theming doesn't work without MDBootstrap pro.
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
@@ -185,23 +186,11 @@
           <form method="post" action="{{ url_for('set-css-theme') }}">
             <div class="row align-items-center">
               <div class="col-12 col-md-8">
-                <input type="radio"
-                       name="css-theme"
-                       id="css-light"
-                       value="light"
-                       {% if get_conf("css_theme")=="light" %}checked{% endif %}>
+                <input type="radio" name="css-theme" id="css-light" value="light" {% if get_conf("css_theme")=="light" %}checked{% endif %}>
                 <label class="form-check-label mr-3" for="css-light">Light Theme</label>
-                <input type="radio"
-                       name="css-theme"
-                       id="css-dark"
-                       value="dark"
-                       {% if get_conf("css_theme")=="dark" %}checked{% endif %}>
+                <input type="radio" name="css-theme" id="css-dark" value="dark" {% if get_conf("css_theme")=="dark" %}checked{% endif %}>
                 <label class="form-check-label mr-3" for="css-dark">Dark Theme</label>
-                <input type="radio"
-                       name="css-theme"
-                       id="css-auto"
-                       value="auto"
-                       {% if get_conf("css_theme")=="auto" %}checked{% endif %}>
+                <input type="radio" name="css-theme" id="css-auto" value="auto" {% if get_conf("css_theme")=="auto" %}checked{% endif %}>
                 <label class="form-check-label mr-3" for="css-auto">Auto</label>
               </div>
               <div class="col-12 col-md-4">
@@ -212,6 +201,7 @@
         </div>
       </div>
     </div>
+    #}
     <div class="col">
       <div class="card h-100">
         <div class="card-body">
