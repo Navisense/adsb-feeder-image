@@ -72,7 +72,7 @@
   </div>
   <script>
     let currentStep = 1;
-    let checkTimeoutId = undefined;
+    let keepChecking = true;
     const startTime = Date.now();
 
     function updateStepStatus(stepNumber, status) {
@@ -111,23 +111,6 @@
       }
     }
 
-    function simulateProgress() {
-      // This is a placeholder - you can replace this with actual progress tracking
-      // based on the response from checkRestartStatus()
-      if (currentStep < 3) {
-        if (currentStep > 0) {
-          updateStepStatus(currentStep, "done");
-        }
-        currentStep++;
-        updateStepStatus(currentStep, "in-progress");
-      }
-    }
-
-    function after60() {
-      // Show timeout message after 60 seconds
-      document.getElementById("timeout-message").classList.remove("d-none");
-    }
-
     function checkRestartStatus() {
       $.ajax({
         url: "http://{{ get_conf("feeder_name") }}.local/api/statusz",
@@ -140,7 +123,12 @@
           updateStatus(undefined, textStatus);
         },
       });
-      checkTimeoutId = setTimeout(checkRestartStatus, 200);
+      if (Date.now() - startTime > 60 * 1000) {
+        $("#timeout-message").removeClass("d-none");
+      } else if (keepChecking) {
+        // Only check again if we're not done.
+        setTimeout(checkRestartStatus, 200);
+      }
     }
 
     function updateStatus(feederStatus, errorStatus) {
@@ -201,6 +189,7 @@
             if (feederStatus?.mode === "regular" && feederStatus?.hotspot_status?.restart_state === "done") {
               console.log("Step 3: Connection fully established. Restart complete!");
               updateStepStatus(currentStep, "done");
+              keepChecking = false;
               // Wait a moment to show the success state, then redirect
               setTimeout(function () {
                 window.location.replace("http://{{ get_conf("feeder_name") }}.local");
@@ -222,11 +211,9 @@
       }
     }
 
-    // Start with step 1
+    // Start with step 1, then keep checking and updating.
     currentStep = 1;
     updateStepStatus(1, "in-progress");
-
     checkRestartStatus();
-    setTimeout(after60, 60 * 1000);
   </script>
 {% endblock content %}
