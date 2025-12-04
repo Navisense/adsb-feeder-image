@@ -279,6 +279,7 @@ class System:
         self._last_undervoltage_time = -self.UNDERVOLTAGE_RESET_TIMEOUT
         self._dmesg_monitor = DmesgMonitor(
             on_undervoltage=self._set_undervoltage)
+        self._wifi_controls = {}
 
     def __enter__(self):
         for task in self._refresh_tasks.values():
@@ -478,7 +479,7 @@ class System:
                 used_for_network_access = False
             if any(device_name.startswith(prefix)
                    for prefix in ["wlan", "wlp", "ath"]):
-                wifi_control = wifi.make_wifi(device_name)
+                wifi_control = self._get_wifi_control(device_name)
 
             device_infos.append(
                 NetworkDeviceInfo(
@@ -489,6 +490,14 @@ class System:
                     wifi=wifi_control,
                 ))
         return device_infos
+
+    def _get_wifi_control(self, device_name):
+        try:
+            return self._wifi_controls[device_name]
+        except KeyError:
+            wifi_control = wifi.make_wifi(device_name)
+            self._wifi_controls[device_name] = wifi_control
+            return wifi_control
 
     def _dns_is_working(self):
         try:
