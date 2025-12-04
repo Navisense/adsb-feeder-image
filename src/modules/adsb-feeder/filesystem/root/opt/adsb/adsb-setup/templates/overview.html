@@ -141,13 +141,23 @@
       </p>
       <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
         <div class="col">
-          <div class="alert alert-danger">
+          <div class="alert alert-danger h-100">
             The firewall is disabled
             <span class="far fa-circle-question"
                   data-mdb-toggle="tooltip"
                   title="It is not possible to keep the firewall enabled with the current software"></span>
           </div>
         </div>
+        {% if hotspot_enabled %}
+          <div class="col">
+            <div class="alert alert-info h-100">
+              The hotspot is enabled
+              <span class="far fa-circle-question"
+                    data-mdb-toggle="tooltip"
+                    title="This device has started a hotspot that you can connect to in order to connect to a wifi"></span>
+            </div>
+          </div>
+        {% endif %}
       </div>
     </div>
   </div>

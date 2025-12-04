@@ -2338,6 +2338,7 @@ class PorttrackerSdrFeeder:
             device_hosts=device_hosts,
             str=str,
             aggregators_chosen=aggregators_chosen,
+            hotspot_enabled=self.hotspot_mode,
         )
 
     def location_setup(self):
