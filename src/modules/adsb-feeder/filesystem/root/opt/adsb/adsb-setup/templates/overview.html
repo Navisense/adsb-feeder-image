@@ -394,6 +394,9 @@
           const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 10 * 1000);
           connectivityChecker.start();
         }
+        if (networkInfo.external_ip) {
+          setExternalIpComparisonComment(networkInfo.external_ip);
+        }
 
         networkInfoUpdateCounter.reset();
       }).fail(function(jqXHR) {
@@ -402,30 +405,23 @@
       });
     }
 
-    async function updateConnectivityInfo() {
+    async function setExternalIpComparisonComment(feederExternalIp) {
       let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
         .then(response => response.json());
       const browserIp = (await browserIpData)["ip"];
-
-      // Internal vs. external IP.
-      {% if system.system_info.external_ip %}
-        if (browserIp) {
-          if ("{{ system.system_info.external_ip }}" == browserIp) {
-            $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-            $("#ip-mismatch").addClass("d-none");
-          } else {
-            $("#feeder-external-ip-comment").text(
-              ` (that's a different one than the one of this browser, which has ${browserIp})`);
-            $("#ip-mismatch").removeClass("d-none");
-          }
+      if (browserIp) {
+        if (feederExternalIp == browserIp) {
+          $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
+          $("#ip-mismatch").addClass("d-none");
+        } else {
+          $("#feeder-external-ip-comment").text(
+            ` (that's a different one than the one of this browser, which has ${browserIp})`);
+          $("#ip-mismatch").removeClass("d-none");
         }
-      {% endif %}
-
-      // Reachability of all the device's hosts.
-      const connectivityChecker = new FeederConnectivityChecker(
-        {{ device_hosts | map(attribute='host') | list | tojson }}, updateReachabilityInfo, 10 * 1000);
-      connectivityChecker.start();
-      connectivityUpdateCounter.reset();
+      } else {
+          $("#feeder-external-ip-comment").text(" (we're unable to compare it to the browser's IP)");
+          $("#ip-mismatch").addClass("d-none");
+        }
     }
 
     function updateReachabilityInfo(stati, hasTimedOut) {
@@ -837,8 +833,6 @@
 
     const networkInfoUpdateCounter = new UpdateTimeCounter(
       "last-update-network-info-counter", "last-update-network-info-button");
-    const connectivityUpdateCounter = new UpdateTimeCounter(
-      "last-update-connectivity-counter", "last-update-connectivity-button");
     const sdrDevicesUpdateCounter = new UpdateTimeCounter(
       "last-update-sdr-devices-counter", "last-update-sdr-devices-button");
     const receptionUpdateCounter = new UpdateTimeCounter(
@@ -850,7 +844,6 @@
     const otherFeederUpdateCounter = new UpdateTimeCounter(
       "last-update-device-discovery-counter", "last-update-device-discovery-button");
     registerTask("Update network info", 60000, updateNetworkInfo);
-    registerTask("Update connectivity info", 60000, updateConnectivityInfo);
     registerTask("Update SDR devices", 15000, updateSdrDevices);
     registerTask("Update reception stats", 15000, updateReceptionStats);
     registerTask("Update aggregator infos", 60000, updateAggregatorInfos);
