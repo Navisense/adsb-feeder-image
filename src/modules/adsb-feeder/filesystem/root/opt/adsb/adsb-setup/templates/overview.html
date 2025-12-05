@@ -291,117 +291,105 @@
 
     async function updateNetworkInfo() {
       $.ajax("/api/network-info").done(function (networkInfo) {
+        // In local mode, we don't do connectivity checking, and the format is slightly different.
+        const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         const container = $("#network-info");
         container.html("");
-        // Add intro paragraph
-        container.append(`
-          <p>
+        container.append(
+          `<p>
             This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
             <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
           </p>
         `);
-        // Add device hosts information
-        const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        // Add device hosts information.
         if (isLocalAccess) {
-          // Viewing from localhost
-          let hostsHtml = "<p>You are viewing this page on the device itself.";
-          if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
-            hostsHtml += " You can also reach this device on the network as any one of these:";
-            hostsHtml += '<ul class="list-group list-group-small my-3">';
-            for (const deviceHost of networkInfo.device_hosts) {
-              hostsHtml += `<li class="list-group-item text-center px-2">`;
-              hostsHtml += `<span class="link-primary">${deviceHost.host}</span>`;
-              if (deviceHost.type === 'local_ip' && deviceHost.device_info.wifi) {
-                hostsHtml += ` (wifi device <strong>${deviceHost.device_info.device}</strong>`;
-                if (deviceHost.device_info.wifi.ssid) {
-                  hostsHtml += ` connected to network <strong>${deviceHost.device_info.wifi.ssid}</strong>`;
-                  hostsHtml += ` using the router ${deviceHost.device_info.gateway}`;
-                }
-                hostsHtml += ')';
-              } else if (deviceHost.type === 'local_ip') {
-                hostsHtml += ` (wired device <strong>${deviceHost.device_info.device}</strong> using the router ${deviceHost.device_info.gateway})`;
-              } else if (deviceHost.type === 'tailscale') {
-                hostsHtml += ' (via Tailscale)';
-              }
-              hostsHtml += '</li>';
-            }
-            hostsHtml += '</ul>';
-          } else {
-            hostsHtml += " Unfortunately, we have no information on other ways to reach this device.";
-          }
-          hostsHtml += "</p>";
-          container.append(hostsHtml);
-        } else if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
-          // Viewing from remote
-          let hostsHtml = "<p>This device is reachable on the network as any one of these:</p>";
-          hostsHtml += '<ul class="list-group list-group-small my-3">';
+          container.append("<p>You are viewing this page on the device itself.</p>");
+        }
+        if (!networkInfo.device_hosts?.length) {
+          container.append("<p>Unfortunately, we have no information on other ways to reach this device.</p>");
+        } else {
+          container.append(
+            `<p>This device is reachable on the network as any one of these:</p>
+            <ul id="device-hosts-list" class="list-group list-group-small my-3"></ul>`);
           for (const deviceHost of networkInfo.device_hosts) {
-            hostsHtml += `<li class="list-group-item d-flex justify-content-between align-items-center px-2">`;
-            hostsHtml += '<span>';
-            hostsHtml += `<a href="http://${deviceHost.host}">${deviceHost.host}</a>`;
+            let hostCommentHtml = "";
             if (deviceHost.type === 'local_ip' && deviceHost.device_info.wifi) {
-              hostsHtml += ` (wifi device <strong>${deviceHost.device_info.device}</strong>`;
-              if (deviceHost.device_info?.wifi?.ssid) {
-                hostsHtml += ` connected to network <strong>${deviceHost.device_info.wifi.ssid}</strong>`;
-                hostsHtml += ` using the router ${deviceHost.device_info.gateway}`;
+              hostCommentHtml = `wifi device <strong>${deviceHost.device_info.device}</strong> `;
+              if (deviceHost.device_info.wifi.ssid) {
+                hostCommentHtml += (
+                  `connected to network <strong>${deviceHost.device_info.wifi.ssid}</strong> using the router
+                  ${deviceHost.device_info.gateway}`);
+              } else {
+                hostCommentHtml += "not connected to a wifi network";
               }
-              hostsHtml += ')';
-            } else if (deviceHost.type === 'local_ip') {
-              hostsHtml += ` (wired device <strong>${deviceHost.device_info.device}</strong> using the router ${deviceHost.device_info.gateway})`;
-            } else if (deviceHost.type === 'tailscale') {
-              hostsHtml += ' (via Tailscale)';
+            } else if (deviceHost.type === "local_ip") {
+              hostCommentHtml = (
+                `wired device <strong>${deviceHost.device_info.device}</strong> using the router
+                ${deviceHost.device_info.gateway}`);
+            } else if (deviceHost.type === "tailscale") {
+              hostCommentHtml = "via Tailscale";
             }
-            hostsHtml += '</span>';
-            hostsHtml += `<span class="badge badge-info rounded-pill feeder-reachability-badge" data-host="${deviceHost.host}" data-mdb-toggle="tooltip" title="Checking whether this address is reachable from this browser">checking...</span>`;
-            hostsHtml += '</li>';
+            if (hostCommentHtml) {
+              hostCommentHtml = ` (${hostCommentHtml})`;
+            }
+            const deviceHostsList = $("#device-hosts-list");
+            deviceHostsList.append(
+              `<li class="device-hosts-item list-group-item d-flex justify-content-between align-items-center px-2">
+                <span>
+                  <a href="http://${deviceHost.host}">${deviceHost.host}</a>
+                </span>
+              </li>`);
+            if (!isLocalAccess) {
+              deviceHostsList.find(".device-hosts-item").last().append(
+                `<span class="badge badge-info rounded-pill feeder-reachability-badge" data-host="${deviceHost.host}" data-mdb-toggle="tooltip" title="Checking whether this address is reachable from this browser">
+                  checking...
+                </span>`);
+            }
           }
-          hostsHtml += '</ul>';
-          container.append(hostsHtml);
-        } else {
-          container.append("<p>Unfortunately, we have no information on how to reach this device.</p>");
         }
 
-        // Add external IP information
-        let externalIpHtml = "<p>";
+        // Add external IP information.
         if (networkInfo.external_ip) {
-          externalIpHtml += `This device's external IP (on the public internet) is <strong>${networkInfo.external_ip}</strong>`;
-          externalIpHtml += '<span id="feeder-external-ip-comment"></span>';
+          container.append(
+            `<p>
+              This device's external IP (on the public internet) is <strong>${networkInfo.external_ip}</strong>
+              <span id="feeder-external-ip-comment"></span>
+            </p>`);
         } else {
-          externalIpHtml += "Unfortunately, we have no information on the device's external IP (on the public internet).";
+          container.append(
+            `<p>
+              Unfortunately, we have no information on the device's external IP (on the public internet).
+            </p>`);
         }
-        externalIpHtml += "</p>";
-        container.append(externalIpHtml);
 
-        // Add firewall and hotspot alerts
-        let alertsHtml = '<div class="row row-cols-1 row-cols-lg-2 g-3 m-3">';
-        alertsHtml += `
-          <div class="col">
+        // Add firewall and hotspot alerts.
+        const alertsContainer = $('<div class="row row-cols-1 row-cols-lg-2 g-3 m-3"></div>');
+        alertsContainer.append(
+          `<div class="col">
             <div class="alert alert-danger h-100">
               The firewall is disabled
               <span class="far fa-circle-question" data-mdb-toggle="tooltip" title="It is not possible to keep the firewall enabled with the current software"></span>
             </div>
-          </div>
-        `;
+          </div>`);
         if (networkInfo.hotspot_enabled) {
-          alertsHtml += `
-            <div class="col">
+          alertsContainer.append(
+            `<div class="col">
               <div class="alert alert-info h-100">
                 The hotspot is enabled
                 <span class="far fa-circle-question" data-mdb-toggle="tooltip" title="This device has started a hotspot that you can connect to in order to connect to a wifi"></span>
               </div>
-            </div>
-          `;
+            </div>`);
         }
-        alertsHtml += '</div>';
-        container.append(alertsHtml);
-        // Initialize tooltips for newly added elements
+        container.append(alertsContainer);
+
+        // Initialize tooltips for newly added elements if there are any.
         const tooltips = container.find('[data-mdb-toggle="tooltip"]');
         tooltips.each(function() {
           initOrReplaceMdbTooltip(this);
         });
 
         // Start connectivity checker for reachability badges if we have device hosts
-        if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
+        if (networkInfo.device_hosts?.length && !isLocalAccess) {
           const hosts = networkInfo.device_hosts.map(dh => dh.host);
           const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 10 * 1000);
           connectivityChecker.start();
