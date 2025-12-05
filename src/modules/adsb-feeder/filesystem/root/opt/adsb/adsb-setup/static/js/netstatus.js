@@ -5,17 +5,43 @@
  */
 class FeederConnectivityChecker {
   constructor(
-    domains,
+    hosts,
     onStatusUpdate,
     checkTimeout = 300 * 1000,
-    recheckIntervals = [[1000, 200], [3000, 500], [Infinity, 3000]],
+    recheckIntervals = [
+      [1000, 200],
+      [3000, 500],
+      [Infinity, 3000],
+    ]
   ) {
-    this.stati = new Map(domains.map((d) => [d, null]));
+    this.stati = new Map(hosts.map((h) => [h, null]));
     this.onStatusUpdate = onStatusUpdate;
     this.checkTimeout = checkTimeout;
     this.recheckIntervals = recheckIntervals;
     this.checkStart = Date.now();
     this.hasTimedOut = false;
+  }
+
+  /**
+   * Set the hosts to check to the ones contained in the array.
+   *
+   * The status of hosts that already exist is not changed. Hosts that didn't
+   * yet exist are added with an initial status. Hosts that are not in the array
+   * are removed.
+   */
+  setHosts(hosts) {
+    for (const host of hosts) {
+      if (this.stati.has(host)) {
+        continue;
+      } else {
+        this.stati.set(host, null);
+      }
+    }
+    for (const host of this.stati.keys()) {
+      if (!hosts.includes(host)) {
+        this.stati.delete(host);
+      }
+    }
   }
 
   start() {
@@ -25,17 +51,17 @@ class FeederConnectivityChecker {
 
   sendCheckRequests() {
     let checkAgain = false;
-    for (const [domain, previousStatus] of this.stati.entries()) {
+    for (const [host, previousStatus] of this.stati.entries()) {
       if (previousStatus == "success") {
         continue;
       }
       checkAgain = true;
       let req = new XMLHttpRequest();
       req.timeout = 1000;
-      req.onload = this.maybeUpdateStatus(domain, previousStatus, "success");
-      req.onerror = this.maybeUpdateStatus(domain, previousStatus, "error");
-      req.ontimeout = this.maybeUpdateStatus(domain, previousStatus, "timeout");
-      req.open("GET", `http://${domain}/api/statusz`);
+      req.onload = this.maybeUpdateStatus(host, previousStatus, "success");
+      req.onerror = this.maybeUpdateStatus(host, previousStatus, "error");
+      req.ontimeout = this.maybeUpdateStatus(host, previousStatus, "timeout");
+      req.open("GET", `http://${host}/api/statusz`);
       req.send();
     }
     let recheckInterval = 1000;
@@ -51,9 +77,9 @@ class FeederConnectivityChecker {
     }
   }
 
-  maybeUpdateStatus(domain, previousStatus, status) {
+  maybeUpdateStatus(host, previousStatus, status) {
     return (_) => {
-      this.stati.set(domain, status);
+      this.stati.set(host, status);
       this.hasTimedOut = Date.now() > this.checkStart + this.checkTimeout;
       if (this.hasTimedOut || status != previousStatus) {
         this.onStatusUpdate(this.stati, this.hasTimedOut);
