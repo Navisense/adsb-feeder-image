@@ -57,108 +57,17 @@
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
         <span class="text-muted me-2 d-none d-sm-inline">
-          Last update: <span id="last-update-connectivity-counter">never</span>
+          Last update: <span id="last-update-network-info-counter">never</span>
         </span>
-        <button id="last-update-connectivity-button"
+        <button id="last-update-network-info-button"
                 type="button"
                 class="btn btn-secondary btn-floating"
-                onclick="updateConnectivityInfo()">
+                onclick="updateNetworkInfo()">
           <span class="fas fa-arrows-rotate"></span>
         </button>
       </div>
       <h5 class="card-title">Network info</h5>
-      <p>
-        This is <strong>{{ get_conf("feeder_name") }}</strong>. You can configure network access on the
-        <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
-      </p>
-      {% if request.remote_addr in ["127.0.0.1", "::1"] %}
-        <p>
-          You are viewing this page on the device itself.
-          {% if device_hosts %}
-            You can also reach this device on the network as any one of these:
-            <ul class="list-group list-group-small my-3">
-              {% for device_host in device_hosts %}
-                <li class="list-group-item text-center px-2">
-                  <span class="link-primary">{{ device_host['host'] }}</span>
-                  {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
-                    (wifi device <strong>{{ device_host['device_info'].device }}</strong>
-                    {% if device_host['device_info'].wifi.ssid %}
-                      connected to network <strong>{{ device_host['device_info'].wifi.ssid }}</strong>
-                      using the router {{ device_host['device_info'].gateway }}
-                    {% endif %}
-                    )
-                  {%- elif device_host['type'] == 'local_ip' %}
-                    (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
-                    {{ device_host['device_info'].gateway }})
-                  {%- elif device_host['type'] == 'tailscale' %}
-                    (via Tailscale)
-                  {%- endif -%}
-                </li>
-              {% endfor %}
-            </ul>
-          {% else %}
-            Unfortunately, we have no information on other ways to reach this device.
-          {% endif %}
-        </p>
-      {% elif device_hosts %}
-        <p>This device is reachable on the network as any one of these:</p>
-        <ul class="list-group list-group-small my-3">
-          {% for device_host in device_hosts %}
-            <li class="list-group-item d-flex justify-content-between align-items-center px-2">
-              <span>
-                <a href="http://{{ device_host['host'] }}">{{ device_host['host'] }}</a>
-                {%- if device_host['type'] == 'local_ip' and device_host['device_info'].wifi %}
-                  (wifi device <strong>{{ device_host['device_info'].device }}</strong>
-                  {% if device_host['device_info'].wifi.ssid %}
-                    connected to network <strong>{{ device_host['device_info'].wifi.ssid }}</strong>
-                    using the router {{ device_host['device_info'].gateway }}
-                  {% endif %}
-                  )
-                {%- elif device_host['type'] == 'local_ip' %}
-                  (wired device <strong>{{ device_host['device_info'].device }}</strong> using the router
-                  {{ device_host['device_info'].gateway }})
-                {%- elif device_host['type'] == 'tailscale' %}
-                  (via Tailscale)
-                {%- endif -%}
-              </span>
-              <span class="badge badge-info rounded-pill feeder-reachability-badge"
-                    data-host="{{ device_host['host'] }}"
-                    data-mdb-toggle="tooltip"
-                    title="Checking whether this address is reachable from this browser">checking...</span>
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>Unfortunately, we have no information on how to reach this device.</p>
-      {% endif %}
-      <p>
-        {% if system.system_info.external_ip %}
-          This device's external IP (on the public internet) is <strong>{{ system.system_info.external_ip }}</strong>
-          <span id="feeder-external-ip-comment"></span>
-        {% else %}
-          Unfortunately, we have no information on the device's external IP (on the public internet).
-        {% endif %}
-      </p>
-      <div class="row row-cols-1 row-cols-lg-2 g-3 m-3">
-        <div class="col">
-          <div class="alert alert-danger h-100">
-            The firewall is disabled
-            <span class="far fa-circle-question"
-                  data-mdb-toggle="tooltip"
-                  title="It is not possible to keep the firewall enabled with the current software"></span>
-          </div>
-        </div>
-        {% if hotspot_enabled %}
-          <div class="col">
-            <div class="alert alert-info h-100">
-              The hotspot is enabled
-              <span class="far fa-circle-question"
-                    data-mdb-toggle="tooltip"
-                    title="This device has started a hotspot that you can connect to in order to connect to a wifi"></span>
-            </div>
-          </div>
-        {% endif %}
-      </div>
+      <div id="network-info"></div>
     </div>
   </div>
   <div class="card my-2">
@@ -379,6 +288,131 @@
     }
 
     let receptionHistoryChart = createReceptionHistoryChart();
+
+    async function updateNetworkInfo() {
+      $.ajax("/api/network-info").done(function (networkInfo) {
+        const container = $("#network-info");
+        container.html("");
+        // Add intro paragraph
+        container.append(`
+          <p>
+            This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
+            <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
+          </p>
+        `);
+        // Add device hosts information
+        const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        if (isLocalAccess) {
+          // Viewing from localhost
+          let hostsHtml = "<p>You are viewing this page on the device itself.";
+          if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
+            hostsHtml += " You can also reach this device on the network as any one of these:";
+            hostsHtml += '<ul class="list-group list-group-small my-3">';
+            for (const deviceHost of networkInfo.device_hosts) {
+              hostsHtml += `<li class="list-group-item text-center px-2">`;
+              hostsHtml += `<span class="link-primary">${deviceHost.host}</span>`;
+              if (deviceHost.type === 'local_ip' && deviceHost.device_info.wifi) {
+                hostsHtml += ` (wifi device <strong>${deviceHost.device_info.device}</strong>`;
+                if (deviceHost.device_info.wifi.ssid) {
+                  hostsHtml += ` connected to network <strong>${deviceHost.device_info.wifi.ssid}</strong>`;
+                  hostsHtml += ` using the router ${deviceHost.device_info.gateway}`;
+                }
+                hostsHtml += ')';
+              } else if (deviceHost.type === 'local_ip') {
+                hostsHtml += ` (wired device <strong>${deviceHost.device_info.device}</strong> using the router ${deviceHost.device_info.gateway})`;
+              } else if (deviceHost.type === 'tailscale') {
+                hostsHtml += ' (via Tailscale)';
+              }
+              hostsHtml += '</li>';
+            }
+            hostsHtml += '</ul>';
+          } else {
+            hostsHtml += " Unfortunately, we have no information on other ways to reach this device.";
+          }
+          hostsHtml += "</p>";
+          container.append(hostsHtml);
+        } else if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
+          // Viewing from remote
+          let hostsHtml = "<p>This device is reachable on the network as any one of these:</p>";
+          hostsHtml += '<ul class="list-group list-group-small my-3">';
+          for (const deviceHost of networkInfo.device_hosts) {
+            hostsHtml += `<li class="list-group-item d-flex justify-content-between align-items-center px-2">`;
+            hostsHtml += '<span>';
+            hostsHtml += `<a href="http://${deviceHost.host}">${deviceHost.host}</a>`;
+            if (deviceHost.type === 'local_ip' && deviceHost.device_info.wifi) {
+              hostsHtml += ` (wifi device <strong>${deviceHost.device_info.device}</strong>`;
+              if (deviceHost.device_info?.wifi?.ssid) {
+                hostsHtml += ` connected to network <strong>${deviceHost.device_info.wifi.ssid}</strong>`;
+                hostsHtml += ` using the router ${deviceHost.device_info.gateway}`;
+              }
+              hostsHtml += ')';
+            } else if (deviceHost.type === 'local_ip') {
+              hostsHtml += ` (wired device <strong>${deviceHost.device_info.device}</strong> using the router ${deviceHost.device_info.gateway})`;
+            } else if (deviceHost.type === 'tailscale') {
+              hostsHtml += ' (via Tailscale)';
+            }
+            hostsHtml += '</span>';
+            hostsHtml += `<span class="badge badge-info rounded-pill feeder-reachability-badge" data-host="${deviceHost.host}" data-mdb-toggle="tooltip" title="Checking whether this address is reachable from this browser">checking...</span>`;
+            hostsHtml += '</li>';
+          }
+          hostsHtml += '</ul>';
+          container.append(hostsHtml);
+        } else {
+          container.append("<p>Unfortunately, we have no information on how to reach this device.</p>");
+        }
+
+        // Add external IP information
+        let externalIpHtml = "<p>";
+        if (networkInfo.external_ip) {
+          externalIpHtml += `This device's external IP (on the public internet) is <strong>${networkInfo.external_ip}</strong>`;
+          externalIpHtml += '<span id="feeder-external-ip-comment"></span>';
+        } else {
+          externalIpHtml += "Unfortunately, we have no information on the device's external IP (on the public internet).";
+        }
+        externalIpHtml += "</p>";
+        container.append(externalIpHtml);
+
+        // Add firewall and hotspot alerts
+        let alertsHtml = '<div class="row row-cols-1 row-cols-lg-2 g-3 m-3">';
+        alertsHtml += `
+          <div class="col">
+            <div class="alert alert-danger h-100">
+              The firewall is disabled
+              <span class="far fa-circle-question" data-mdb-toggle="tooltip" title="It is not possible to keep the firewall enabled with the current software"></span>
+            </div>
+          </div>
+        `;
+        if (networkInfo.hotspot_enabled) {
+          alertsHtml += `
+            <div class="col">
+              <div class="alert alert-info h-100">
+                The hotspot is enabled
+                <span class="far fa-circle-question" data-mdb-toggle="tooltip" title="This device has started a hotspot that you can connect to in order to connect to a wifi"></span>
+              </div>
+            </div>
+          `;
+        }
+        alertsHtml += '</div>';
+        container.append(alertsHtml);
+        // Initialize tooltips for newly added elements
+        const tooltips = container.find('[data-mdb-toggle="tooltip"]');
+        tooltips.each(function() {
+          initOrReplaceMdbTooltip(this);
+        });
+
+        // Start connectivity checker for reachability badges if we have device hosts
+        if (networkInfo.device_hosts && networkInfo.device_hosts.length > 0) {
+          const hosts = networkInfo.device_hosts.map(dh => dh.host);
+          const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 10 * 1000);
+          connectivityChecker.start();
+        }
+
+        networkInfoUpdateCounter.reset();
+      }).fail(function(jqXHR) {
+        $("#network-info").html(makeNotificationCardRowHtml(
+          "error", "Error getting network info", "Error getting network information from the feeder."));
+      });
+    }
 
     async function updateConnectivityInfo() {
       let browserIpData = fetch("https://api.ipify.org?format=json", { signal: AbortSignal.timeout(15000) })
@@ -813,6 +847,8 @@
         });
     }
 
+    const networkInfoUpdateCounter = new UpdateTimeCounter(
+      "last-update-network-info-counter", "last-update-network-info-button");
     const connectivityUpdateCounter = new UpdateTimeCounter(
       "last-update-connectivity-counter", "last-update-connectivity-button");
     const sdrDevicesUpdateCounter = new UpdateTimeCounter(
@@ -825,6 +861,7 @@
       "last-update-version-counter", "last-update-version-button");
     const otherFeederUpdateCounter = new UpdateTimeCounter(
       "last-update-device-discovery-counter", "last-update-device-discovery-button");
+    registerTask("Update network info", 60000, updateNetworkInfo);
     registerTask("Update connectivity info", 60000, updateConnectivityInfo);
     registerTask("Update SDR devices", 15000, updateSdrDevices);
     registerTask("Update reception stats", 15000, updateReceptionStats);

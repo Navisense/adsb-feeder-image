@@ -607,6 +607,11 @@ class PorttrackerSdrFeeder:
             methods=["GET", "POST"],
         )
         app.add_url_rule(
+            "/api/network-info",
+            "network_info",
+            view_func=self.network_info,
+        )
+        app.add_url_rule(
             "/api/sdr_info",
             "sdr_info",
             view_func=self.sdr_info,
@@ -2309,21 +2314,6 @@ class PorttrackerSdrFeeder:
             if ipv6_broken:
                 self._logger.error("Broken IPv6 state detected.")
 
-        # Prepare dicts describing all the different ways of reaching this
-        # feeder.
-        tailscale_info = self._system.get_tailscale_info()
-        device_hosts = []
-        device_hosts += [
-            {"host": di.ip, "type": "local_ip", "device_info": di}
-            for di in self._system.system_info.network_device_infos
-            if di.used_for_network_access]
-        device_hosts += [{"host": f"{hostname}.local", "type": "mdns"}
-                         for hostname in self._conf.get("mdns.hostnames")]
-        if tailscale_info.dns_name:
-            device_hosts.append({
-                "host": tailscale_info.dns_name, "type": "tailscale"})
-        device_hosts += [{"host": str(ip), "type": "tailscale"}
-                         for ip in tailscale_info.ipv4s]
         aggregators_chosen = (
             any(
                 agg.enabled()
@@ -2333,13 +2323,56 @@ class PorttrackerSdrFeeder:
             "overview.html",
             has_router=has_router,
             has_internet=has_internet,
-            zerotier_address=self.zerotier_address,
+            ipv6_broken=ipv6_broken,
             compose_up_failed=compose_up_failed,
-            device_hosts=device_hosts,
-            str=str,
             aggregators_chosen=aggregators_chosen,
-            hotspot_enabled=self.hotspot_mode,
         )
+
+    def network_info(self):
+        # Check whether we have a router and internet access.
+        has_router = has_internet = False
+        for check, ok in self._connectivity_monitor.current_stati.items():
+            if check == "reachable_gateway":
+                has_router = ok
+            elif ok:
+                has_internet = True
+
+        # this indicates that the last docker-compose-adsb up call failed
+        compose_up_failed = config.DOCKER_COMPOSE_UP_FAILED_FILE.exists()
+
+        ipv6_broken = False
+        if compose_up_failed:
+            ipv6_broken = self._system.is_ipv6_broken()
+            if ipv6_broken:
+                self._logger.error("Broken IPv6 state detected.")
+
+        tailscale_info = self._system.get_tailscale_info()
+        device_hosts = []
+        for di in self._system.system_info.network_device_infos:
+            if not di.used_for_network_access:
+                continue
+            device_info_dict = {
+                "device": di.device, "gateway": di.gateway, "wifi": None}
+            if di.wifi:
+                device_info_dict["wifi"] = {"ssid": di.wifi.ssid}
+            device_hosts.append({
+                "host": di.ip, "type": "local_ip",
+                "device_info": device_info_dict})
+        device_hosts += [{"host": f"{hostname}.local", "type": "mdns"}
+                         for hostname in self._conf.get("mdns.hostnames")]
+        if tailscale_info.dns_name:
+            device_hosts.append({
+                "host": tailscale_info.dns_name, "type": "tailscale"})
+        device_hosts += [{"host": str(ip), "type": "tailscale"}
+                         for ip in tailscale_info.ipv4s]
+        return {
+            "feeder_name": self._conf.get("feeder_name"),
+            "device_hosts": device_hosts,
+            "external_ip": self._system.system_info.external_ip,
+            "hotspot_enabled": self.hotspot_mode,
+            "has_router": has_router,
+            "has_internet": has_internet,
+            "ipv6_broken": ipv6_broken,}
 
     def location_setup(self):
         if request.method == "GET":
