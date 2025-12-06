@@ -437,18 +437,18 @@
         let badgeColorClass = "";
         if (status == "success") {
           badgeColorClass = "badge-success";
-          badge.text("ok");
-          badge.attr("data-mdb-original-title", "Reachable from this browser");
+          badge.text("reachable");
+          badge.attr("data-mdb-original-title", "This address is reachable from this browser");
         } else if (Date.now() - checkStart > 10 * 1000) {
           badgeColorClass = "badge-danger";
           badge.text("not reachable");
-          badge.attr("data-mdb-original-title", "Not reachable from this browser");
+          badge.attr("data-mdb-original-title", "This address is not reachable from this browser");
         } else {
           badgeColorClass = "badge-info";
           badge.text("checking reachability...");
           badge.attr(
             "data-mdb-original-title",
-            "Not reachable yet, continuing to check whether this address is reachable from this browser");
+            "Checking whether this address is reachable from this browser");
           // Queue another check when the "not reachable" timeout is reached.
           const timeSinceCheckStart = Date.now() - checkStart;
           setTimeout(updateRechabilityBadges, 10 * 1000 - timeSinceCheckStart);
