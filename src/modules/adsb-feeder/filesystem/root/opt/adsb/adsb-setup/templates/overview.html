@@ -289,6 +289,8 @@
 
     let receptionHistoryChart = createReceptionHistoryChart();
 
+
+    let connectivityChecker = undefined;
     async function updateNetworkInfo() {
       $.ajax("/api/network-info").done(function (networkInfo) {
         // In local mode, we don't do connectivity checking, and the format is slightly different.
@@ -342,7 +344,7 @@
             if (!isLocalAccess) {
               deviceHostsList.find(".device-hosts-item").last().append(
                 `<span class="badge badge-info rounded-pill feeder-reachability-badge" data-host="${deviceHost.host}" data-mdb-toggle="tooltip" title="Checking whether this address is reachable from this browser">
-                  checking...
+                  checking reachability...
                 </span>`);
             }
           }
@@ -388,10 +390,14 @@
           initOrReplaceMdbTooltip(this);
         });
 
-        // Start connectivity checker for reachability badges if we have device hosts
+        // Ensure the connectivity checker for reachability badges is running.
         if (networkInfo.device_hosts?.length && !isLocalAccess) {
           const hosts = networkInfo.device_hosts.map(dh => dh.host);
-          const connectivityChecker = new FeederConnectivityChecker(hosts, updateReachabilityInfo, 10 * 1000);
+          if (!connectivityChecker) {
+            connectivityChecker = new FeederConnectivityChecker(hosts, updateRechabilityBadges, Infinity);
+          }
+          connectivityChecker.setHosts(hosts);
+          updateRechabilityBadges();
           connectivityChecker.start();
         }
         if (networkInfo.external_ip) {
@@ -424,8 +430,8 @@
         }
     }
 
-    function updateReachabilityInfo(stati, hasTimedOut) {
-      for ([host, status] of stati.entries()) {
+    function updateRechabilityBadges() {
+      for ([host, {status, checkStart}] of connectivityChecker.getStati().entries()) {
         let badge = $(`.feeder-reachability-badge[data-host="${$.escapeSelector(host)}"`);
         if (!badge.length) continue;
         let badgeColorClass = "";
@@ -433,7 +439,7 @@
           badgeColorClass = "badge-success";
           badge.text("ok");
           badge.attr("data-mdb-original-title", "Reachable from this browser");
-        } else if (hasTimedOut) {
+        } else if (Date.now() - checkStart > 10 * 1000) {
           badgeColorClass = "badge-danger";
           badge.text("not reachable");
           badge.attr("data-mdb-original-title", "Not reachable from this browser");
@@ -443,6 +449,9 @@
           badge.attr(
             "data-mdb-original-title",
             "Not reachable yet, continuing to check whether this address is reachable from this browser");
+          // Queue another check when the "not reachable" timeout is reached.
+          const timeSinceCheckStart = Date.now() - checkStart;
+          setTimeout(updateRechabilityBadges, 10 * 1000 - timeSinceCheckStart);
         }
         initOrReplaceMdbTooltip(badge[0]);
         let badgeColorClasses = new Set(["badge-info", "badge-success", "badge-warning", "badge-danger"]);

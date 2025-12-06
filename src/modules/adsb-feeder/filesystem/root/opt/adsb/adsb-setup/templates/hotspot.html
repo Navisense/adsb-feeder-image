@@ -141,11 +141,11 @@
       if (hasTimedOut) {
         statusDiv.html(makeNotificationCardHtml(
           "error", "mDNS is not working", "Unable to contact the feeder as {{ get_conf("feeder_name") }}.local."));
-      } else if (stati.get("{{ get_conf("feeder_name") }}.local") == "success") {
+      } else if (stati.get("{{ get_conf("feeder_name") }}.local").status == "success") {
         statusDiv.html(makeNotificationCardHtml(
           "success", "mDNS is working",
           "The feeder can be reached as {{ get_conf("feeder_name") }}.local, looks like mDNS is working."));
-      } else if (stati.get("example.org") != "success") {
+      } else if (stati.get("example.org").status != "success") {
         statusDiv.html(makeNotificationCardHtml(
           "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
       } else {
