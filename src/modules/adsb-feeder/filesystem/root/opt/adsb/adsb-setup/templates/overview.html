@@ -310,9 +310,16 @@
         if (!networkInfo.device_hosts?.length) {
           container.append("<p>Unfortunately, we have no information on other ways to reach this device.</p>");
         } else {
-          container.append(
-            `<p>This device is reachable on the network as any one of these:</p>
-            <ul id="device-hosts-list" class="list-group list-group-small my-3"></ul>`);
+          if (isLocalAccess) {
+            container.append("<p>This device is reachable on the network under these IP adresses/hostnames:</p>");
+          } else {
+            container.append(
+              `<p>
+                This device is reachable on the network under these IP adresses/hostnames (we'll also check which of
+                them can be reached from this browser):
+              </p>`);
+          }
+          container.append('<ul id="device-hosts-list" class="list-group list-group-small my-3"></ul>');
           for (const deviceHost of networkInfo.device_hosts) {
             let hostCommentHtml = "";
             if (deviceHost.type === "local_ip" && deviceHost.device_info.wifi) {
