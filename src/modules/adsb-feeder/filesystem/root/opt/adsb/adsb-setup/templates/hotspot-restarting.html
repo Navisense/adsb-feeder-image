@@ -15,46 +15,94 @@
   <!-- Progress Steps -->
   <div class="card">
     <ul class="list-group list-group-light list-group-flush px-4">
-      <li class="list-group-item py-3" id="step-1">
+      <!-- Step 1: Stop the hotspot -->
+      <li class="list-group-item py-3 text-muted" id="step-1">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <span class="step-icon far fa-circle me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Stop the hotspot</div>
-              <div class="step-description text-muted small">
-                The device has received the network SSID and password you provided. Now it has has to stop the hotspot
-                we were just connected to so it can try to connect to the network. This means we will be disconnected
-                from the hotspot for a few seconds.
+              <!-- Pending state description -->
+              <div class="step-description step-description-pending small d-none">
+                The device has received the network SSID and password you provided. First, it needs to stop the hotspot
+                we were just connected to. This is necessary so it can try to connect to the network.
+              </div>
+              <!-- In-progress state description -->
+              <div class="step-description step-description-in-progress small">
+                We're waiting for the device to stop the hotspot. When we can't reach it anymore, we'll know that it has
+                stopped.
+              </div>
+              <!-- Done state description -->
+              <div class="step-description step-description-done small d-none">
+                We can no longer reach the device in its hotspot mode. This means it has stopped successfully.
+              </div>
+              <!-- Error state description -->
+              <div class="step-description step-description-error small d-none">
+                Failed to stop the hotspot. This is unexpected. You may need to restart the device manually.
+                <div class="step-description-error-detail small"></div>
               </div>
             </div>
           </div>
           <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
         </div>
       </li>
+      <!-- Step 2: Connect to the network -->
       <li class="list-group-item py-3 text-muted" id="step-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <span class="step-icon far fa-circle me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Connect to the network</div>
-              <div class="step-description text-muted small">
+              <!-- Pending state description -->
+              <div class="step-description step-description-pending small">
+                Once the hotspot is stopped, the device will attempt to connect to your network.
+              </div>
+              <!-- In-progress state description -->
+              <div class="step-description step-description-in-progress small d-none">
                 The device uses the network SSID and password you provided to connect to the network. This browser
                 window will keep trying to reach the device. This should work if the device manages to connect, and this
                 browser is connected to the same network.
               </div>
+              <!-- Done state description -->
+              <div class="step-description step-description-done small d-none">
+                Successfully connected to the network! The device is now reachable on your WiFi network.
+              </div>
+              <!-- Error state description -->
+              <div class="step-description step-description-error small d-none">
+                Failed to connect to the network. This could be due to incorrect credentials or the network being out of range.
+                The device will restart the hotspot so you can try again.
+                <div class="step-description-error-detail small"></div>
+              </div>
             </div>
           </div>
           <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
         </div>
       </li>
+      <!-- Step 3: Connection established -->
       <li class="list-group-item py-3 text-muted" id="step-3">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle text-muted me-3 mt-1"></span>
+            <span class="step-icon far fa-circle me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Connection established</div>
-              <div class="step-description text-muted small">
+              <!-- Pending state description -->
+              <div class="step-description step-description-pending small">
+                After connecting, we'll verify the connection is stable and complete the setup.
+              </div>
+              <!-- In-progress state description -->
+              <div class="step-description step-description-in-progress small d-none">
                 We've heard back from the device, and it is successfully connected to the network.
+                Finalizing the connection...
+              </div>
+              <!-- Done state description -->
+              <div class="step-description step-description-done small d-none">
+                Connection fully established! The device is now connected to your network and the restart process is complete.
+                You will be redirected shortly.
+              </div>
+              <!-- Error state description -->
+              <div class="step-description step-description-error small d-none">
+                Connection verification failed. The device may have disconnected unexpectedly.
+                <div class="step-description-error-detail small"></div>
               </div>
             </div>
           </div>
@@ -76,22 +124,23 @@
     const startTime = Date.now();
 
     function updateStepStatus(stepNumber, status) {
-      if (!["done","error","in-progress"].includes(status)) {
+      if (!["done", "error", "in-progress"].includes(status)) {
         console.error(`Invalid step status: ${status}`);
         return;
       }
       const stepElement = $(`#step-${stepNumber}`);
       const iconElement = stepElement.find(".step-icon");
       const badgeElement = stepElement.find(".step-badge");
-      const descriptionElement = stepElement.find(".step-description");
-
-      // Remove text-muted class to make it visible
       stepElement.removeClass("text-muted");
+
+      // Hide all description variants and show the one for the current status
+      stepElement.find(".step-description").addClass("d-none");
+      stepElement.find(`.step-description-${status}`).removeClass("d-none");
+
       iconElement.removeClass(
-        "far fas fa-circle fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-muted text-success text-danger "
-          + "text-primary");
+        "far fas fa-circle fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-success text-danger "
+        + "text-primary");
       badgeElement.removeClass("badge-secondary badge-success badge-danger badge-primary");
-      descriptionElement.removeClass("text-muted");
 
       if (status === "done") {
         // Green checkmark for completed steps
@@ -212,7 +261,6 @@
     }
 
     // Start with step 1, then keep checking and updating.
-    currentStep = 1;
     updateStepStatus(1, "in-progress");
     checkRestartStatus();
   </script>
