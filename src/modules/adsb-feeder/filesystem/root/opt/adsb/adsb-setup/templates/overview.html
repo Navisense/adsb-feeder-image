@@ -297,7 +297,8 @@
         const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         const container = $("#network-info");
         container.html("");
-        container.append(
+        const detailsContainer = container;
+        detailsContainer.append(
           `<p>
             This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
             <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
@@ -305,21 +306,22 @@
         `);
         // Add device hosts information.
         if (isLocalAccess) {
-          container.append("<p>You are viewing this page on the device itself.</p>");
+          detailsContainer.append("<p>You are viewing this page on the device itself.</p>");
         }
         if (!networkInfo.device_hosts?.length) {
-          container.append("<p>Unfortunately, we have no information on other ways to reach this device.</p>");
+          detailsContainer.append("<p>Unfortunately, we have no information on other ways to reach this device.</p>");
         } else {
           if (isLocalAccess) {
-            container.append("<p>This device is reachable on the network under these IP adresses/hostnames:</p>");
+            detailsContainer.append(
+              "<p>This device is reachable on the network under these IP adresses/hostnames:</p>");
           } else {
-            container.append(
+            detailsContainer.append(
               `<p>
                 This device is reachable on the network under these IP adresses/hostnames (we'll also check which of
                 them can be reached from this browser):
               </p>`);
           }
-          container.append('<ul id="device-hosts-list" class="list-group list-group-small my-3"></ul>');
+          detailsContainer.append('<ul id="device-hosts-list" class="list-group list-group-small my-3"></ul>');
           for (const deviceHost of networkInfo.device_hosts) {
             let hostCommentHtml = "";
             if (deviceHost.type === "local_ip" && deviceHost.device_info.wifi) {
@@ -359,13 +361,13 @@
 
         // Add external IP information.
         if (networkInfo.external_ip) {
-          container.append(
+          detailsContainer.append(
             `<p>
               This device's external IP (on the public internet) is <strong>${networkInfo.external_ip}</strong>
               <span id="feeder-external-ip-comment"></span>
             </p>`);
         } else {
-          container.append(
+          detailsContainer.append(
             `<p>
               Unfortunately, we have no information on the device's external IP (on the public internet).
             </p>`);
@@ -389,7 +391,7 @@
               </div>
             </div>`);
         }
-        container.append(alertsContainer);
+        detailsContainer.append(alertsContainer);
 
         // Initialize tooltips for newly added elements if there are any.
         const tooltips = container.find('[data-mdb-toggle="tooltip"]');
