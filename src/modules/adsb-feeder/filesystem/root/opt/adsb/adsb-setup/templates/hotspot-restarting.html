@@ -35,7 +35,8 @@
               </div>
               <!-- Error state description -->
               <div class="step-description step-description-error small d-none">
-                We've encountered an unknown state while checking the hotspot.
+                We've encountered an unknown state while checking the hotspot. This is unexpected, but we'll keep
+                checking to see if the process works anyway.
                 <div class="step-description-error-detail small"></div>
               </div>
             </div>
@@ -125,12 +126,52 @@
       </li>
     </ul>
   </div>
-  <!-- Status Message -->
-  <div class="alert alert-warning mt-4 d-none"
+  <!-- Final Messages -->
+  <div class="alert alert-success mt-4 final-message d-none"
        role="alert"
-       id="timeout-message">
-    <span class="fas fa-exclamation-triangle me-2"></span>
-    Device has probably joined the configured network!
+       id="final-message-success">
+    Success! The device has joined the network, and you can now reach it at
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+  </div>
+  <div class="alert alert-danger mt-4 final-message d-none"
+       role="alert"
+       id="final-message-device-back-in-hotspot-mode">
+    We lost connection to the device as expected, but when we regained connection, it claimed to have started the
+    hotspot again. This is unexpected. Check if a WiFi named {{ get_conf("feeder_name") }} is visible, connect to it and
+    try again. Otherwise, see if you can reach the device at
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+  </div>
+  <div class="alert alert-warning mt-4 final-message d-none"
+       role="alert"
+       id="final-message-timeout-waiting-for-device">
+    <p>
+      After checking for a connection for a while, we were unable to connect to the device. This doesn't necessarily mean
+      that it didn't work.
+    </p>
+    <p>
+      Is your computer/phone connected to the same network as the PorttrackerSDR device? If not,
+      connect to it and try to reach the device at
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+    </p>
+    <p>
+      Or maybe you entered the wrong password? Then a WiFi named {{ get_conf("feeder_name") }} should be visible, to which
+      you can connect and try again.
+    </p>
+  </div>
+  <div class="alert alert-warning mt-4 final-message d-none"
+       role="alert"
+       id="final-message-regular-mode-but-restart-not-done">
+    The device is reachable, and in regular mode as expected. However, it reports that the connection to the WiFi wasn't
+    successful. This is odd. Is it also connected via Ethernet? In any case, you should be able to access the home page
+    at
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+  </div>
+  <div class="alert alert-danger mt-4 final-message d-none"
+       role="alert"
+       id="final-message-global-timeout">
+    After checking for 3 minutes, we're unable to confirm that the device has joined the network. Check if a WiFi named
+    {{ get_conf("feeder_name") }} is visible, connect to it and try again. Otherwise, see if you can reach the device at
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
   </div>
   <script>
     let currentStep = 1;
@@ -174,6 +215,10 @@
       }
     }
 
+    function showFinalMessage(type) {
+      $(`#final-message-${type}`).removeClass("d-none");
+    }
+
     function checkRestartStatus() {
       $.ajax({
         url: "http://{{ get_conf("feeder_name") }}.local/api/statusz",
@@ -186,9 +231,6 @@
           updateStatus(undefined, textStatus);
         },
       });
-      if (Date.now() - startTime > 60 * 1000) {
-        $("#timeout-message").removeClass("d-none");
-      }
       if (keepChecking) {
         // Only check again if we're not done.
         setTimeout(checkRestartStatus, 200);
@@ -196,6 +238,7 @@
     }
 
     function updateStatus(feederStatus, errorStatus) {
+      const hitGlobalTimeout = Date.now() - startTime > 180 * 1000;
       while (keepChecking) {
         switch (currentStep) {
           case 1:
@@ -224,7 +267,7 @@
                 + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
               $("#step-1 .step-description-error-detail").text(errorDetail);
               console.log(`Step 1: Unknown state while checking status. ${errorDetail}`);
-              // Unknown state, keep waiting
+              // For an error during this step, we'll keep checking.
               return;
             }
             break;
@@ -249,6 +292,19 @@
                 + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
               $("#step-2 .step-description-error-detail").text(errorDetail);
               console.log(`Step 2: Device is back in hotspot mode. Connection failed. ${errorDetail}`);
+              showFinalMessage("device-back-in-hotspot-mode");
+              keepChecking = false;
+              return;
+            } else if (Date.now() - startTime > 120 * 1000) {
+              // Show the step's error state after 2 minutes.
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Timeout waiting for device. ${errorDetail}`);
+              showFinalMessage("timeout-waiting-for-device");
+              keepChecking = false;
               return;
             } else {
               updateStepStatus(currentStep, "error");
@@ -257,7 +313,7 @@
                 + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
               $("#step-2 .step-description-error-detail").text(errorDetail);
               console.log(`Step 2: Unknown state while checking status. ${errorDetail}`);
-              // Unknown state, keep waiting.
+              // In this case, we keep checking. Eventually we'll hit the timeout.
               return;
             }
             break;
@@ -268,9 +324,15 @@
               console.log("Step 3: Connection fully established. Restart complete!");
               updateStepStatus(currentStep, "done");
               keepChecking = false;
+              showFinalMessage("success");
               return;
-            } else if (feederStatus?.mode === "regular") {
-              // Already in regular mode, but the device doesn't report a successful wifi connection..
+            } else if (feederStatus?.mode === "regular" && hitGlobalTimeout) {
+              // Already in regular mode, but the device doesn't report a successful wifi connection.
+              showFinalMessage("regular-mode-but-restart-not-done");
+              keepChecking = false;
+              return;
+            } else if (feederStatus?.mode === "hotspot") {
+              // Already in regular mode, but the device doesn't report a successful wifi connection.
               console.log(
                 "Step 3: Device appears to be connected, but doesn't report a successful wifi connection. Waiting...");
               return;
@@ -281,11 +343,17 @@
                 + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
               $("#step-3 .step-description-error-detail").text(errorDetail);
               console.log(`Step 3: Unknown state while checking status. ${errorDetail}`);
+              // In this case, we keep checking. Eventually we'll hit the global timeout.
               return;
             }
           default:
             console.log(`Invalid step number ${currentStep}`);
             return;
+        }
+        if (hitGlobalTimeout) {
+          showFinalMessage("global-timeout");
+          keepChecking = false;
+          return;
         }
       }
     }
