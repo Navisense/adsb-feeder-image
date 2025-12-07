@@ -4,20 +4,6 @@
   Porttracker SDR Feeder
 {% endblock title %}
 {% block content %}
-  <div class="alert alert-danger {% if system.system_info.dns_is_working %}d-none{% endif %}"
-       role="alert">
-    The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
-  </div>
-  <div class="alert alert-danger {% if has_internet or has_router %}d-none{% endif %}"
-       role="alert">The feeder has no internet connection.</div>
-  <div class="alert alert-danger {% if has_internet or not has_router %}d-none{% endif %}"
-       role="alert">
-    The feeder can reach a router, but has no internet connection. That probably means that the router isn't online.
-  </div>
-  <div class="alert alert-danger {% if not ipv6_broken %}d-none{% endif %}"
-       role="alert">
-    The feeder has an IPv6 address but IPv6 isn't working. This can cause docker and other issues.
-  </div>
   <div class="alert alert-danger {% if not compose_up_failed %}d-none{% endif %}"
        role="alert">
     docker compose up has failed. This means that something is wrong.
@@ -29,10 +15,6 @@
        role="alert">
     The feeder system kernel detected under-voltage. This can lead to random crashes and various issues with clock
     stability, reduced reception, failing SDRs, etc. Please check and likely replace your power supply.
-  </div>
-  <div id="ip-mismatch" class="alert alert-info d-none" role="alert">
-    The external IP of your browser and the feeder are different. The information in the status links for some of the
-    aggregators below may be incorrect.
   </div>
   <div id="low-disk"
        class="alert alert-info {% if not system.system_info.has_low_disk %}d-none{% endif %}"
@@ -373,7 +355,7 @@
             </p>`);
         }
 
-        // Add firewall and hotspot alerts.
+        // Add alerts about issues with the network.
         const alertsContainer = $('<div class="row row-cols-1 row-cols-lg-2 g-3 m-3"></div>');
         alertsContainer.append(
           `<div class="col">
@@ -391,6 +373,46 @@
               </div>
             </div>`);
         }
+        if (!networkInfo.has_internet && !networkInfo.has_router) {
+          alertsContainer.append(
+            `<div class="col">
+              <div class="alert alert-danger h-100">
+                The feeder has no internet connection.
+              </div>
+            </div>`);
+        } else if (!networkInfo.has_internet ) {
+          alertsContainer.append(
+            `<div class="col">
+              <div class="alert alert-danger h-100">
+                The feeder can reach a router, but has no internet connection. That probably means that the router isn't
+                online.
+              </div>
+            </div>`);
+        }
+        if (networkInfo.ipv6_broken) {
+          alertsContainer.append(
+            `<div class="col">
+              <div class="alert alert-danger h-100">
+                The feeder has an IPv6 address but IPv6 isn't working. This can cause docker and other issues.
+              </div>
+            </div>`);
+        }
+        if (!networkInfo.dns_is_working) {
+          alertsContainer.append(
+            `<div class="col">
+              <div class="alert alert-danger h-100">
+                The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
+              </div>
+            </div>`);
+        }
+        // This alert is hidden by default and only shown by setExternalIpComparisonComment().
+        alertsContainer.append(
+          `<div class="col" id="ip-mismatch-alert">
+            <div class="alert alert-info h-100 d-none">
+              The external IP of your browser and the feeder are different. The information in the status links for some
+              of the aggregators below may be incorrect.
+            </div>
+          </div>`);
         detailsContainer.append(alertsContainer);
 
         // Initialize tooltips for newly added elements if there are any.
@@ -427,15 +449,15 @@
       if (browserIp) {
         if (feederExternalIp == browserIp) {
           $("#feeder-external-ip-comment").text(" (that's the same as the one of this browser)");
-          $("#ip-mismatch").addClass("d-none");
+          $("#ip-mismatch-alert").addClass("d-none");
         } else {
           $("#feeder-external-ip-comment").text(
             ` (that's a different one than the one of this browser, which has ${browserIp})`);
-          $("#ip-mismatch").removeClass("d-none");
+          $("#ip-mismatch-alert").removeClass("d-none");
         }
       } else {
           $("#feeder-external-ip-comment").text(" (we're unable to compare it to the browser's IP)");
-          $("#ip-mismatch").addClass("d-none");
+          $("#ip-mismatch-alert").addClass("d-none");
         }
     }
 

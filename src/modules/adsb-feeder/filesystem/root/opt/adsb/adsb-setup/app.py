@@ -2302,22 +2302,8 @@ class PorttrackerSdrFeeder:
                 # frontend requests it.
                 self._executor.submit(aggregator.refresh_status_cache)
 
-        # Check whether we have a router and internet access.
-        has_router = has_internet = False
-        for check, ok in self._connectivity_monitor.current_stati.items():
-            if check == "reachable_gateway":
-                has_router = ok
-            elif ok:
-                has_internet = True
-
         # this indicates that the last docker-compose-adsb up call failed
         compose_up_failed = config.DOCKER_COMPOSE_UP_FAILED_FILE.exists()
-
-        ipv6_broken = False
-        if compose_up_failed:
-            ipv6_broken = self._system.is_ipv6_broken()
-            if ipv6_broken:
-                self._logger.error("Broken IPv6 state detected.")
 
         aggregators_chosen = (
             any(
@@ -2326,9 +2312,6 @@ class PorttrackerSdrFeeder:
             or self._conf.get("aggregators_chosen"))
         return render_template(
             "overview.html",
-            has_router=has_router,
-            has_internet=has_internet,
-            ipv6_broken=ipv6_broken,
             compose_up_failed=compose_up_failed,
             aggregators_chosen=aggregators_chosen,
         )
@@ -2377,7 +2360,8 @@ class PorttrackerSdrFeeder:
             "hotspot_enabled": self.hotspot_mode,
             "has_router": has_router,
             "has_internet": has_internet,
-            "ipv6_broken": ipv6_broken,}
+            "ipv6_broken": ipv6_broken,
+            "dns_is_working": self._system.system_info.dns_is_working,}
 
     def location_setup(self):
         if request.method == "GET":
