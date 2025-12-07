@@ -276,62 +276,78 @@
     // Store the last known reachability state to avoid flickering on reload.
     let lastReachabilityState = {
       hasReachableHost: false,
+      stillChecking: true,
       lastChecked: 0
     };
+    // Store the last network info to allow updating the summary from reachability checks.
+    let lastNetworkInfo = null;
 
-    async function updateNetworkInfo() {
-      $.ajax("/api/network-info").done(function (networkInfo) {
-        // In local mode, we don't do connectivity checking, and the format is slightly different.
-        const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
-        const container = $("#network-info");
-        container.html("");
+    function updateNetworkStatusSummary() {
+      if (!lastNetworkInfo) return;
 
-        // Determine network status.
-        const hasMajorAlerts = (
-          !networkInfo.has_internet ||
-          networkInfo.ipv6_broken ||
-          !networkInfo.dns_is_working
-        );
+      const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+      const container = $("#network-info");
 
-        // For local access, assume reachable. For remote, use stored state or assume reachable if we have hosts.
-        let hasReachableHost = isLocalAccess || (networkInfo.device_hosts?.length > 0);
-        if (!isLocalAccess && lastReachabilityState.lastChecked > 0) {
+      // Determine network status.
+      const hasMajorAlerts = (
+        !lastNetworkInfo.has_internet ||
+        lastNetworkInfo.ipv6_broken ||
+        !lastNetworkInfo.dns_is_working
+      );
+
+      // For local access, assume reachable. For remote, use stored state.
+      let hasReachableHost = isLocalAccess;
+      let isChecking = false;
+
+      if (!isLocalAccess) {
+        if (lastReachabilityState.lastChecked > 0) {
           // Use the last known state if we have one.
           hasReachableHost = lastReachabilityState.hasReachableHost;
+          isChecking = lastReachabilityState.stillChecking;
+        } else if (lastNetworkInfo.device_hosts?.length > 0) {
+          // We have hosts but haven't checked them yet.
+          isChecking = true;
         }
+      }
 
-        const networkIsOk = hasReachableHost && !hasMajorAlerts;
-        const networkHasIssues = hasReachableHost && hasMajorAlerts;
+      const networkIsOk = hasReachableHost && !hasMajorAlerts;
+      const networkHasIssues = hasReachableHost && hasMajorAlerts;
 
-        // Create summary status.
-        let statusClass = '';
-        let statusText = '';
+      // Create summary status.
+      let statusClass = '';
+      let statusText = '';
 
-        if (networkIsOk) {
-          statusClass = 'alert-success';
-          statusText = 'Network is OK';
-        } else if (networkHasIssues) {
-          statusClass = 'alert-warning';
-          statusText = 'Network has some issues';
-        } else {
-          statusClass = 'alert-danger';
-          statusText = 'Network is not OK';
-        }
+      if (networkIsOk) {
+        statusClass = 'alert-success';
+        statusText = 'Network is OK';
+      } else if (isChecking) {
+        statusClass = 'alert-info';
+        statusText = 'Checking network status...';
+      } else if (networkHasIssues) {
+        statusClass = 'alert-warning';
+        statusText = 'Network has some issues';
+      } else {
+        statusClass = 'alert-danger';
+        statusText = 'Network is not OK';
+      }
 
-        container.append(
-          `<div class="alert ${statusClass} mb-3">
-            <strong>${statusText}</strong>
+      // Update or create the status alert.
+      let statusAlert = container.find('.network-status-summary');
+      if (statusAlert.length) {
+        // Update existing alert.
+        statusAlert.removeClass('alert-info alert-success alert-warning alert-danger').addClass(statusClass);
+        statusAlert.find('.network-status-text').text(statusText);
+      } else {
+        // Create new alert (first time).
+        container.prepend(
+          `<div class="alert ${statusClass} mb-3 network-status-summary">
+            <strong class="network-status-text">${statusText}</strong>
             <button class="btn btn-sm btn-link float-end" type="button" data-mdb-toggle="collapse" data-mdb-target="#network-details" aria-expanded="false" aria-controls="network-details">
               <span class="network-details-toggle-text">Show details</span>
               <i class="fas fa-chevron-down network-details-icon"></i>
             </button>
           </div>`);
-
-        // Create collapsible details container.
-        const detailsContainer = $('<div id="network-details" class="collapse"></div>');
-        container.append(detailsContainer);
-
-        // Add toggle behavior.
+        // Add toggle behavior (only needed once).
         container.find('[data-mdb-toggle="collapse"]').on('click', function() {
           const icon = $(this).find('.network-details-icon');
           const text = $(this).find('.network-details-toggle-text');
@@ -345,6 +361,24 @@
             }
           }, 10);
         });
+      }
+    }
+
+    async function updateNetworkInfo() {
+      $.ajax("/api/network-info").done(function (networkInfo) {
+        // Store for use by updateNetworkStatusSummary().
+        lastNetworkInfo = networkInfo;
+        // In local mode, we don't do connectivity checking, and the format is slightly different.
+        const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+        const container = $("#network-info");
+        container.html("");
+
+        // Create the status summary.
+        updateNetworkStatusSummary();
+
+        // Create collapsible details container.
+        const detailsContainer = $('<div id="network-details" class="collapse"></div>');
+        container.append(detailsContainer);
 
         // Add detailed information.
         detailsContainer.append(
@@ -530,6 +564,7 @@
 
     function updateRechabilityBadges() {
       let hasAnyReachableHost = false;
+      let stillChecking = false;
       for ([host, {status, checkStart}] of connectivityChecker.getStati().entries()) {
         let badge = $(`.feeder-reachability-badge[data-host="${$.escapeSelector(host)}"`);
         if (!badge.length) continue;
@@ -549,6 +584,7 @@
           badge.attr(
             "data-mdb-original-title",
             "Checking whether this address is reachable from this browser");
+          stillChecking = true;
           // Queue another check when the "not reachable" timeout is reached.
           const timeSinceCheckStart = Date.now() - checkStart;
           setTimeout(updateRechabilityBadges, 10 * 1000 - timeSinceCheckStart);
@@ -561,7 +597,10 @@
       }
       // Update the stored reachability state.
       lastReachabilityState.hasReachableHost = hasAnyReachableHost;
+      lastReachabilityState.stillChecking = stillChecking;
       lastReachabilityState.lastChecked = Date.now();
+      // Update the network status summary with the new reachability info.
+      updateNetworkStatusSummary();
     }
 
     function updateSdrDevices() {
