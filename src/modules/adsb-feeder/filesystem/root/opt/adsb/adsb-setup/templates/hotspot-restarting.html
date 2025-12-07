@@ -6,11 +6,8 @@
 {% block content %}
   <!-- Explanatory Text -->
   <div class="alert alert-info mb-4" role="alert">
-    <h5 class="alert-heading">Device Restart in Progress</h5>
-    <p class="mb-0">
-      Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
-      The device is restarting and attempting to connect to the configured network. This process may take a few minutes.
-    </p>
+    <h5 class="alert-heading">Porttracker SDR Connecting to WiFi</h5>
+    <p class="mb-0">Your Porttracker SDR device is trying to connect to the WiFi network you provided.</p>
   </div>
   <!-- Progress Steps -->
   <div class="card">
@@ -38,7 +35,7 @@
               </div>
               <!-- Error state description -->
               <div class="step-description step-description-error small d-none">
-                Failed to stop the hotspot. This is unexpected. You may need to restart the device manually.
+                We've encountered an unknown state while checking the hotspot.
                 <div class="step-description-error-detail small"></div>
               </div>
             </div>
@@ -55,22 +52,40 @@
               <div class="fw-bold mb-1">Connect to the network</div>
               <!-- Pending state description -->
               <div class="step-description step-description-pending small">
-                Once the hotspot is stopped, the device will attempt to connect to your network.
+                When we can't reach the hotspot anymore, we will wait for the device to connect to the new network.
               </div>
               <!-- In-progress state description -->
               <div class="step-description step-description-in-progress small d-none">
-                The device uses the network SSID and password you provided to connect to the network. This browser
-                window will keep trying to reach the device. This should work if the device manages to connect, and this
-                browser is connected to the same network.
+                We're waiting for the device to connect to the new network. We're doing this by continuously trying to
+                reach the device. This will only work if the computer or phone you're viewing this on will also connect
+                to the same network. If this takes longer than half a minute, check in your own system settings that you
+                are connected to the same WiFi that we're trying to get the Porttracker SDR to connect to.
               </div>
               <!-- Done state description -->
               <div class="step-description step-description-done small d-none">
-                Successfully connected to the network! The device is now reachable on your WiFi network.
+                Success! We've heard back from the device.
               </div>
               <!-- Error state description -->
               <div class="step-description step-description-error small d-none">
-                Failed to connect to the network. This could be due to incorrect credentials or the network being out of range.
-                The device will restart the hotspot so you can try again.
+                We've been waiting for the device to connect to the new network for a while, but it hasn't happened yet.
+                This could be for a number of reasons:
+                <ul>
+                  <li>
+                    Network out of range. If the device is too far away from the router, it may not get a reliable
+                    signal.
+                  </li>
+                  <li>
+                    Maybe you provided the wrong password. In that case, the device will restart the hotspot so you
+                    can try again. Check if there is a WiFi named {{ get_conf("feeder_name") }} and connect to it.
+                  </li>
+                  <li>
+                    mDNS is not enabled on you computer/phone. The device uses mDNS (also known as Bonjour, Avahi, or
+                    Zeroconf) to tell us how we can reach it. Your computer/phone needs to support this. There was a
+                    test on the previous page, if that showed a negative result, it's expected that this step will fail.
+                    You will need to enable mDNS, or check in the settings of your router/access point whether the
+                    device has connected.
+                  </li>
+                </ul>
                 <div class="step-description-error-detail small"></div>
               </div>
             </div>
@@ -91,17 +106,16 @@
               </div>
               <!-- In-progress state description -->
               <div class="step-description step-description-in-progress small d-none">
-                We've heard back from the device, and it is successfully connected to the network.
-                Finalizing the connection...
+                We've heard back from the device, and are checking that everything is working as expected.
               </div>
               <!-- Done state description -->
               <div class="step-description step-description-done small d-none">
-                Connection fully established! The device is now connected to your network and the restart process is complete.
-                You will be redirected shortly.
+                You're good to go! The device has assumed normal operation. You can visit the home page at
+                <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
               </div>
               <!-- Error state description -->
               <div class="step-description step-description-error small d-none">
-                Connection verification failed. The device may have disconnected unexpectedly.
+                We were able to reach the device, but it hasn't assumed normal operation as we expected.
                 <div class="step-description-error-detail small"></div>
               </div>
             </div>
@@ -184,8 +198,8 @@
       while (true) {
         switch (currentStep) {
           case 1:
-            // Step 1: Stop the hotspot
-            // We need to see that the device is disconnected (timeout) or no longer in hotspot mode
+            // Step 1: Stop the hotspot.
+            // We need to see that the device is disconnected (timeout) or no longer in hotspot mode.
             if (errorStatus === "timeout" || errorStatus === "error") {
               console.log("Step 1: Can't reach the device, hotspot must have stopped. Progressing to step 2.");
               updateStepStatus(currentStep, "done");
@@ -196,20 +210,26 @@
               console.log("Step 1: Device is still in hotspot mode. Waiting...");
               return;
             } else if (feederStatus?.mode === "regular") {
-              // Hotspot stopped and device is already connected
+              // Hotspot stopped and device is already connected.
               console.log("Step 1: Device is no longer in hotspot mode. Progressing to step 2.");
               updateStepStatus(currentStep, "done");
               currentStep++;
               updateStepStatus(currentStep, "in-progress");
-              // Continue to check step 2
+              // Continue to check step 2.
             } else {
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-1 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 1: Unknown state while checking status. ${errorDetail}`);
               // Unknown state, keep waiting
               return;
             }
             break;
           case 2:
-            // Step 2: Connect to the network
-            // We're trying to reach the device on the network
+            // Step 2: Connect to the network.
+            // We're trying to reach the device on the network.
             if (errorStatus === "timeout" || errorStatus === "error") {
               console.log("Step 2: Still can't reach the device. Waiting for connection...");
               return;
@@ -219,42 +239,51 @@
               updateStepStatus(currentStep, "done");
               currentStep++;
               updateStepStatus(currentStep, "in-progress");
-              // Continue to check step 3
+              // Continue to check step 3.
             } else if (feederStatus?.mode === "hotspot") {
-              // Device went back to hotspot mode - connection failed
-              console.log("Step 2: Device is back in hotspot mode. Connection failed.");
+              // Device went back to hotspot mode - connection failed.
               updateStepStatus(currentStep, "error");
-              if (feederStatus?.hotspot_status?.connect_state === "wrong_credentials") {
-                console.log("Step 2: Wrong credentials detected.");
-              }
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Device is back in hotspot mode. Connection failed. ${errorDetail}`);
               return;
             } else {
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Unknown state while checking status. ${errorDetail}`);
+              // Unknown state, keep waiting.
               return;
             }
             break;
           case 3:
-            // Step 3: Connection established
-            // Verify the restart process is complete
+            // Step 3: Connection established.
+            // Verify the restart process is complete.
             if (feederStatus?.mode === "regular" && feederStatus?.hotspot_status?.restart_state === "done") {
               console.log("Step 3: Connection fully established. Restart complete!");
               updateStepStatus(currentStep, "done");
               keepChecking = false;
-              // Wait a moment to show the success state, then redirect
-              setTimeout(function () {
-                window.location.replace("http://{{ get_conf("feeder_name") }}.local");
-              }, 15000);
               return;
             } else if (feederStatus?.mode === "regular") {
-              // Still in regular mode but restart not done yet
-              console.log("Step 3: Device connected, waiting for restart to complete...");
+              // Already in regular mode, but the device doesn't report a successful wifi connection..
+              console.log(
+                "Step 3: Device appears to be connected, but doesn't report a successful wifi connection. Waiting...");
               return;
             } else {
-              // Something went wrong
-              console.log("Step 3: Unexpected state.");
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-3 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 3: Unknown state while checking status. ${errorDetail}`);
               return;
             }
           default:
-            // All steps complete
+            console.log(`Invalid step number ${currentStep}`);
             return;
         }
       }
