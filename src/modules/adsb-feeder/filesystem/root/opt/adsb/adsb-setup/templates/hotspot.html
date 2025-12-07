@@ -19,8 +19,9 @@
     When you select a network, we'll try to show you the progress of the device connecting to the network. However, your
     phone may navigate away immediately (if you've chosen "tap here to sign in to the network" to get to this page). If
     that happens, just try to go to
-    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>. If there is a
-    problem connecting to the network, the hotspot will come back up and you can try again.
+    <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a> after selecting
+    the network here. If there is a problem connecting to the network, the hotspot will come back up and you can try
+    again.
   </div>
   {% if connect_state == "wrong_credentials" %}
     <div class="alert alert-danger">Failed to connect, wrong SSID or password, please try again.</div>
