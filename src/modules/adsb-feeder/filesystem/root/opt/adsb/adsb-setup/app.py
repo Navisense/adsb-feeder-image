@@ -194,8 +194,13 @@ class HotspotApp:
         # the /hotspot page.
         try:
             ssid, password = self._get_request_wifi_credentials()
-            self._on_wifi_credentials(ssid, password)
             self._restart_state = "restarting"
+            # Start a timer to call the callback in 1 second. We need to do
+            # this because the hotspot page will redirect to the restarting
+            # page, which we need to serve. But we'll be shut down after the
+            # callback.
+            threading.Timer(
+                1, self._on_wifi_credentials, args=(ssid, password)).start()
         except ValueError:
             # Wasn't a request with credentials.
             pass
