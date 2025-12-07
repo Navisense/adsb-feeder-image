@@ -273,13 +273,80 @@
 
 
     let connectivityChecker = undefined;
+    // Store the last known reachability state to avoid flickering on reload.
+    let lastReachabilityState = {
+      hasReachableHost: false,
+      lastChecked: 0
+    };
+
     async function updateNetworkInfo() {
       $.ajax("/api/network-info").done(function (networkInfo) {
         // In local mode, we don't do connectivity checking, and the format is slightly different.
         const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         const container = $("#network-info");
         container.html("");
-        const detailsContainer = container;
+
+        // Determine network status.
+        const hasMajorAlerts = (
+          !networkInfo.has_internet ||
+          networkInfo.ipv6_broken ||
+          !networkInfo.dns_is_working
+        );
+
+        // For local access, assume reachable. For remote, use stored state or assume reachable if we have hosts.
+        let hasReachableHost = isLocalAccess || (networkInfo.device_hosts?.length > 0);
+        if (!isLocalAccess && lastReachabilityState.lastChecked > 0) {
+          // Use the last known state if we have one.
+          hasReachableHost = lastReachabilityState.hasReachableHost;
+        }
+
+        const networkIsOk = hasReachableHost && !hasMajorAlerts;
+        const networkHasIssues = hasReachableHost && hasMajorAlerts;
+
+        // Create summary status.
+        let statusClass = '';
+        let statusText = '';
+
+        if (networkIsOk) {
+          statusClass = 'alert-success';
+          statusText = 'Network is OK';
+        } else if (networkHasIssues) {
+          statusClass = 'alert-warning';
+          statusText = 'Network has some issues';
+        } else {
+          statusClass = 'alert-danger';
+          statusText = 'Network is not OK';
+        }
+
+        container.append(
+          `<div class="alert ${statusClass} mb-3">
+            <strong>${statusText}</strong>
+            <button class="btn btn-sm btn-link float-end" type="button" data-mdb-toggle="collapse" data-mdb-target="#network-details" aria-expanded="false" aria-controls="network-details">
+              <span class="network-details-toggle-text">Show details</span>
+              <i class="fas fa-chevron-down network-details-icon"></i>
+            </button>
+          </div>`);
+
+        // Create collapsible details container.
+        const detailsContainer = $('<div id="network-details" class="collapse"></div>');
+        container.append(detailsContainer);
+
+        // Add toggle behavior.
+        container.find('[data-mdb-toggle="collapse"]').on('click', function() {
+          const icon = $(this).find('.network-details-icon');
+          const text = $(this).find('.network-details-toggle-text');
+          setTimeout(() => {
+            if ($('#network-details').hasClass('show')) {
+              icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+              text.text('Hide details');
+            } else {
+              icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+              text.text('Show details');
+            }
+          }, 10);
+        });
+
+        // Add detailed information.
         detailsContainer.append(
           `<p>
             This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
@@ -462,6 +529,7 @@
     }
 
     function updateRechabilityBadges() {
+      let hasAnyReachableHost = false;
       for ([host, {status, checkStart}] of connectivityChecker.getStati().entries()) {
         let badge = $(`.feeder-reachability-badge[data-host="${$.escapeSelector(host)}"`);
         if (!badge.length) continue;
@@ -470,6 +538,7 @@
           badgeColorClass = "badge-success";
           badge.text("reachable");
           badge.attr("data-mdb-original-title", "This address is reachable from this browser");
+          hasAnyReachableHost = true;
         } else if (Date.now() - checkStart > 10 * 1000) {
           badgeColorClass = "badge-danger";
           badge.text("not reachable");
@@ -490,6 +559,9 @@
         badge.addClass(badgeColorClass);
         badge.removeClass(Array.from(badgeColorClasses).join(" "));
       }
+      // Update the stored reachability state.
+      lastReachabilityState.hasReachableHost = hasAnyReachableHost;
+      lastReachabilityState.lastChecked = Date.now();
     }
 
     function updateSdrDevices() {
