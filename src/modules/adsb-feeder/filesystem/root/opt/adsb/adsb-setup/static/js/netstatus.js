@@ -15,12 +15,13 @@ class FeederConnectivityChecker {
     ]
   ) {
     this.stati = new Map(
-      hosts.map((h) => [h, { status: null, checkStart: 0 }])
+      hosts.map((h) => [h, { status: null, checkStart: Date.now() }])
     );
     this.onStatusUpdate = onStatusUpdate;
     this.checkTimeout = checkTimeout;
     this.recheckIntervals = recheckIntervals;
-    this.checkStart = 0;
+    this.hasStarted = false;
+    this.checkStart = Date.now();
     this.hasTimedOut = false;
   }
 
@@ -51,10 +52,11 @@ class FeederConnectivityChecker {
   }
 
   start() {
-    if (this.checkStart) {
+    if (this.hasStarted) {
       // Was already started.
       return;
     }
+    this.hasStarted = true;
     this.checkStart = Date.now();
     for (const status of this.stati.values()) {
       status.checkStart = this.checkStart;
