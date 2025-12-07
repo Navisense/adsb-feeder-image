@@ -195,7 +195,7 @@
     }
 
     function updateStatus(feederStatus, errorStatus) {
-      while (true) {
+      while (keepChecking) {
         switch (currentStep) {
           case 1:
             // Step 1: Stop the hotspot.
