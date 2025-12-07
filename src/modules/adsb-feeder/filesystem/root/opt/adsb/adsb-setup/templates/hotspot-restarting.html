@@ -188,7 +188,8 @@
       });
       if (Date.now() - startTime > 60 * 1000) {
         $("#timeout-message").removeClass("d-none");
-      } else if (keepChecking) {
+      }
+      if (keepChecking) {
         // Only check again if we're not done.
         setTimeout(checkRestartStatus, 200);
       }
