@@ -281,6 +281,8 @@
     };
     // Store the last network info to allow updating the summary from reachability checks.
     let lastNetworkInfo = null;
+    // Track whether the network details are expanded (persists during AJAX reloads).
+    let networkDetailsExpanded = false;
 
     function updateNetworkStatusSummary() {
       if (!lastNetworkInfo) return;
@@ -342,25 +344,32 @@
         container.prepend(
           `<div class="alert ${statusClass} mb-3 network-status-summary">
             <strong class="network-status-text">${statusText}</strong>
-            <button class="btn btn-sm btn-link float-end" type="button" data-mdb-toggle="collapse" data-mdb-target="#network-details" aria-expanded="false" aria-controls="network-details">
+            <button id="network-details-toggle" class="btn btn-sm btn-link float-end" type="button" data-mdb-toggle="collapse" data-mdb-target="#network-details" aria-expanded="false" aria-controls="network-details">
               <span class="network-details-toggle-text">Show details</span>
               <i class="fas fa-chevron-down network-details-icon"></i>
             </button>
           </div>`);
         // Add toggle behavior (only needed once).
-        container.find('[data-mdb-toggle="collapse"]').on('click', function() {
-          const icon = $(this).find('.network-details-icon');
-          const text = $(this).find('.network-details-toggle-text');
-          setTimeout(() => {
-            if ($('#network-details').hasClass('show')) {
-              icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
-              text.text('Hide details');
-            } else {
-              icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
-              text.text('Show details');
-            }
-          }, 10);
+        $('#network-details-toggle').on('click', function() {
+          networkDetailsExpanded = !networkDetailsExpanded;
+          if (networkDetailsExpanded) {
+            setNetworkDetailToggleButton(true);
+          } else {
+            setNetworkDetailToggleButton(false);
+          }
         });
+      }
+    }
+
+    function setNetworkDetailToggleButton(show) {
+      const icon = $('.network-details-icon');
+      const text = $('.network-details-toggle-text');
+      if (show) {
+        icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+        text.text('Hide details');
+      } else {
+        icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+        text.text('Show details');
       }
     }
 
@@ -379,6 +388,12 @@
         // Create collapsible details container.
         const detailsContainer = $('<div id="network-details" class="collapse"></div>');
         container.append(detailsContainer);
+
+        // Restore the expanded state from the variable.
+        if (networkDetailsExpanded) {
+          detailsContainer.addClass('show');
+          setNetworkDetailToggleButton(true);
+        }
 
         // Add detailed information.
         detailsContainer.append(
