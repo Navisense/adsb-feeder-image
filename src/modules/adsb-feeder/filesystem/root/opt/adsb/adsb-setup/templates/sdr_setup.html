@@ -179,6 +179,8 @@
     function appendSdrDevice(sdrDevice) {
       let usageDescriptionHtml = "unused";
       let valueThatShouldBeChecked = "unused";
+      let deviceId = sdrDevice.serial;
+      let purposeName = `purpose-usb-${sdrDevice.serial}`;
       if (sdrDevice.assignment == "ais") {
         usageDescriptionHtml = "handling <strong>AIS</strong>";
         valueThatShouldBeChecked = sdrDevice.assignment;
@@ -193,33 +195,55 @@
       switch (sdrDevice.type) {
         case "rtlsdr":
         case "modesbeast":
-        supportedAssignments = ["ais", "1090", "978"];
-        break;
+          supportedAssignments = ["ais", "1090", "978"];
+          break;
         case "stratuxv3":
-        supportedAssignments = ["978"];
-        break;
+          supportedAssignments = ["978"];
+          break;
         case "airspy":
         case "sdrplay":
-        supportedAssignments = ["1090"];
-        break;
+          supportedAssignments = ["1090"];
+          break;
+        case "serial_port":
+          supportedAssignments = ["ais"];
+          // We're getting a full file path as the serial, but we can only use the file name for the name attribute.
+          const fileNameSplit = sdrDevice.serial.split("/");
+          deviceId = fileNameSplit[fileNameSplit.length - 1];
+          purposeName = `purpose-serial-${deviceId}`;
+          break;
       }
-      $("#sdr-devices").append($(`
-        <div class="col-12 col-lg-6">
-          <div class="card my-2">
-            <div class="card-body">
-              <h5 class="card-title">SDR USB stick</h5>
-              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescriptionHtml}.
-              <div class="text-muted my-3">This device has USB serial ${sdrDevice.serial}</div>
-              <div id="sdr-assignment-${sdrDevice.serial}" class="row sdr-assignment"></div>
+      if (sdrDevice.type == "serial_port") {
+        $("#sdr-devices").append($(`
+          <div class="col-12 col-lg-6">
+            <div class="card my-2">
+              <div class="card-body">
+                <h5 class="card-title">Dedicated AIS receiver</h5>
+                A serial port named <strong>${sdrDevice.serial}</strong> has been detected which is
+                ${usageDescriptionHtml}.
+                <div class="text-muted my-3">A dedicated AIS receiver could be connected to this port.</div>
+                <div id="sdr-assignment-${deviceId}" class="row sdr-assignment"></div>
+              </div>
             </div>
-          </div>
-        </div>`));
-      let assignmentsRow = $(`#sdr-assignment-${sdrDevice.serial}`);
+          </div>`));
+      } else {
+        $("#sdr-devices").append($(`
+          <div class="col-12 col-lg-6">
+            <div class="card my-2">
+              <div class="card-body">
+                <h5 class="card-title">SDR USB stick</h5>
+                This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescriptionHtml}.
+                <div class="text-muted my-3">This device has USB serial ${sdrDevice.serial}</div>
+                <div id="sdr-assignment-${deviceId}" class="row sdr-assignment"></div>
+              </div>
+            </div>
+          </div>`));
+      }
+      let assignmentsRow = $(`#sdr-assignment-${deviceId}`);
       if (supportedAssignments.includes("ais")) {
         assignmentsRow.append($(`
           <div class="col-12 col-md-3">
             <label class="checkbox-inline mx-3">
-              <input type="radio" name="purpose-usb-${sdrDevice.serial}" value="ais">
+              <input type="radio" name="${purposeName}" value="ais">
               AIS
             </label>
           </div>
@@ -229,7 +253,7 @@
         assignmentsRow.append($(`
           <div class="col-12 col-md-3">
             <label class="checkbox-inline mx-3">
-              <input type="radio" name="purpose-usb-${sdrDevice.serial}" value="1090">
+              <input type="radio" name="${purposeName}" value="1090">
               ADS-B (1090MHz)
             </label>
           </div>
@@ -239,7 +263,7 @@
         assignmentsRow.append($(`
           <div class="col-12 col-md-3">
             <label class="checkbox-inline mx-3">
-              <input type="radio" name="purpose-usb-${sdrDevice.serial}" value="978">
+              <input type="radio" name="${purposeName}" value="978">
               UAT (978MHz)
             </label>
           </div>
@@ -248,14 +272,14 @@
       assignmentsRow.append($(`
         <div class="col-12 col-md-3">
           <label class="checkbox-inline mx-3">
-            <input type="radio" name="purpose-usb-${sdrDevice.serial}" value="unused">
+            <input type="radio" name="${purposeName}" value="unused">
             Other
           </label>
         </div>
       `));
       $(".sdr-assignment input").on("change", onPurposeAssignmentChanged);
       const inputThatShouldBeChecked = $(
-        `.sdr-assignment input[name="purpose-usb-${sdrDevice.serial}"][value="${valueThatShouldBeChecked}"]`);
+        `.sdr-assignment input[name="${purposeName}"][value="${valueThatShouldBeChecked}"]`);
       inputThatShouldBeChecked.prop("checked", "checked");
       inputThatShouldBeChecked.trigger("change");
     }

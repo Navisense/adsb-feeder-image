@@ -173,7 +173,7 @@ class SerialDeviceReceiver(Receiver):
 
     @property
     def type(self) -> str:
-        return "serial"
+        return "serial_port"
 
     @property
     def serial(self) -> str:

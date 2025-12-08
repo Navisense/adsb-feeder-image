@@ -647,16 +647,30 @@
       } else if (sdrDevice.assignment == "978") {
         usageDescriptionHtml = "handling <strong>UAT (978MHz)</strong>";
       }
-      $("#sdr-devices").append($(`
-        <div class="col-12 col-lg-6">
-          <div class="card my-2">
-            <div class="card-body">
-              <h5 class="card-title">SDR USB stick</h5>
-              This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescriptionHtml}.
-              <div class="text-muted mt-3">This device has USB serial ${sdrDevice.serial}</div>
+      if (sdrDevice.type == "serial_port") {
+        $("#sdr-devices").append($(`
+          <div class="col-12 col-lg-6">
+            <div class="card my-2">
+              <div class="card-body">
+                <h5 class="card-title">Dedicated AIS receiver</h5>
+                A serial port named <strong>${sdrDevice.serial}</strong> has been detected which is
+                ${usageDescriptionHtml}.
+                <div class="text-muted my-3">A dedicated AIS receiver could be connected to this port.</div>
+              </div>
             </div>
-          </div>
-        </div>`));
+          </div>`));
+      } else {
+        $("#sdr-devices").append($(`
+          <div class="col-12 col-lg-6">
+            <div class="card my-2">
+              <div class="card-body">
+                <h5 class="card-title">SDR USB stick</h5>
+                This is a ${sdrDevice.vendor} ${sdrDevice.product} which is ${usageDescriptionHtml}.
+                <div class="text-muted mt-3">This device has USB serial ${sdrDevice.serial}</div>
+              </div>
+            </div>
+          </div>`));
+      }
     }
 
     function updateReceptionStats() {
