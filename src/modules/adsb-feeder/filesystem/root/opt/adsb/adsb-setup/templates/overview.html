@@ -341,7 +341,7 @@
         statusAlert.find('.network-status-text').text(statusText);
       } else {
         // Create new alert (first time).
-        container.prepend(
+        container.append(
           `<div class="alert ${statusClass} my-3 network-status-summary">
             <strong class="network-status-text">${statusText}</strong>
             <button id="network-details-toggle" class="btn btn-sm btn-link float-end" type="button" data-mdb-toggle="collapse" data-mdb-target="#network-details" aria-expanded="false" aria-controls="network-details">
