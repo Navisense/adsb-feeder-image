@@ -131,8 +131,9 @@ class NetworkManagerWifi(GenericWifi):
                     continue
                 network_info = WifiNetworkInfo(
                     ssid=ssid, signal_strength=signal_strength)
-                if (ssid not in networks
-                        or networks[ssid].signal_strength < signal_strength):
+                if (ssid and
+                    (ssid not in networks
+                     or networks[ssid].signal_strength < signal_strength)):
                     networks[ssid] = network_info
 
             if networks:
