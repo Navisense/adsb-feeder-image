@@ -380,7 +380,11 @@
         // In local mode, we don't do connectivity checking, and the format is slightly different.
         const isLocalAccess = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
         const container = $("#network-info");
-        container.html("");
+        container.html(
+          `<p>
+            This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
+            <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
+          </p>`);
 
         // Create the status summary.
         updateNetworkStatusSummary();
@@ -395,14 +399,7 @@
           setNetworkDetailToggleButton(true);
         }
 
-        // Add detailed information.
-        detailsContainer.append(
-          `<p>
-            This is <strong>${networkInfo.feeder_name}</strong>. You can configure network access on the
-            <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
-          </p>
-        `);
-        // Add device hosts information.
+        // Add detailed information, starting with device hosts information.
         if (isLocalAccess) {
           detailsContainer.append("<p>You are viewing this page on the device itself.</p>");
         }
