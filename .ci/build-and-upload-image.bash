@@ -98,7 +98,7 @@ pmbootstrap --as-root chroot -r -- bash -c \
     | bash -s -- ${feeder_install_args}"
 
 # See if there is a device-specific post-install script that needs to be run.
-post_install_script=$(dirname $0)/device_specific_post_install/${device}.bash
+post_install_script="$(dirname $0)/device_specific_post_install/${device}.bash"
 if [ -f "${post_install_script}" ] ; then
     echo "Running device-specific post-install script ${post_install_script}."
     bash "${post_install_script}"
@@ -106,6 +106,8 @@ if [ -f "${post_install_script}" ] ; then
         echo "Device-specific post-install script failed."
         exit 1
     fi
+else
+    echo "No device-specific post-install script ${post_install_script} found."
 fi
 
 # We need to shutdown the chroot now and do the install again to generate the
