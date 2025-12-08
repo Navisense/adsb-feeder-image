@@ -98,7 +98,7 @@ pmbootstrap --as-root chroot -r -- bash -c \
     | bash -s -- ${feeder_install_args}"
 
 # See if there is a device-specific post-install script that needs to be run.
-post_install_script="$(dirname $0)/device_specific_post_install/${device}.bash"
+post_install_script="$(pwd)/device_specific_post_install/${device}.bash"
 if [ -f "${post_install_script}" ] ; then
     echo "Running device-specific post-install script ${post_install_script}."
     bash "${post_install_script}"
