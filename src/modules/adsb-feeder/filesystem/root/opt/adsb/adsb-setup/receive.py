@@ -203,25 +203,25 @@ class SerialDeviceReceiver(Receiver):
 class ReceiverDevices:
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
-        self._sdrs = []
+        self._receivers = []
         self.lsusb_output = ""
         self._last_probe = 0
         self._last_debug_out = ""
         self._sdr_lock = threading.Lock()
 
     def __len__(self):
-        return len(self.sdrs)
+        return len(self.receivers)
 
     def __repr__(self):
-        return f"ReceiverDevices({','.join([s for s in self.sdrs])})"
+        return f"ReceiverDevices({','.join([s for s in self.receivers])})"
 
     @property
-    def sdrs(self) -> list[SdrReceiver]:
+    def receivers(self) -> list[SdrReceiver]:
         with self._sdr_lock:
             if time.monotonic() - self._last_probe > 1:
                 self._last_probe = time.monotonic()
-                self._sdrs = self._get_sdrs()
-            return self._sdrs
+                self._receivers = self._get_sdrs()
+            return self._receivers
 
     def _get_sdrs(self):
         debug_out = "_get_sdrs() found:\n"

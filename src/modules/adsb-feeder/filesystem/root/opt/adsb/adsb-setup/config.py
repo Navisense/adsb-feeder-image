@@ -938,7 +938,7 @@ class Config(CompoundSetting):
         "uatgain": ft.partial(
             StringSetting, default="autogain",
             env_variable_name="UAT_SDR_GAIN"),
-        "serial_devices": ft.partial(
+        "usb_sdr_devices": ft.partial(
             CompoundSetting,
             schema={
                 "1090": ft.partial(
@@ -958,6 +958,13 @@ class Config(CompoundSetting):
         "uat_device_type": ft.partial(
             StringSetting, default="rtlsdr",
             env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
+        "serial_port_devices": ft.partial(
+            CompoundSetting, schema={
+                "1090": StringSetting,
+                "978": StringSetting,
+                "ais": StringSetting,
+                "unused": ft.partial(
+                    ListSetting, required_value_type=str, default=[]),}),
         "max_range": ft.partial(
             RealNumberSetting, default=300,
             env_variable_name="FEEDER_MAX_RANGE"),
@@ -999,21 +1006,24 @@ class Config(CompoundSetting):
         "uat978_config": ft.partial(
             CompoundSetting, schema={
                 "is_enabled": ft.partial(
-                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
-                    true_value=True, false_value=False,
+                    SwitchedGeneratedSetting,
+                    switch_path="usb_sdr_devices.978", true_value=True,
+                    false_value=False,
                     env_variable_name="FEEDER_ENABLE_UAT978"),
                 "host": ft.partial(
-                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
-                    true_value="dump978", false_value="",
-                    env_variable_name="FEEDER_UAT978_HOST"),
+                    SwitchedGeneratedSetting,
+                    switch_path="usb_sdr_devices.978", true_value="dump978",
+                    false_value="", env_variable_name="FEEDER_UAT978_HOST"),
                 "url": ft.partial(
-                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
+                    SwitchedGeneratedSetting,
+                    switch_path="usb_sdr_devices.978",
                     true_value="http://dump978/skyaware978", false_value="",
                     env_variable_name="FEEDER_URL_978"),
                 "piaware": ft.partial(
-                    SwitchedGeneratedSetting, switch_path="serial_devices.978",
-                    true_value="relay", false_value="",
-                    env_variable_name="FEEDER_PIAWARE_UAT978"),}),
+                    SwitchedGeneratedSetting,
+                    switch_path="usb_sdr_devices.978", true_value="relay",
+                    false_value="", env_variable_name="FEEDER_PIAWARE_UAT978"),
+            }),
         # Misc
         "heywhatsthat_id": ft.partial(
             StringSetting, env_variable_name="FEEDER_HEYWHATSTHAT_ID"),
@@ -1903,6 +1913,21 @@ class Config(CompoundSetting):
         del config_dict["low_disk"]
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_20_to_21(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # serial_devices has been renamed for clarity.
+        usb_sdr_devices = config_dict.pop("serial_devices")
+        config_dict["usb_sdr_devices"] = usb_sdr_devices
+        # serial_port_devices is a new setting.
+        config_dict["serial_port_devices"] = {
+            "1090": None,
+            "978": None,
+            "ais": None,
+            "unused": [],}
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1922,7 +1947,8 @@ class Config(CompoundSetting):
                          (16, 17): _upgrade_config_dict_from_16_to_17,
                          (17, 18): _upgrade_config_dict_from_17_to_18,
                          (18, 19): _upgrade_config_dict_from_18_to_19,
-                         (19, 20): _upgrade_config_dict_from_19_to_20}
+                         (19, 20): _upgrade_config_dict_from_19_to_20,
+                         (20, 21): _upgrade_config_dict_from_20_to_21}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
