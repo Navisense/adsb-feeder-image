@@ -59,8 +59,8 @@
               <div class="step-description step-description-in-progress small d-none">
                 We're waiting for the device to connect to the new network. We're doing this by continuously trying to
                 reach the device. This will only work if the computer or phone you're viewing this on will also connect
-                to the same network. If this takes longer than a minute, check in your own system settings that you are
-                connected to the same WiFi that we're trying to get the Porttracker SDR to connect to.
+                to the same network. If this takes longer than a minute or two, check in your own system settings that
+                you are connected to the same WiFi that we're trying to get the Porttracker SDR to connect to.
               </div>
               <!-- Done state description -->
               <div class="step-description step-description-done small d-none">
@@ -145,8 +145,8 @@
        role="alert"
        id="final-message-timeout-waiting-for-device">
     <p>
-      After checking for a connection for a while, we were unable to connect to the device. This doesn't necessarily mean
-      that it didn't work.
+      After checking for a connection for 3 minutes, we were unable to connect to the device. This doesn't necessarily
+      mean that it didn't work.
     </p>
     <p>
       Is your computer/phone connected to the same network as the PorttrackerSDR device? If not,
@@ -154,8 +154,8 @@
       <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
     </p>
     <p>
-      Or maybe you entered the wrong password? Then a WiFi named {{ get_conf("feeder_name") }} should be visible, to which
-      you can connect and try again.
+      Or maybe you entered the wrong password? Then a WiFi named {{ get_conf("feeder_name") }} should be visible, to
+      which you can connect and try again.
     </p>
   </div>
   <div class="alert alert-warning mt-4 final-message d-none"
@@ -169,7 +169,7 @@
   <div class="alert alert-danger mt-4 final-message d-none"
        role="alert"
        id="final-message-global-timeout">
-    After checking for 3 minutes, we're unable to confirm that the device has joined the network. Check if a WiFi named
+    After checking for 4 minutes, we're unable to confirm that the device has joined the network. Check if a WiFi named
     {{ get_conf("feeder_name") }} is visible, connect to it and try again. Otherwise, see if you can reach the device at
     <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
   </div>
@@ -238,7 +238,7 @@
     }
 
     function updateStatus(feederStatus, errorStatus) {
-      const hitGlobalTimeout = Date.now() - startTime > 180 * 1000;
+      const hitGlobalTimeout = Date.now() - startTime > 240 * 1000;
       while (keepChecking) {
         switch (currentStep) {
           case 1:
@@ -295,8 +295,8 @@
               showFinalMessage("device-back-in-hotspot-mode");
               keepChecking = false;
               return;
-            } else if (Date.now() - startTime > 120 * 1000) {
-              // Show the step's error state after 2 minutes.
+            } else if (Date.now() - startTime > 180 * 1000) {
+              // Show the step's error state after 3 minutes.
               updateStepStatus(currentStep, "error");
               const errorDetail = (
                 `When requesting a status from the device, we got error `
