@@ -4,6 +4,7 @@ import datetime
 import filecmp
 import functools as ft
 import hashlib
+import itertools as it
 import json
 import logging
 import logging.config
@@ -1014,20 +1015,23 @@ class PorttrackerSdrFeeder:
     def _missing_sdr_devices(self) -> set[str]:
         """Find serials of devices that are configured but not attached."""
         available_serials = {r.serial for r in self._receivers.receivers}
-        used_serials = {
-            self._conf.get(f"usb_sdr_devices.{purpose}")
-            for purpose in receive.PURPOSES}
+        used_serials = set()
+        for purpose in receive.PURPOSES:
+            used_serials.add(self._conf.get(f"usb_sdr_devices.{purpose}"))
+            used_serials.add(self._conf.get(f"serial_port_devices.{purpose}"))
         used_serials = {serial for serial in used_serials if serial}
         return used_serials - available_serials
 
     def _unconfigured_sdr_devices(self) -> set[str]:
         """Find serials of devices that are attached but not configured."""
         available_serials = {r.serial for r in self._receivers.receivers}
-        used_serials = {
-            self._conf.get(f"usb_sdr_devices.{purpose}")
-            for purpose in receive.PURPOSES}
+        used_serials = set()
+        for purpose in receive.PURPOSES:
+            used_serials.add(self._conf.get(f"usb_sdr_devices.{purpose}"))
+            used_serials.add(self._conf.get(f"serial_port_devices.{purpose}"))
         configured_serials = (
-            used_serials | set(self._conf.get("usb_sdr_devices.unused")))
+            used_serials | set(self._conf.get("usb_sdr_devices.unused"))
+            | set(self._conf.get("serial_port_devices.unused")))
         return available_serials - configured_serials
 
     def _require_login(self, view_func):
@@ -1076,7 +1080,9 @@ class PorttrackerSdrFeeder:
 
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
-            return bool(self._conf.get("usb_sdr_devices.ais"))
+            return bool(
+                self._conf.get("usb_sdr_devices.ais")
+                or self._conf.get("serial_port_devices.ais"))
         elif reception_type == "adsb":
             return bool(
                 self._conf.get("usb_sdr_devices.1090")
@@ -1654,9 +1660,18 @@ class PorttrackerSdrFeeder:
         # config.
         assignments = {
             serial: None
-            for serial in self._conf.get("usb_sdr_devices.unused")}
+            for serial in it.chain(
+                self._conf.get("usb_sdr_devices.unused"),
+                self._conf.get("serial_port_devices.unused"))}
         for purpose in receive.PURPOSES:
-            serial = self._conf.get(f"usb_sdr_devices.{purpose}")
+            usb_device_serial = self._conf.get(f"usb_sdr_devices.{purpose}")
+            serial_port_device_serial = self._conf.get(
+                f"serial_port_devices.{purpose}")
+            if usb_device_serial and serial_port_device_serial:
+                self._logger.error(
+                    f"Purpose {purpose} is handled by USB and serial port "
+                    "devices. This is a configuration error.")
+            serial = usb_device_serial or serial_port_device_serial
             if not serial:
                 continue
             elif serial in assignments:
@@ -1667,29 +1682,29 @@ class PorttrackerSdrFeeder:
             assignments[serial] = purpose
         # For any serials that haven't explicitly been assigned a purpose in
         # the config, make a guess what they could do.
-        for sdr_device in self._receivers.receivers:
-            if sdr_device.serial in assignments:
+        for receiver in self._receivers.receivers:
+            if receiver.serial in assignments:
                 continue
-            guessed_assignments = sdr_device.get_best_guess_assignments()
+            guessed_assignments = receiver.get_best_guess_assignments()
             for purpose in guessed_assignments:
                 if purpose not in assignments.values():
                     self._logger.info(
-                        f"Automatically assigning device {sdr_device.serial} "
+                        f"Automatically assigning device {receiver.serial} "
                         f"to {purpose}.")
-                    assignments[sdr_device.serial] = purpose
+                    assignments[receiver.serial] = purpose
                     break
-        sdr_device_dicts = []
-        for sdr_device in self._receivers.receivers:
-            sdr_device_dicts.append({
-                "serial": sdr_device.serial,
-                "vendor": sdr_device.vendor,
-                "product": sdr_device.product,
-                "type": sdr_device.type,
-                "assignment": assignments.get(sdr_device.serial),})
+        receiver_dicts = []
+        for receiver in self._receivers.receivers:
+            receiver_dicts.append({
+                "serial": receiver.serial,
+                "vendor": receiver.vendor,
+                "product": receiver.product,
+                "type": receiver.type,
+                "assignment": assignments.get(receiver.serial),})
         # Sort devices to always get the same order.
-        sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
+        receiver_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
-            "sdr_devices": sdr_device_dicts,
+            "sdr_devices": receiver_dicts,
             "lsusb_output": self._receivers.lsusb_output,
             "missing_devices": list(self._missing_sdr_devices()),
             "unconfigured_devices": list(self._unconfigured_sdr_devices()),}
@@ -1731,33 +1746,51 @@ class PorttrackerSdrFeeder:
         self._conf.set("remote_sdr", request.form["remote-sdr"])
 
         # SDR devices assignments to purposes (AIS, ADS-B etc.).
-        assignments = {}
-        unused_serials = set()
+        assignments = {"usb_sdr_devices": {}, "serial_port_devices": {}}
+        unused_serials = {
+            "usb_sdr_devices": set(), "serial_port_devices": set()}
         for key, value in request.form.items():
-            if not key.startswith("purpose-"):
+            if not (key.startswith("purpose-usb-")
+                    or key.startswith("purpose-serial-")):
                 continue
-            _, serial = key.split("-")
+            _, device_type, serial = key.split("-", maxsplit=2)
+            if device_type == "serial":
+                config_key_prefix = "serial_port_devices"
+                # Serial port devices only transmit filenames, so the slashes
+                # don't cause problems in the HTML.
+                serial = f"/dev/{serial}"
+            else:
+                config_key_prefix = "usb_sdr_devices"
             if value == "unused":
-                unused_serials.add(serial)
+                unused_serials[config_key_prefix].add(serial)
                 continue
             if value not in receive.PURPOSES:
                 return f"Unknown SDR assignment {value}", 400
-            if value in assignments:
+            if value in assignments[config_key_prefix]:
                 return f"{value} assigned to more than one device.", 400
-            assignments[value] = serial
-        if len(assignments) != len(set(assignments.values())):
-            return (
-                f"At least one serial in {list(assignments.values())} "
-                "assigned twice.", 400)
-        unused_serials |= set(self._conf.get("usb_sdr_devices.unused"))
-        unused_serials -= set(assignments.values())
-        self._conf.set("usb_sdr_devices.unused", sorted(unused_serials))
+            assignments[config_key_prefix][value] = serial
+        for config_key_prefix, device_assignments in assignments.items():
+            if len(device_assignments) != len(set(
+                    device_assignments.values())):
+                return (
+                    "At least one serial in "
+                    f"{list(device_assignments.values())} assigned twice.",
+                    400)
+            unused_serials[config_key_prefix] |= set(
+                self._conf.get(f"{config_key_prefix}.unused"))
+            unused_serials[config_key_prefix] -= set(
+                device_assignments.values())
+            self._conf.set(
+                f"{config_key_prefix}.unused",
+                sorted(unused_serials[config_key_prefix]))
         # Mark the 1090 device as not being an SDRplay device. We'll change
         # this below if it turns out that it actually is.
         self._conf.set("1090_device_is_sdrplay", False)
-        for purpose in receive.PURPOSES:
-            self._conf.set(
-                f"usb_sdr_devices.{purpose}", assignments.get(purpose))
+        for config_key_prefix, device_assignments in assignments.items():
+            for purpose in receive.PURPOSES:
+                self._conf.set(
+                    f"{config_key_prefix}.{purpose}",
+                    device_assignments.get(purpose))
         self._logger.info(
             f"Configured SDR device assignments {assignments}, with unused "
             f"devices {unused_serials}.")
