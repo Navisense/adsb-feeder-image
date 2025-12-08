@@ -1061,8 +1061,18 @@ class PorttrackerSdrFeeder:
     def hotspot_mode(self, value):
         self._hotspot_mode = value
         # Restart the mDNS services, since our IP has probably changed coming
-        # in and out of hotspot mode.
-        self._maybe_enable_mdns()
+        # in and out of hotspot mode. It's possible avahi won't immediately
+        # have the new IP address, so we start a thread that keeps restarting
+        # the related system service for a minute. This effectively restarts
+        # the avahi advertisement process every 2 seconds. It might be a bit
+        # overkill, but it can't hurt.
+        threading.Thread(target=self._continually_update_mdns).start()
+
+    def _continually_update_mdns(self):
+        start_time = time.monotonic()
+        while time.monotonic() - start_time < 60:
+            self._maybe_enable_mdns()
+            time.sleep(2)
 
     def is_reception_enabled(self, reception_type):
         if reception_type == "ais":
