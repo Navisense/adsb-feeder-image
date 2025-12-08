@@ -313,6 +313,33 @@ def _generate_planefinder_image(conf: "Config") -> str:
     return "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464"
 
 
+def _generate_shipfeeder_aiscatcher_extra_options(conf: "Config") -> str:
+    ais_serial_port = conf.get("serial_port_devices.ais")
+    if not ais_serial_port:
+        return ""
+    try:
+        proc = util.shell_with_combined_output(
+            "stty -F /dev/ttyAMA0 speed", check=True)
+        baudrate = int(proc.stdout.strip())
+    except:
+        logger.exception(
+            "Error while getting baudrate of AIS serial port "
+            f"{ais_serial_port}. Disabling AIS receiver.")
+        return ""
+    # If we want to receive AIS via a serial port device, use the -e command
+    # line option.
+    return f"-e {baudrate} {ais_serial_port}"
+
+
+def _generate_shipfeeder_mapped_device(conf: "Config") -> str:
+    ais_serial_port = conf.get("serial_port_devices.ais")
+    if not ais_serial_port:
+        # Due to limitations in compose file variable interpolation, we need to
+        # map exactly one device. So even if we don't need one, map /dev/null.
+        return "/dev/null:/dev/null"
+    return f"{ais_serial_port}:{ais_serial_port}"
+
+
 class Setting(abc.ABC):
     """
     Abstract setting.
@@ -1315,6 +1342,14 @@ class Config(CompoundSetting):
             env_variable_name="FEEDER_TAR1090_ENABLE_AC_DB"),
         "remote_sdr": StringSetting,
         "enable_hotspot": BoolSetting,
+        "shipfeeder_aiscatcher_extra_options": ft.partial(
+            GeneratedSetting,
+            value_generator=_generate_shipfeeder_aiscatcher_extra_options,
+            env_variable_name="SHIPFEEDER_CONFIG_AISCATCHER_EXTRA_OPTIONS"),
+        "shipfeeder_mapped_device": ft.partial(
+            GeneratedSetting,
+            value_generator=_generate_shipfeeder_mapped_device,
+            env_variable_name="SHIPFEEDER_CONFIG_MAPPED_DEVICE"),
         "images": ft.partial(
             CompoundSetting, schema={
                 "dozzle": ft.partial(
