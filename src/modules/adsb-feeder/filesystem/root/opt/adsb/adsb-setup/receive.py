@@ -1,6 +1,7 @@
 import abc
 import dataclasses as dc
 import logging
+import pathlib
 import re
 import subprocess
 import threading
@@ -44,6 +45,7 @@ class Receiver(abc.ABC):
 
 
 class SdrReceiver(Receiver):
+    """Receiver based on a USB SDR device."""
     @dc.dataclass
     class SdrInfo:
         serial: str
@@ -140,12 +142,6 @@ class SdrReceiver(Receiver):
         return match.group(1).strip()
 
     def get_best_guess_assignments(self) -> list[Literal[*PURPOSES]]:
-        """
-        Guess what this device should be used for.
-
-        The returned list of purposes is ordered by descending likelihood. The
-        list may be empty if we can't figure out what to do with this device.
-        """
         if self.type in ["airspy", "modesbeast", "sdrplay"]:
             # These only support ADS-B (1090).
             return ["1090"]
@@ -164,6 +160,44 @@ class SdrReceiver(Receiver):
         else:
             self._logger.warning(f"Unknown SDR type {self.type}.")
             return []
+
+
+class SerialDeviceReceiver(Receiver):
+    """Receiver that gets raw messages from a serial port."""
+    def __init__(self, serial_device: pathlib.Path):
+        self._logger = logging.getLogger(type(self).__name__)
+        if not serial_device.is_char_device():
+            raise ValueError(
+                f"File {serial_device} is not a character device.")
+        self._serial_device = serial_device
+
+    @property
+    def type(self) -> str:
+        return "serial"
+
+    @property
+    def serial(self) -> str:
+        return str(self._serial_device)
+
+    @property
+    def vendor(self) -> str:
+        return ""
+
+    @property
+    def product(self) -> str:
+        return ""
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, SerialDeviceReceiver)
+            and self._serial_device == other._serial_device)
+
+    def __repr__(self):
+        return (
+            f"SerialDeviceReceiver(serial_device: '{self._serial_device}')")
+
+    def get_best_guess_assignments(self) -> list[Literal[*PURPOSES]]:
+        return ["ais"]
 
 
 class ReceiverDevices:
