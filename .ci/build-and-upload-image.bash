@@ -96,6 +96,18 @@ echo "Installing porttracker-sdr-feeder with args ${feeder_install_args}."
 pmbootstrap --as-root chroot -r -- bash -c \
     "curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
     | bash -s -- ${feeder_install_args}"
+
+# See if there is a device-specific post-install script that needs to be run.
+post_install_script=$(dirname $0)/device_specific_post_install/${device}.bash
+if [ -f "${post_install_script}" ] ; then
+    echo "Running device-specific post-install script ${post_install_script}."
+    bash "${post_install_script}"
+    if [ $? -ne 0 ] ; then
+        echo "Device-specific post-install script failed."
+        exit 1
+    fi
+fi
+
 # We need to shutdown the chroot now and do the install again to generate the
 # image with the feeder installed.
 pmbootstrap --as-root shutdown
