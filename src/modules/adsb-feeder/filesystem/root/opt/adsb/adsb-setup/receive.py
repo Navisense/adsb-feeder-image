@@ -162,7 +162,7 @@ class SdrReceiver(Receiver):
             return []
 
 
-class SerialDeviceReceiver(Receiver):
+class SerialPortReceiver(Receiver):
     """Receiver that gets raw messages from a serial port."""
     def __init__(self, serial_device: pathlib.Path):
         self._logger = logging.getLogger(type(self).__name__)
@@ -189,12 +189,11 @@ class SerialDeviceReceiver(Receiver):
 
     def __eq__(self, other):
         return (
-            isinstance(other, SerialDeviceReceiver)
+            isinstance(other, SerialPortReceiver)
             and self._serial_device == other._serial_device)
 
     def __repr__(self):
-        return (
-            f"SerialDeviceReceiver(serial_device: '{self._serial_device}')")
+        return (f"SerialPortReceiver(serial_device: '{self._serial_device}')")
 
     def get_best_guess_assignments(self) -> list[Literal[*PURPOSES]]:
         return ["ais"]
@@ -207,7 +206,7 @@ class ReceiverDevices:
         self.lsusb_output = ""
         self._last_probe = 0
         self._last_debug_out = ""
-        self._sdr_lock = threading.Lock()
+        self._receivers_lock = threading.Lock()
 
     def __len__(self):
         return len(self.receivers)
@@ -217,19 +216,20 @@ class ReceiverDevices:
 
     @property
     def receivers(self) -> list[SdrReceiver]:
-        with self._sdr_lock:
+        with self._receivers_lock:
             if time.monotonic() - self._last_probe > 1:
                 self._last_probe = time.monotonic()
-                self._receivers = self._get_sdrs()
+                self._receivers = (
+                    self._get_sdrs() + self._get_serial_port_receivers())
             return self._receivers
 
-    def _get_sdrs(self):
+    def _get_sdrs(self) -> list[SdrReceiver]:
         debug_out = "_get_sdrs() found:\n"
         try:
             result = subprocess.run("lsusb", shell=True, capture_output=True)
         except subprocess.SubprocessError:
             self._logger.exception("Error running lsusb.")
-            return
+            return []
         lsusb_text = result.stdout.decode()
         self.lsusb_output = f"lsusb: {lsusb_text}"
 
@@ -341,3 +341,8 @@ class ReceiverDevices:
         if match:
             address = f"{match.group(1)}:{match.group(2)}"
         return address
+
+    def _get_serial_port_receivers(self) -> list[SerialPortReceiver]:
+        return [
+            SerialPortReceiver(device_file)
+            for device_file in pathlib.Path("/dev").glob("ttyAMA*")]
