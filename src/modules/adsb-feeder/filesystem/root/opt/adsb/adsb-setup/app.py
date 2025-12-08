@@ -42,7 +42,7 @@ import aggregators
 import config
 import flask_util
 import net
-import sdr
+import receive
 import stats
 import system
 import util
@@ -340,7 +340,7 @@ class PorttrackerSdrFeeder:
         self._background_tasks = {}
         self._app = self._make_app()
         self._reception_monitor = stats.ReceptionMonitor(self._conf)
-        self._sdrdevices = sdr.SDRDevices()
+        self._receivers = receive.ReceiverDevices()
 
         self.lastSetGainWrite = 0
 
@@ -1013,19 +1013,19 @@ class PorttrackerSdrFeeder:
 
     def _missing_sdr_devices(self) -> set[str]:
         """Find serials of devices that are configured but not attached."""
-        available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
+        available_serials = {sdr.serial for sdr in self._receivers.sdrs}
         used_serials = {
             self._conf.get(f"serial_devices.{purpose}")
-            for purpose in sdr.PURPOSES}
+            for purpose in receive.PURPOSES}
         used_serials = {serial for serial in used_serials if serial}
         return used_serials - available_serials
 
     def _unconfigured_sdr_devices(self) -> set[str]:
         """Find serials of devices that are attached but not configured."""
-        available_serials = {sdr.serial for sdr in self._sdrdevices.sdrs}
+        available_serials = {sdr.serial for sdr in self._receivers.sdrs}
         used_serials = {
             self._conf.get(f"serial_devices.{purpose}")
-            for purpose in sdr.PURPOSES}
+            for purpose in receive.PURPOSES}
         configured_serials = (
             used_serials | set(self._conf.get("serial_devices.unused")))
         return available_serials - configured_serials
@@ -1655,7 +1655,7 @@ class PorttrackerSdrFeeder:
         assignments = {
             serial: None
             for serial in self._conf.get("serial_devices.unused")}
-        for purpose in sdr.PURPOSES:
+        for purpose in receive.PURPOSES:
             serial = self._conf.get(f"serial_devices.{purpose}")
             if not serial:
                 continue
@@ -1667,7 +1667,7 @@ class PorttrackerSdrFeeder:
             assignments[serial] = purpose
         # For any serials that haven't explicitly been assigned a purpose in
         # the config, make a guess what they could do.
-        for sdr_device in self._sdrdevices.sdrs:
+        for sdr_device in self._receivers.sdrs:
             if sdr_device.serial in assignments:
                 continue
             guessed_assignments = sdr_device.get_best_guess_assignments()
@@ -1679,7 +1679,7 @@ class PorttrackerSdrFeeder:
                     assignments[sdr_device.serial] = purpose
                     break
         sdr_device_dicts = []
-        for sdr_device in self._sdrdevices.sdrs:
+        for sdr_device in self._receivers.sdrs:
             sdr_device_dicts.append({
                 "serial": sdr_device.serial,
                 "vendor": sdr_device.vendor,
@@ -1690,7 +1690,7 @@ class PorttrackerSdrFeeder:
         sdr_device_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
             "sdr_devices": sdr_device_dicts,
-            "lsusb_output": self._sdrdevices.lsusb_output,
+            "lsusb_output": self._receivers.lsusb_output,
             "missing_devices": list(self._missing_sdr_devices()),
             "unconfigured_devices": list(self._unconfigured_sdr_devices()),}
 
@@ -1740,7 +1740,7 @@ class PorttrackerSdrFeeder:
             if value == "unused":
                 unused_serials.add(serial)
                 continue
-            if value not in sdr.PURPOSES:
+            if value not in receive.PURPOSES:
                 return f"Unknown SDR assignment {value}", 400
             if value in assignments:
                 return f"{value} assigned to more than one device.", 400
@@ -1755,7 +1755,7 @@ class PorttrackerSdrFeeder:
         # Mark the 1090 device as not being an SDRplay device. We'll change
         # this below if it turns out that it actually is.
         self._conf.set("1090_device_is_sdrplay", False)
-        for purpose in sdr.PURPOSES:
+        for purpose in receive.PURPOSES:
             self._conf.set(
                 f"serial_devices.{purpose}", assignments.get(purpose))
         self._logger.info(
@@ -1771,12 +1771,12 @@ class PorttrackerSdrFeeder:
 
     def _configure_sdr_assignment_settings(self):
         serials_by_type = {}
-        for sdr_device in self._sdrdevices.sdrs:
+        for sdr_device in self._receivers.sdrs:
             serials_by_type.setdefault(sdr_device.type,
                                        set()).add(sdr_device.serial)
         # Airspy devices.
         self._conf.set("airspy.is_enabled", False)
-        for purpose in sdr.PURPOSES:
+        for purpose in receive.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("airspy", []):
                 continue
@@ -1788,7 +1788,7 @@ class PorttrackerSdrFeeder:
                     "won't work.")
         # Stratuxv3 devices.
         self._conf.set("uat_device_type", "rtlsdr")
-        for purpose in sdr.PURPOSES:
+        for purpose in receive.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("stratuxv3", []):
                 continue
@@ -1800,7 +1800,7 @@ class PorttrackerSdrFeeder:
                     "This won't work.")
         # SDRplay devices.
         sdrplay_waitlist = []
-        for purpose in sdr.PURPOSES:
+        for purpose in receive.PURPOSES:
             assigned_serial = self._conf.get(f"serial_devices.{purpose}")
             if assigned_serial not in serials_by_type.get("sdrplay", []):
                 continue
@@ -2157,9 +2157,9 @@ class PorttrackerSdrFeeder:
             self._logger.info("SDRplay license rejected.", flash_message=True)
             sdrplay_serials = {
                 sdr.serial
-                for sdr in self._sdrdevices.sdrs
+                for sdr in self._receivers.sdrs
                 if sdr.type == "sdrplay"}
-            for purpose in sdr.PURPOSES:
+            for purpose in receive.PURPOSES:
                 assigned_serial = self._conf.get(f"serial_devices.{purpose}")
                 if assigned_serial not in sdrplay_serials:
                     continue
@@ -2467,7 +2467,7 @@ class PorttrackerSdrFeeder:
         return temperature_json
 
     def system_info(self):
-        sdrs = [str(sdr) for sdr in self._sdrdevices.sdrs]
+        sdrs = [str(sdr) for sdr in self._receivers.sdrs]
         sdrs = sdrs or ["none"]
 
         def simple_cmd_result(cmd):

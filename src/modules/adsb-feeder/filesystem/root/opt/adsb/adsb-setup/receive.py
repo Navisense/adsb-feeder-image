@@ -1,3 +1,4 @@
+import abc
 import dataclasses as dc
 import logging
 import re
@@ -7,17 +8,48 @@ import time
 from typing import Literal, Optional
 
 PURPOSES = frozenset(["978", "1090", "ais"])
-"""Possible purposes for which an SDR can be used."""
+"""Possible purposes for which a receiver can be used."""
 
 
-@dc.dataclass
-class SDRInfo:
-    serial: str
-    vendor: str
-    product: str
+class Receiver(abc.ABC):
+    @property
+    @abc.abstractmethod
+    def type(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def serial(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def vendor(self) -> str:
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def product(self) -> str:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_best_guess_assignments(self) -> list[Literal[*PURPOSES]]:
+        """
+        Guess what this device should be used for.
+
+        The returned list of purposes is ordered by descending likelihood. The
+        list may be empty if we can't figure out what to do with this device.
+        """
+        raise NotImplementedError
 
 
-class SDR:
+class SdrReceiver(Receiver):
+    @dc.dataclass
+    class SdrInfo:
+        serial: str
+        vendor: str
+        product: str
+
     def __init__(self, type_: str, address: str):
         self._logger = logging.getLogger(type(self).__name__)
         self._type = type_
@@ -52,16 +84,16 @@ class SDR:
 
     def __eq__(self, other):
         return (
-            isinstance(other, SDR) and self._type == other._type
+            isinstance(other, SdrReceiver) and self._type == other._type
             and self._address == other._address
             and self.serial == other.serial)
 
     def __repr__(self):
         return (
-            f"SDR(type: '{self._type}' address: '{self._address}', "
+            f"SdrReceiver(type: '{self._type}' address: '{self._address}', "
             f"serial: '{self.serial}')")
 
-    def _probe_info(self) -> Optional[SDRInfo]:
+    def _probe_info(self) -> Optional[SdrInfo]:
         cmdline = f"lsusb -s {self._address} -v"
         try:
             result = subprocess.run(cmdline, shell=True, capture_output=True)
@@ -82,7 +114,7 @@ class SDR:
                 serial = "Mode-S Beast w/o serial"
             elif self._type == "sdrplay":
                 serial = "SDRplay w/o serial"
-        return SDRInfo(serial=serial, vendor=vendor, product=product)
+        return self.SdrInfo(serial=serial, vendor=vendor, product=product)
 
     def _extract_serial(self, line):
         match = re.search(r"iSerial\s+\d+\s+(.+)$", line)
@@ -134,7 +166,7 @@ class SDR:
             return []
 
 
-class SDRDevices:
+class ReceiverDevices:
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
         self._sdrs = []
@@ -147,10 +179,10 @@ class SDRDevices:
         return len(self.sdrs)
 
     def __repr__(self):
-        return f"SDRDevices({','.join([s for s in self.sdrs])})"
+        return f"ReceiverDevices({','.join([s for s in self.sdrs])})"
 
     @property
-    def sdrs(self) -> list[SDR]:
+    def sdrs(self) -> list[SdrReceiver]:
         with self._sdr_lock:
             if time.monotonic() - self._last_probe > 1:
                 self._last_probe = time.monotonic()
@@ -179,7 +211,7 @@ class SDRDevices:
                 for line in output:
                     address = self._get_address_for_pid_vid(pidvid, line)
                     if address:
-                        new_sdr = SDR(sdr_type, address)
+                        new_sdr = SdrReceiver(sdr_type, address)
                         sdrs.append(new_sdr)
                         debug_out += (
                             f"sdr_info: type: {sdr_type} "
