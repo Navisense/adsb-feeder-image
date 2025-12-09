@@ -577,6 +577,13 @@ class PorttrackerSdrFeeder:
                 self._redirect_for_incomplete_config],
         )
         app.add_url_rule(
+            "/help",
+            "help",
+            view_func=ft.partial(render_template, "help.html"),
+            view_func_wrappers=[
+                self._decide_route_hotspot_mode, self._redirect_if_restarting],
+        )
+        app.add_url_rule(
             "/download-diagnostics",
             "download-diagnostics",
             view_func=self.download_diagnostics,

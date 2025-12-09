@@ -1,0 +1,288 @@
+{% extends "base-regular.html" %}
+{% set active_page = "help" %}
+{% block title %}
+    Help
+{% endblock title %}
+{% block content %}
+    <div class="row justify-content-center">
+        <div class="col-10 col-lg-6">
+            <p class="text-center">
+                Find answers to common questions about configuring Porttracker SDR below. Click on a question to expand
+                the answer.
+            </p>
+        </div>
+    </div>
+    <div class="accordion m-3" id="help-accordion">
+        {# WiFi Configuration #}
+        <div class="accordion-item" id="faq-wifi">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-wifi-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-wifi-answer">How can I connect my feeder to WiFi?</button>
+            </h2>
+            <div id="faq-wifi-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>
+                        You can connect your feeder to WiFi from the
+                        <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page.
+                    </p>
+                    <p>
+                        If your feeder has a WiFi interface, you will see a card titled "Connect to WiFi" or "Reconfigure WiFi".
+                        Select your network name (SSID) from the dropdown and enter the WiFi password. Click "Submit" to apply the
+                        changes.
+                    </p>
+                    <p>
+                        <strong>Note:</strong> After changing the WiFi network, it can take several minutes for the connection to
+                        be established. In some cases, a forced reboot (pulling power) may be required. Also remember that if the
+                        change is successful, you will need to connect to the feeder on the new network.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Device User Password #}
+        <div class="accordion-item" id="faq-device-user-password">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-device-user-password-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-device-user-password-answer">
+                    How can I change the device user password?
+                </button>
+            </h2>
+            <div id="faq-device-user-password-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>
+                        If your device was installed from an image with a default user, you should change the password for security
+                        reasons.
+                    </p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page. If a
+                        managed user exists, you will see a highlighted card titled "Set device user password". Enter your new
+                        password twice (for confirmation) and click "Set password".
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Admin Password #}
+        <div class="accordion-item" id="faq-admin-password">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-admin-password-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-admin-password-answer">
+                    How can I set or change the admin password?
+                </button>
+            </h2>
+            <div id="faq-admin-password-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>
+                        The admin password protects the configuration pages of your feeder. When set, you will need to log in
+                        before making changes.
+                    </p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page and find
+                        the "Set admin password" card. Enter your desired password twice (for confirmation) and click "Submit".
+                    </p>
+                    <p>
+                        If an admin password is already set, you can change it by entering a new password, or remove password
+                        protection by leaving both fields blank.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# SSH Credentials #}
+        <div class="accordion-item" id="faq-ssh-credentials">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-ssh-credentials-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-ssh-credentials-answer">
+                    How can I set up SSH access to my feeder?
+                </button>
+            </h2>
+            <div id="faq-ssh-credentials-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>You can set up SSH access using public key authentication for secure remote access.</p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page and find
+                        the "Install SSH credentials" card. Paste your SSH public key into the text area and click "Submit". This
+                        will allow you to log in as root on the device using your private key.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Root Password #}
+        <div class="accordion-item" id="faq-root-password">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-root-password-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-root-password-answer">
+                    How can I set a root password for SSH access?
+                </button>
+            </h2>
+            <div id="faq-root-password-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>
+                        If you need to log into the device as root user (though you almost never should need to), you can set a
+                        password for SSH access.
+                    </p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page and find
+                        the "Set new root password" card. Enter your desired password twice and click "Set root password".
+                    </p>
+                    <p>
+                        <strong>Security note:</strong> Setting a root password will enable SSH password authentication for the
+                        root user, which is often considered a security concern. You may want to use public key authentication
+                        instead (see the SSH credentials section above).
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Tailscale VPN #}
+        <div class="accordion-item" id="faq-tailscale">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-tailscale-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-tailscale-answer">
+                    How can I connect my feeder to a Tailscale VPN?
+                </button>
+            </h2>
+            <div id="faq-tailscale-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>Tailscale allows you to connect your feeder to your own tailnet for secure remote access.</p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page and find
+                        the "Configure Tailscale VPN" card. Check the "Enable" checkbox and optionally add any additional Tailscale
+                        options (such as a custom login server). Click "Submit" to start the Tailscale client.
+                    </p>
+                    <p>
+                        After submitting, you will be provided with a link to authenticate the device on your tailnet. Follow that
+                        link to complete the setup, then return to this page and reload to verify the connection.
+                    </p>
+                    <p>
+                        <strong>Warning:</strong> If you disable Tailscale while connected to your feeder via the Tailscale
+                        network, you will lose access until you reconnect via a different network.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Zerotier VPN #}
+        <div class="accordion-item" id="faq-zerotier">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-zerotier-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-zerotier-answer">
+                    How can I connect my feeder to a Zerotier network?
+                </button>
+            </h2>
+            <div id="faq-zerotier-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>Zerotier allows you to connect your feeder to your own global area network.</p>
+                    <p>
+                        Go to the <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page and find
+                        the "Configure Zerotier VPN" card. Check the "Enable" checkbox and enter your Zerotier Network ID. Click
+                        "Submit" to join the network.
+                    </p>
+                    <p>After submitting, you will need to accept the new device into the network on the Zerotier website.</p>
+                    <p>
+                        <strong>Warning:</strong> If you disable Zerotier while connected to your feeder via the Zerotier network,
+                        you will lose access until you reconnect via a different network.
+                    </p>
+                </div>
+            </div>
+        </div>
+        {# Hotspot Behavior #}
+        <div class="accordion-item" id="faq-hotspot">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed"
+                        type="button"
+                        data-mdb-toggle="collapse"
+                        data-mdb-target="#faq-hotspot-answer"
+                        aria-expanded="false"
+                        aria-controls="faq-hotspot-answer">How does the WiFi hotspot work?</button>
+            </h2>
+            <div id="faq-hotspot-answer"
+                 class="accordion-collapse collapse"
+                 data-mdb-parent="#help-accordion">
+                <div class="accordion-body">
+                    <p>
+                        The system continuously checks whether it can reach the internet. If there is no connectivity, it can start
+                        a WiFi hotspot that you can connect to in order to configure a WiFi network.
+                    </p>
+                    <p>
+                        You can configure the hotspot behavior on the
+                        <a href="{{ url_for('network-security-setup') }}">Network &amp; Security Setup</a> page under "Configure
+                        hotspot behavior":
+                    </p>
+                    <ul>
+                        <li>
+                            <strong>Auto:</strong> The system will try to determine if a graphical interface is running, and only
+                            start the hotspot if it can't find one.
+                        </li>
+                        <li>
+                            <strong>On:</strong> The hotspot will always be started when there is no internet connectivity.
+                        </li>
+                        <li>
+                            <strong>Off:</strong> The hotspot will never be started, even when there is no connectivity.
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    // Handle direct linking to FAQ items via URL hash.
+    document.addEventListener("DOMContentLoaded", function() {
+      const hash = window.location.hash;
+      if (hash && hash.startsWith("#faq-")) {
+        const targetId = hash.substring(1);
+        const targetElement = document.getElementById(targetId);
+        if (targetElement) {
+          const answerId = targetId + "-answer";
+          const answerElement = document.getElementById(answerId);
+          if (answerElement) {
+            // Use MDB's Collapse to show the answer.
+            const collapse = new mdb.Collapse(answerElement, { toggle: false });
+            collapse.show();
+          }
+          // Scroll to the question after a short delay to ensure the accordion has opened.
+          setTimeout(function() {
+            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }
+      }
+    });
+    </script>
+{% endblock content %}
