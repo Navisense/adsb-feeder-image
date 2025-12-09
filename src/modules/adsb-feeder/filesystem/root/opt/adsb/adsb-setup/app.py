@@ -2944,7 +2944,7 @@ class Manager:
     again.
     """
     CONNECTIVITY_CHECK_INTERVAL = 60
-    HOTSPOT_TIMEOUT = 300
+    HOTSPOT_TIMEOUT = 900
     HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
 
     def __init__(self, conf: config.Config, sys: system.System):
