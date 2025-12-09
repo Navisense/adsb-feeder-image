@@ -447,7 +447,13 @@ class PorttrackerSdrFeeder:
         app.add_url_rule(
             "/restarting",
             "restarting",
-            view_func=self.restarting,
+            view_func=ft.partial(render_template, "restarting.html"),
+            view_func_wrappers=[self._decide_route_hotspot_mode],
+        )
+        app.add_url_rule(
+            "/waiting",
+            "waiting",
+            view_func=ft.partial(render_template, "waiting.html"),
             view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         app.add_url_rule(
@@ -462,12 +468,6 @@ class PorttrackerSdrFeeder:
             view_func=self.restart,
             view_func_wrappers=[self._decide_route_hotspot_mode],
             methods=["GET", "POST"],
-        )
-        app.add_url_rule(
-            "/waiting",
-            "waiting",
-            view_func=self.waiting,
-            view_func_wrappers=[self._decide_route_hotspot_mode],
         )
         app.add_url_rule(
             "/stream-log",
@@ -1278,9 +1278,6 @@ class PorttrackerSdrFeeder:
         else:
             flask_login.logout_user()
         return redirect(next_url)
-
-    def restarting(self):
-        return render_template("restarting.html")
 
     def shutdownpage(self):
         if self.exiting:
@@ -2610,10 +2607,6 @@ class PorttrackerSdrFeeder:
             as_attachment=as_attachment,
             download_name=download_name,
         )
-
-    def waiting(self):
-        return render_template(
-            "waiting.html", title="ADS-B Feeder performing requested actions")
 
     def stream_log(self):
         logfile = "/run/porttracker-sdr-feeder.log"

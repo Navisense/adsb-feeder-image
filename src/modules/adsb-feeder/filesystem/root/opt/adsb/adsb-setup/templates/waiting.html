@@ -1,11 +1,10 @@
 {% extends "base-container.html" %}
 {% set active_page = "waiting" %}
 {% block title %}
-  {{ title }}
+  Applying your changes
 {% endblock title %}
 {% block content %}
   <div class="container pt-5 mt-3">
-    <h1>{{ title }}</h1>
     <h3 class="my-3">Please be patient</h3>
     <div class="row overflow-auto" style="height: 75vh" id="logcontainer">
       <pre class="col-6-sm col-12 small" id="log"></pre>
