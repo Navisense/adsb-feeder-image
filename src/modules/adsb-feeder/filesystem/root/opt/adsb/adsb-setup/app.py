@@ -156,9 +156,11 @@ class HotspotApp:
     """
     ConnectState = Literal["no_attempt", "wrong_credentials"]
 
-    def __init__(self, conf: config.Config, on_wifi_credentials):
+    def __init__(
+            self, conf: config.Config, on_wifi_credentials, on_scan_request):
         self._conf = conf
         self._on_wifi_credentials = on_wifi_credentials
+        self._on_scan_request = on_scan_request
         self.networks = {}
         self._restart_state = "done"
         self._connect_state: self.ConnectState = "no_attempt"
@@ -174,6 +176,8 @@ class HotspotApp:
     def handle_request(self, request):
         if request.path == "/hotspot" and request.method in ["GET"]:
             return self.hotspot()
+        elif request.path == "/hotspot/scan":
+            return self.scan()
         elif request.path == "/restarting":
             return self.restarting()
         else:
@@ -186,6 +190,10 @@ class HotspotApp:
         return flask.render_template(
             "hotspot.html", connect_state=self.connect_state,
             networks=sorted_networks)
+
+    def scan(self):
+        self.networks = self._on_scan_request()
+        return flask.redirect("/hotspot")
 
     def catch_all(self):
         # Catch all requests not explicitly handled. Since our fake DNS server
@@ -326,7 +334,8 @@ class PorttrackerSdrFeeder:
 
     def __init__(
             self, conf: config.Config, sys: system.System,
-            connectivity_monitor: hotspot.ConnectivityMonitor, hotspot_app):
+            connectivity_monitor: hotspot.ConnectivityMonitor, hotspot_app,
+            on_connect_wifi):
         self._logger = logging.getLogger(type(self).__name__)
         self._conf = conf
         self._system = sys
@@ -335,6 +344,7 @@ class PorttrackerSdrFeeder:
         self._feeder_discoverer = net.FeederDiscoverer(
             self._conf.get("feeder_name"))
         self._hotspot_app = hotspot_app
+        self._on_connect_wifi = on_connect_wifi
         self._hotspot_mode = False
         self._server = self._server_thread = None
         self._executor = concurrent.futures.ThreadPoolExecutor()
@@ -925,11 +935,11 @@ class PorttrackerSdrFeeder:
         """
         Decide route based on hotspot mode setting.
 
-        We can be put into hotspot mode, in which case almost all routes
-        (including a catch-all) should return the routes of the separate
-        hotspot app for the captive portal. The only exception is /overview,
-        which should be available there as well. Otherwise, use the configured
-        view function.
+        We can be put into hotspot mode, in which case the hotspot app (captive
+        portal) should be used. However, we only want to enforce this if the
+        user is actually accessing us via the hotspot (i.e. the request comes
+        to the hotspot IP). If they are accessing us via Ethernet, they should
+        still be able to use the main app.
         """
         def handle_request(*args, **kwargs):
             if self._hotspot_mode and not self._hotspot_app:
@@ -937,7 +947,11 @@ class PorttrackerSdrFeeder:
                     "We've been put into hotspot mode, but don't have a "
                     "hotspot. Disabling it.")
                 self._hotspot_mode = False
-            elif self._hotspot_mode:
+
+            is_hotspot_access = (
+                request.host.split(":")[0] == hotspot.Hotspot.HOTSPOT_IP)
+
+            if self._hotspot_mode and is_hotspot_access:
                 return self._hotspot_app.handle_request(request)
             elif view_func:
                 return view_func(*args, **kwargs)
@@ -2908,17 +2922,7 @@ class PorttrackerSdrFeeder:
                 f"Already connected to wifi {ssid}.", flash_message=True)
             return redirect(url_for("network-security-setup"))
 
-        def connect_wifi():
-            try:
-                self._system.wifi.connect(ssid, password)
-                # Force an update system info, which contains network device
-                # info, in order to show the new connection immediately.
-                self._system.update_system_info()
-                self._logger.info(f"Connected to wifi {ssid}.")
-            except:
-                self._logger.exception(f"Error connecting to wifi {ssid}.")
-
-        self._system._restart.bg_run(func=connect_wifi)
+        self._on_connect_wifi(ssid, password)
         self._logger.info(
             f"Started connecting to wifi {ssid}.", flash_message=True,
             flash_category="success")
@@ -2949,45 +2953,33 @@ class Manager:
     """
     Application manager.
 
-    The main purpose of this manager is to decide whether the main app should
-    be running, or the hotspot app used to provide a convenient way of
-    configuring a wifi password.
+    The main purpose of this manager is to decide whether the hotspot should be
+    active.
 
-    This decision is based mostly on input from the ConnectivityMonitor, which
-    regularly checks whether we can reach the open internet. If we can, we want
-    to run the main app, otherwise the hotspot. But the hotspot is only used if
-    the system is configured to use it via the enable_hotspot setting (True
-    meaning to enable the hotspot if there is no connectivity, False to never
-    use the hotspot, and None, i.e. unset meaning to use the hotspot if no
-    display is attached).
-
-    However, an additional criterion is that the hotspot shouldn't run for too
-    long if it yields no success. That's because it blocks the wifi device, so
-    in case a lost connection is actually an upstream issue (e.g. in the
-    router), we have to stop the hotspot or we won't notice this. So after a
-    while, the hotspot is disabled an the main app started. If we then find we
-    have connection again, it is kept running, otherwise the hotspot is started
-    again.
+    The hotspot is started whenever we are not connected to a wifi network.
+    Conversely, if we are connected to a wifi network, the hotspot is stopped.
+    This check is performed regularly.
     """
-    CONNECTIVITY_CHECK_INTERVAL = 60
-    HOTSPOT_TIMEOUT = 900
-    HOTSPOT_RECHECK_TIMEOUT = CONNECTIVITY_CHECK_INTERVAL * 2 + 10
+    CHECK_INTERVAL = 2
 
     def __init__(self, conf: config.Config, sys: system.System):
         self._conf = conf
         self._sys = sys
+        # We still need the queue for the wifi test status callback.
         self._event_queue = queue.Queue(maxsize=10)
-        self._connectivity_monitor = hotspot.ConnectivityMonitor(
-            self._sys, self._event_queue,
-            check_interval=self.CONNECTIVITY_CHECK_INTERVAL)
         self._connectivity_change_thread = None
-        self._hotspot_app = HotspotApp(self._conf, self._on_wifi_credentials)
+        self._hotspot_app = HotspotApp(
+            self._conf, self._on_wifi_credentials, self.scan_for_networks)
         self._hotspot = hotspot.make_hotspot(
             self._conf, self._on_wifi_test_status)
+        # The connectivity monitor is kept here for now because the app depends
+        # on it, but we don't use it for hotspot decisions anymore.
+        self._connectivity_monitor = hotspot.ConnectivityMonitor(
+            self._sys, queue.Queue(), check_interval=60)
         self._feeder = PorttrackerSdrFeeder(
             self._conf, self._sys, self._connectivity_monitor,
-            self._hotspot_app)
-        self._hotspot_timer = None
+            self._hotspot_app, self._on_wifi_credentials)
+        self._keep_running = True
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
 
@@ -3004,12 +2996,11 @@ class Manager:
     def __exit__(self, *_):
         assert self._connectivity_change_thread is not None
         self._keep_running = False
-        self._connectivity_monitor.stop()
         self._connectivity_change_thread.join(2)
         if self._connectivity_change_thread.is_alive():
             self._logger.error(
                 "Connectivity change thread failed to terminate.")
-        self._maybe_stop_hotspot_timer()
+        self._connectivity_monitor.stop()
         self._feeder.stop()
         self._maybe_stop_hotspot()
         return False
@@ -3019,48 +3010,42 @@ class Manager:
             self._hotspot.stop()
 
     def _connectivity_change_loop(self):
-        self._logger.info(
-            "Waiting for the connectivity monitor to tell us whether we have "
-            "internet access.")
+        self._logger.info("Starting hotspot manager loop.")
         while self._keep_running:
-            try:
-                event_type, value = self._event_queue.get(timeout=1)
-            except queue.Empty:
-                continue
-            if event_type == "connectivity_change":
-                self._handle_connectivity_change(value)
-            elif event_type == "hotspot_timeout":
-                self._handle_hotspot_timeout()
-            elif event_type == "hotspot_recheck_timeout":
-                self._handle_hotspot_recheck_timeout()
+            self._check_hotspot_necessity()
 
-    def _handle_connectivity_change(self, has_access):
-        if has_access:
-            if not self._feeder.hotspot_mode:
+            # Check for events (currently only wifi test status).
+            try:
+                event_type, value = self._event_queue.get(
+                    timeout=self.CHECK_INTERVAL)
+                if event_type == "wifi_test_finished":
+                    self._handle_wifi_test_finished(value)
+            except queue.Empty:
+                pass
+
+    def _check_hotspot_necessity(self):
+        # If we have a wifi connection, we definitely don't need the hotspot.
+        wifi_ssid = self._sys.wifi.ssid if self._sys.wifi else None
+
+        if wifi_ssid:
+            if self._feeder.hotspot_mode:
                 self._logger.info(
-                    "Connectivity monitor says we have connection, but we're "
-                    "already in regular mode.")
-                return
-            self._logger.info(
-                "We have internet access, enabling regular mode.")
-            self._enable_regular_mode()
-        elif self._hotspot is None:
-            self._logger.warning(
-                "Connectivity monitor says we don't have connection, but we "
-                "don't have a hotspot we could start. Enabling regular mode.")
-            self._enable_regular_mode()
-        elif self._feeder.hotspot_mode:
-            self._logger.info(
-                "Connectivity monitor says we don't have connection, but "
-                "we're already in hotspot mode.")
-        elif not self._should_use_hotspot():
-            self._logger.info(
-                "We don't have internet access, but using the hotspot has "
-                "been disabled in the settings.")
+                    f"We are connected to wifi '{wifi_ssid}', disabling "
+                    "hotspot mode.")
+                self._enable_regular_mode()
         else:
-            self._logger.info(
-                "We don't have internet access, enabling hotspot mode.")
-            self._enable_hotspot_mode()
+            # We are not connected to wifi.
+            if self._feeder.hotspot_mode:
+                # Already in hotspot mode, nothing to do.
+                pass
+            elif not self._should_use_hotspot():
+                self._logger.info(
+                    "We are not connected to wifi, but using the hotspot has "
+                    "been disabled in the settings.")
+            else:
+                self._logger.info(
+                    "We are not connected to wifi, enabling hotspot mode.")
+                self._enable_hotspot_mode()
 
     def _should_use_hotspot(self):
         if self._conf.get("enable_hotspot") is False:
@@ -3075,60 +3060,49 @@ class Manager:
             return False
         return True
 
-    def _handle_hotspot_timeout(self):
-        self._logger.info(
-            "Hotspot has been active for a while without success. Shutting it "
-            "down to see if connectivity has returned.")
-        self._enable_regular_mode(hotspot_recheck=True)
-
-    def _handle_hotspot_recheck_timeout(self):
-        assert self._hotspot is not None
-        self._maybe_stop_hotspot_timer()
-        if self._connectivity_monitor.current_status:
-            self._logger.info(
-                "After shutting down the hotspot, connectivity has returned. "
-                "Staying in regular mode.")
-        elif not self._should_use_hotspot():
-            self._logger.info(
-                "After shutting down the hotspot, we still don't have "
-                "connectivity, but using the hotspot has been disabled in the "
-                "settings.")
-        else:
-            self._logger.info(
-                "After shutting down the hotspot, we still don't have "
-                "connectivity. Switching back to the hotspot.")
-            self._enable_hotspot_mode()
-
-    def _enable_regular_mode(self, *, hotspot_recheck=False):
-        self._maybe_stop_hotspot_timer()
+    def _enable_regular_mode(self):
         self._feeder.hotspot_mode = False
         self._maybe_stop_hotspot()
-        if hotspot_recheck:
-            # We're starting this to see if we have connectivity again. Switch
-            # back to regular mode again after a while if not.
-            self._hotspot_timer = threading.Timer(
-                self.HOTSPOT_RECHECK_TIMEOUT, self._event_queue.put,
-                args=(("hotspot_recheck_timeout", None),))
-            self._hotspot_timer.start()
 
     def _enable_hotspot_mode(self):
         assert self._hotspot is not None
         if self._feeder.hotspot_mode:
             return
-        self._maybe_stop_hotspot_timer()
         self._feeder.hotspot_mode = True
         networks = self._hotspot.start()
         self._hotspot_app.networks = networks
-        self._hotspot_timer = threading.Timer(
-            self.HOTSPOT_TIMEOUT, self._event_queue.put,
-            args=(("hotspot_timeout", None),))
-        self._hotspot_timer.start()
 
-    def _maybe_stop_hotspot_timer(self):
-        if self._hotspot_timer:
-            self._hotspot_timer.cancel()
-            self._hotspot_timer.join()
-            self._hotspot_timer = None
+    def scan_for_networks(self):
+        """
+        Scan for networks even if the hotspot is active.
+        
+        This temporarily stops the hotspot to free up the wifi device for
+        scanning.
+        """
+        if not self._hotspot or not self._feeder.hotspot_mode:
+            # If we're not in hotspot mode, the wifi module should be able to
+            # scan normally (or we don't have a wifi device).
+            if self._sys.wifi:
+                self._sys.wifi.scan_ssids()
+                return self._sys.wifi.networks
+            return {}
+
+        self._logger.info("Stopping hotspot to scan for networks.")
+        self._hotspot.stop()
+        # Give the system a moment to settle
+        time.sleep(1)
+
+        try:
+            networks = self._hotspot._scan_for_ssids()
+            self._hotspot_app.networks = networks
+        except:
+            self._logger.exception("Error scanning for networks.")
+            networks = {}
+        finally:
+            self._logger.info("Restarting hotspot after scan.")
+            self._hotspot.start()
+
+        return networks
 
     def _on_wifi_credentials(self, ssid, password):
         if not self._hotspot:
@@ -3147,27 +3121,23 @@ class Manager:
                 "Unable to start a wifi test with the new credentials.")
 
     def _on_wifi_test_status(self, success):
-        if not self._hotspot:
-            self._logger.warning(
-                "Got a wifi test status, but no hotspot exists. Where did "
-                "that come from?")
-        self._maybe_stop_hotspot_timer()
+        # We just put this into the queue to be handled in the main loop thread
+        # to avoid concurrency issues.
+        self._event_queue.put(("wifi_test_finished", success))
+
+    def _handle_wifi_test_finished(self, success):
         self._hotspot_app.on_wifi_test_status(success)
         if success:
-            self._enable_regular_mode(hotspot_recheck=True)
-            if self._hotspot and self._hotspot.active:
-                self._logger.error(
-                    "The hotspot reports a successful wifi connection, but is "
-                    "still active. It should have shut itself off.")
+            self._logger.info(
+                "Wifi connection test successful. Disabling hotspot.")
+            self._enable_regular_mode()
         else:
+            self._logger.info(
+                "Wifi connection test failed. Keeping hotspot active.")
+            # Ensure hotspot is running (the test might have left it stopped if
+            # it failed in a specific way, or just to be safe).
             if self._hotspot and not self._hotspot.active:
-                self._logger.error(
-                    "The hotspot reports an unsuccessful wifi connection "
-                    "attempt, but is not active. It should have stayed on.")
-            self._hotspot_timer = threading.Timer(
-                self.HOTSPOT_TIMEOUT, self._event_queue.put,
-                args=(("hotspot_timeout", None),))
-            self._hotspot_timer.start()
+                self._hotspot.start()
 
 
 def main():
