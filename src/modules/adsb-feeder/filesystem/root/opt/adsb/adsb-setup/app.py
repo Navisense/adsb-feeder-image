@@ -1701,12 +1701,18 @@ class PorttrackerSdrFeeder:
                     break
         receiver_dicts = []
         for receiver in self._receivers.receivers:
-            receiver_dicts.append({
+            assignment = assignments.get(receiver.serial)
+            receiver_dict = {
                 "serial": receiver.serial,
                 "vendor": receiver.vendor,
                 "product": receiver.product,
                 "type": receiver.type,
-                "assignment": assignments.get(receiver.serial),})
+                "assignment": assignment,}
+            # Add baudrate for serial port devices.
+            if receiver.type == "serial_port" and assignment:
+                receiver_dict["baudrate"] = self._conf.get(
+                    f"serial_port_devices.{assignment}.baudrate")
+            receiver_dicts.append(receiver_dict)
         # Sort devices to always get the same order.
         receiver_dicts.sort(key=op.itemgetter("serial", "vendor", "product"))
         return {
@@ -1755,6 +1761,7 @@ class PorttrackerSdrFeeder:
         assignments = {"usb_sdr_devices": {}, "serial_port_devices": {}}
         unused_serials = {
             "usb_sdr_devices": set(), "serial_port_devices": set()}
+        baudrates = {}
         for key, value in request.form.items():
             if not (key.startswith("purpose-usb-")
                     or key.startswith("purpose-serial-")):
@@ -1762,9 +1769,18 @@ class PorttrackerSdrFeeder:
             _, device_type, serial = key.split("-", maxsplit=2)
             if device_type == "serial":
                 config_key_prefix = "serial_port_devices"
+                try:
+                    baudrate = int(request.form[f"baudrate-{serial}"])
+                    assert baudrate > 0
+                except:
+                    return (
+                        f"Baud rate for {serial} must be a positive integer, "
+                        f"but got {request.form.get(f'baudrate-{serial}')}.",
+                        400)
                 # Serial port devices only transmit filenames, so the slashes
                 # don't cause problems in the HTML.
                 serial = f"/dev/{serial}"
+                baudrates[serial] = baudrate
             else:
                 config_key_prefix = "usb_sdr_devices"
             if value == "unused":
@@ -1794,11 +1810,16 @@ class PorttrackerSdrFeeder:
         self._conf.set("1090_device_is_sdrplay", False)
         for config_key_prefix, device_assignments in assignments.items():
             for purpose in receive.PURPOSES:
+                serial = device_assignments.get(purpose)
                 config_key = f"{config_key_prefix}.{purpose}"
                 if config_key_prefix == "serial_port_devices":
                     # Serial port devices have another nested compound setting.
                     config_key += ".device_file"
-                self._conf.set(config_key, device_assignments.get(purpose))
+                    baudrate = baudrates.get(serial)
+                    self._conf.set(
+                        f"serial_port_devices.{purpose}.baudrate", baudrate)
+                self._conf.set(config_key, serial)
+
         self._logger.info(
             f"Configured SDR device assignments {assignments}, with unused "
             f"devices {unused_serials}.")
