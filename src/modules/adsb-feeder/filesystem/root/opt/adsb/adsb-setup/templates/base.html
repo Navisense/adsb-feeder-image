@@ -64,7 +64,7 @@
       }
 
       if (document.addEventListener !== undefined) {
-        // If visibility changes, check if we should execute any tasks, e.g. because they had been paused while the 
+        // If visibility changes, check if we should execute any tasks, e.g. because they had been paused while the
         // document was hidden.
         document.addEventListener("visibilitychange", maybeExecuteTasks);
       }
@@ -216,7 +216,7 @@
         </a>
         {# Live map buttons in the nav bar. These will be hidden for small screens. #}
         <div class="d-none d-lg-block">
-          <div class="btn-group"
+          <div class="btn-group ais-button"
                {% if not is_reception_enabled('ais') %}title="AIS reception is disabled"{% endif %}>
             <button type="button"
                     class="btn btn-accent"
@@ -230,13 +230,13 @@
                {% if not is_reception_enabled('adsb') %}title="ADS-B reception is disabled"{% endif %}>
             {# djlint:on #}
             <button type="button"
-                    class="btn btn-accent"
+                    class="btn btn-accent adsb-button"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
                     onclick="document.location='{{ url_for("tar1090", **get_conf("tar1090_query_params") ) }}'">
               Live Map (ADS-B)
             </button>
             <button type="button"
-                    class="btn btn-accent dropdown-toggle dropdown-toggle-split"
+                    class="btn btn-accent dropdown-toggle dropdown-toggle-split adsb-button"
                     {% if not is_reception_enabled('adsb') %}disabled{% endif %}
                     data-mdb-toggle="dropdown"
                     aria-expanded="false"></button>
@@ -433,6 +433,22 @@
         }
         new mdb.Tooltip(element);
       }
+
+      // Enable or disable all navbar navigation elements.
+      function setNavbarEnabled(enabled) {
+        $(".navbar a").toggleClass("temp-disabled-link", !enabled);
+        $(".navbar button").prop("disabled", !enabled);
+        if (enabled) {
+          // AIS/ADS-B buttons may have to be disabled anyway.
+          {% if not is_reception_enabled('ais') %}
+            $(".ais-button").prop("disabled", true);
+          {% endif %}
+          {% if not is_reception_enabled('adsb') %}
+            $(".adsb-button").prop("disabled", true);
+          {% endif %}
+        }
+      }
+
       // Initialize all MDB tooltips.
       const elementsWithTooltip = [].slice.call(document.querySelectorAll('[data-mdb-toggle="tooltip"]'));
       for (const elementWithTooltip of elementsWithTooltip) {
