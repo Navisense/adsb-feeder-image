@@ -241,7 +241,7 @@
 
     function updateStatus(feederStatus, errorStatus) {
       const hitGlobalTimeout = Date.now() - startTime > 240 * 1000;
-      while (keepChecking) {
+      checkLoop: while (keepChecking) {
         switch (currentStep) {
           case 1:
             // Step 1: Stop the hotspot.
@@ -254,7 +254,7 @@
               // Continue to check step 2
             } else if (feederStatus?.mode === "hotspot") {
               console.log("Step 1: Device is still in hotspot mode. Waiting...");
-              return;
+              break checkLoop;
             } else if (feederStatus?.mode === "regular") {
               // Hotspot stopped and device is already connected.
               console.log("Step 1: Device is no longer in hotspot mode. Progressing to step 2.");
@@ -270,7 +270,7 @@
               $("#step-1 .step-description-error-detail").text(errorDetail);
               console.log(`Step 1: Unknown state while checking status. ${errorDetail}`);
               // For an error during this step, we'll keep checking.
-              return;
+              break checkLoop;
             }
             break;
           case 2:
@@ -278,7 +278,7 @@
             // We're trying to reach the device on the network.
             if (errorStatus === "timeout" || errorStatus === "error") {
               console.log("Step 2: Still can't reach the device. Waiting for connection...");
-              return;
+              break checkLoop;
             } else if (feederStatus?.mode === "regular") {
               // We can reach the device and it's in regular mode - connection successful!
               console.log("Step 2: Device is reachable in regular mode. Connection successful!");
@@ -296,7 +296,7 @@
               console.log(`Step 2: Device is back in hotspot mode. Connection failed. ${errorDetail}`);
               showFinalMessage("device-back-in-hotspot-mode");
               keepChecking = false;
-              return;
+              break checkLoop;
             } else if (Date.now() - startTime > 180 * 1000) {
               // Show the step's error state after 3 minutes.
               updateStepStatus(currentStep, "error");
@@ -307,7 +307,7 @@
               console.log(`Step 2: Timeout waiting for device. ${errorDetail}`);
               showFinalMessage("timeout-waiting-for-device");
               keepChecking = false;
-              return;
+              break checkLoop;
             } else {
               updateStepStatus(currentStep, "error");
               const errorDetail = (
@@ -316,7 +316,7 @@
               $("#step-2 .step-description-error-detail").text(errorDetail);
               console.log(`Step 2: Unknown state while checking status. ${errorDetail}`);
               // In this case, we keep checking. Eventually we'll hit the timeout.
-              return;
+              break checkLoop;
             }
             break;
           case 3:
@@ -327,17 +327,17 @@
               updateStepStatus(currentStep, "done");
               keepChecking = false;
               showFinalMessage("success");
-              return;
+              break checkLoop;
             } else if (feederStatus?.mode === "regular" && hitGlobalTimeout) {
               // Already in regular mode, but the device doesn't report a successful wifi connection.
               showFinalMessage("regular-mode-but-restart-not-done");
               keepChecking = false;
-              return;
+              break checkLoop;
             } else if (feederStatus?.mode === "hotspot") {
               // Already in regular mode, but the device doesn't report a successful wifi connection.
               console.log(
                 "Step 3: Device appears to be connected, but doesn't report a successful wifi connection. Waiting...");
-              return;
+              break checkLoop;
             } else {
               updateStepStatus(currentStep, "error");
               const errorDetail = (
@@ -346,17 +346,17 @@
               $("#step-3 .step-description-error-detail").text(errorDetail);
               console.log(`Step 3: Unknown state while checking status. ${errorDetail}`);
               // In this case, we keep checking. Eventually we'll hit the global timeout.
-              return;
+              break checkLoop;
             }
           default:
             console.log(`Invalid step number ${currentStep}`);
-            return;
+            break checkLoop;
         }
-        if (hitGlobalTimeout) {
-          showFinalMessage("global-timeout");
-          keepChecking = false;
-          return;
-        }
+      }
+      if (hitGlobalTimeout) {
+        showFinalMessage("global-timeout");
+        keepChecking = false;
+        return;
       }
     }
 
