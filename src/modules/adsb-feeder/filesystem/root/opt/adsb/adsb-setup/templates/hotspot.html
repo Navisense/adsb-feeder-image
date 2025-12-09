@@ -116,6 +116,8 @@
   <script type="text/javascript"
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
+    $(document).ready(() => setNavbarEnabled(false));
+
     function updateSsidSelection(selectedSsid) {
       const card = $(`.select-ssid-card[data-ssid="${selectedSsid}"]`);
 
