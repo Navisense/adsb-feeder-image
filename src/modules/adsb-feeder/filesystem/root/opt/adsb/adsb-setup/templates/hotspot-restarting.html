@@ -16,7 +16,7 @@
       <li class="list-group-item py-3 text-muted" id="step-1">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle me-3 mt-1"></span>
+            <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Stop the hotspot</div>
               <!-- Pending state description -->
@@ -48,7 +48,7 @@
       <li class="list-group-item py-3 text-muted" id="step-2">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle me-3 mt-1"></span>
+            <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Connect to the network</div>
               <!-- Pending state description -->
@@ -104,7 +104,7 @@
       <li class="list-group-item py-3 text-muted" id="step-3">
         <div class="d-flex justify-content-between align-items-start">
           <div class="d-flex align-items-start flex-grow-1">
-            <span class="step-icon far fa-circle me-3 mt-1"></span>
+            <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
             <div class="flex-grow-1">
               <div class="fw-bold mb-1">Connection established</div>
               <!-- Pending state description -->
@@ -201,7 +201,7 @@
       stepElement.find(`.step-description-${status}`).removeClass("d-none");
 
       iconElement.removeClass(
-        "far fas fa-circle fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-success text-danger "
+        "far fas fa-circle-dot fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-success text-danger "
         + "text-primary");
       badgeElement.removeClass("badge-secondary badge-success badge-danger badge-primary");
 
