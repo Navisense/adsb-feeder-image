@@ -225,7 +225,7 @@ class Hotspot(abc.ABC):
                     line = f"interface={self.wlan}\n"
                     config_keys_to_replace.discard("interface")
                 elif line.startswith("ssid="):
-                    line = f"ssid={self._conf.get('feeder_name')}\n"
+                    line = f"ssid={self._conf.get('feeder_name')}.local\n"
                     config_keys_to_replace.discard("ssid")
                 hostapd_config.append(line)
         if config_keys_to_replace:
