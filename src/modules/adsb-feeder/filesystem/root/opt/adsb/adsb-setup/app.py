@@ -2455,7 +2455,8 @@ class PorttrackerSdrFeeder:
                     f"Error parsing {form_key}: {e}.", flash_message=True)
 
         # GPSD.
-        should_use_gpsd = util.checkbox_checked(request.form["use-gpsd"])
+        should_use_gpsd = util.checkbox_checked(
+            request.form.get("use-gpsd", False))
         if self._conf.get("use_gpsd") != should_use_gpsd:
             if should_use_gpsd and not self._conf.get("has_gpsd"):
                 self._logger.warning(
