@@ -948,10 +948,12 @@ class PorttrackerSdrFeeder:
                     "hotspot. Disabling it.")
                 self._hotspot_mode = False
 
-            is_hotspot_access = (
-                request.host.split(":")[0] == hotspot.Hotspot.HOTSPOT_IP)
+            has_internet = False
+            for check, ok in self._connectivity_monitor.current_stati.items():
+                if ok:
+                    has_internet = True
 
-            if self._hotspot_mode and is_hotspot_access:
+            if self._hotspot_mode and not has_internet:
                 return self._hotspot_app.handle_request(request)
             elif view_func:
                 return view_func(*args, **kwargs)
@@ -2965,13 +2967,14 @@ class Manager:
     def __init__(self, conf: config.Config, sys: system.System):
         self._conf = conf
         self._sys = sys
+        self._sys.scan_for_networks = self.scan_for_networks
         # We still need the queue for the wifi test status callback.
         self._event_queue = queue.Queue(maxsize=10)
         self._connectivity_change_thread = None
         self._hotspot_app = HotspotApp(
             self._conf, self._on_wifi_credentials, self.scan_for_networks)
         self._hotspot = hotspot.make_hotspot(
-            self._conf, self._on_wifi_test_status)
+            self._conf, self._sys.wifi, self._on_wifi_test_status)
         # The connectivity monitor is kept here for now because the app depends
         # on it, but we don't use it for hotspot decisions anymore.
         self._connectivity_monitor = hotspot.ConnectivityMonitor(
@@ -2979,7 +2982,6 @@ class Manager:
         self._feeder = PorttrackerSdrFeeder(
             self._conf, self._sys, self._connectivity_monitor,
             self._hotspot_app, self._on_wifi_credentials)
-        self._keep_running = True
         self._keep_running = True
         self._logger = logging.getLogger(type(self).__name__)
 

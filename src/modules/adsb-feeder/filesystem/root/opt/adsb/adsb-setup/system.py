@@ -275,11 +275,15 @@ class System:
             "system_info": util.RepeatingTask(30, self.update_system_info),
             "containers": util.RepeatingTask(
                 10, self._update_docker_containers),
-            "wifi": util.RepeatingTask(10, self._update_wifi_info)}
+            # Scan for networks every 15 minutes. Do this only rarely, because
+            # we have to stop the hotspot to do it, and this will disrupt users
+            # if they're using it.
+            "wifi": util.RepeatingTask(900, self._update_wifi_info)}
         self._last_undervoltage_time = -self.UNDERVOLTAGE_RESET_TIMEOUT
         self._dmesg_monitor = DmesgMonitor(
             on_undervoltage=self._set_undervoltage)
         self._wifi_controls = {}
+        self.scan_for_networks = None
 
     def __enter__(self):
         for task in self._refresh_tasks.values():
@@ -523,7 +527,11 @@ class System:
         for device_info in self.system_info.network_device_infos:
             if device_info.wifi:
                 device_info.wifi.refresh_ssid()
-                device_info.wifi.scan_ssids()
+                if self.scan_for_networks:
+
+                    self.scan_for_networks()
+                else:
+                    self._logger.info("Scan for networks not enabled.")
 
     @property
     def is_restarting(self):

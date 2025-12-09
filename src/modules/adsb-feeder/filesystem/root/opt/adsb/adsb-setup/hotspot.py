@@ -19,32 +19,16 @@ import wifi
 logger = logging.getLogger(__name__)
 
 
-def make_hotspot(conf: config.Config, on_wifi_test_status):
-    wlan = _find_wlan_device()
-    if not wlan:
+def make_hotspot(conf: config.Config, wifi, on_wifi_test_status):
+    if not wifi:
         return None
     baseos = util.get_baseos()
     if baseos == "dietpi":
-        return NetworkingHotspot(conf, wlan, on_wifi_test_status)
+        return NetworkingHotspot(conf, wifi, on_wifi_test_status)
     elif baseos in ["raspbian", "postmarketos"]:
-        return NetworkManagerHotspot(conf, wlan, on_wifi_test_status)
+        return NetworkManagerHotspot(conf, wifi, on_wifi_test_status)
     else:
         raise ValueError(f"unknown OS {baseos}")
-
-
-def _find_wlan_device():
-    raw_output = util.shell_with_combined_output(
-        "iw dev | grep Interface | cut -d' ' -f2")
-    wlans = [wlan for wlan in raw_output.stdout.split("\n") if wlan]
-    if not wlans:
-        logger.warning(
-            f"No wlan device found in {raw_output.stdout}. Unable to start "
-            "hotspot.")
-        return None
-    if len(wlans) > 1:
-        logger.info(
-            f"Found more than one wlan device: {wlans}. Using {wlans[0]}")
-    return wlans[0]
 
 
 class ConnectivityMonitor:
@@ -189,9 +173,10 @@ class Hotspot(abc.ABC):
     KEA_SRC_PATH = pathlib.Path("/opt/adsb/accesspoint/kea-dhcp4.conf")
     KEA_DEST_PATH = pathlib.Path("/etc/kea/kea-dhcp4.conf")
 
-    def __init__(self, conf: config.Config, wlan, on_wifi_test_status):
+    def __init__(self, conf: config.Config, wifi, on_wifi_test_status):
         self._conf = conf
-        self.wlan = wlan
+        self.wifi = wifi
+        self.wlan = wifi.device_name
         self._on_wifi_test_status = on_wifi_test_status
         self._hotspot_lock = threading.Lock()
         self._hotspot_is_running = False
@@ -204,7 +189,6 @@ class Hotspot(abc.ABC):
             response_ip=self.HOTSPOT_IP,
             non_response_domains={"local", "local.porttracker-sdr-feeder.de"})
         self._logger = logging.getLogger(type(self).__name__)
-        self.wifi = wifi.make_wifi(device_name=self.wlan)
         self._setup_config_files()
 
     @abc.abstractmethod
