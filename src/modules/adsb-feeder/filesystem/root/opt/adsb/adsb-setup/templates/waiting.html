@@ -1,13 +1,9 @@
 {% extends "base-container.html" %}
 {% set active_page = "waiting" %}
-{% block title %}{{ title }}{% endblock title %}
+{% block title %}
+  {{ title }}
+{% endblock title %}
 {% block content %}
-  <div class="bgimage">
-    <img src="{{ url_for('static', filename='images/adsbim-background-transparent-4k.png') }}"
-         width="3840"
-         height="2160"
-         alt="" />
-  </div>
   <div class="container pt-5 mt-3">
     <h1>{{ title }}</h1>
     <h3 class="my-3">Please be patient</h3>
