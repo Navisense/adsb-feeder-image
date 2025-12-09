@@ -46,10 +46,18 @@
                       <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
                     </div>
                     <h5 class="card-title">{{ network.ssid }}</h5>
-                    <input type="text"
-                           class="form-control my-2 network-input network-input-password d-none"
-                           name="password"
-                           placeholder="Password">
+                    <div class="input-group my-2 network-input network-input-password d-none">
+                      <input type="password"
+                             class="form-control password-field"
+                             name="password"
+                             placeholder="Password">
+                      <button class="btn btn-outline-secondary toggle-password"
+                              type="button"
+                              tabindex="-1"
+                              aria-label="Toggle password visibility">
+                        <span class="fas fa-eye password-toggle-icon"></span>
+                      </button>
+                    </div>
                     <div class="text-muted">signal strength: {{ network.signal_strength }}</div>
                     <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
                   </div>
@@ -76,10 +84,18 @@
                          class="form-control my-2 network-input d-none"
                          name="manual-ssid"
                          placeholder="SSID">
-                  <input type="text"
-                         class="form-control my-2 network-input network-input-password d-none"
-                         name="password"
-                         placeholder="Password">
+                  <div class="input-group my-2 network-input network-input-password d-none">
+                    <input type="password"
+                           class="form-control password-field"
+                           name="password"
+                           placeholder="Password">
+                    <button class="btn btn-outline-secondary toggle-password"
+                            type="button"
+                            tabindex="-1"
+                            aria-label="Toggle password visibility">
+                      <span class="fas fa-eye password-toggle-icon"></span>
+                    </button>
+                  </div>
                   <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
                 </div>
               </div>
@@ -117,6 +133,20 @@
           src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
   <script>
     $(document).ready(() => setNavbarEnabled(false));
+
+    // Toggle password visibility.
+    $(".toggle-password").on("click", function() {
+      const button = $(this);
+      const input = button.siblings(".password-field");
+      const icon = button.find(".password-toggle-icon");
+      if (input.attr("type") === "password") {
+        input.attr("type", "text");
+        icon.removeClass("fa-eye").addClass("fa-eye-slash");
+      } else {
+        input.attr("type", "password");
+        icon.removeClass("fa-eye-slash").addClass("fa-eye");
+      }
+    });
 
     function updateSsidSelection(selectedSsid) {
       const card = $(`.select-ssid-card[data-ssid="${selectedSsid}"]`);
