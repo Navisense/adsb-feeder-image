@@ -73,7 +73,7 @@ else
         compose_file_args+=" -f /opt/adsb/compose_files/ultrafeeder.yml"
     fi
     if [ -n "$(echo $config_json | jq -r '.usb_sdr_devices.ais | select(. != null and . != "")')" ] \
-        || [ -n "$(echo $config_json | jq -r '.serial_port_devices.ais | select(. != null and . != "")')" ] ; then
+        || [ -n "$(echo $config_json | jq -r '.serial_port_devices.ais.device_file | select(. != null and . != "")')" ] ; then
         # Start shipfeeder if a USB SDR device or a serial port device for AIS
         # is configured.
         compose_file_args+=" -f /opt/adsb/compose_files/shipfeeder.yml"

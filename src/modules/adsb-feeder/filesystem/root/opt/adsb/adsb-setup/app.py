@@ -1025,7 +1025,8 @@ class PorttrackerSdrFeeder:
         used_serials = set()
         for purpose in receive.PURPOSES:
             used_serials.add(self._conf.get(f"usb_sdr_devices.{purpose}"))
-            used_serials.add(self._conf.get(f"serial_port_devices.{purpose}"))
+            used_serials.add(
+                self._conf.get(f"serial_port_devices.{purpose}.device_file"))
         used_serials = {serial for serial in used_serials if serial}
         return used_serials - available_serials
 
@@ -1035,7 +1036,8 @@ class PorttrackerSdrFeeder:
         used_serials = set()
         for purpose in receive.PURPOSES:
             used_serials.add(self._conf.get(f"usb_sdr_devices.{purpose}"))
-            used_serials.add(self._conf.get(f"serial_port_devices.{purpose}"))
+            used_serials.add(
+                self._conf.get(f"serial_port_devices.{purpose}.device_file"))
         configured_serials = (
             used_serials | set(self._conf.get("usb_sdr_devices.unused"))
             | set(self._conf.get("serial_port_devices.unused")))
@@ -1089,7 +1091,7 @@ class PorttrackerSdrFeeder:
         if reception_type == "ais":
             return bool(
                 self._conf.get("usb_sdr_devices.ais")
-                or self._conf.get("serial_port_devices.ais"))
+                or self._conf.get("serial_port_devices.ais.device_file"))
         elif reception_type == "adsb":
             return bool(
                 self._conf.get("usb_sdr_devices.1090")
@@ -1670,7 +1672,7 @@ class PorttrackerSdrFeeder:
         for purpose in receive.PURPOSES:
             usb_device_serial = self._conf.get(f"usb_sdr_devices.{purpose}")
             serial_port_device_serial = self._conf.get(
-                f"serial_port_devices.{purpose}")
+                f"serial_port_devices.{purpose}.device_file")
             if usb_device_serial and serial_port_device_serial:
                 self._logger.error(
                     f"Purpose {purpose} is handled by USB and serial port "
@@ -1792,9 +1794,11 @@ class PorttrackerSdrFeeder:
         self._conf.set("1090_device_is_sdrplay", False)
         for config_key_prefix, device_assignments in assignments.items():
             for purpose in receive.PURPOSES:
-                self._conf.set(
-                    f"{config_key_prefix}.{purpose}",
-                    device_assignments.get(purpose))
+                config_key = f"{config_key_prefix}.{purpose}"
+                if config_key_prefix == "serial_port_devices":
+                    # Serial port devices have another nested compound setting.
+                    config_key += ".device_file"
+                self._conf.set(config_key, device_assignments.get(purpose))
         self._logger.info(
             f"Configured SDR device assignments {assignments}, with unused "
             f"devices {unused_serials}.")

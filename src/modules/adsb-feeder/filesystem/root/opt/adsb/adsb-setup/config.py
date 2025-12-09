@@ -314,25 +314,17 @@ def _generate_planefinder_image(conf: "Config") -> str:
 
 
 def _generate_shipfeeder_aiscatcher_extra_options(conf: "Config") -> str:
-    ais_serial_port = conf.get("serial_port_devices.ais")
+    ais_serial_port = conf.get("serial_port_devices.ais.device_file")
     if not ais_serial_port:
         return ""
-    try:
-        proc = util.shell_with_combined_output(
-            "stty -F /dev/ttyAMA0 speed", check=True)
-        baudrate = int(proc.stdout.strip())
-    except:
-        logger.exception(
-            "Error while getting baudrate of AIS serial port "
-            f"{ais_serial_port}. Disabling AIS receiver.")
-        return ""
+    baudrate = conf.get("serial_port_devices.ais.baudrate")
     # If we want to receive AIS via a serial port device, use the -e command
-    # line option.
+    # line option. AIS-catcher will set the baudrate for us.
     return f"-e {baudrate} {ais_serial_port}"
 
 
 def _generate_shipfeeder_mapped_device(conf: "Config") -> str:
-    ais_serial_port = conf.get("serial_port_devices.ais")
+    ais_serial_port = conf.get("serial_port_devices.ais.device_file")
     if not ais_serial_port:
         # Due to limitations in compose file variable interpolation, we need to
         # map exactly one device. So even if we don't need one, map /dev/null.
@@ -936,7 +928,7 @@ class Config(CompoundSetting):
     of the underlying config dictionary (e.g. changes to default values and
     environment variables) don't require a new config version.
     """
-    CONFIG_VERSION = 20
+    CONFIG_VERSION = 22
     _file_lock = threading.Lock()
     _has_instance = False
     _schema = {
@@ -987,9 +979,18 @@ class Config(CompoundSetting):
             env_variable_name="FEEDER_UAT_DEVICE_TYPE"),
         "serial_port_devices": ft.partial(
             CompoundSetting, schema={
-                "1090": StringSetting,
-                "978": StringSetting,
-                "ais": StringSetting,
+                "1090": ft.partial(
+                    CompoundSetting, schema={
+                        "device_file": StringSetting,
+                        "baudrate": ft.partial(IntSetting, default=38400),}),
+                "978": ft.partial(
+                    CompoundSetting, schema={
+                        "device_file": StringSetting,
+                        "baudrate": ft.partial(IntSetting, default=38400),}),
+                "ais": ft.partial(
+                    CompoundSetting, schema={
+                        "device_file": StringSetting,
+                        "baudrate": ft.partial(IntSetting, default=38400),}),
                 "unused": ft.partial(
                     ListSetting, required_value_type=str, default=[]),}),
         "max_range": ft.partial(
@@ -1963,6 +1964,18 @@ class Config(CompoundSetting):
             "unused": [],}
         return config_dict
 
+    @staticmethod
+    def _upgrade_config_dict_from_21_to_22(
+            config_dict: dict[str, Any]) -> dict[str, Any]:
+        config_dict = config_dict.copy()
+        # Each setting in serial_port_devices is now a compound setting
+        # including baudrate.
+        for purpose in ["1090", "978", "ais"]:
+            config_dict["serial_port_devices"][purpose] = {
+                "device_file": config_dict["serial_port_devices"][purpose],
+                "baudrate": 38400,}
+        return config_dict
+
     _config_upgraders = {(0, 1): _upgrade_config_dict_from_legacy_to_1,
                          (1, 2): _upgrade_config_dict_from_1_to_2,
                          (2, 3): _upgrade_config_dict_from_2_to_3,
@@ -1983,7 +1996,8 @@ class Config(CompoundSetting):
                          (17, 18): _upgrade_config_dict_from_17_to_18,
                          (18, 19): _upgrade_config_dict_from_18_to_19,
                          (19, 20): _upgrade_config_dict_from_19_to_20,
-                         (20, 21): _upgrade_config_dict_from_20_to_21}
+                         (20, 21): _upgrade_config_dict_from_20_to_21,
+                         (21, 22): _upgrade_config_dict_from_21_to_22}
 
     for k in it.pairwise(range(CONFIG_VERSION + 1)):
         # Make sure we have an upgrade function for every version increment,
