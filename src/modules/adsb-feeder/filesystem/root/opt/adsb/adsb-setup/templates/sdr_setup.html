@@ -226,7 +226,7 @@
                     <label for="baudrate-${deviceId}" class="form-label">Baud rate:</label>
                   </div>
                   <div class="col-12 col-md-8">
-                    <input type="text" id="baudrate-${deviceId}" name="baudrate-${deviceId}" class="form-control" pattern="[1-9][0-9]*" title="Positive integer" placeholder="38400" value="${sdrDevice.baudrate || 38400}">
+                    <input type="text" id="baudrate-${deviceId}" name="baudrate-${deviceId}" class="form-control" pattern="[1-9][0-9]*" title="Positive integer" placeholder="38400" value="${sdrDevice.baudrate || 38400}" required>
                   </div>
                 </div>
                 <div id="sdr-assignment-${deviceId}" class="row sdr-assignment"></div>
