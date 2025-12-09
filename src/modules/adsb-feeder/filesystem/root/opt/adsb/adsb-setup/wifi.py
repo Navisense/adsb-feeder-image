@@ -5,6 +5,7 @@ import threading
 import time
 from typing import Optional
 
+import system
 import util
 
 
@@ -106,6 +107,10 @@ class NetworkManagerWifi(GenericWifi):
         raise Exception(f"Failed to connect to '{ssid}' after timeout.")
 
     def scan_ssids(self):
+        if not system.systemctl().unit_is_active("NetworkManager"):
+            self._logger.warning(
+                "NetworkManager is not running, unable to scan for SSIDs.")
+            return
         with self._device_lock:
             self._scan_ssids_locked()
 
