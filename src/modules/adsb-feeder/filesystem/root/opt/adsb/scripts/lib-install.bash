@@ -31,6 +31,7 @@ find_missing_packages() {
     local PKG_NAME_DOCKER="docker"
     local PKG_NAME_DOCKER_COMPOSE="docker-compose"
     local PKG_NAME_USBUTILS="usbutils"
+    local PKG_NAME_DHCPCD="dhcpcd"
     local PKG_NAME_JQ="jq"
     local PKG_NAME_IW="iw"
     local PKG_NAME_HOSTAPD="hostapd"
@@ -84,6 +85,7 @@ find_missing_packages() {
     fi
 
     which lsusb &> /dev/null || missing+="${PKG_NAME_USBUTILS} "
+    which dhcpcd &> /dev/null || missing+="${PKG_NAME_DHCPCD} "
     which jq &> /dev/null || missing+="${PKG_NAME_JQ} "
     which iw &> /dev/null || missing+="${PKG_NAME_IW} "
     which hostapd &> /dev/null || missing+="${PKG_NAME_HOSTAPD} "

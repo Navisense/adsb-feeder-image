@@ -356,6 +356,12 @@ class NetworkManagerHotspot(Hotspot):
     """Hotspot using NetworkManager."""
     def _stop_wifi_client(self):
         system.systemctl().run(["stop"], ["NetworkManager", "wpa_supplicant"])
+        # Start dhcpcd so we still have a DHCP client running (in case someone
+        # plugs in an ethernet cable).
+        try:
+            util.shell_with_combined_output("dhcpcd")
+        except:
+            self._logger.exception("Failed to start dhcpcd.")
         util.shell_with_combined_output("iw reg set 00")
         # In some configurations, NetworkManager starts a dnsmasq as a DNS
         # proxy that can hang around even after we've stopped NetworkManager.
@@ -384,5 +390,11 @@ class NetworkManagerHotspot(Hotspot):
 
     def _restart_wifi_client(self):
         util.shell_with_combined_output("iw reg set 00")
+        # Stop dhcpcd because NetworkManager's own DHCP client takes over
+        # again.
+        try:
+            util.shell_with_combined_output("dhcpcd -k")
+        except:
+            self._logger.exception("Failed to stop dhcpcd.")
         system.systemctl().run(["restart"],
                                ["wpa_supplicant", "NetworkManager"])
