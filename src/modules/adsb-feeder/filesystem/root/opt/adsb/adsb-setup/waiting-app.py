@@ -6,6 +6,7 @@ from sys import argv
 import time
 
 app = Flask(__name__)
+# REFACTOR take from config+++++++++
 logfile = "/run/porttracker-sdr-feeder.log"
 title = "Restarting the ADS-B Feeder System"
 theme = "auto"
@@ -50,6 +51,7 @@ def waiting(path):
     return render_template("waiting.html", title=title)
 
 
+# REFACTOR does this ever get used?++++++++++++
 if __name__ == "__main__":
     port = 80
     if len(argv) >= 2:

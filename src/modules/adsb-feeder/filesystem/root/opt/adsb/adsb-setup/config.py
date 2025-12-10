@@ -476,6 +476,8 @@ class ScalarSetting(Setting):
         if value == self._value:
             return
         self._value = value
+        # PERF we're writing to file with every change. we could introduce a
+        # ctx manager that only writes on exit to save on writes+++++++++++
         self._config.write_to_file()
 
     def init_with_default(self) -> None:
@@ -1351,8 +1353,10 @@ class Config(CompoundSetting):
             GeneratedSetting,
             value_generator=_generate_shipfeeder_mapped_device,
             env_variable_name="SHIPFEEDER_CONFIG_MAPPED_DEVICE"),
+        # TODO update images++++++++++++++++
         "images": ft.partial(
-            CompoundSetting, schema={
+            CompoundSetting,
+            schema={
                 "dozzle": ft.partial(
                     ConstantSetting,
                     constant_value="ghcr.io/amir20/dozzle:v8.11.7",
@@ -1388,10 +1392,17 @@ class Config(CompoundSetting):
                     ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-opensky-network:latest-build-772",
                     env_variable_name="DOCKER_IMAGE_OPENSKY"),
+                # TODO generated setting because apparently the hardcoded one
+                # doesn't work on raspi 5. test if this is actually the case,
+                # maybe upgrade, and turn this back into a constant setting++++++++++
                 "planefinder": ft.partial(
                     GeneratedSetting,
                     value_generator=_generate_planefinder_image,
                     env_variable_name="DOCKER_IMAGE_PLANEFINDER"),
+                # ft.partial(
+                #     ConstantSetting, constant_value=
+                #     "ghcr.io/sdr-enthusiasts/docker-planefinder:latest-build-464",
+                #     env_variable_name="DOCKER_IMAGE_PLANEFINDER"),
                 "adsbhub": ft.partial(
                     ConstantSetting, constant_value=
                     "ghcr.io/sdr-enthusiasts/docker-adsbhub:latest-build-465",

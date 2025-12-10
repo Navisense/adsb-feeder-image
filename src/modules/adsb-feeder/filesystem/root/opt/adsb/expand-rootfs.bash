@@ -4,6 +4,8 @@
 
 source /opt/adsb/scripts/lib-common.bash
 
+# TODO find device first?++++++
+# TODO only works for ext fs
 DEVICE=/dev/mmcblk0
 ROOT_PARTITION_NUMBER=2
 ROOT_PARTITION_DEVICE=/dev/mmcblk0p2

@@ -4,6 +4,8 @@
     Help
 {% endblock title %}
 {% block content %}
+    {# TODO wording: "feeder" should be "Porttracker SDR"+++++++++++
+ #}
     <div class="row justify-content-center">
         <div class="col-10 col-lg-6">
             <p class="text-center">
@@ -263,26 +265,20 @@
         </div>
     </div>
     <script>
-    // Handle direct linking to FAQ items via URL hash.
-    document.addEventListener("DOMContentLoaded", function() {
-      const hash = window.location.hash;
-      if (hash && hash.startsWith("#faq-")) {
-        const targetId = hash.substring(1);
-        const targetElement = document.getElementById(targetId);
-        if (targetElement) {
-          const answerId = targetId + "-answer";
-          const answerElement = document.getElementById(answerId);
-          if (answerElement) {
-            // Use MDB's Collapse to show the answer.
-            const collapse = new mdb.Collapse(answerElement, { toggle: false });
-            collapse.show();
+      // Handle direct linking to FAQ items via URL hash.
+      $(function() {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith("#faq-")) {
+          const $target = $(hash);
+          if ($target.length) {
+            // Click the accordion button to expand the answer.
+            $target.find(".accordion-button").click();
+            // Scroll to the question after a short delay to ensure the accordion has opened.
+            setTimeout(function() {
+              $target[0].scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 300);
           }
-          // Scroll to the question after a short delay to ensure the accordion has opened.
-          setTimeout(function() {
-            targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-          }, 100);
         }
-      }
-    });
+      });
     </script>
 {% endblock content %}

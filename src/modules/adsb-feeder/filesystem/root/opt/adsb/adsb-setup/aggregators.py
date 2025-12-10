@@ -191,6 +191,7 @@ class NetConfig:
         return self._has_policy
 
 
+# TODO some of the check implementations have side effects++++++++++++++++++
 class Aggregator(abc.ABC):
     MAX_CACHE_AGE = 10
 
@@ -257,6 +258,8 @@ class Aggregator(abc.ABC):
     def _container_name(self) -> str:
         raise NotImplementedError
 
+    # TODO this has to be implemented properly when there are multi message
+    # type aggregators++++++++++++++
     def enabled(self, *message_types: MessageType) -> bool:
         """"
         Whether the aggregator is enabled for the given message types.
@@ -268,6 +271,7 @@ class Aggregator(abc.ABC):
             return False
         return self._conf.get(f"aggregators.{self.agg_key}.is_enabled")
 
+    # TODO configure specific to message type++++++++++++++
     def configure(self, enabled: bool, *args, **kwargs) -> None:
         self._conf.set(f"aggregators.{self.agg_key}.is_enabled", enabled)
         self._logger.info("Enabled." if enabled else "Disabled.")
@@ -953,6 +957,7 @@ class FlightAwareAggregator(AccountBasedAggregator):
     def _check_aggregator_status(self) -> AggregatorStatus:
         json_url = (
             f"http://localhost{flask.url_for('flightaware-status-json')}")
+        # TODO this shows good data even when no antenna is connected+++++++++++++
         fa_dict, status = util.generic_get_json(json_url)
         if not fa_dict or status != 200:
             raise StatusCheckError(
@@ -1295,6 +1300,8 @@ class SdrMapAggregator(AccountBasedAggregator):
         )
 
 
+# TODO status url?+++++++++++++++++++
+# TODO status?++++++++++++++++++++++++++++++
 class AiscatcherAggregator(AccountBasedAggregator):
     def __init__(self, conf: config.Config, system: system.System):
         super().__init__(

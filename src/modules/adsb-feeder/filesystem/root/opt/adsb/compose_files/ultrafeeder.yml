@@ -119,6 +119,7 @@ services:
     tmpfs:
       - /var/log:size=32M
     extra_hosts:
+      # TODO+++++++++++++++
       - "host.docker.internal:host-gateway"
     dns:
       - "8.8.8.8"

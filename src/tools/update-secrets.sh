@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO needed?+++++++++
 # this is hacky and not at all secure - but it's better than nothing
 
 # little helper

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO needed?+++++++++
 # get the changelog between $1 and $2 (we return this to the feeder so it
 # can be displayed to the user)
 if [ -d /data/changelogs ] ; then

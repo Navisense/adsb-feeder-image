@@ -4,6 +4,8 @@
   Location Setup
 {% endblock title %}
 {% block content %}
+  {# TODO remove here once part of the base template++++++++++
+ #}
   <div class="{%- if system.system_info.dns_is_working %} d-none {%- endif -%}">
     <div class="alert alert-danger" role="alert">
       The feeder cannot resolve DNS queries. This will most likely prevent it from working at all.
@@ -16,6 +18,8 @@
       </p>
     </div>
   </div>
+  {# TODO map showing position?++++++++++
+   #}
   <form method="post" onsubmit="showSpinner(); return true;">
     <div class="card my-2">
       <div class="card-body">

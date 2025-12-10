@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# TODO needed?+++++++++
 # find all the tags and loop over them, adding together the release notes
 first="${1:-v1.0.0}"
 last="${2:-HEAD}"

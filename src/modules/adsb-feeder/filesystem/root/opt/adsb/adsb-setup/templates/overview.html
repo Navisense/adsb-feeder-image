@@ -4,6 +4,10 @@
   Porttracker SDR Feeder
 {% endblock title %}
 {% block content %}
+  {# TODO put these into the base template (or base-regular)++++++++
+   #}
+  {# TODO the "no network" warning is shown when we come out of the hotspot. isn't updated soon enough++++++++
+    #}
   <div class="alert alert-danger {% if not compose_up_failed %}d-none{% endif %}"
        role="alert">
     docker compose up has failed. This means that something is wrong.
@@ -35,6 +39,12 @@
       <a href="{{ url_for('network-security-setup') }}">network and security setup page</a>.
     </div>
   {% endif %}
+  {# TODO
+  on the feeder via tailscale:
+  Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at http://navisense-teststation-home.tail0c4125.ts.net./healthz. (Reason: CORS request did not succeed). Status code: (null).
+  allow tailnet origins?++++++++++++++
+  ++++++++++++
+   #}
   <div class="card my-2">
     <div class="card-body">
       <div class="position-absolute top-0 end-0 m-3 d-flex align-items-center">
@@ -977,6 +987,7 @@
     }
 
     function updateOtherFeeders(versionInfo) {
+      // TODO for some reason, devices that are no longer online are still displayed++++++
         $.ajax("{{ url_for('feeder_discovery') }}").done(function (otherFeeders) {
           if (!otherFeeders.length) {
             $("#device-discovery").html(makeNotificationCardRowHtml(

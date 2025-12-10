@@ -165,6 +165,9 @@ class HotspotApp:
         self._restart_state = "done"
         self._connect_state: self.ConnectState = "no_attempt"
 
+        # TODO reset restart state and connect state after successful connect? for
+        # when it gets used again?+++++++++
+
     @property
     def restart_state(self):
         return self._restart_state
@@ -241,6 +244,7 @@ class HotspotApp:
 
     def on_wifi_test_status(self, success):
         if not success:
+            # TODO is this always guaranteed to be wrong creds? other causes?++++++++++++
             self._connect_state = "wrong_credentials"
         self._restart_state = "done"
 
@@ -428,7 +432,7 @@ class PorttrackerSdrFeeder:
                     self.redirect_to_other_app, port, spec["path"]),
                 view_func_wrappers=[self._decide_route_hotspot_mode],
             )
-
+        # REFACTOR prefix with /api as needed, reorder routes and view functions+++++++++
         # Provide our own static file view that handles stripping hashes off of
         # file names.
         app.add_url_rule(
@@ -441,6 +445,18 @@ class PorttrackerSdrFeeder:
             "statusz",
             view_func=self.statusz,
             methods=["OPTIONS", "GET"],
+        )
+        app.add_url_rule(
+            "/hotspot-restarting",
+            "hotspot-restarting",
+            view_func=ft.partial(render_template, "hotspot-restarting.html"),
+        )
+        app.add_url_rule(
+            "/hotspot",
+            "hotspot",
+            view_func=ft.partial(
+                render_template, "hotspot.html", connect_state="no_attempt",
+                networks=[]),
         )
         app.add_url_rule(
             "/login",
@@ -538,6 +554,7 @@ class PorttrackerSdrFeeder:
                 self._redirect_for_incomplete_config, self._require_login],
             methods=["GET"],
         )
+        # TODO disabled at the moment++++++++
         app.add_url_rule(
             "/set-css-theme",
             "set-css-theme",
@@ -597,6 +614,7 @@ class PorttrackerSdrFeeder:
             view_func_wrappers=[
                 self._decide_route_hotspot_mode, self._redirect_if_restarting],
         )
+        # TODO disabled at the moment++++++++
         app.add_url_rule(
             "/download-diagnostics",
             "download-diagnostics",
@@ -1586,12 +1604,18 @@ class PorttrackerSdrFeeder:
                 self._logger.exception(
                     "Error executing restore. Trying to redirect to home.")
                 return redirect(url_for("index"))
+            # TODO delete staged restore here? at the moment, coming back to
+            # the page means it will still show that a file has been uploaded+++++++++
             # Set the exiting flag, so the /restart endpoint can tell the
             # restarting page that this instance is still going down. Once
             # restarted, it will say that it's complete.
+            # REFACTOR this exiting flag seems like a bit of a hack. should we maybe set it when we receive SIGTERM?+++++++++++
             self.exiting = True
             return render_template("restarting.html")
 
+    # REFACTOR+++++++++++++
+    # TODO and also, if we change location we'll need a docker restart to
+    # inform the containers of the new location+++++++++++++++++
     def get_lat_lon_alt(self):
         # get lat, lon, alt of an integrated or micro feeder either from gps data
         # or from the env variables
@@ -1772,6 +1796,7 @@ class PorttrackerSdrFeeder:
         if (gain := request.form["gain"]) == "":
             gain = "auto"
         self._conf.set("gain", gain)
+        # TODO should we also use bias-t for ais?+++++++++++++++++
         self._conf.set("biast", util.checkbox_checked(request.form["biast"]))
         self._conf.set(
             "uatbiast", util.checkbox_checked(request.form["uat-biast"]))
@@ -2117,6 +2142,7 @@ class PorttrackerSdrFeeder:
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
         if needs_docker_restart:
+            # REFACTOR uncopypaste with the other instances of this+++++++++++++
             self._system._restart.bg_run(
                 cmdline="/opt/adsb/docker-compose-start", silent=False)
         return redirect(url_for("adsb-setup"))
@@ -2129,6 +2155,7 @@ class PorttrackerSdrFeeder:
         flash("Range outline reset successful.", category="success")
         return redirect(url_for("adsb-setup"))
 
+    # TODO disabled at the moment++++++++
     def set_css_theme(self):
         css_theme = request.form["css-theme"]
         if css_theme not in ["light", "dark", "auto"]:
@@ -2402,6 +2429,8 @@ class PorttrackerSdrFeeder:
                 agg.enabled()
                 for agg in aggregators.all_aggregators().values())
             or self._conf.get("aggregators_chosen"))
+        # TODO it seems that right after startup, the wifi network isn't
+        # available yet++++++++++
         return render_template(
             "overview.html",
             compose_up_failed=compose_up_failed,
@@ -2597,6 +2626,8 @@ class PorttrackerSdrFeeder:
             diagnostics_url=request.args.get("diagnostics_url"),
         )
 
+    # TODO disabled at the moment++++++++
+    # TODO fix++++++++++++
     def download_diagnostics(self):
         assert request.method == "POST"
         target = request.form["upload"]
@@ -2633,6 +2664,11 @@ class PorttrackerSdrFeeder:
                     "Failed to upload logs.", flash_message=True)
         return redirect(url_for("system-info", diagnostics_url=url))
 
+    # TODO disabled at the moment++++++++
+    # TODO the log-sanitizer.sh script only works with perl installed. add to
+    # dependencies or modify++++++++++++
+    # TODO e.g. by adding a "sensitive" flag to all settings and just
+    # automatically censoring that stuff for the download++++++++++++
     def download_logs(self, target):
         as_attachment = target == "local_download"
 
@@ -2662,6 +2698,7 @@ class PorttrackerSdrFeeder:
         )
 
     def stream_log(self):
+        # REFACTOR take from config++++++++++++
         logfile = "/run/porttracker-sdr-feeder.log"
 
         def tail():
@@ -2743,6 +2780,7 @@ class PorttrackerSdrFeeder:
             # Set the exiting flag, so the /restart endpoint can tell the
             # restarting page that this instance is still going down. The new
             # version will then say that the restart is complete.
+            # REFACTOR this exiting flag seems like a bit of a hack. should we maybe set it when we receive SIGTERM?+++++++++++
             self.exiting = True
             return render_template("/restarting.html")
         elif "configure-feeder-update" in request.form:
@@ -2810,6 +2848,8 @@ class PorttrackerSdrFeeder:
                 flash_message=True)
         return redirect(url_for("network-security-setup"))
 
+    # TODO didn't work once, apparently you have to reboot after installing
+    # tailscale (wouldn't log in). check this again and display error messages+++++++++++++++++++
     def configure_tailscale(self):
         try:
             self._configure_tailscale(

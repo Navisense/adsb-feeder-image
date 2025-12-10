@@ -61,6 +61,8 @@
             </div>
           </div>
         </div>
+        {# TODO grey out if nothing selected++++++++
+         #}
         <button type="submit" class="btn btn-primary mt-3">Download</button>
       </form>
     </div>
@@ -226,6 +228,8 @@
             action="{{ url_for('restore') }}"
             enctype="multipart/form-data">
         <input class="form-control" type="file" name="file">
+        {# TODO grey out if no file selected++++++++++
+         #}
         <button class="btn btn-primary mt-3" type="submit" name="upload-file">Upload backup file</button>
       </form>
     </div>
