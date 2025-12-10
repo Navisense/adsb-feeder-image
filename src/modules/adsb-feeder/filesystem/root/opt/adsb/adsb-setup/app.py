@@ -227,7 +227,11 @@ class HotspotApp:
             # This means the user entered an SSID manually and we should use
             # that.
             ssid = request.form.get("manual-ssid")
-        password = request.form.get("password")
+        try:
+            password = next(filter(None, request.form.getlist("password")))
+        except StopIteration:
+            # Password is empty.
+            password = ""
         if not all([ssid, password]):
             raise ValueError("no credentials")
         return ssid, password
