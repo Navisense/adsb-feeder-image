@@ -160,7 +160,7 @@ fi
 
 echo "done installing"
 echo "you can uninstall this software by running"
-echo "sudo bash ${APP_DIR}/app-uninstall"
+echo "sudo ${APP_DIR}/uninstall.bash"
 echo ""
 local_ip=$(ip route get 1 | grep -oP 'src \K\S+')
 echo "you can access the web interface at http://localhost:${WEB_PORT} or http://${local_ip}:${WEB_PORT}"
