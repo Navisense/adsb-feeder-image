@@ -954,7 +954,7 @@ class PorttrackerSdrFeeder:
 
             has_internet = False
             for check, ok in self._connectivity_monitor.current_stati.items():
-                if ok:
+                if check != "reachable_gateway" and ok:
                     has_internet = True
 
             if self._hotspot_mode and not has_internet:
