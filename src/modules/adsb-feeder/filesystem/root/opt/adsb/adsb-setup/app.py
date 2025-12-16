@@ -1915,7 +1915,7 @@ class PorttrackerSdrFeeder:
             self._conf.set("readsb_device_type", "")
 
     def version_info(self):
-        stable_versions = [str(v) for v in net.gitlab_repo().get_semver_tags()]
+        stable_versions = [str(v) for v in net.github_repo().get_semver_tags()]
         containers = [{
             "image": c.image,
             "name": c.name,
@@ -2183,7 +2183,7 @@ class PorttrackerSdrFeeder:
         return redirect(url_for("system-setup"))
 
     def system_setup(self):
-        stable_versions = net.gitlab_repo().get_semver_tags()
+        stable_versions = net.github_repo().get_semver_tags()
         return render_template(
             "system_setup.html",
             stable_versions=stable_versions,

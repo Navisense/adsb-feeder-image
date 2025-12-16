@@ -12,8 +12,9 @@ import zeroconf as zc
 import util
 
 
-class GitlabRepo:
-    API_BASE_URL = "https://gitlab.navisense.de/api/v4/projects/96"
+class GithubRepo:
+    API_BASE_URL = (
+        "https://api.github.com/repos/maritime-datasystems/adsb-feeder-image")
 
     def __init__(self):
         self._logger = logging.getLogger(type(self).__name__)
@@ -29,7 +30,7 @@ class GitlabRepo:
         return sorted(semvers, reverse=True)
 
     def get_tags(self) -> list[str]:
-        url = self.API_BASE_URL + "/repository/tags"
+        url = self.API_BASE_URL + "/tags"
         try:
             with urllib.request.urlopen(url) as response:
                 json_response = json.load(response)
@@ -39,15 +40,15 @@ class GitlabRepo:
             return []
 
 
-_gitlab_repo: GitlabRepo = None
+_github_repo: GithubRepo = None
 
 
-def gitlab_repo() -> GitlabRepo:
-    """Get the global instance of GitlabRepo."""
-    global _gitlab_repo
-    if _gitlab_repo is None:
-        _gitlab_repo = GitlabRepo()
-    return _gitlab_repo
+def github_repo() -> GithubRepo:
+    """Get the global instance of GithubRepo."""
+    global _github_repo
+    if _github_repo is None:
+        _github_repo = GithubRepo()
+    return _github_repo
 
 
 @dc.dataclass
