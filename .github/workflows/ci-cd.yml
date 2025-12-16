@@ -7,8 +7,6 @@ on:
       - development
     tags:
       - "*"
-    branches-ignore:
-      - "stash/**"
 
 permissions:
   contents: write
