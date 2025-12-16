@@ -3,8 +3,8 @@
 
 APP_DIR="/opt/adsb"
 METADATA_DIR="${APP_DIR}/porttracker_sdr_feeder_install_metadata"
-REPO_URL="https://gitlab.navisense.de/navisense-public/adsb-feeder-image.git"
-REPO_API_BASE_URL="https://gitlab.navisense.de/api/v4/projects/96"
+REPO_URL="https://github.com/maritime-datasystems/adsb-feeder-image.git"
+REPO_API_BASE_URL="https://api.github.com/repos/maritime-datasystems/adsb-feeder-image"
 
 get_distro() {
     local distro="unknown"
@@ -235,7 +235,7 @@ install_files() {
 
 # Find the latest stable version that can be installed.
 find_latest_stable_version() {
-    curl -s "${REPO_API_BASE_URL}/repository/tags" \
+    curl -s "${REPO_API_BASE_URL}/tags" \
     | jq --raw-output '.[].name' \
     | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
     | sort -r -V \

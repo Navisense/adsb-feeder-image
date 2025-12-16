@@ -10,11 +10,6 @@ The data can be shared with [porttracker.co](https://porttracker.co) by
 The application is based on [ADS-B Feeder Image](https://adsb.im) by Dirk
 Hohndel.
 
-Development takes place on the [Navisense
-Github](https://gitlab.navisense.de/navisense-public/adsb-feeder-image/), but
-updates are also regularly pushed to the fork on
-[Github](https://github.com/Navisense/adsb-feeder-image).
-
 ## Track nearby ships and aircraft with your own hardware and share with others
 
 Track ships and aircraft around you that are broadcasting AIS/ADS-B messages
@@ -99,16 +94,16 @@ https://porttracker-api.porttracker.co/api/v1/file/public/device_images/porttrac
 where
 
 - `<version>` is the version of the image (see
-  [tags](https://gitlab.navisense.de/navisense-public/adsb-feeder-image/-/tags))
+  [tags](https://github.com/maritime-datasystems/adsb-feeder-image/tags))
 - `<device>` is the device type, one of `raspberry-pi3`, `raspberry-pi4`,
   `raspberry-pi5`
 - `<variant>` is the variant of the image, either `headless` or `plasma-mobile`
 
-For example, the URL for the image for version `v3.12.3` for a Raspberry Pi 4
+For example, the URL for the image for version `v3.12.6` for a Raspberry Pi 4
 running in headless mode is
 
 ```
-https://porttracker-api.porttracker.co/api/v1/file/public/device_images/porttracker-sdr-feeder_v3.12.3_raspberry-pi4_headless.img.zip
+https://porttracker-api.porttracker.co/api/v1/file/public/device_images/porttracker-sdr-feeder_v3.12.6_raspberry-pi4_headless.img.zip
 ```
 
 To flash the image, you can use the [Raspberry Pi
@@ -168,12 +163,12 @@ the following:
 
 You can install the whole software stack as an app on an existing postmarketOS
 system. Run a small [install
-script](https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script),
+script](https://github.com/maritime-datasystems/adsb-feeder-image/releases/latest/download/app-install.bash),
 which is generated as a build artifact by the CI pipeline. For the trusting kind
 of people, all you need to do is open a root shell and execute
 
 ```
-curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
+curl -L -sS 'https://github.com/maritime-datasystems/adsb-feeder-image/releases/latest/download/app-install.bash' \
     | bash -s -- --web-port 80 --enable-mdns --auto-install-dependencies
 ```
 

@@ -94,11 +94,11 @@ if [ "${variant}" = "headless" ] ; then
 fi
 echo "Installing porttracker-sdr-feeder with args ${feeder_install_args}."
 pmbootstrap --as-root chroot -r -- bash -c \
-    "curl -L -sS 'https://gitlab.navisense.de/navisense-public/adsb-feeder-image/builds/artifacts/main/raw/app-install.bash?job=build-install-script' \
+    "curl -L -sS 'https://github.com/maritime-datasystems/adsb-feeder-image/releases/latest/download/app-install.bash' \
     | bash -s -- ${feeder_install_args}"
 
 # See if there is a device-specific post-install script that needs to be run.
-post_install_script="${CI_PROJECT_DIR}/.ci/device_specific_post_install/${device}.bash"
+post_install_script="./.ci/device_specific_post_install/${device}.bash"
 if [ -f "${post_install_script}" ] ; then
     echo "Running device-specific post-install script ${post_install_script}."
     bash "${post_install_script}"
@@ -139,4 +139,4 @@ fi
 echo "Zipping ${image_file}."
 zip --junk-paths ${image_file}.zip ${image_file}
 echo "Uploading ${image_file}.zip to S3."
-aws --profile cli s3 cp ${image_file}.zip ${S3_BUCKET}/${image_file}.zip
+aws s3 cp ${image_file}.zip ${S3_BUCKET}/${image_file}.zip

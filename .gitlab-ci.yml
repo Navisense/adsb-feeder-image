@@ -1,3 +1,6 @@
+# This is the definition for Gitlab CI and only here for reference since we've
+# moved to Github actions.
+
 default:
   image: 958883103414.dkr.ecr.eu-central-1.amazonaws.com/ci-toolkit:5
 
