@@ -1,9 +1,0 @@
-[Unit]
-Description=ADS-B Feeder Dummy service
-
-[Service]
-Type=oneshot
-WorkingDirectory=/opt/adsb
-ExecStart=/bin/bash -c "exit 0"
-TimeoutStartSec=0
-
