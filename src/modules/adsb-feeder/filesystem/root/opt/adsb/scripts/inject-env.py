@@ -2,6 +2,12 @@ import os
 import re
 import sys
 
+# TODO this script is called in docker-compose-adsb, but only if a special
+# .env.user file is created on the system, which can only be done via ssh.
+# however, there is also a ultrafeeder_extra_env config setting, which is
+# unused++++++++
+# TODO this whole script is also finnicky as hell
+
 # super simple helper to inject the user provided environment variables into the
 # existing docker-compose.yml file
 

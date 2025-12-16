@@ -4,6 +4,8 @@
   Porttracker Feeder Hotspot
 {% endblock title %}
 {% block content %}
+  {# TODO does this ever get shown if we're connected? do we need to handle a connect_state "success"?+++++++++++
+ #}
   <div class="row justify-content-center">
     <div class="col-10 col-lg-6">
       <p class="text-center">
@@ -28,6 +30,11 @@
   {% endif %}
   <div class="card my-2">
     <div class="card-body">
+      {# TODO maybe we can do an onsubmit="return false;", then post the from from javascript, and embed the restarting
+page in here? that way, phones that would normally navigate away would still see the page #}
+      {# TODO actually, it looks like the browser closes even when a post request is sent via js, or just when the
+hotspot goes away+++++++
+ #}
       <form method="post" class="my-4">
         <div class="row align-items-center">
           {% for network in networks %}

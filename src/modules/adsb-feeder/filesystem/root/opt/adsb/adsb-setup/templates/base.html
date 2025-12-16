@@ -425,6 +425,8 @@
       </section>
     </footer>
     <script>
+      // TODO this doesn't work if the tooltip is being shown when it is updated. this happens e.g. when a rechability
+      // badge in the network info shows a tooltip, and then the auto reload calls initOrReplaceMdbTooltip() for all the badges.
       function initOrReplaceMdbTooltip(element) {
         const existingTooltip = mdb.Tooltip.getInstance(element);
         if (existingTooltip) {

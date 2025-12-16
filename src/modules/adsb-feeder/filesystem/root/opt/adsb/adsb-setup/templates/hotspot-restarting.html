@@ -317,6 +317,10 @@
               // Continue to check step 3.
             } else if (feederStatus?.mode === "hotspot") {
               // Device went back to hotspot mode - connection failed.
+              // TODO this is unexpected, but this may happen if we lose connection in step 1 for reasons unrelated to
+              // the device stopping the hotspot, and then we can reach it again here. maybe we should check one or 2
+              // seconds in step 1 to make sure the hotspot is really gone.++++++++++++
+              // TODO time out this state if it persists for 10 seconds+++++++++
               updateStepStatus(currentStep, "error");
               const errorDetail = (
                 `When requesting a status from the device, we got error `

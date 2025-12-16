@@ -4,6 +4,8 @@
   SDR Setup
 {% endblock title %}
 {% block content %}
+  {# TODO advanced options,collapsible++++++
+ #}
   <div id="duplicate-serials-alert" class="alert alert-danger d-none">
     There are multiple SDRs with serial numbers <span id="duplicate-serials"></span>. This will not work correctly.
     Please ensure that all SDRs have distinct serial numbers.
@@ -212,6 +214,7 @@
           purposeName = `purpose-serial-${deviceId}`;
           break;
       }
+      // TODO we can display better device names, see ais-catcher. also on overview page++++++++++++++
       if (sdrDevice.type == "serial_port") {
         $("#sdr-devices").append($(`
           <div class="col-12 col-lg-6">

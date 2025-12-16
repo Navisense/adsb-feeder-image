@@ -1,0 +1,566 @@
+{% extends "base-container.html" %}
+{% set active_page = "hotspot" %}
+{% block title %}
+  Porttracker Feeder Hotspot
+{% endblock title %}
+{% block content %}
+  <div id="hotspot-select-network">
+    {# TODO does this ever get shown if we're connected? do we need to handle a connect_state "success"?+++++++++++
+ #}
+    <div class="row justify-content-center">
+      <div class="col-10 col-lg-6">
+        <p class="text-center">
+          This is the wifi hotspot of the Porttracker SDR <strong>{{ get_conf("feeder_name") }}</strong>. You're seeing
+          this page because it is not currently connected to a wifi network. You can configure one here. Afterwards, the
+          device should be reachable on the network as
+          <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a> (see also
+          the <a href="#reachability-card">section on how to reach the device</a> below).
+        </p>
+      </div>
+    </div>
+    <div class="alert alert-info">
+      When you select a network, we'll try to show you the progress of the device connecting to the network. However, your
+      phone may navigate away immediately (if you've chosen "tap here to sign in to the network" to get to this page). If
+      that happens, just try to go to
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a> after selecting
+      the network here. If there is a problem connecting to the network, the hotspot will come back up and you can try
+      again.
+    </div>
+    {% if connect_state == "wrong_credentials" %}
+      <div class="alert alert-danger">Failed to connect, wrong SSID or password, please try again.</div>
+    {% endif %}
+    <div class="card my-2">
+      <div class="card-body">
+        <h5 class="card-title">Available networks</h5>
+        {# TODO maybe we can do an onsubmit="return false;", then post the from from javascript, and embed the restarting
+page in here? that way, phones that would normally navigate away would still see the page #}
+        <form method="post" class="my-4" onsubmit="showProgress(); return false;">
+          <div class="row align-items-center">
+            {% for network in networks %}
+              <div class="col-12 col-lg-6 col-xl-4">
+                <label class="w-100">
+                  <input type="radio"
+                         required
+                         class="form-check-input d-none"
+                         name="ssid"
+                         value="{{ network.ssid }}"
+                         onclick="updateSsidSelection(this.value);">
+                  <div class="card my-2 select-ssid-card" data-ssid="{{ network.ssid }}">
+                    <div class="card-body">
+                      <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                        <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                      </div>
+                      <h5 class="card-title">{{ network.ssid }}</h5>
+                      <input type="text"
+                             class="form-control my-2 network-input network-input-password d-none"
+                             name="password"
+                             placeholder="Password">
+                      <div class="text-muted">signal strength: {{ network.signal_strength }}</div>
+                      <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            {% endfor %}
+            <div class="col-12 col-lg-6 col-xl-4">
+              <label class="w-100">
+                <input type="radio"
+                       required
+                       class="form-check-input d-none"
+                       name="ssid"
+                       value=""
+                       onclick="updateSsidSelection('');">
+                <div class="card my-2 select-ssid-card" data-ssid="">
+                  <div class="card-body">
+                    <div class="selected-checkmark d-none position-absolute top-0 end-0 m-3">
+                      <span class="badge badge-circular badge-success"><span class="fas fa-check text-black"></span></span>
+                    </div>
+                    <h5 class="card-title">Manually enter an SSID</h5>
+                    If your network isn't shown here, you can also enter the SSID manually.
+                    <input type="text"
+                           class="form-control my-2 network-input d-none"
+                           name="manual-ssid"
+                           placeholder="SSID">
+                    <input type="text"
+                           class="form-control my-2 network-input network-input-password d-none"
+                           name="password"
+                           placeholder="Password">
+                    <button type="submit" class="btn btn-accent my-2 network-input d-none">Use this network</button>
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+    <div class="card my-2" id="reachability-card">
+      <div class="card-body">
+        <h5 class="card-title">Reaching the device (via mDNS)</h5>
+        <div class="my-3" id="mdns-status"></div>
+        <p class="my-3">
+          Once you configure a network, the Hotspot connection will drop and the feeder will attempt to connect to the
+          network that you specified. If that WiFi connection is successful, the feeder should become available on that
+          WiFi network as
+          <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>. This
+          requires mDNS to be enabled on your system (it typically is). This test checks whether it is working right now.
+        </p>
+        <p class="my-3">
+          If the connection fails, the feeder will once again bring up this hotspot and you can try entering the
+          credentials again.
+        </p>
+        <p class="my-3">
+          A note on reaching devices connected to a separate network: If the WiFi network you're configuring isn't the
+          same one you're on, you probably won't be able to reach the device. This is also commonly the case if you
+          connect this device to your router's guest access, but you connect to the internal network. In that case it
+          may help to use guest access yourself, but in some routers you need to enable an option that guest devices can
+          communicate with one another.
+        </p>
+      </div>
+    </div>
+  </div>
+  <div id="hotspot-progress" class="d-none">
+    <!-- Explanatory Text -->
+    <div class="alert alert-info mb-4" role="alert">
+      <h5 class="alert-heading">Porttracker SDR Connecting to WiFi</h5>
+      <p class="mb-0">Your Porttracker SDR device is trying to connect to the WiFi network you provided.</p>
+    </div>
+    <!-- Progress Steps -->
+    <div class="card">
+      <ul class="list-group list-group-light list-group-flush px-4">
+        <!-- Step 1: Stop the hotspot -->
+        <li class="list-group-item py-3 text-muted" id="step-1">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex align-items-start flex-grow-1">
+              <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
+              <div class="flex-grow-1">
+                <div class="fw-bold mb-1">Stop the hotspot</div>
+                <!-- Pending state description -->
+                <div class="step-description step-description-pending small d-none">
+                  The device has received the network SSID and password you provided. First, it needs to stop the hotspot
+                  we were just connected to. This is necessary so it can try to connect to the network.
+                </div>
+                <!-- In-progress state description -->
+                <div class="step-description step-description-in-progress small">
+                  We're waiting for the device to stop the hotspot. When we can't reach it anymore, we'll know that it has
+                  stopped.
+                </div>
+                <!-- Done state description -->
+                <div class="step-description step-description-done small d-none">
+                  We can no longer reach the device in its hotspot mode. This means it has stopped successfully.
+                </div>
+                <!-- Error state description -->
+                <div class="step-description step-description-error small d-none">
+                  We've encountered an unknown state while checking the hotspot. This is unexpected, but we'll keep
+                  checking to see if the process works anyway.
+                  <div class="step-description-error-detail small"></div>
+                </div>
+              </div>
+            </div>
+            <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
+          </div>
+        </li>
+        <!-- Step 2: Connect to the network -->
+        <li class="list-group-item py-3 text-muted" id="step-2">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex align-items-start flex-grow-1">
+              <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
+              <div class="flex-grow-1">
+                <div class="fw-bold mb-1">Connect to the network</div>
+                <!-- Pending state description -->
+                <div class="step-description step-description-pending small">
+                  When we can't reach the hotspot anymore, we will wait for the device to connect to the new network.
+                </div>
+                <!-- In-progress state description -->
+                <div class="step-description step-description-in-progress small d-none">
+                  We're waiting for the device to connect to the new network. We're doing this by continuously trying to
+                  reach the device. This will only work if the computer or phone you're viewing this on will also connect
+                  to the same network. If this takes longer than a minute or two, check in your own system settings that
+                  you are connected to the same WiFi that we're trying to get the Porttracker SDR to connect to.
+                </div>
+                <!-- Done state description -->
+                <div class="step-description step-description-done small d-none">
+                  Success! We've heard back from the device.
+                </div>
+                <!-- Error state description -->
+                <div class="step-description step-description-error small d-none">
+                  We've been waiting for the device to connect to the new network for a while, but it hasn't happened yet.
+                  This could be for a number of reasons:
+                  <ul>
+                    <li>
+                      Network out of range. If the device is too far away from the router, it may not get a reliable
+                      signal.
+                    </li>
+                    <li>
+                      Maybe you provided the wrong password. In that case, the device will restart the hotspot so you
+                      can try again. Check if there is a WiFi named {{ get_conf("feeder_name") }} and connect to it.
+                    </li>
+                    <li>
+                      mDNS is not enabled on you computer/phone. The device uses mDNS (also known as Bonjour, Avahi, or
+                      Zeroconf) to tell us how we can reach it. Your computer/phone needs to support this. There was a
+                      test on the previous page, if that showed a negative result, it's expected that this step will fail.
+                      You will need to enable mDNS, or check in the settings of your router/access point whether the
+                      device has connected.
+                    </li>
+                  </ul>
+                  <div class="step-description-error-detail small"></div>
+                </div>
+              </div>
+            </div>
+            <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
+          </div>
+        </li>
+        <!-- Step 3: Connection established -->
+        <li class="list-group-item py-3 text-muted" id="step-3">
+          <div class="d-flex justify-content-between align-items-start">
+            <div class="d-flex align-items-start flex-grow-1">
+              <span class="step-icon far fa-circle-dot me-3 mt-1"></span>
+              <div class="flex-grow-1">
+                <div class="fw-bold mb-1">Connection established</div>
+                <!-- Pending state description -->
+                <div class="step-description step-description-pending small">
+                  After connecting, we'll verify the connection is stable and complete the setup.
+                </div>
+                <!-- In-progress state description -->
+                <div class="step-description step-description-in-progress small d-none">
+                  We've heard back from the device, and are checking that everything is working as expected.
+                </div>
+                <!-- Done state description -->
+                <div class="step-description step-description-done small d-none">
+                  You're good to go! The device has assumed normal operation. You can visit the home page at
+                  <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+                </div>
+                <!-- Error state description -->
+                <div class="step-description step-description-error small d-none">
+                  We were able to reach the device, but it hasn't assumed normal operation as we expected.
+                  <div class="step-description-error-detail small"></div>
+                </div>
+              </div>
+            </div>
+            <span class="step-badge badge badge-secondary rounded-pill ms-3">Pending</span>
+          </div>
+        </li>
+      </ul>
+    </div>
+    <!-- Final Messages -->
+    <div class="alert alert-success mt-4 final-message d-none"
+         role="alert"
+         id="final-message-success">
+      Success! The device has joined the network, and you can now reach it at
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+    </div>
+    <div class="alert alert-danger mt-4 final-message d-none"
+         role="alert"
+         id="final-message-device-back-in-hotspot-mode">
+      We lost connection to the device as expected, but when we regained connection, it claimed to have started the
+      hotspot again. This is unexpected. Check if a WiFi named {{ get_conf("feeder_name") }} is visible, connect to it and
+      try again. Otherwise, see if you can reach the device at
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+    </div>
+    <div class="alert alert-warning mt-4 final-message d-none"
+         role="alert"
+         id="final-message-timeout-waiting-for-device">
+      <p>
+        After checking for a connection for 3 minutes, we were unable to connect to the device. This doesn't necessarily
+        mean that it didn't work.
+      </p>
+      <p>
+        Is your computer/phone connected to the same network as the PorttrackerSDR device? If not,
+        connect to it and try to reach the device at
+        <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+      </p>
+      <p>
+        Or maybe you entered the wrong password? Then a WiFi named {{ get_conf("feeder_name") }} should be visible, to
+        which you can connect and try again.
+      </p>
+    </div>
+    <div class="alert alert-warning mt-4 final-message d-none"
+         role="alert"
+         id="final-message-regular-mode-but-restart-not-done">
+      The device is reachable, and in regular mode as expected. However, it reports that the connection to the WiFi wasn't
+      successful. This is odd. Is it also connected via Ethernet? In any case, you should be able to access the home page
+      at
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+    </div>
+    <div class="alert alert-danger mt-4 final-message d-none"
+         role="alert"
+         id="final-message-global-timeout">
+      After checking for 4 minutes, we're unable to confirm that the device has joined the network. Check if a WiFi named
+      {{ get_conf("feeder_name") }} is visible, connect to it and try again. Otherwise, see if you can reach the device at
+      <a href="http://{{ get_conf("feeder_name") }}.local">http://{{ get_conf("feeder_name") }}.local</a>.
+    </div>
+  </div>
+  <script type="text/javascript"
+          src="{{ url_for('static', filename='js/netstatus.js') }}"></script>
+  <script>
+    $(document).ready(() => setNavbarEnabled(false));
+
+    function updateSsidSelection(selectedSsid) {
+      const card = $(`.select-ssid-card[data-ssid="${selectedSsid}"]`);
+
+      $(".network-input").required = false;
+      $(".network-input").addClass("d-none");
+      card.find(".network-input").required = true;
+      card.find(".network-input").removeClass("d-none");
+
+      $(".network-input-password").attr("name", "password-disabled");
+      card.find(".network-input-password").attr("name", "password");
+
+      const selectedCardClasses = "border border-3 border-success";
+      $(".select-ssid-card").each(function() {
+        $(this).removeClass(selectedCardClasses);
+      });
+      $(".select-ssid-card .selected-checkmark").addClass("d-none");
+      card.addClass(selectedCardClasses);
+      card.find(".selected-checkmark").removeClass("d-none");
+    }
+
+    function updateMdnsStatusDiv(stati, hasTimedOut) {
+      const statusDiv = $("#mdns-status");
+      if (hasTimedOut) {
+        statusDiv.html(makeNotificationCardHtml(
+          "error", "mDNS is not working", "Unable to contact the feeder as {{ get_conf("feeder_name") }}.local."));
+      } else if (stati.get("{{ get_conf("feeder_name") }}.local").status == "success") {
+        statusDiv.html(makeNotificationCardHtml(
+          "success", "mDNS is working",
+          "The feeder can be reached as {{ get_conf("feeder_name") }}.local, looks like mDNS is working."));
+      } else if (stati.get("example.org").status != "success") {
+        statusDiv.html(makeNotificationCardHtml(
+          "info", "Checking mDNS status", "Trying to reach the feeder. This may take a little while."));
+      } else {
+        statusDiv.html(makeNotificationCardHtml(
+          "warning", "Checking mDNS status",
+          "The feeder can be reached, but not yet as {{ get_conf("feeder_name") }}.local."));
+      }
+    }
+
+    if (!{{ get_conf('mdns.is_enabled') | tojson }}) {
+      $("#mdns-status").html(makeNotificationCardHtml(
+        "info", "mDNS is disabled",
+        "mDNS is disabled in this installation. The feeder will not be reachable as "
+        + "{{ get_conf("feeder_name") }}.local."));
+    } else {
+      const checkDomains = ["example.org", "{{ get_conf("feeder_name") }}.local"];
+      const connectivityChecker = new FeederConnectivityChecker(checkDomains, updateMdnsStatusDiv, 300 * 1000);
+      // TODO stop again when moving on to waiting phase+++++++++++
+      connectivityChecker.start();
+    }
+
+    let currentStep = 1;
+    let keepChecking = true;
+    let startTime = Date.now();
+
+    //REFACTOR+++++++++++++
+    function showProgress() {
+      $.ajax({
+        url: "/",
+        method: "POST",
+        data: {
+          "ssid": $('input[name="ssid"]:checked').val(),
+          "manual-ssid": $('input[name="manual-ssid"]').val(),
+          "password": $('input[name="password"]').val(),
+        },
+        timeout: 5000,
+        success: function (feederStatus) {
+          //alert("success" + JSON.stringify(feederStatus));
+          // TODO stop conn checker++++++++
+          $("#hotspot-select-network").addClass("d-none");
+          $("#hotspot-progress").removeClass("d-none");
+          startTime = Date.now();
+          // Start with step 1, then keep checking and updating.
+          updateStepStatus(1, "in-progress");
+          checkRestartStatus();
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          //TODO++++++++++++
+          alert("error" + textStatus);
+        },
+      });
+      // TODO also need to send the request+++++++++++
+    }
+
+    function updateStepStatus(stepNumber, status) {
+      if (!["done", "error", "in-progress"].includes(status)) {
+        console.error(`Invalid step status: ${status}`);
+        return;
+      }
+      const stepElement = $(`#step-${stepNumber}`);
+      const iconElement = stepElement.find(".step-icon");
+      const badgeElement = stepElement.find(".step-badge");
+      stepElement.removeClass("text-muted");
+
+      // Hide all description variants and show the one for the current status
+      stepElement.find(".step-description").addClass("d-none");
+      stepElement.find(`.step-description-${status}`).removeClass("d-none");
+
+      iconElement.removeClass(
+        "far fas fa-circle-dot fa-circle-check fa-circle-notch fa-circle-xmark fa-spin text-success text-danger "
+        + "text-primary");
+      badgeElement.removeClass("badge-secondary badge-success badge-danger badge-primary");
+
+      if (status === "done") {
+        // Green checkmark for completed steps
+        iconElement.addClass("far fa-circle-check text-success");
+        badgeElement.addClass("badge-success");
+        badgeElement.text("Done");
+      } else if (status === "error") {
+        // Red X for failed steps
+        iconElement.addClass("far fa-circle-xmark text-danger");
+        badgeElement.addClass("badge-danger");
+        badgeElement.text("Failed");
+      } else if (status === "in-progress") {
+        // Spinning icon for current step
+        iconElement.addClass("fas fa-circle-notch fa-spin text-primary");
+        badgeElement.addClass("badge-primary");
+        badgeElement.text("In Progress");
+      }
+    }
+
+    function showFinalMessage(type) {
+      $(`#final-message-${type}`).removeClass("d-none");
+    }
+
+    function checkRestartStatus() {
+      $.ajax({
+        url: "http://{{ get_conf("feeder_name") }}.local/api/statusz",
+        type: "GET",
+        timeout: 200,
+        success: function (feederStatus) {
+          updateStatus(feederStatus, undefined);
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+          updateStatus(undefined, textStatus);
+        },
+      });
+      if (keepChecking) {
+        // Only check again if we're not done.
+        setTimeout(checkRestartStatus, 200);
+      }
+    }
+
+    function updateStatus(feederStatus, errorStatus) {
+      const hitGlobalTimeout = Date.now() - startTime > 240 * 1000;
+      while (keepChecking) {
+        switch (currentStep) {
+          case 1:
+            // Step 1: Stop the hotspot.
+            // We need to see that the device is disconnected (timeout) or no longer in hotspot mode.
+            if (errorStatus === "timeout" || errorStatus === "error") {
+              console.log("Step 1: Can't reach the device, hotspot must have stopped. Progressing to step 2.");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 2
+            } else if (feederStatus?.mode === "hotspot") {
+              console.log("Step 1: Device is still in hotspot mode. Waiting...");
+              return;
+            } else if (feederStatus?.mode === "regular") {
+              // Hotspot stopped and device is already connected.
+              console.log("Step 1: Device is no longer in hotspot mode. Progressing to step 2.");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 2.
+            } else {
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-1 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 1: Unknown state while checking status. ${errorDetail}`);
+              // For an error during this step, we'll keep checking.
+              return;
+            }
+            break;
+          case 2:
+            // Step 2: Connect to the network.
+            // We're trying to reach the device on the network.
+            if (errorStatus === "timeout" || errorStatus === "error") {
+              console.log("Step 2: Still can't reach the device. Waiting for connection...");
+              return;
+            } else if (feederStatus?.mode === "regular") {
+              // We can reach the device and it's in regular mode - connection successful!
+              console.log("Step 2: Device is reachable in regular mode. Connection successful!");
+              updateStepStatus(currentStep, "done");
+              currentStep++;
+              updateStepStatus(currentStep, "in-progress");
+              // Continue to check step 3.
+            } else if (feederStatus?.mode === "hotspot") {
+              // Device went back to hotspot mode - connection failed.
+              // TODO this is unexpected, but this may happen if we lose connection in step 1 for reasons unrelated to
+              // the device stopping the hotspot, and then we can reach it again here. maybe we should check one or 2
+              // seconds in step 1 to make sure the hotspot is really gone.++++++++++++
+              // TODO time out this state if it persists for 10 seconds+++++++++
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Device is back in hotspot mode. Connection failed. ${errorDetail}`);
+              showFinalMessage("device-back-in-hotspot-mode");
+              keepChecking = false;
+              return;
+            } else if (Date.now() - startTime > 180 * 1000) {
+              // Show the step's error state after 3 minutes.
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Timeout waiting for device. ${errorDetail}`);
+              showFinalMessage("timeout-waiting-for-device");
+              keepChecking = false;
+              return;
+            } else {
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-2 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 2: Unknown state while checking status. ${errorDetail}`);
+              // In this case, we keep checking. Eventually we'll hit the timeout.
+              return;
+            }
+            break;
+          case 3:
+            // Step 3: Connection established.
+            // Verify the restart process is complete.
+            if (feederStatus?.mode === "regular" && feederStatus?.hotspot_status?.restart_state === "done") {
+              console.log("Step 3: Connection fully established. Restart complete!");
+              updateStepStatus(currentStep, "done");
+              keepChecking = false;
+              showFinalMessage("success");
+              return;
+            } else if (feederStatus?.mode === "regular" && hitGlobalTimeout) {
+              // Already in regular mode, but the device doesn't report a successful wifi connection.
+              showFinalMessage("regular-mode-but-restart-not-done");
+              keepChecking = false;
+              return;
+            } else if (feederStatus?.mode === "hotspot") {
+              // Already in regular mode, but the device doesn't report a successful wifi connection.
+              console.log(
+                "Step 3: Device appears to be connected, but doesn't report a successful wifi connection. Waiting...");
+              return;
+            } else {
+              updateStepStatus(currentStep, "error");
+              const errorDetail = (
+                `When requesting a status from the device, we got error `
+                + `${errorStatus}, and status ${JSON.stringify(feederStatus)}`);
+              $("#step-3 .step-description-error-detail").text(errorDetail);
+              console.log(`Step 3: Unknown state while checking status. ${errorDetail}`);
+              // In this case, we keep checking. Eventually we'll hit the global timeout.
+              return;
+            }
+          default:
+            console.log(`Invalid step number ${currentStep}`);
+            return;
+        }
+        if (hitGlobalTimeout) {
+          showFinalMessage("global-timeout");
+          keepChecking = false;
+          return;
+        }
+      }
+    }
+  </script>
+{% endblock content %}

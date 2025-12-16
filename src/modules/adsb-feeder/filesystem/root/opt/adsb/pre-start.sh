@@ -2,7 +2,7 @@
 #
 # this script can do some housekeeping tasks before the adsb-setup
 # is (re)started
-
+# REFACTOR clear this up+++++++++++++
 echo "$(date -u +"%FT%T.%3NZ") adsb-setup: pre-start.sh"
 
 kill_wait_app() {

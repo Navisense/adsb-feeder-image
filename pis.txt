@@ -1,0 +1,4 @@
+my test pi: 5159e696-porttracker-sdr.local
+office: 3b18d9b9-porttracker-sdr.local
+test pi5 @ carsten: c1fc2b45-porttracker-sdr.local
+receiver @ enqt: 1cddad0f-porttracker-sdr.local

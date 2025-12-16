@@ -1,0 +1,71 @@
+# Simple UX eval
+i'm trying to enhance the user experience, particularly for an inexperienced
+user who isn't tech-savvy. the app is currently running on a device which you
+can access at http://0646e024-porttracker-sdr.local/ . it's a fresh install with
+an empty config. can you have a look and make some suggestions on how to
+streamline the experience? particularly with what might confuse inexperienced
+users.
+
+
+# UX eval with hotspot
+The purpose of the software we're building here is to manage a device used to
+receive AIS data from a software defined radio (SDR). It needs to be able to run
+on headless devices, providing its web interface for configuration. The process
+of setting it up should be accessible even to inexperienced, non-technical
+users.
+
+I want to run a usability study of the initial setup. I have a Raspberry Pi 4
+with an SDR USB stick that's running a fresh install of the software. There is
+no monitor or keyboard connected to it. You assume the role of a non-technical
+with the following goals:
+- Access the device to connect it to a WiFi network known to you
+- Get access to the management interface of the device
+- Do whatever initial setup is required to get the device running
+- Set the device up to receive AIS messages
+
+You're aware that the device is supposed to open an access point to which you
+can connect to in order to give it a WiFi connection. Once connected to the
+access point, you're supposed to navigate to any page in your browser, e.g.
+http://asdf
+
+A few technical notes for the study:
+- I will make sure this machine is connected to the access point.
+- Connect to the Wifi SSID named dddsfbga, the password is haahaaweeeeh
+- After providing the SSID and password, you will be informed that your
+  machine should connect to the same SSID (dddsfbga in our case). I will make
+  sure that is the case.
+- You will be asked to provide a name and position (latitude and longitude, as
+  well as altitude) for the device. You can use any name you like and any
+  position and altitude with valid values.
+
+While carrying out this study, please create a markdown file in which you make
+notes of possible improvements to the user experience. Pay particular attention
+to things that might confuse inexperienced users.
+
+
+# UX eval only initial setup
+
+The purpose of the software we're building here is to manage a device used to
+receive AIS data from a software defined radio (SDR). It needs to be able to run
+on headless devices, providing its web interface for configuration. The process
+of setting it up should be accessible even to inexperienced, non-technical
+users.
+
+I want to run a usability study of the initial setup. I have a Raspberry Pi 4
+with an SDR USB stick that's running a fresh install of the software. There is
+no monitor or keyboard connected to it. You assume the role of a non-technical
+with the following goals:
+- Access the device at http://5940da3a-porttracker-sdr.local to get access to
+  the management interface of the device
+- Do whatever initial setup is required to get the device running
+- Set the device up to receive AIS messages (there is not antenna attached, so
+  nothing will actually be received, but the device should be configured so that
+  it should work)
+
+You will be asked to provide a name and position (latitude and longitude, as
+well as altitude) for the device. You can use any name you like and any
+position and altitude with valid values.
+
+While carrying out this study, please create a markdown file in which you make
+notes of possible improvements to the user experience. Pay particular attention
+to things that might confuse inexperienced users.
