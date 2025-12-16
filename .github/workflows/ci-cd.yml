@@ -19,6 +19,8 @@ jobs:
   tag:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    outputs:
+      version: ${{ steps.tagging.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,6 +33,7 @@ jobs:
         run: |
           VERSION=$(cat $VERSION_FILE)
           echo "Tagging $VERSION"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag $VERSION
@@ -41,7 +44,7 @@ jobs:
 
   build-install-script:
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
+    needs: [tag]
     steps:
       - uses: actions/checkout@v4
 
@@ -58,12 +61,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} app-install.bash --clobber
+          gh release upload ${{ needs.tag.outputs.version }} app-install.bash --clobber
 
   build-and-upload-image:
     runs-on: ubuntu-latest
-    needs: [build-install-script]
-    if: github.ref_type == 'tag'
+    needs: [tag, build-install-script]
     strategy:
       matrix:
         device: [raspberry-pi3, raspberry-pi4, raspberry-pi5]
@@ -94,4 +96,4 @@ jobs:
           # The script assumes it can run sudo/root commands.
           # We run the whole script with sudo to ensure pmbootstrap/losetup work.
           # We pass environment variables for AWS to sudo.
-          sudo -E ./.ci/build-and-upload-image.bash "${{ github.ref_name }}" "${{ matrix.device }}" "${{ matrix.variant }}"
+          sudo -E ./.ci/build-and-upload-image.bash "${{ needs.tag.outputs.version }}" "${{ matrix.device }}" "${{ matrix.variant }}"
